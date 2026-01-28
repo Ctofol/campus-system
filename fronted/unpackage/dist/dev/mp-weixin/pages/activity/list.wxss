@@ -1,0 +1,40 @@
+
+.activity-list-page.data-v-e2466d57 {
+  min-height: 100vh;
+  background-color: #f5f7fa;
+  padding: 30rpx;
+}
+.header.data-v-e2466d57 { margin-bottom: 30rpx;
+}
+.title.data-v-e2466d57 { font-size: 36rpx; font-weight: bold; color: #333; border-left: 8rpx solid #20C997; padding-left: 20rpx;
+}
+.activity-card.data-v-e2466d57 {
+  background: #fff;
+  border-radius: 20rpx;
+  overflow: hidden;
+  margin-bottom: 30rpx;
+  box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.05);
+}
+.act-img.data-v-e2466d57 {
+  width: 100%;
+  height: 300rpx;
+  background-color: #eee;
+}
+.act-info.data-v-e2466d57 { padding: 20rpx;
+}
+.act-name.data-v-e2466d57 { font-size: 32rpx; font-weight: bold; color: #333; margin-bottom: 10rpx; display: block;
+}
+.act-meta.data-v-e2466d57 { display: flex; flex-direction: column; gap: 6rpx; margin-bottom: 20rpx;
+}
+.act-time.data-v-e2466d57, .act-location.data-v-e2466d57 { font-size: 24rpx; color: #666;
+}
+.act-status.data-v-e2466d57 { display: flex; justify-content: space-between; align-items: center;
+}
+.status-active.data-v-e2466d57 { color: #20C997; font-weight: bold;
+}
+.status-ing.data-v-e2466d57 { color: #ff9f43; font-weight: bold;
+}
+.status-future.data-v-e2466d57 { color: #4dabf7; font-weight: bold;
+}
+.join-count.data-v-e2466d57 { color: #999; font-size: 24rpx; font-weight: normal;
+}

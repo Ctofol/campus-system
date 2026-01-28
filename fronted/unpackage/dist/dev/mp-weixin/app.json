@@ -1,0 +1,36 @@
+{
+  "pages": [
+    "pages/home/home",
+    "pages/run/run",
+    "pages/mine/mine",
+    "pages/result/result",
+    "pages/login/login",
+    "pages/register/register",
+    "pages/test/test",
+    "pages/teacher/home/home",
+    "pages/teacher/manage/manage",
+    "pages/teacher/mine/mine",
+    "pages/teacher/students/students",
+    "pages/teacher/students/detail",
+    "pages/teacher/tasks/tasks",
+    "pages/teacher/tasks/detail",
+    "pages/teacher/tasks/create",
+    "pages/teacher/exceptions/exceptions",
+    "pages/teacher/tests/tests",
+    "pages/activity/list",
+    "pages/activity/detail",
+    "pages/ai-police/ai-police"
+  ],
+  "window": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "大学生运动健康管理",
+    "navigationBarBackgroundColor": "#F8F8F8",
+    "backgroundColor": "#F8F8F8"
+  },
+  "permission": {
+    "scope.userLocation": {
+      "desc": "定位"
+    }
+  },
+  "usingComponents": {}
+}

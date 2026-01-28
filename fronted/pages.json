@@ -1,0 +1,161 @@
+{
+  "pages": [
+    {
+      "path": "pages/home/home",
+      "style": {
+        "navigationBarTitleText": "首页",
+        "enablePullDownRefresh": false
+      }
+    },
+    {
+      "path": "pages/run/run",
+      "style": {
+        "navigationBarTitleText": "跑步",
+        "enablePullDownRefresh": false
+      }
+    },
+    {
+      "path": "pages/mine/mine",
+      "style": {
+        "navigationBarTitleText": "我的",
+        "enablePullDownRefresh": false
+      }
+    },
+    {
+      "path": "pages/result/result",
+      "style": {
+        "navigationBarTitleText": "结算",
+        "enablePullDownRefresh": false
+      }
+    },
+    {
+      "path": "pages/login/login",
+      "style": {
+        "navigationBarTitleText": "登录"
+      }
+    },
+    {
+      "path": "pages/register/register",
+      "style": {
+        "navigationBarTitleText": "注册"
+      }
+    },
+    {
+      "path": "pages/test/test",
+      "style": {
+        "navigationBarTitleText": "体能测试",
+        "navigationBarBackgroundColor": "#1a1a1a",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/student/tasks/list",
+      "style": {
+        "navigationBarTitleText": "我的任务"
+      }
+    },
+    {
+      "path": "pages/teacher/home/home",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "教师工作台",
+        "navigationBarBackgroundColor": "#20C997",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/teacher/manage/manage",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "综合管理"
+      }
+    },
+    {
+      "path": "pages/teacher/mine/mine",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "个人中心"
+      }
+    },
+    {
+      "path": "pages/teacher/students/students",
+      "style": {
+        "navigationBarTitleText": "学员管理"
+      }
+    },
+    {
+      "path": "pages/teacher/students/detail",
+      "style": {
+        "navigationBarTitleText": "学员详情"
+      }
+    },
+    {
+      "path": "pages/teacher/tasks/tasks",
+      "style": {
+        "navigationBarTitleText": "任务管理"
+      }
+    },
+    {
+      "path": "pages/teacher/tasks/detail",
+      "style": {
+        "navigationBarTitleText": "任务详情"
+      }
+    },
+    {
+      "path": "pages/teacher/tasks/create",
+      "style": {
+        "navigationBarTitleText": "发布新任务"
+      }
+    },
+    {
+      "path": "pages/teacher/exceptions/exceptions",
+      "style": {
+        "navigationBarTitleText": "异常处理"
+      }
+    },
+    {
+      "path": "pages/teacher/tests/tests",
+      "style": {
+        "navigationBarTitleText": "测试监控"
+      }
+    },
+    {
+      "path": "pages/teacher/approve/approve",
+      "style": {
+        "navigationBarTitleText": "活动审批"
+      }
+    },
+    {
+      "path": "pages/teacher/approve/student-detail",
+      "style": {
+        "navigationBarTitleText": "学生运动详情"
+      }
+    },
+    {
+      "path": "pages/activity/list",
+      "style": {
+        "navigationBarTitleText": "跑团活动"
+      }
+    },
+    {
+      "path": "pages/activity/detail",
+      "style": {
+        "navigationBarTitleText": "活动详情"
+      }
+    },
+    {
+      "path": "pages/ai-police/ai-police",
+      "style": {
+        "navigationBarTitleText": "AI体能训练",
+        "navigationBarBackgroundColor": "#1a1a1a",
+        "navigationBarTextStyle": "white"
+      }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "大学生运动健康管理",
+    "navigationBarBackgroundColor": "#F8F8F8",
+    "backgroundColor": "#F8F8F8"
+  }
+}

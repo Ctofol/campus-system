@@ -1,0 +1,7 @@
+{
+  "navigationStyle": "custom",
+  "navigationBarTitleText": "个人中心",
+  "usingComponents": {
+    "custom-tab-bar": "../../../components/CustomTabBar/CustomTabBar"
+  }
+}

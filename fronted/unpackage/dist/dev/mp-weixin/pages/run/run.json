@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "跑步",
+  "enablePullDownRefresh": false,
+  "usingComponents": {
+    "ai-chat-robot": "../../components/ai-chat-robot/ai-chat-robot",
+    "custom-tab-bar": "../../components/CustomTabBar/CustomTabBar"
+  }
+}

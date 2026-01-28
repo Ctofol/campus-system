@@ -1,0 +1,9 @@
+{
+  "navigationStyle": "custom",
+  "navigationBarTitleText": "教师工作台",
+  "navigationBarBackgroundColor": "#20C997",
+  "navigationBarTextStyle": "white",
+  "usingComponents": {
+    "custom-tab-bar": "../../../components/CustomTabBar/CustomTabBar"
+  }
+}
