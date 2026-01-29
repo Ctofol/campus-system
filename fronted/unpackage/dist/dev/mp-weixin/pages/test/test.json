@@ -1,8 +1,0 @@
-{
-  "navigationBarTitleText": "体能测试",
-  "navigationBarBackgroundColor": "#1a1a1a",
-  "navigationBarTextStyle": "white",
-  "usingComponents": {
-    "custom-tab-bar": "../../components/CustomTabBar/CustomTabBar"
-  }
-}

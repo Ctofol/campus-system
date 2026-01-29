@@ -1,7 +1,0 @@
-{
-  "navigationStyle": "custom",
-  "navigationBarTitleText": "综合管理",
-  "usingComponents": {
-    "custom-tab-bar": "../../../components/CustomTabBar/CustomTabBar"
-  }
-}

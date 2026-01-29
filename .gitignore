@@ -1,0 +1,29 @@
+# HBuilderX / Uni-app
+fronted/unpackage/
+.hbuilderx/
+fronted/.hbuilderx/
+
+# Python / Backend
+**/__pycache__/
+*.py[cod]
+*$py.class
+backend/.venv/
+backend/venv/
+backend/.idea/
+
+# Uploads (Keep the directory, ignore content)
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
