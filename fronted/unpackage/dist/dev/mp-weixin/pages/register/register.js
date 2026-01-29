@@ -1,5 +1,6 @@
 "use strict";
 const common_vendor = require("../../common/vendor.js");
+const utils_request = require("../../utils/request.js");
 const _sfc_main = {
   __name: "register",
   setup(__props) {
@@ -46,7 +47,7 @@ const _sfc_main = {
       }
       common_vendor.index.showToast({ title: "验证码已发送", icon: "success" });
     };
-    const handleRegister = () => {
+    const handleRegister = async () => {
       const form = registerForm.value;
       if (!form.name || !form.phone || !form.password) {
         common_vendor.index.showToast({ title: "请完善基础信息", icon: "none" });
@@ -74,29 +75,25 @@ const _sfc_main = {
         return;
       }
       loading.value = true;
-      setTimeout(() => {
-        loading.value = false;
-        const newUser = {
-          userId: form.role === "student" ? form.phone : form.empId,
-          // 简化的ID
-          role: form.role,
+      try {
+        await utils_request.register({
+          phone: form.phone,
           name: form.name,
-          schoolId: "10001",
-          // 模拟
-          isPoliceSchool: form.isPoliceSchool,
-          ...form
-        };
-        common_vendor.index.setStorageSync("token", "mock_token_register_123");
-        common_vendor.index.setStorageSync("userInfo", newUser);
-        common_vendor.index.setStorageSync("role", form.role);
+          role: form.role,
+          password: form.password
+        });
         common_vendor.index.showToast({
           title: "注册成功",
           icon: "success"
         });
         setTimeout(() => {
-          common_vendor.index.redirectTo({ url: "/pages/home/home" });
+          common_vendor.index.navigateBack();
         }, 1500);
-      }, 1500);
+      } catch (error) {
+        common_vendor.index.__f__("error", "at pages/register/register.vue:228", "Register failed:", error);
+      } finally {
+        loading.value = false;
+      }
     };
     return (_ctx, _cache) => {
       return common_vendor.e({

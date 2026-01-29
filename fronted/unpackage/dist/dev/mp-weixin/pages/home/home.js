@@ -1,5 +1,6 @@
 "use strict";
 const common_vendor = require("../../common/vendor.js");
+const utils_request = require("../../utils/request.js");
 if (!Math) {
   CustomTabBar();
 }
@@ -9,6 +10,24 @@ const _sfc_main = {
   setup(__props) {
     const role = common_vendor.ref("student");
     const userInfo = common_vendor.ref({});
+    const teacherTask = common_vendor.ref(null);
+    const fetchLatestTask = async () => {
+      try {
+        const res = await utils_request.getStudentTasks({ page: 1, size: 1 });
+        if (res.items && res.items.length > 0) {
+          const task = res.items[0];
+          teacherTask.value = {
+            id: task.id,
+            title: task.title,
+            desc: task.description || (task.min_distance ? `目标: ${task.min_distance}km` : "请查看详情")
+          };
+        } else {
+          teacherTask.value = null;
+        }
+      } catch (e) {
+        common_vendor.index.__f__("error", "at pages/home/home.vue:151", "Fetch task failed", e);
+      }
+    };
     common_vendor.onShow(() => {
       const userRole = common_vendor.index.getStorageSync("userRole") || common_vendor.index.getStorageSync("role");
       if (userRole)
@@ -18,21 +37,21 @@ const _sfc_main = {
         try {
           userInfo.value = typeof storedUser === "string" ? JSON.parse(storedUser) : storedUser;
         } catch (e) {
-          common_vendor.index.__f__("error", "at pages/home/home.vue:139", "JSON parse error", e);
+          common_vendor.index.__f__("error", "at pages/home/home.vue:165", "JSON parse error", e);
           userInfo.value = {};
         }
       }
+      fetchLatestTask();
     });
     const showTrainingPlans = common_vendor.ref(true);
     const showRankModal = common_vendor.ref(false);
-    const teacherTask = common_vendor.ref({ id: 101, title: `本周五前完成一次3000米拉练，配速要求6'00"`, type: "urgent" });
     const testProjects = common_vendor.ref([
-      { name: "引体向上", tag: "警务考核", tagClass: "tag-police", status: "未完成", type: "pull-up" },
+      { name: "引体向上", tag: "体测项目", tagClass: "tag-police", status: "未完成", type: "pull-up" },
       { name: "仰卧起坐", tag: "日常测评", tagClass: "tag-daily", status: "进行中", type: "sit-up" },
       { name: "俯卧撑", tag: "基础训练", tagClass: "tag-base", status: "未开始", type: "push-up" }
     ]);
     const trainingPlans = common_vendor.ref([
-      { id: 1, name: "警务体能综合测试", type: "考核", typeClass: "tag-red", duration: 45, difficulty: "高强度", isCompleted: false },
+      { id: 1, name: "综合体能测试", type: "考核", typeClass: "tag-red", duration: 45, difficulty: "高强度", isCompleted: false },
       { id: 2, name: "1000米爆发力训练", type: "专项", typeClass: "tag-blue", duration: 20, difficulty: "中强度", isCompleted: true },
       { id: 3, name: "核心力量强化课程", type: "日常", typeClass: "tag-green", duration: 30, difficulty: "低强度", isCompleted: false }
     ]);
@@ -40,7 +59,7 @@ const _sfc_main = {
     const activities = common_vendor.ref([
       { name: "五四青年节环校跑", time: "5月4日 07:00", status: "报名中", statusClass: "status-active", joined: 128 },
       { name: "周末夜跑打卡赛", time: "本周六 19:00", status: "进行中", statusClass: "status-ing", joined: 56 },
-      { name: "警务技能交流会", time: "下周三 14:00", status: "预告", statusClass: "status-future", joined: 30 }
+      { name: "运动技能交流会", time: "下周三 14:00", status: "预告", statusClass: "status-future", joined: 30 }
     ]);
     common_vendor.ref([
       { user: "张伟", time: "10分钟前", action: "完成了", result: "5公里晨跑", likes: 12, avatarColor: "#FF6B6B" },
@@ -48,17 +67,19 @@ const _sfc_main = {
       { user: "王强", time: "1小时前", action: "刷新了", result: "3000米个人记录", likes: 25, avatarColor: "#45B7D1" }
     ]);
     const rankList = common_vendor.ref([
-      { name: "特警突击队", members: 56, distance: 2300, heat: 9800 },
-      { name: "交警铁骑团", members: 48, distance: 1800, heat: 8500 },
-      { name: "刑侦先锋跑团", members: 42, distance: 1205, heat: 7200 },
-      { name: "治安巡逻队", members: 35, distance: 980, heat: 6e3 }
+      { name: "晨跑先锋队", members: 56, distance: 2300, heat: 9800 },
+      { name: "长跑菁英团", members: 48, distance: 1800, heat: 8500 },
+      { name: "校园马拉松社", members: 42, distance: 1205, heat: 7200 },
+      { name: "阳光运动队", members: 35, distance: 980, heat: 6e3 }
     ]);
     const getRandomColor = () => {
       const colors = ["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#FFEEAD"];
       return colors[Math.floor(Math.random() * colors.length)];
     };
     const handleTaskClick = () => {
-      common_vendor.index.showToast({ title: "任务详情", icon: "none" });
+      common_vendor.index.navigateTo({
+        url: "/pages/student/tasks/list"
+      });
     };
     const gotoAiPolice = () => {
       common_vendor.index.navigateTo({ url: "/pages/ai-police/ai-police" });

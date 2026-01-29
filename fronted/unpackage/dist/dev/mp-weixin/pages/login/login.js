@@ -1,5 +1,6 @@
 "use strict";
 const common_vendor = require("../../common/vendor.js");
+const utils_request = require("../../utils/request.js");
 const _sfc_main = {
   __name: "login",
   setup(__props) {
@@ -18,52 +19,39 @@ const _sfc_main = {
         common_vendor.index.showToast({ title: "密码长度不能少于6位", icon: "none" });
         return false;
       }
-      const phoneRegex = /^1[3-9]\d{9}$/;
-      if (/^\d{11}$/.test(account)) {
-        if (!phoneRegex.test(account)) {
-          common_vendor.index.showToast({ title: "请输入正确的手机号", icon: "none" });
-          return false;
-        }
-      }
       return true;
     };
-    const handleLogin = () => {
+    const handleLogin = async () => {
       if (!canSubmit.value)
         return;
       if (!validateForm())
         return;
       loading.value = true;
-      setTimeout(() => {
-        loading.value = false;
-        const { account, password } = loginForm.value;
-        let isValid = false;
-        if (currentRole.value === "student") {
-          if (account === "2024001" && password === "123456") {
-            isValid = true;
-          }
-        } else if (currentRole.value === "teacher") {
-          if (account === "2024888" && password === "123456") {
-            isValid = true;
-          }
-        }
-        if (!isValid) {
+      try {
+        const res = await utils_request.login({
+          phone: loginForm.value.account,
+          password: loginForm.value.password
+        });
+        if (res.role !== currentRole.value) {
           common_vendor.index.showToast({
-            title: "账号或密码错误",
+            title: "角色不匹配，请切换角色登录",
             icon: "none"
           });
+          loading.value = false;
           return;
         }
-        const mockUser = {
-          userId: loginForm.value.account,
-          role: currentRole.value,
-          name: currentRole.value === "student" ? "张三" : "李老师",
+        const userInfo = {
+          userId: res.user_id,
+          role: res.role,
+          name: res.name,
+          phone: loginForm.value.account,
+          // 兼容字段
           schoolId: "10001",
-          isPoliceSchool: true
-          // 假设是公安院校
+          isPoliceSchool: false
         };
-        common_vendor.index.setStorageSync("token", "mock_token_123456");
-        common_vendor.index.setStorageSync("userInfo", mockUser);
-        common_vendor.index.setStorageSync("userRole", currentRole.value);
+        common_vendor.index.setStorageSync("token", res.access_token);
+        common_vendor.index.setStorageSync("userInfo", userInfo);
+        common_vendor.index.setStorageSync("userRole", res.role);
         common_vendor.index.showToast({
           title: "登录成功",
           icon: "success"
@@ -75,7 +63,11 @@ const _sfc_main = {
             common_vendor.index.redirectTo({ url: "/pages/teacher/home/home" });
           }
         }, 1e3);
-      }, 1e3);
+      } catch (error) {
+        common_vendor.index.__f__("error", "at pages/login/login.vue:162", "Login failed:", error);
+      } finally {
+        loading.value = false;
+      }
     };
     const goToRegister = () => {
       common_vendor.index.navigateTo({ url: "/pages/register/register" });

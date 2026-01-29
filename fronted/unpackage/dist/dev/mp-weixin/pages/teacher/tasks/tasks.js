@@ -1,55 +1,64 @@
 "use strict";
 const common_vendor = require("../../../common/vendor.js");
+const utils_request = require("../../../utils/request.js");
 const _sfc_main = {
   __name: "tasks",
   setup(__props) {
     const currentTab = common_vendor.ref(0);
-    const tasks = common_vendor.ref([
-      {
-        id: 1,
-        title: "3000米摸底测试",
-        type: "考核",
-        desc: "全员必须参加，记录成绩，作为期末考核参考。",
-        status: "进行中",
-        completed: 98,
-        total: 128,
-        percent: 76,
-        deadline: "2026-05-20"
-      },
-      {
-        id: 2,
-        title: "周末晨跑打卡",
-        type: "日常",
-        desc: "不少于3公里，配速不低于7分，保持良好的体能状态。",
-        status: "进行中",
-        completed: 45,
-        total: 128,
-        percent: 35,
-        deadline: "2026-05-21"
-      },
-      {
-        id: 3,
-        title: "核心力量专项训练",
-        type: "训练",
-        desc: "完成3组平板支撑，每组2分钟，强化核心肌群。",
-        status: "已结束",
-        completed: 120,
-        total: 128,
-        percent: 93,
-        deadline: "2026-05-18"
-      },
-      {
-        id: 4,
-        title: "5公里耐力跑",
-        type: "训练",
-        desc: "为下月运动会做准备，提升耐力。",
-        status: "已结束",
-        completed: 110,
-        total: 128,
-        percent: 85,
-        deadline: "2026-05-15"
+    const tasks = common_vendor.ref([]);
+    const page = common_vendor.ref(1);
+    const size = common_vendor.ref(20);
+    const total = common_vendor.ref(0);
+    const loading = common_vendor.ref(false);
+    const loadTasks = async () => {
+      if (loading.value)
+        return;
+      loading.value = true;
+      try {
+        const res = await utils_request.getTeacherTasks({ page: page.value, size: size.value });
+        if (res.items) {
+          const now = /* @__PURE__ */ new Date();
+          const newTasks = res.items.map((item) => {
+            const deadlineDate = new Date(item.deadline);
+            const isExpired = deadlineDate < now;
+            let displayType = "训练";
+            if (item.type === "test")
+              displayType = "考核";
+            else if (item.type === "run")
+              displayType = "日常";
+            const completed = item.completed_count || 0;
+            const totalCount = item.total_students || 0;
+            const percent = totalCount > 0 ? Math.round(completed / totalCount * 100) : 0;
+            return {
+              id: item.id,
+              title: item.title,
+              type: displayType,
+              desc: item.description || (item.min_distance ? `目标距离: ${item.min_distance}km` : "无具体描述"),
+              status: isExpired ? "已结束" : "进行中",
+              completed,
+              total: totalCount,
+              percent,
+              deadline: item.deadline ? item.deadline.split("T")[0] : "无"
+            };
+          });
+          if (page.value === 1) {
+            tasks.value = newTasks;
+          } else {
+            tasks.value = [...tasks.value, ...newTasks];
+          }
+          total.value = res.total;
+        }
+      } catch (e) {
+        common_vendor.index.__f__("error", "at pages/teacher/tasks/tasks.vue:162", e);
+        common_vendor.index.showToast({ title: "加载任务失败", icon: "none" });
+      } finally {
+        loading.value = false;
       }
-    ]);
+    };
+    common_vendor.onShow(() => {
+      page.value = 1;
+      loadTasks();
+    });
     const ongoingCount = common_vendor.computed(() => tasks.value.filter((t) => t.status === "进行中").length);
     const totalTasks = common_vendor.computed(() => tasks.value.length);
     const avgCompletion = common_vendor.computed(() => {
@@ -74,20 +83,56 @@ const _sfc_main = {
       return map[type] || "tag-gray";
     };
     const isUrgent = (deadline) => {
-      return deadline === "2026-05-20";
+      if (!deadline || deadline === "无")
+        return false;
+      const d = new Date(deadline);
+      const now = /* @__PURE__ */ new Date();
+      const diffTime = Math.abs(d - now);
+      const diffDays = Math.ceil(diffTime / (1e3 * 60 * 60 * 24));
+      return diffDays <= 3 && d > now;
+    };
+    const goToDetail = (task) => {
+      common_vendor.index.navigateTo({ url: `/pages/teacher/tasks/detail?id=${task.id}` });
+    };
+    const remindUnfinished = (task) => {
+      common_vendor.index.showToast({ title: "提醒已发送", icon: "success" });
+    };
+    const showActionSheet = (task) => {
+      common_vendor.index.showActionSheet({
+        itemList: ["编辑任务", "删除任务"],
+        itemColor: "#000000",
+        success: async (res) => {
+          if (res.tapIndex === 0) {
+            common_vendor.index.showToast({ title: "编辑功能开发中", icon: "none" });
+          } else if (res.tapIndex === 1) {
+            handleDelete(task);
+          }
+        }
+      });
+    };
+    const handleDelete = (task) => {
+      common_vendor.index.showModal({
+        title: "确认删除",
+        content: `确定要删除任务"${task.title}"吗？`,
+        success: async (res) => {
+          if (res.confirm) {
+            try {
+              await utils_request.deleteTask(task.id);
+              common_vendor.index.showToast({ title: "删除成功" });
+              page.value = 1;
+              loadTasks();
+            } catch (e) {
+              common_vendor.index.__f__("error", "at pages/teacher/tasks/tasks.vue:245", e);
+              common_vendor.index.showToast({ title: "删除失败", icon: "none" });
+            }
+          }
+        }
+      });
     };
     const createTask = () => {
       common_vendor.index.navigateTo({
         url: "/pages/teacher/tasks/create"
       });
-    };
-    const goToDetail = (task) => {
-      common_vendor.index.navigateTo({
-        url: `/pages/teacher/tasks/detail?id=${task.id}&title=${task.title}`
-      });
-    };
-    const remindUnfinished = (task) => {
-      common_vendor.index.showToast({ title: `已发送提醒给${task.total - task.completed}名未完成学生`, icon: "none" });
     };
     return (_ctx, _cache) => {
       return common_vendor.e({
@@ -108,27 +153,28 @@ const _sfc_main = {
             b: common_vendor.n(getTypeClass(task.type)),
             c: common_vendor.t(task.deadline),
             d: isUrgent(task.deadline) ? 1 : "",
-            e: common_vendor.t(task.title),
-            f: common_vendor.t(task.desc),
-            g: common_vendor.t(task.percent),
-            h: common_vendor.t(task.completed),
-            i: common_vendor.t(task.total),
-            j: task.percent + "%",
-            k: common_vendor.f(3, (n, k1, i1) => {
+            e: common_vendor.o(($event) => showActionSheet(task), index),
+            f: common_vendor.t(task.title),
+            g: common_vendor.t(task.desc),
+            h: common_vendor.t(task.percent),
+            i: common_vendor.t(task.completed),
+            j: common_vendor.t(task.total),
+            k: task.percent + "%",
+            l: common_vendor.f(3, (n, k1, i1) => {
               return {
                 a: n,
                 b: (n - 1) * 20 + "rpx",
                 c: 4 - n
               };
             }),
-            l: task.status === "进行中"
+            m: task.status === "进行中"
           }, task.status === "进行中" ? {
-            m: common_vendor.o(($event) => remindUnfinished(task), index)
+            n: common_vendor.o(($event) => remindUnfinished(), index)
           } : {}, {
-            n: common_vendor.o(() => {
+            o: common_vendor.o(() => {
             }, index),
-            o: index,
-            p: common_vendor.o(($event) => goToDetail(task), index)
+            p: index,
+            q: common_vendor.o(($event) => goToDetail(task), index)
           });
         }),
         k: "60rpx",

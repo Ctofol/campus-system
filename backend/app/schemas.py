@@ -31,6 +31,8 @@ class ActivityMetricsCreate(BaseModel):
     distance: Optional[float] = None
     duration: int
     pace: Optional[str] = None
+    trajectory: Optional[str] = None # JSON string of coordinates
+    checkpoints: Optional[str] = None # JSON string of check-in data
     count: Optional[int] = None
     qualified: bool = False
 
@@ -122,6 +124,10 @@ class TaskOut(TaskCreate):
     class Config:
         orm_mode = True
 
+class TaskListStats(TaskOut):
+    total_students: int
+    completed_count: int
+
 class TaskListResponse(BaseModel):
     items: List[TaskListStats]
     total: int
@@ -148,8 +154,24 @@ class StudentCompletionStatus(BaseModel):
 class TaskDetailStats(TaskOut):
     total_students: int
     completed_count: int
-    student_statuses: List[StudentCompletionStatus]
 
-class TaskListStats(TaskOut):
-    total_students: int
-    completed_count: int
+# Checkpoint
+class CheckpointBase(BaseModel):
+    name: str
+    latitude: float
+    longitude: float
+    radius: int = 50
+    description: Optional[str] = None
+
+class CheckpointCreate(CheckpointBase):
+    pass
+
+class CheckpointOut(CheckpointBase):
+    id: int
+    class Config:
+        orm_mode = True
+
+class CheckInRequest(BaseModel):
+    lat: float
+    lng: float
+    checkpoint_id: int

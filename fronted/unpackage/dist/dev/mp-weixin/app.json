@@ -7,6 +7,7 @@
     "pages/login/login",
     "pages/register/register",
     "pages/test/test",
+    "pages/student/tasks/list",
     "pages/teacher/home/home",
     "pages/teacher/manage/manage",
     "pages/teacher/mine/mine",
@@ -17,6 +18,8 @@
     "pages/teacher/tasks/create",
     "pages/teacher/exceptions/exceptions",
     "pages/teacher/tests/tests",
+    "pages/teacher/approve/approve",
+    "pages/teacher/approve/student-detail",
     "pages/activity/list",
     "pages/activity/detail",
     "pages/ai-police/ai-police"
@@ -29,8 +32,14 @@
   },
   "permission": {
     "scope.userLocation": {
-      "desc": "定位"
+      "desc": "您的位置信息将用于记录跑步轨迹和判断校园打卡点范围"
     }
   },
+  "requiredPrivateInfos": [
+    "getLocation",
+    "onLocationChange",
+    "startLocationUpdate",
+    "startLocationUpdateBackground"
+  ],
   "usingComponents": {}
 }

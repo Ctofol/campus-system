@@ -3,6 +3,7 @@
     {
       "path": "pages/home/home",
       "style": {
+        "navigationStyle": "custom",
         "navigationBarTitleText": "首页",
         "enablePullDownRefresh": false
       }
@@ -10,6 +11,7 @@
     {
       "path": "pages/run/run",
       "style": {
+        "navigationStyle": "custom",
         "navigationBarTitleText": "跑步",
         "enablePullDownRefresh": false
       }
@@ -17,6 +19,7 @@
     {
       "path": "pages/mine/mine",
       "style": {
+        "navigationStyle": "custom",
         "navigationBarTitleText": "我的",
         "enablePullDownRefresh": false
       }
@@ -43,9 +46,9 @@
     {
       "path": "pages/test/test",
       "style": {
+        "navigationStyle": "custom",
         "navigationBarTitleText": "体能测试",
-        "navigationBarBackgroundColor": "#1a1a1a",
-        "navigationBarTextStyle": "white"
+        "enablePullDownRefresh": false
       }
     },
     {

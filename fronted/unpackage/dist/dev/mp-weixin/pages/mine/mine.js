@@ -1,6 +1,7 @@
 "use strict";
 const common_vendor = require("../../common/vendor.js");
 const common_assets = require("../../common/assets.js");
+const utils_request = require("../../utils/request.js");
 if (!Math) {
   CustomTabBar();
 }
@@ -71,60 +72,43 @@ const _sfc_main = {
       weekPoliceSuccess.value = weekPolice;
       progressPercent.value = Math.min(weekCount / 3 * 100, 100);
     };
-    const loadRunRecords = () => {
-      const records = common_vendor.index.getStorageSync("runRecordsList") || [];
-      runRecords.value = records.map((item) => {
-        const time = new Date(item.createTime);
-        const formatTime = `${time.getMonth() + 1}月${time.getDate()}日 ${time.getHours()}:${time.getMinutes()}`;
-        const min = Math.floor(item.duration / 60);
-        const sec = item.duration % 60;
-        const formatDuration = `${min.toString().padStart(2, "0")}:${sec.toString().padStart(2, "0")}`;
-        let modeText = "";
-        let modeBg = "";
-        let statusText = "";
-        let statusColor = "";
-        const type = item.type || "run";
-        if (type === "run" && item.mode === "police") {
-          modeText = "警务专项";
-          modeBg = "#fdf2f0";
-          if (item.isPoliceFinish && item.isPaceQualified) {
-            statusText = "达标完成";
-            statusColor = "#20C997";
-          } else if (item.isPoliceFinish) {
-            statusText = "未达标";
-            statusColor = "#d81e06";
-          } else {
-            statusText = "未完成";
-            statusColor = "#ff9500";
-          }
-        } else if (type === "run" && item.mode === "campus") {
-          modeText = "校园打卡";
-          modeBg = "#e8f4f8";
-          statusText = item.isReach ? "打卡成功" : "打卡失败";
-          statusColor = item.isReach ? "#20C997" : "#d81e06";
-        } else if (type === "run") {
-          modeText = "普通跑步";
-          modeBg = "#f5f5f5";
-          statusText = "已完成";
-          statusColor = "#666";
-        } else {
-          modeText = "体能测试";
-          modeBg = "#f3f7ff";
-          statusText = item.result === "合格" ? "合格" : "未合格";
-          statusColor = item.result === "合格" ? "#20C997" : "#d81e06";
+    const loadRunRecords = async () => {
+      try {
+        const res = await utils_request.getActivityHistory({ page: 1, size: 5 });
+        if (res && res.items) {
+          runRecords.value = res.items.map((item) => {
+            var _a, _b, _c, _d, _e;
+            const isRun = item.type === "run";
+            return {
+              id: item.id,
+              type: item.type,
+              modeText: isRun ? "跑步" : "体测",
+              modeBg: isRun ? "#4CAF50" : "#2196F3",
+              createTime: new Date(item.started_at).toLocaleString(),
+              distance: ((_b = (_a = item.metrics) == null ? void 0 : _a.distance) == null ? void 0 : _b.toFixed(2)) || "0.00",
+              duration: formatDuration(((_c = item.metrics) == null ? void 0 : _c.duration) || 0),
+              pace: ((_d = item.metrics) == null ? void 0 : _d.pace) || "--",
+              testName: isRun ? "" : "专项测试",
+              testCount: ((_e = item.metrics) == null ? void 0 : _e.count) || 0,
+              result: item.status === "approved" || item.status === "completed" ? "已完成" : item.status,
+              statusText: item.status === "approved" || item.status === "completed" ? "已完成" : "审核中",
+              statusColor: item.status === "approved" || item.status === "completed" ? "#4CAF50" : "#FF9800"
+            };
+          });
+          showRecords.value = runRecords.value;
         }
-        return {
-          ...item,
-          createTime: formatTime,
-          duration: formatDuration,
-          modeText,
-          modeBg,
-          statusText,
-          statusColor,
-          type
-        };
-      }).reverse();
-      showRecords.value = runRecords.value.slice(0, 5);
+      } catch (error) {
+        common_vendor.index.__f__("error", "at pages/mine/mine.vue:243", "Failed to load history:", error);
+        common_vendor.index.showToast({
+          title: "加载历史记录失败",
+          icon: "none"
+        });
+      }
+    };
+    const formatDuration = (seconds) => {
+      const m = Math.floor(seconds / 60);
+      const s = seconds % 60;
+      return `${m}:${s < 10 ? "0" + s : s}`;
     };
     const loadDeviceInfo = () => {
       deviceId.value = common_vendor.index.getStorageSync("bindDeviceId") || "";

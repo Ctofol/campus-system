@@ -164,9 +164,21 @@ const isPaceQualified = computed(() => {
 
 // 4. 页面加载时接收参数
 onLoad((options) => {
-  if (options.data) {
+  let data = null;
+  
+  if (options.useStorage === 'true') {
+    data = uni.getStorageSync('tempRunResult');
+    // Clear storage after reading (optional, keep for debugging if needed)
+    // uni.removeStorageSync('tempRunResult');
+  } else if (options.data) {
     try {
-      const data = JSON.parse(decodeURIComponent(options.data));
+      data = JSON.parse(decodeURIComponent(options.data));
+    } catch (e) {
+      console.error('Failed to parse result data', e);
+    }
+  }
+
+  if (data) {
       // Map backend data to frontend display
       currentMode.value = data.type === 'test' ? 'test' : 'normal'; // Simplify for MVP
       if (data.metrics) {
@@ -187,10 +199,8 @@ onLoad((options) => {
           suggestionText.value = '继续加油！';
         }
       }
-    } catch (e) {
-      console.error('Failed to parse result data', e);
-    }
   } else {
+    // Fallback to legacy query params
     // Fallback to legacy query params
     currentMode.value = options.mode || 'normal';
     duration.value = Number(options.duration) || 0;

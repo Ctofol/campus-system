@@ -9,6 +9,7 @@ if (!Math) {
   "./pages/login/login.js";
   "./pages/register/register.js";
   "./pages/test/test.js";
+  "./pages/student/tasks/list.js";
   "./pages/teacher/home/home.js";
   "./pages/teacher/manage/manage.js";
   "./pages/teacher/mine/mine.js";
@@ -19,6 +20,8 @@ if (!Math) {
   "./pages/teacher/tasks/create.js";
   "./pages/teacher/exceptions/exceptions.js";
   "./pages/teacher/tests/tests.js";
+  "./pages/teacher/approve/approve.js";
+  "./pages/teacher/approve/student-detail.js";
   "./pages/activity/list.js";
   "./pages/activity/detail.js";
   "./pages/ai-police/ai-police.js";

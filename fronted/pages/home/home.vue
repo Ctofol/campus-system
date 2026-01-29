@@ -1,6 +1,14 @@
 <template>
   <view class="home-container">
-    <view class="student-dashboard">
+    <!-- Custom Navigation Bar -->
+    <view class="custom-navbar" :style="{paddingTop: statusBarHeight + 'px'}">
+      <view class="navbar-content">
+        <text class="navbar-title">首页</text>
+      </view>
+    </view>
+    
+    <view class="content-wrapper" :style="{paddingTop: (statusBarHeight + 44) + 'px'}">
+      <view class="student-dashboard">
       <view class="header-section">
         <view class="teacher-task-box" v-if="teacherTask" @click="handleTaskClick">
           <view class="task-icon-box"><text class="task-icon">📢</text></view>
@@ -116,13 +124,17 @@
       </view>
     </view>
   </view>
+  </view>
 </template>
 
 <script setup>
 import { ref } from 'vue';
-import { onShow } from '@dcloudio/uni-app';
+import { onShow, onLoad } from '@dcloudio/uni-app';
 import CustomTabBar from '@/components/CustomTabBar/CustomTabBar.vue';
 import { getStudentTasks } from '@/utils/request.js';
+
+// 状态栏高度
+const statusBarHeight = ref(20);
 
 // 角色状态
 const role = ref('student');
@@ -154,6 +166,15 @@ const fetchLatestTask = async () => {
 };
 
 onShow(() => {
+  statusBarHeight.value = uni.getSystemInfoSync().statusBarHeight || 20;
+  
+  const token = uni.getStorageSync('token');
+  if (!token) {
+    // No token, redirect to login immediately to avoid 401 errors
+    uni.reLaunch({ url: '/pages/login/login' });
+    return;
+  }
+
   const userRole = uni.getStorageSync('userRole') || uni.getStorageSync('role');
   if (userRole) role.value = userRole;
   
@@ -235,6 +256,25 @@ const startTraining = (item) => {
 </script>
 
 <style scoped>
+.custom-navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  background-color: #20C997;
+  z-index: 999;
+}
+.navbar-content {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.navbar-title {
+  color: #fff;
+  font-size: 16px;
+  font-weight: bold;
+}
 .home-container {
   min-height: 100vh;
   background: #f5f7fa;

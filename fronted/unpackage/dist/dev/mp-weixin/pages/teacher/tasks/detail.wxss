@@ -178,6 +178,11 @@
   font-size: 24rpx;
   color: #999;
 }
+.student-list .student-item .student-info .info-col .metric-val {
+  font-size: 24rpx;
+  color: #20C997;
+  margin-top: 4rpx;
+}
 .student-list .student-item .status-col {
   display: flex;
   flex-direction: column;

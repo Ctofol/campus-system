@@ -1,0 +1,33 @@
+
+.container { padding: 0.625rem; background-color: #f5f7fa; min-height: 100vh;
+}
+.header { margin-bottom: 0.625rem; font-weight: bold; font-size: 1rem; padding: 0.3125rem 0;
+}
+.stats-card { display: flex; background: #fff; padding: 0.9375rem; border-radius: 0.375rem; margin-bottom: 0.625rem; justify-content: space-around; align-items: center;
+}
+.stat-item { display: flex; flex-direction: column; align-items: center;
+}
+.stat-num { font-size: 1.125rem; font-weight: bold; color: #20C997;
+}
+.stat-label { font-size: 0.75rem; color: #666; margin-top: 0.3125rem;
+}
+.stat-divider { width: 1px; height: 1.875rem; background: #eee;
+}
+.item { display: flex; justify-content: space-between; align-items: center; background: #fff; padding: 0.9375rem; margin-bottom: 0.625rem; border-radius: 0.375rem;
+}
+.info { display: flex; flex-direction: column;
+}
+.type { font-weight: bold; font-size: 0.9375rem; margin-bottom: 0.25rem;
+}
+.desc { color: #666; font-size: 0.8125rem; margin-bottom: 0.25rem;
+}
+.time { color: #999; font-size: 0.6875rem;
+}
+.status-tag { font-size: 0.75rem; padding: 0.125rem 0.375rem; border-radius: 0.25rem; background: #eee; color: #666;
+}
+.status-tag.approved, .status-tag.completed { background: #e6fcf5; color: #20C997;
+}
+.status-tag.rejected { background: #fff5f5; color: #fa5252;
+}
+.empty { text-align: center; color: #999; margin-top: 3.125rem; font-size: 0.875rem;
+}

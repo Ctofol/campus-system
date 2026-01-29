@@ -1,29 +1,22 @@
 "use strict";
 const common_vendor = require("../../../common/vendor.js");
+const utils_request = require("../../../utils/request.js");
 const _sfc_main = {
   __name: "detail",
   setup(__props) {
+    const taskId = common_vendor.ref(null);
+    const loading = common_vendor.ref(true);
     const task = common_vendor.ref({
-      id: 1,
-      title: "本周5公里耐力跑",
-      status: "ongoing",
-      statusText: "进行中",
-      dueDate: "2026-01-25",
-      requirements: [
-        "单次跑步距离不少于5公里",
-        `配速要求在4'00" - 7'00"之间`,
-        "需上传跑步轨迹和心率数据"
-      ],
-      completedCount: 32,
-      totalCount: 45
+      id: 0,
+      title: "",
+      status: "",
+      statusText: "",
+      dueDate: "",
+      requirements: [],
+      completedCount: 0,
+      totalCount: 0
     });
-    const students = common_vendor.ref([
-      { id: 1, name: "张三", studentId: "2023001", status: "completed", statusText: "已完成", avatar: "" },
-      { id: 2, name: "李四", studentId: "2023002", status: "uncompleted", statusText: "未完成", avatar: "" },
-      { id: 3, name: "王五", studentId: "2023003", status: "completed", statusText: "已完成", avatar: "" },
-      { id: 4, name: "赵六", studentId: "2023004", status: "uncompleted", statusText: "未完成", avatar: "" }
-      // Mock data...
-    ]);
+    const students = common_vendor.ref([]);
     const currentFilter = common_vendor.ref("all");
     const completionPercentage = common_vendor.computed(() => {
       if (task.value.totalCount === 0)
@@ -41,7 +34,71 @@ const _sfc_main = {
         icon: "success"
       });
     };
-    common_vendor.onMounted(() => {
+    const goToStudentDetail = (student) => {
+      common_vendor.index.navigateTo({
+        url: `/pages/teacher/approve/student-detail?studentId=${student.id}&studentName=${student.name}`
+      });
+    };
+    const fetchTaskDetail = async () => {
+      if (!taskId.value)
+        return;
+      loading.value = true;
+      try {
+        const res = await utils_request.getTeacherTaskDetail(taskId.value);
+        const reqs = [];
+        if (res.type === "run") {
+          reqs.push("任务类型: 跑步任务");
+          if (res.min_distance)
+            reqs.push(`最低距离: ${res.min_distance} km`);
+          if (res.min_duration)
+            reqs.push(`最低时长: ${res.min_duration} 分钟`);
+        } else {
+          reqs.push("任务类型: 体测任务");
+          if (res.min_count)
+            reqs.push(`最低次数: ${res.min_count} 次`);
+        }
+        if (res.description)
+          reqs.push(`备注: ${res.description}`);
+        const now = /* @__PURE__ */ new Date();
+        const deadline = res.deadline ? new Date(res.deadline) : null;
+        let status = "ongoing";
+        let statusText = "进行中";
+        if (deadline && deadline < now) {
+          status = "ended";
+          statusText = "已结束";
+        }
+        task.value = {
+          id: res.id,
+          title: res.title,
+          status,
+          statusText,
+          dueDate: res.deadline ? res.deadline.replace("T", " ") : "无限制",
+          requirements: reqs,
+          completedCount: res.completed_count,
+          totalCount: res.total_students
+        };
+        students.value = res.student_statuses.map((s) => ({
+          id: s.student_id,
+          name: s.student_name,
+          studentId: `ID:${s.student_id}`,
+          // Mock student ID if not available
+          status: s.status === "completed" ? "completed" : "uncompleted",
+          statusText: s.status === "completed" ? "已完成" : "未完成",
+          metricValue: s.metric_value,
+          avatar: ""
+        }));
+      } catch (e) {
+        common_vendor.index.__f__("error", "at pages/teacher/tasks/detail.vue:178", e);
+        common_vendor.index.showToast({ title: "加载失败", icon: "none" });
+      } finally {
+        loading.value = false;
+      }
+    };
+    common_vendor.onLoad((options) => {
+      if (options.id) {
+        taskId.value = options.id;
+        fetchTaskDetail();
+      }
     });
     return (_ctx, _cache) => {
       return {
@@ -68,13 +125,18 @@ const _sfc_main = {
             a: student.avatar || "/static/avatar.png",
             b: common_vendor.t(student.name),
             c: common_vendor.t(student.studentId),
-            d: common_vendor.t(student.statusText),
-            e: common_vendor.n(student.status),
-            f: student.status === "uncompleted"
-          }, student.status === "uncompleted" ? {
-            g: common_vendor.o(($event) => remindStudent(student), student.id)
+            d: student.metricValue && student.metricValue !== "-"
+          }, student.metricValue && student.metricValue !== "-" ? {
+            e: common_vendor.t(student.metricValue)
           } : {}, {
-            h: student.id
+            f: common_vendor.t(student.statusText),
+            g: common_vendor.n(student.status),
+            h: student.status === "uncompleted"
+          }, student.status === "uncompleted" ? {
+            i: common_vendor.o(($event) => remindStudent(student), student.id)
+          } : {}, {
+            j: student.id,
+            k: common_vendor.o(($event) => goToStudentDetail(student), student.id)
           });
         })
       };

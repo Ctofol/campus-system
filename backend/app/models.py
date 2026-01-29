@@ -41,10 +41,22 @@ class ActivityMetrics(Base):
     distance = Column(Float, nullable=True)  # 跑步距离（km）
     duration = Column(Integer, nullable=False)  # 时长（秒）
     pace = Column(String, nullable=True)  # 配速
+    trajectory = Column(String, nullable=True)  # 运动轨迹 (JSON String)
+    checkpoints = Column(String, nullable=True)  # 打卡记录 (JSON String)
     count = Column(Integer, nullable=True)  # 体测次数
     qualified = Column(Boolean, default=False)  # 是否达标
 
     activity = relationship("Activity", back_populates="metrics")
+
+class Checkpoint(Base):
+    __tablename__ = "checkpoints"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    latitude = Column(Float, nullable=False)
+    longitude = Column(Float, nullable=False)
+    radius = Column(Integer, default=50) # meters
+    description = Column(String, nullable=True)
 
 class ActivityEvidence(Base):
     __tablename__ = "activity_evidence"

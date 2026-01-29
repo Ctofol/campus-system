@@ -1,23 +1,30 @@
 <template>
-  <view class="test-page">
-    <view v-if="role === 'teacher'" class="teacher-tools">
-      <view class="teacher-card">
-        <text class="teacher-title">教师工具</text>
-        <view class="teacher-actions">
-          <button class="teacher-btn" @click="gotoStudents">学员管理</button>
-        </view>
+  <view class="test-page-root">
+    <!-- Custom Navigation Bar -->
+    <view class="custom-navbar" :style="{paddingTop: statusBarHeight + 'px'}">
+      <view class="navbar-content">
+        <text class="navbar-title">体能测试</text>
       </view>
     </view>
-    <view v-else class="student-container">
-      <view class="header-info">
+    
+    <!-- Content Wrapper with padding for navbar and tabbar -->
+    <view class="content-wrapper" :style="{paddingTop: (statusBarHeight + 44) + 'px'}">
+      <view v-if="role === 'teacher'" class="teacher-tools">
+        <view class="teacher-card">
+          <text class="teacher-title">教师工具</text>
+          <view class="teacher-actions">
+            <button class="teacher-btn" @click="gotoStudents">学员管理</button>
+          </view>
+        </view>
+      </view>
+      <view v-else class="student-container">
+        <view class="header-info">
         <text class="project-name">{{ projectName }}</text>
         <view class="standard-badge">
           <text class="badge-text">国家学生体质健康标准</text>
         </view>
         <text class="standard-desc">动作标准：{{ standardDesc }}</text>
-        <view class="project-icon-wrapper">
-          <text class="project-emoji">{{ projectEmoji }}</text>
-        </view>
+        <!-- Removed emoji icon wrapper for space efficiency -->
         <view class="test-type-switch">
           <button class="switch-btn" @click="showTypeSelector">切换测试类型</button>
           <view class="type-selector" v-if="showSelector">
@@ -32,7 +39,16 @@
         <!-- #ifdef H5 -->
         <view class="h5-camera-wrapper">
           <video id="h5-video-el-test" class="real-camera" autoplay playsinline muted :controls="false"></video>
-          <view class="camera-overlay-content">
+          
+          <view v-if="!cameraReady && !cameraError" class="camera-placeholder">
+              <text class="loading-text">正在启动摄像头...</text>
+          </view>
+          <view v-if="cameraError" class="camera-placeholder error-placeholder">
+              <text class="error-text">{{ cameraError }}</text>
+              <button size="mini" @click="initH5Camera">重试</button>
+          </view>
+
+          <view class="camera-overlay-content" v-if="isTesting">
             <view class="count-overlay">
               <view class="count-val">{{ count }}</view>
               <view class="count-label">次</view>
@@ -55,46 +71,137 @@
           device-position="front"
           flash="off"
           @error="handleCameraError"
-        >
-          <cover-view class="camera-overlay-content">
-            <cover-view class="count-overlay">
-              <cover-view class="count-val">{{ count }}</cover-view>
-              <cover-view class="count-label">次</cover-view>
-            </cover-view>
-            
-            <cover-view class="progress-bar-container">
-              <cover-view class="progress-fill" :style="{ width: progressPercent + '%' }"></cover-view>
-            </cover-view>
+        ></camera>
+        
+        <!-- Switched to view to avoid appendChild error - ensure z-index is high -->
+        <view class="camera-overlay-content" style="z-index: 999;" v-if="isTesting">
+          <view class="count-overlay">
+            <view class="count-val">{{ count }}</view>
+            <view class="count-label">次</view>
+          </view>
+          
+          <view class="progress-bar-container">
+            <view class="progress-fill" :style="{ width: progressPercent + '%' }"></view>
+          </view>
 
-            <cover-view class="status-tips">
-              <cover-view class="status-text" :class="{ 'valid-text': isStandard }">{{ statusText }}</cover-view>
-            </cover-view>
-          </cover-view>
-        </camera>
+          <view class="status-tips">
+            <view class="status-text" :class="{ 'valid-text': isStandard }">{{ statusText }}</view>
+          </view>
+        </view>
         <!-- #endif -->
       </view>
       
       <view class="action-area">
         <view class="timer-box">
-          <text class="timer-label">测试用时</text>
-          <text class="timer-text">{{ formatTime(duration) }}</text>
+          <text class="timer-label">{{ isTesting ? '测试用时' : (lastResult ? '上次用时' : '测试用时') }}</text>
+          <text class="timer-text">{{ isTesting ? formatTime(duration) : (lastResult ? lastResult.duration : '00:00') }}</text>
         </view>
+        <!-- Last Result Display -->
+        <view v-if="!isTesting && lastResult" class="last-result-box">
+            <text class="result-title">上次成绩</text>
+            <view class="result-row">
+                <text class="result-label">数量：</text>
+                <text class="result-value">{{ lastResult.count }} 次</text>
+            </view>
+            <view class="result-row">
+                <text class="result-label">用时：</text>
+                <text class="result-value">{{ lastResult.duration }}</text>
+            </view>
+        </view>
+
         <view class="btn-group">
-          <button v-if="!isTesting" class="main-btn start-btn" hover-class="btn-hover" @click="startTest">开始测试</button>
+          <button v-if="!isTesting" class="main-btn start-btn" hover-class="btn-hover" @click="startTest">
+              {{ lastResult ? '再次测试' : '开始测试' }}
+          </button>
           <block v-else>
             <button class="sub-btn stop-btn" hover-class="btn-hover" @click="endTest">结束测试</button>
             <button class="sub-btn mock-btn" hover-class="btn-hover" @click="mockCount">+1 (模拟)</button>
+            <!-- #ifdef H5 -->
+            <button class="sub-btn mock-btn" hover-class="btn-hover" @click="isRecording ? stopH5Record() : startH5Record()">
+              {{ isRecording ? '停止录制' : '开始录制' }}
+            </button>
+            <!-- #endif -->
           </block>
         </view>
       </view>
     </view>
-    <CustomTabBar current="/pages/test/test" />
+
+    <!-- Guide Modal -->
+    <view v-if="showGuide" class="guide-modal" @click="showGuide = false">
+      <view class="guide-content" @click.stop>
+        <text class="guide-title">动作指南</text>
+        <view class="guide-visual">
+          <text class="guide-emoji">{{ projectEmoji }}</text>
+        </view>
+        <text class="guide-desc">{{ standardDesc }}</text>
+        <button class="guide-btn" @click="showGuide = false">我知道了</button>
+      </view>
+    </view>
+    
+    </view>
+    <!-- TabBar outside of content wrapper - Switched to view to avoid appendChild error -->
+    <view class="tab-bar">
+      <view class="tab-bar-border"></view>
+      <view v-for="(item, index) in tabList" :key="index" class="tab-bar-item" @click="switchTab(item)">
+        <image class="tab-icon" :src="currentTab === item.pagePath ? item.selectedIconPath : item.iconPath"></image>
+        <view class="tab-text" :style="{ color: currentTab === item.pagePath ? '#20C997' : '#666666' }">{{ item.text }}</view>
+      </view>
+    </view>
   </view>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { onLoad, onShow } from '@dcloudio/uni-app';
+import { onLoad, onShow, onHide } from '@dcloudio/uni-app';
+import { request, BASE_URL } from '@/utils/request.js';
+
+// 状态栏高度
+const statusBarHeight = ref(20);
+const cameraContext = ref(null);
+const captureTimer = ref(null);
+const isTesting = ref(false);
+const count = ref(0);
+const duration = ref(0);
+const timer = ref(null);
+const lastResult = ref(null);
+const pendingVideoUrl = ref('');
+const progressPercent = computed(() => Math.min((count.value / 20) * 100, 100)); // 假设目标20个
+const isStandard = ref(false);
+const statusText = ref('请做好准备');
+const showSelector = ref(false);
+const showGuide = ref(false);
+const projectEmoji = computed(() => {
+  const map = { 'pull-up': '💪', 'sit-up': '🧘', 'push-up': '🙇' };
+  return map[testType.value] || '🏃';
+});
+
+// #ifdef H5
+const cameraReady = ref(false);
+const cameraError = ref('');
+const isRecording = ref(false);
+let mediaRecorder = null;
+let recordedChunks = [];
+// #endif
+
+// TabBar Logic
+const currentTab = '/pages/test/test';
+const tabList = computed(() => {
+  return role.value === 'teacher' ? [
+    { pagePath: "/pages/teacher/home/home", text: "主页", iconPath: "/static/tab/home.png", selectedIconPath: "/static/tab/home-active.png" },
+    { pagePath: "/pages/teacher/manage/manage", text: "管理", iconPath: "/static/tab/run.png", selectedIconPath: "/static/tab/run-active.png" },
+    { pagePath: "/pages/teacher/mine/mine", text: "我的", iconPath: "/static/tab/mine.png", selectedIconPath: "/static/tab/mine-active.png" }
+  ] : [
+    { pagePath: "/pages/home/home", text: "首页", iconPath: "/static/tab/home.png", selectedIconPath: "/static/tab/home-active.png" },
+    { pagePath: "/pages/run/run", text: "跑步", iconPath: "/static/tab/run.png", selectedIconPath: "/static/tab/run-active.png" },
+    { pagePath: "/pages/test/test", text: "体测", iconPath: "/static/tab/test.png", selectedIconPath: "/static/tab/test-active.png" },
+    { pagePath: "/pages/mine/mine", text: "我的", iconPath: "/static/tab/mine.png", selectedIconPath: "/static/tab/mine-active.png" }
+  ];
+});
+
+const switchTab = (item) => {
+  if (item.pagePath === currentTab) return;
+  uni.redirectTo({ url: item.pagePath });
+};
 
 // 页面参数
 const projectName = ref('引体向上');
@@ -102,93 +209,370 @@ const standardDesc = ref('下颌过杠，双臂伸直');
 const testType = ref('pull-up');
 const role = ref('student');
 
+onShow(() => {
+  const userRole = uni.getStorageSync('userRole') || 'student';
+  role.value = userRole;
+  
+  // #ifndef H5
+  // 小程序/App需要创建上下文
+  if (!cameraContext.value) {
+    cameraContext.value = uni.createCameraContext();
+  }
+  // #endif
+});
+
+const showTypeSelector = () => {
+  showSelector.value = !showSelector.value;
+};
+
+const switchTestType = (name, type) => {
+  projectName.value = name;
+  testType.value = type;
+  showSelector.value = false;
+  
+  // 更新标准描述
+  if (type === 'pull-up') standardDesc.value = '下颌过杠，双臂伸直';
+  else if (type === 'sit-up') standardDesc.value = '双手抱头，肘部触膝';
+  else if (type === 'push-up') standardDesc.value = '身体平直，屈臂90度';
+  
+  // 重置状态
+  count.value = 0;
+  duration.value = 0;
+  isTesting.value = false;
+  statusText.value = '请做好准备';
+};
+
+// 计时格式化
+const formatTime = (seconds) => {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+};
+
+// 模拟计数
+const mockCount = () => {
+  count.value++;
+  isStandard.value = true;
+  statusText.value = '动作标准';
+  setTimeout(() => {
+    isStandard.value = false;
+    statusText.value = '保持动作';
+  }, 1000);
+};
+
+// 开始测试
+const startTest = () => {
+  if (isTesting.value) return;
+  
+  isTesting.value = true;
+  count.value = 0;
+  duration.value = 0;
+  statusText.value = '正在识别...';
+  pendingVideoUrl.value = '';
+  
+  // 启动计时器
+  timer.value = setInterval(() => {
+    duration.value++;
+  }, 1000);
+  
+  // 模拟自动识别 (每3秒一次)
+  captureTimer.value = setInterval(() => {
+    mockCount();
+  }, 3000);
+};
+
+// 结束测试
+const endTest = async () => {
+  if (!isTesting.value) return;
+  
+  // 停止计时和模拟
+  clearInterval(timer.value);
+  clearInterval(captureTimer.value);
+  isTesting.value = false;
+  statusText.value = '测试结束';
+  
+  lastResult.value = {
+    count: count.value,
+    duration: formatTime(duration.value),
+    date: new Date().toLocaleString()
+  };
+  
+  // #ifdef H5
+  if (isRecording.value && mediaRecorder) {
+    await stopH5Record(true);
+  }
+  // #endif
+  
+  uni.showLoading({ title: '正在上传数据...' });
+  
+  try {
+    // 1. 拍照作为证据
+    const snapshotPath = await takeSnapshot();
+    
+    let evidenceUrl = '';
+    if (snapshotPath) {
+      // 2. 上传图片
+      const uploadRes = await uploadFile(snapshotPath);
+      if (uploadRes && uploadRes.url) {
+        evidenceUrl = uploadRes.url;
+      }
+    }
+    
+    // 3. 提交成绩
+    await submitResult(evidenceUrl);
+    
+    uni.hideLoading();
+    uni.showModal({
+      title: '测试完成',
+      content: `本次成绩：${count.value}次\n用时：${formatTime(duration.value)}`,
+      showCancel: false
+    });
+    
+  } catch (e) {
+    uni.hideLoading();
+    uni.showToast({ title: '数据提交失败', icon: 'none' });
+    console.error(e);
+  }
+};
+
+// 拍照功能
+const takeSnapshot = () => {
+  return new Promise((resolve, reject) => {
+    // #ifdef H5
+    if (h5VideoElement && h5VideoElement.videoWidth) {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = h5VideoElement.videoWidth;
+        canvas.height = h5VideoElement.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(h5VideoElement, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob((blob) => {
+          if (!blob) {
+              console.error('Canvas toBlob failed');
+              resolve(null);
+              return;
+          }
+          // 创建一个指向 blob 的 URL
+          const url = URL.createObjectURL(blob);
+          resolve(url); // H5下 uni.uploadFile 支持 blob url
+        }, 'image/jpeg', 0.8);
+      } catch (e) {
+        console.error('H5 snapshot failed', e);
+        resolve(null);
+      }
+    } else {
+      console.warn('H5 video element not ready for snapshot');
+      resolve(null);
+    }
+    // #endif
+
+    // #ifndef H5
+    if (cameraContext.value) {
+      cameraContext.value.takePhoto({
+        quality: 'normal',
+        success: (res) => {
+          resolve(res.tempImagePath);
+        },
+        fail: (err) => {
+          console.error('App snapshot failed', err);
+          resolve(null);
+        }
+      });
+    } else {
+      resolve(null);
+    }
+    // #endif
+  });
+};
+
+// 上传文件
+const uploadFile = (filePath) => {
+  return new Promise((resolve, reject) => {
+    const token = uni.getStorageSync('token');
+    uni.uploadFile({
+      url: `${BASE_URL}/upload`,
+      filePath: filePath,
+      name: 'file',
+      header: {
+        'Authorization': `Bearer ${token}`
+      },
+      success: (uploadFileRes) => {
+        try {
+          const data = JSON.parse(uploadFileRes.data);
+          resolve(data);
+        } catch (e) {
+          reject(e);
+        }
+      },
+      fail: (err) => {
+        reject(err);
+      }
+    });
+  });
+};
+
+// 提交结果
+const submitResult = () => {
+  return request({
+    url: '/activity/finish',
+    method: 'POST',
+    data: {
+      type: 'test',
+      source: 'free', // 自由练习
+      started_at: new Date(Date.now() - duration.value * 1000).toISOString(),
+      ended_at: new Date().toISOString(),
+      metrics: {
+        count: count.value,
+        duration: duration.value,
+        qualified: count.value >= 10, // 假设10个及格
+        checkpoints: JSON.stringify([]) // 必需字段
+      },
+      evidence: [
+        ...(pendingVideoUrl.value ? [{ evidence_type: 'video', data_ref: pendingVideoUrl.value }] : [])
+      ]
+    }
+  });
+};
+
 // #ifdef H5
 let h5Stream = null;
-
-onMounted(() => {
-  initH5Camera();
-});
-
-onUnmounted(() => {
-  if (h5Stream) {
-    h5Stream.getTracks().forEach(track => track.stop());
-  }
-});
+let h5VideoElement = null;
 
 const initH5Camera = async () => {
   try {
+    cameraError.value = '';
+    
+    // 检查浏览器支持
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      console.warn('Browser does not support camera access');
-      uni.showToast({ title: '当前环境不支持摄像头', icon: 'none' });
-      return;
+        cameraError.value = '当前浏览器不支持摄像头访问';
+        return;
     }
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        facingMode: 'user',
-        width: { ideal: 640 },
-        height: { ideal: 480 }
-      }
+
+    const stream = await navigator.mediaDevices.getUserMedia({ 
+      video: { facingMode: 'user' }, 
+      audio: false 
     });
     h5Stream = stream;
     
-    // 确保DOM已渲染
-    // #ifdef H5
+    // 使用 nextTick 确保 DOM 更新，增加延时确保 uni-app 渲染完成
     setTimeout(() => {
       let video = document.getElementById('h5-video-el-test');
-      console.log('H5 Camera Element:', video);
       
-      // 如果uni-app把video标签封装成了组件，尝试查找内部video
+      // 兼容 uni-app H5 渲染结构：如果获取到的是 uni-video 组件包装器，则查找内部 video 标签
       if (video && video.tagName !== 'VIDEO') {
-        const innerVideo = video.querySelector('video');
-        if (innerVideo) {
-          video = innerVideo;
-          console.log('Found inner video element:', video);
-        }
+          const innerVideo = video.querySelector('video');
+          if (innerVideo) video = innerVideo;
       }
 
-      if (video && typeof video.play === 'function') {
+      if (video) {
+        h5VideoElement = video;
+        // 必须设置 autoplay 和 playsinline
+        video.setAttribute('autoplay', '');
+        video.setAttribute('playsinline', '');
+        video.setAttribute('muted', '');
+        
         video.srcObject = stream;
-        video.play().catch(e => {
-          console.error('Video play error:', e);
-          // 某些浏览器可能需要用户交互才能播放，这里静音播放通常允许
-        });
+        
+        // 监听加载完成
+        video.onloadedmetadata = () => {
+          const playPromise = video.play();
+          if (playPromise !== undefined) {
+              playPromise.then(() => {
+                  cameraReady.value = true;
+                  console.log('Camera started successfully');
+              }).catch(error => {
+                  console.error('Video play error:', error);
+                  cameraError.value = '视频播放失败: ' + error.message;
+              });
+          } else {
+              cameraReady.value = true;
+          }
+        };
       } else {
-        console.error('Video element not found or invalid:', video);
-        uni.showToast({ title: '摄像头初始化失败：DOM异常', icon: 'none' });
+        console.error('Video element not found by ID: h5-video-el-test');
+        cameraError.value = '无法获取视频元素';
       }
-    }, 500); // 稍微延迟确保渲染
-    // #endif
-
-  } catch (e) {
-    handleCameraError(e);
+    }, 500); // 增加延时到 500ms
+  } catch (err) {
+    console.error('Camera init failed:', err);
+    if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        cameraError.value = '请允许摄像头访问权限';
+    } else {
+        cameraError.value = '无法访问摄像头: ' + err.message;
+    }
+    cameraReady.value = false;
   }
 };
-// #endif
 
-// 状态变量
-const isTesting = ref(false);
-const count = ref(0);
-const duration = ref(0);
-const timer = ref(null);
-const isStandard = ref(true); // 模拟动作是否标准
-const statusText = ref('准备就绪');
-const showGuide = ref(false);
-const targetCount = ref(10); // 默认目标
+const stopH5Camera = () => {
+  if (h5Stream) {
+    h5Stream.getTracks().forEach(track => track.stop());
+    h5Stream = null;
+  }
+  cameraReady.value = false;
+};
 
-const projectEmoji = computed(() => {
-  const map = {
-    'pull-up': '💪',
-    'sit-up': '🧘',
-    'push-up': '🤸',
-    'run-1000': '🏃',
-    'run-800': '🏃‍♀️'
+const startH5Record = () => {
+  if (!h5Stream || isRecording.value) return;
+  recordedChunks = [];
+  try {
+    mediaRecorder = new MediaRecorder(h5Stream, { mimeType: 'video/webm;codecs=vp9' });
+  } catch (e) {
+    try {
+      mediaRecorder = new MediaRecorder(h5Stream, { mimeType: 'video/webm' });
+    } catch (err) {
+      uni.showToast({ title: '浏览器不支持视频录制', icon: 'none' });
+      return;
+    }
+  }
+  mediaRecorder.ondataavailable = (event) => {
+    if (event.data && event.data.size > 0) recordedChunks.push(event.data);
   };
-  return map[testType.value] || '🏋️';
-});
+  mediaRecorder.onstop = async () => {
+    const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || 'video/webm' });
+    await uploadVideoBlob(blob);
+  };
+  mediaRecorder.start();
+  isRecording.value = true;
+};
 
-const progressPercent = computed(() => {
-  return Math.min((count.value / targetCount.value) * 100, 100);
-});
+const stopH5Record = async (fromEnd = false) => {
+  if (!mediaRecorder || !isRecording.value) return;
+  return new Promise((resolve) => {
+    mediaRecorder.onstop = async () => {
+      const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || 'video/webm' });
+      const url = await uploadVideoBlob(blob);
+      if (url) pendingVideoUrl.value = url;
+      isRecording.value = false;
+      mediaRecorder = null;
+      recordedChunks = [];
+      resolve(true);
+    };
+    mediaRecorder.stop();
+    if (!fromEnd) {
+      uni.showToast({ title: '视频已保存', icon: 'none' });
+    }
+  });
+};
+
+const uploadVideoBlob = async (blob) => {
+  try {
+    const token = uni.getStorageSync('token');
+    const form = new FormData();
+    const fileName = `test-${Date.now()}.webm`;
+    form.append('file', blob, fileName);
+    const res = await fetch(`${BASE_URL}/upload`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: form
+    });
+    const data = await res.json();
+    return data.url;
+  } catch (e) {
+    console.error('Upload video failed', e);
+    return '';
+  }
+};
 
 // 处理参数逻辑
 const handleOptions = (options) => {
@@ -201,121 +585,20 @@ const handleOptions = (options) => {
     '仰卧起坐': '双手抱头，肘部触膝',
     '俯卧撑': '身体平直，屈臂90度'
   };
-  const targets = {
-    '引体向上': 10,
-    '仰卧起坐': 40,
-    '俯卧撑': 30
-  };
   
   if (standards[projectName.value]) {
     standardDesc.value = standards[projectName.value];
-  }
-  if (targets[projectName.value]) {
-    targetCount.value = targets[projectName.value];
   }
 };
 
 // 接收参数 (onLoad)
 onLoad((options) => {
-  handleOptions(options);
-});
-
-// 接收参数 (onShow - 处理 tabBar 跳转传参)
-onShow(() => {
-  const r = uni.getStorageSync('userRole') || uni.getStorageSync('role');
-  if (r) role.value = r;
-  const storedProject = uni.getStorageSync('testProject');
-  const storedType = uni.getStorageSync('testType');
-  
-  if (storedProject) {
-    handleOptions({ project: storedProject, type: storedType });
-    uni.removeStorageSync('testProject');
-    uni.removeStorageSync('testType');
-    uni.showToast({ title: '已清理传参缓存', icon: 'none' });
+  const sys = uni.getSystemInfoSync();
+  statusBarHeight.value = sys.statusBarHeight || 20;
+  if (options) {
+    handleOptions(options);
   }
 });
-
-const showSelector = ref(false);
-const showTypeSelector = () => {
-  showSelector.value = !showSelector.value;
-};
-const switchTestType = (project, type) => {
-  handleOptions({ project, type });
-  showSelector.value = false;
-};
-
-// 计时格式化
-const formatTime = (seconds) => {
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-};
-
-// 开始测试
-const startTest = () => {
-  isTesting.value = true;
-  count.value = 0;
-  duration.value = 0;
-  statusText.value = '正在识别动作...';
-  
-  timer.value = setInterval(() => {
-    duration.value++;
-  }, 1000);
-};
-
-// 模拟计数
-const mockCount = () => {
-  count.value++;
-  statusText.value = '动作标准 ✅';
-  setTimeout(() => {
-    statusText.value = '正在识别动作...';
-  }, 800);
-};
-
-// 结束测试
-const endTest = () => {
-  clearInterval(timer.value);
-  isTesting.value = false;
-  
-  uni.showModal({
-    title: '测试结束',
-    content: `共完成 ${count.value} 次，用时 ${formatTime(duration.value)}，是否提交成绩？`,
-    confirmText: '提交结果',
-    cancelText: '放弃',
-    success: (res) => {
-      if (res.confirm) {
-        submitResult();
-      } else {
-        // 重置
-        count.value = 0;
-        duration.value = 0;
-        statusText.value = '准备就绪';
-      }
-    }
-  });
-};
-
-// 提交结果
-const submitResult = () => {
-  uni.showLoading({ title: '正在提交成绩...' });
-  
-  const resultData = {
-    mode: 'test',
-    testProject: projectName.value,
-    count: count.value,
-    duration: duration.value,
-    isStandard: true,
-    testDate: new Date().getTime()
-  };
-  
-  // 模拟网络请求延迟
-  setTimeout(() => {
-    uni.hideLoading();
-    uni.navigateTo({
-      url: `/pages/result/result?mode=test&project=${projectName.value}&count=${count.value}&duration=${duration.value}`
-    });
-  }, 1000);
-};
 
 const gotoStudents = () => {
   uni.navigateTo({ url: '/pages/teacher/students/students' });
@@ -324,11 +607,16 @@ const gotoStudents = () => {
 const handleCameraError = (e) => {
   console.error('Camera Error:', e);
   let msg = '无法访问摄像头';
+  if (e.detail && e.detail.errMsg) {
+      msg = e.detail.errMsg;
+  }
+  // #ifdef H5
   if (e.name === 'NotAllowedError' || e.message === 'Permission denied') {
     msg = '权限被拒绝，请允许摄像头访问';
   } else if (e.name === 'NotFoundError') {
     msg = '未检测到摄像头';
   }
+  // #endif
   
   uni.showToast({
     title: msg,
@@ -336,23 +624,107 @@ const handleCameraError = (e) => {
     duration: 3000
   });
 };
+
+onMounted(() => {
+  initH5Camera();
+});
+
+onHide(() => {
+    stopH5Camera();
+    // 停止测试
+    if (isTesting.value) {
+      clearInterval(timer.value);
+      clearInterval(captureTimer.value);
+      isTesting.value = false;
+    }
+});
+
+onUnmounted(() => {
+  stopH5Camera();
+});
+// #endif
 </script>
 
 <style scoped>
-.test-page {
+.custom-navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  background-color: #1a1a1a;
+  z-index: 999;
+}
+.navbar-content {
+  height: 44px;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.navbar-title {
+  color: #fff;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.test-page-root {
   height: 100vh;
   background-color: #1a1a1a;
-  color: #fff;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.content-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
   align-items: center;
+  width: 100%;
+  box-sizing: border-box;
   padding-bottom: calc(120rpx + env(safe-area-inset-bottom));
+  color: #fff;
+  overflow-y: auto;
 }
 
 .teacher-tools, .header-info, .camera-area, .action-area {
   width: 100%;
-  max-width: 600px; /* Optimize for larger screens */
+  max-width: 100%;
   box-sizing: border-box;
+}
+
+.last-result-box {
+  margin-top: 20px;
+  background-color: #2a2a2a;
+  border-radius: 12px;
+  padding: 15px;
+  width: 80%;
+  border: 1px solid #333;
+}
+
+.result-title {
+  color: #fff;
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 10px;
+  display: block;
+  text-align: center;
+}
+
+.result-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 5px;
+}
+
+.result-label {
+  color: #888;
+  font-size: 14px;
+}
+
+.result-value {
+  color: #20C997;
+  font-size: 16px;
+  font-weight: bold;
 }
 
 .teacher-tools {
@@ -482,18 +854,22 @@ const handleCameraError = (e) => {
 
 .camera-area {
   flex: 1;
-  width: 90%;
-  max-width: 600px;
+  width: 100%;
+  max-width: 100%;
+  /* 4:3 Aspect Ratio approx for mobile screens, not too tall */
+  height: 75vw; 
+  max-height: 50vh; /* Cap height so it doesn't scroll off on long screens */
+  min-height: 500rpx;
   background-color: #000;
-  margin: 20rpx 0;
-  border-radius: 30rpx;
+  margin: 0;
   position: relative;
   overflow: hidden;
   display: flex;
   justify-content: center;
   align-items: center;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
-  border: 1px solid #333;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  border-top: 1px solid #333;
+  border-bottom: 1px solid #333;
 }
 
 /* #ifdef H5 */
@@ -507,6 +883,17 @@ const handleCameraError = (e) => {
 .real-camera {
   width: 100%;
   height: 100%;
+  object-fit: cover;
+}
+
+.camera-overlay-content {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 10;
+  pointer-events: none; /* Allow clicks to pass through if needed */
 }
 
 .camera-overlay-content {
@@ -772,5 +1159,74 @@ const handleCameraError = (e) => {
   padding: 0 60rpx;
   border-radius: 40rpx;
   font-size: 30rpx;
+}
+
+/* Tab Bar Styles */
+.tab-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 100rpx;
+  background: white;
+  display: flex;
+  padding-bottom: env(safe-area-inset-bottom);
+  z-index: 99999;
+}
+
+.tab-bar-border {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 1px;
+  background-color: rgba(0, 0, 0, 0.1);
+  transform: scaleY(0.5);
+}
+
+.tab-bar-item {
+  flex: 1;
+  text-align: center;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+}
+
+.tab-icon {
+  width: 50rpx;
+  height: 50rpx;
+  margin-bottom: 4rpx;
+}
+
+.tab-text {
+  font-size: 20rpx;
+}
+.camera-placeholder {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: #000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+}
+.loading-text {
+  color: #fff;
+  font-size: 28rpx;
+}
+.error-placeholder {
+  background: #333;
+  gap: 20rpx;
+}
+.error-text {
+  color: #ff4d4f;
+  font-size: 28rpx;
+  text-align: center;
+  padding: 0 40rpx;
 }
 </style>

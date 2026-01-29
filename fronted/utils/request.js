@@ -1,8 +1,12 @@
 // 基础配置
-const BASE_URL = 'http://127.0.0.1:8000'; // 开发环境地址，真机调试请换成局域网IP
+let baseUrl = 'http://localhost:8000';
+// #ifndef H5
+baseUrl = 'http://10.48.100.174:8000'; // 真机调试地址（自动检测到的局域网IP）
+// #endif
+export const BASE_URL = baseUrl;
 
 // 请求封装
-const request = (options) => {
+export const request = (options) => {
   return new Promise((resolve, reject) => {
     // 获取 Token
     const token = uni.getStorageSync('token');
@@ -170,6 +174,21 @@ export const getTeacherTaskDetail = (taskId) => {
   });
 };
 
+export const getCheckpoints = () => {
+  return request({
+    url: '/checkpoints',
+    method: 'GET'
+  });
+};
+
+export const checkIn = (data) => {
+  return request({
+    url: '/activity/checkin',
+    method: 'POST',
+    data
+  });
+};
+
 export default {
   login,
   register,
@@ -180,5 +199,7 @@ export default {
   createTeacherTask,
   getTeacherTasks,
   getStudentTasks,
-  getTeacherTaskDetail
+  getTeacherTaskDetail,
+  getCheckpoints,
+  checkIn
 };

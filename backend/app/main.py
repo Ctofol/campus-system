@@ -1,7 +1,11 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, File, UploadFile
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from typing import List
+import shutil
+import os
+import uuid
 from . import models, schemas, auth, database
 
 # 初始化数据库表
@@ -9,10 +13,22 @@ models.Base.metadata.create_all(bind=database.engine)
 
 app = FastAPI(title="Campus Sports Health MVP")
 
+# Mount uploads directory
+if not os.path.exists("uploads"):
+    os.makedirs("uploads")
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
 # CORS配置
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:8080",
+        "http://127.0.0.1:8080",
+        "*"
+    ],
+    allow_origin_regex=r"http://localhost:\d+|http://127\.0\.0\.1:\d+|http://192\.168\.\d+\.\d+:\d+",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -509,3 +525,84 @@ def get_student_tasks(
         "page": page,
         "size": size
     }
+
+# --- Checkpoint Interfaces ---
+
+@app.get("/checkpoints", response_model=List[schemas.CheckpointOut])
+def get_checkpoints(
+    db: Session = Depends(get_db)
+):
+    return db.query(models.Checkpoint).all()
+
+@app.post("/checkpoints", response_model=schemas.CheckpointOut)
+def create_checkpoint(
+    checkpoint_in: schemas.CheckpointCreate,
+    current_user: models.User = Depends(auth.get_current_teacher), # Only teacher can create
+    db: Session = Depends(get_db)
+):
+    db_checkpoint = models.Checkpoint(**checkpoint_in.dict())
+    db.add(db_checkpoint)
+    db.commit()
+    db.refresh(db_checkpoint)
+    return db_checkpoint
+
+@app.post("/activity/checkin")
+def check_in(
+    checkin_in: schemas.CheckInRequest,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    # Validate range
+    checkpoint = db.query(models.Checkpoint).filter(models.Checkpoint.id == checkin_in.checkpoint_id).first()
+    if not checkpoint:
+        raise HTTPException(status_code=404, detail="Checkpoint not found")
+        
+    # Simple distance check (Haversine approx or simple euclidean for small distances)
+    # Using Haversine formula for accuracy
+    import math
+    R = 6371e3
+    dLat = (checkin_in.lat - checkpoint.latitude) * math.pi / 180
+    dLng = (checkin_in.lng - checkpoint.longitude) * math.pi / 180
+    a = math.sin(dLat/2) * math.sin(dLat/2) + \
+        math.cos(checkpoint.latitude * math.pi / 180) * math.cos(checkin_in.lat * math.pi / 180) * \
+        math.sin(dLng/2) * math.sin(dLng/2)
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    distance = R * c
+    
+    if distance > checkpoint.radius:
+        return {"success": False, "message": "Not in range", "distance": distance}
+        
+    return {"success": True, "message": "Check-in successful", "distance": distance, "timestamp": datetime.utcnow()}
+
+@app.post("/upload")
+async def upload_file(file: UploadFile = File(...)):
+    UPLOAD_DIR = "uploads"
+    # Ensure directory exists (already done in startup but good to be safe)
+    if not os.path.exists(UPLOAD_DIR):
+        os.makedirs(UPLOAD_DIR)
+    
+    # Generate unique filename to prevent overwrite
+    file_extension = os.path.splitext(file.filename)[1]
+    if not file_extension:
+        file_extension = ".jpg" # Default to jpg if no extension
+        
+    unique_filename = f"{uuid.uuid4()}{file_extension}"
+    file_path = os.path.join(UPLOAD_DIR, unique_filename)
+    
+    try:
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Could not upload file: {str(e)}")
+        
+    # Return URL (relative path)
+    return {
+        "url": f"/uploads/{unique_filename}", 
+        "filename": unique_filename,
+        "original_filename": file.filename
+    }
+
+if __name__ == "__main__":
+    import uvicorn
+    # Allow access from all IPs for local testing
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)

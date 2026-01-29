@@ -7,7 +7,10 @@
       <view class="item" v-for="item in activities" :key="item.id" @click="goToDetail(item)">
         <view class="info">
           <text class="name">{{ item.student_name }}</text>
-          <text class="desc">{{ item.type === 'run' ? '跑步' : '体测' }} - {{ item.metrics?.distance ? Number(item.metrics.distance).toFixed(2) : 0 }}km</text>
+          <view class="desc-row">
+            <text class="desc" v-if="item.type === 'run'">跑步 - {{ item.metrics?.distance ? Number(item.metrics.distance).toFixed(2) : 0 }}km</text>
+            <text class="desc" v-else>体测 - {{ item.metrics?.count ? item.metrics.count : 0 }}次</text>
+          </view>
           <text class="time">{{ new Date(item.started_at).toLocaleString() }}</text>
         </view>
         <button class="btn" @click.stop="handleApprove(item.id)" :disabled="item.status === 'approved' || item.status === 'completed'" :style="{ backgroundColor: (item.status === 'approved' || item.status === 'completed') ? '#ccc' : '#20C997' }">

@@ -1,5 +1,13 @@
 <template>
   <view class="run">
+    <!-- Custom Navigation Bar -->
+    <view class="custom-navbar" :style="{paddingTop: statusBarHeight + 'px'}">
+      <view class="navbar-content">
+        <text class="navbar-title">跑步</text>
+      </view>
+    </view>
+    <view class="content-spacer" :style="{height: (statusBarHeight + 44) + 'px'}"></view>
+
     <!-- AI Robot Component -->
     <ai-chat-robot 
       v-model:visible="showAiRobot" 
@@ -100,10 +108,11 @@
         <button @click="startNormalRun" class="start-btn">开始跑步</button>
       </view>
       <view v-else class="running-box">
-        <text class="data">时长：{{duration}}秒 | 已跑：{{(distance/1000).toFixed(2)}}km | 步数：{{stepCount}} | 心率：{{heartRate}}次/分</text>
+        <text class="data">时长：{{duration}}秒 | 已跑：{{((distance || 0)/1000).toFixed(2)}}km | 速度：{{currentSpeedKmh}}km/h</text>
+        <text class="data">步数：{{stepCount}} | 心率：{{heartRate}}次/分 | 平均速度：{{avgSpeedKmh}}km/h</text>
         <view class="progress-wrap">
           <view class="progress-bar"><view class="progress-fill" :style="{width: normalProgress + '%'}"></view></view>
-          <text class="progress-text">今日目标 {{dailyTarget}} km · 完成 {{(distance/1000).toFixed(2)}} km</text>
+          <text class="progress-text">今日目标 {{dailyTarget}} km · 完成 {{((distance || 0)/1000).toFixed(2)}} km</text>
         </view>
         <button @click="stopRun" class="stop-btn">结束跑步</button>
       </view>
@@ -163,7 +172,14 @@ import { ref, computed, onUnmounted } from 'vue';
 import { onShow, onLoad } from '@dcloudio/uni-app';
 import AiChatRobot from '@/components/ai-chat-robot/ai-chat-robot.vue';
 import CustomTabBar from '@/components/CustomTabBar/CustomTabBar.vue';
-import { submitActivity } from '@/utils/request.js';
+import { submitActivity, getCheckpoints, checkIn } from '@/utils/request.js';
+
+// Navbar Settings
+const statusBarHeight = ref(20);
+onLoad(() => {
+  const sys = uni.getSystemInfoSync();
+  statusBarHeight.value = sys.statusBarHeight || 20;
+});
 
 // 组件卸载时清理定时器
 onUnmounted(() => {
@@ -183,6 +199,67 @@ const currentRunData = computed(() => ({
 const openAiRobot = () => {
   showAiRobot.value = true;
 };
+
+// 确保导航栏标题显示
+  onShow(() => {
+    console.log('run.vue onShow triggered');
+    // 强制设置导航栏标题和颜色
+    uni.setNavigationBarTitle({
+      title: '跑步'
+    });
+    uni.setNavigationBarColor({
+      frontColor: '#ffffff',
+      backgroundColor: '#20C997'
+    });
+    
+    const role = uni.getStorageSync('userRole') || uni.getStorageSync('role');
+    if (role === 'teacher') {
+      uni.showToast({ title: '该功能仅对学生开放', icon: 'none' });
+      setTimeout(() => {
+        uni.redirectTo({ url: '/pages/teacher/home/home' });
+      }, 800);
+      return;
+    }
+
+    // 1. 处理从首页跳转过来的模式参数
+    const targetMode = uni.getStorageSync('runMode');
+    if (targetMode) {
+      switchMode(targetMode); 
+      uni.removeStorageSync('runMode');
+    }
+
+    getLocation();
+    checkpoint.value = uni.getStorageSync('checkpoint') || {};
+    if (checkpoint.value.name) {
+      addCheckpointMarker(checkpoint.value.lat, checkpoint.value.lng, checkpoint.value.name);
+    }
+    const records = uni.getStorageSync('runRecordsList') || [];
+    const now = new Date();
+    const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const dayEnd = dayStart + 24 * 60 * 60 * 1000;
+    let c = 0;
+    let d = 0;
+    records.forEach(r => {
+      const t = new Date(r.createTime).getTime();
+      const isRunType = r.type ? r.type === 'run' : true;
+      if (isRunType && t >= dayStart && t < dayEnd) {
+        c += 1;
+        d += Number(r.distance) || 0;
+      }
+    });
+    todayRunCount.value = c;
+    todayRunDistance.value = Number(d.toFixed(2));
+    historyList.value = buildHistory(records);
+    const taskStr = uni.getStorageSync('teacherTask');
+    if (taskStr) {
+      try {
+        const obj = typeof taskStr === 'string' ? JSON.parse(taskStr) : taskStr;
+        teacherRunTask.value = obj.title || '';
+      } catch (e) {
+        teacherRunTask.value = '';
+      }
+    }
+  });
 
 const handleShareToTeacher = (card) => {
   // Save shared report to storage for teacher to see (mock)
@@ -228,11 +305,182 @@ const useRoute = (route) => {
 
 // 1. 地图/打卡点数据
 const checkpointName = ref('');
-const lat = ref(0);
-const lng = ref(0);
+const lat = ref(39.909);
+const lng = ref(116.397);
 const markers = ref([]);
-const polyline = ref([]);
+const polyline = ref([{ points: [], color: '#007AFF', width: 4 }]);
 const checkpoint = ref({});
+const trajectoryPoints = ref([]); // Store real GPS points
+const checkinRecords = ref([]); // Store successful check-ins
+
+// Distance Calculation (Haversine Formula)
+const getDistance = (lat1, lng1, lat2, lng2) => {
+  const R = 6371e3; // Earth radius in meters
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLng/2) * Math.sin(dLng/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c; // Distance in meters
+};
+
+// Real-time Location Tracking
+const startRealLocationTracking = () => {
+  // #ifdef H5
+  if (h5LocationTimer) clearInterval(h5LocationTimer);
+  let lastTs = Date.now();
+  h5LocationTimer = setInterval(() => {
+    uni.getLocation({
+      type: 'gcj02',
+      accuracy: 'high',
+      success: (res) => {
+        const newLat = res.latitude;
+        const newLng = res.longitude;
+        lat.value = newLat;
+        lng.value = newLng;
+        markers.value[0] = {
+          id: 0,
+          latitude: newLat,
+          longitude: newLng,
+          title: '我的位置',
+          iconPath: '/static/location.png',
+          width: 30,
+          height: 30
+        };
+        if (isRunning.value) {
+          let speedVal = 0;
+          if (trajectoryPoints.value.length > 0) {
+            const lastPoint = trajectoryPoints.value[trajectoryPoints.value.length - 1];
+            const d = getDistance(lastPoint.latitude, lastPoint.longitude, newLat, newLng);
+            const dt = (Date.now() - lastTs) / 1000;
+            if (d > 2 && d < 100 && dt > 0) {
+              distance.value += d;
+              speedVal = d / dt;
+            }
+          }
+          currentSpeed.value = speedVal;
+          const point = { latitude: newLat, longitude: newLng, timestamp: Date.now(), speed: currentSpeed.value };
+          trajectoryPoints.value.push(point);
+          polyline.value[0].points.push({ latitude: newLat, longitude: newLng });
+          if (currentMode.value === 'campus' && checkpoint.value.lat) {
+            distanceToCheckpoint.value = Math.floor(getDistance(newLat, newLng, checkpoint.value.lat, checkpoint.value.lng));
+            if (distanceToCheckpoint.value <= (checkpoint.value.radius || 50)) { 
+              isReach.value = true;
+              if (!uni.getStorageSync('checkpointReached')) {
+                 if (checkpoint.value.id) {
+                   checkIn({ lat: newLat, lng: newLng, checkpoint_id: checkpoint.value.id })
+                     .then(res => {
+                       if (res.success) {
+                         uni.showToast({ title: '打卡成功！', icon: 'success' });
+                         checkinRecords.value.push({ checkpoint_id: checkpoint.value.id, time: new Date().toISOString(), lat: newLat, lng: newLng });
+                       }
+                     }).catch(() => {});
+                 } else {
+                    uni.showToast({ title: '已到达打卡点范围！', icon: 'success' });
+                 }
+                 uni.setStorageSync('checkpointReached', '1');
+              }
+            } else {
+              isReach.value = false;
+            }
+          }
+          if (currentMode.value === 'normal') {
+             normalProgress.value = Math.min(100, ((distance.value/1000) / dailyTarget.value) * 100);
+          } else if (currentMode.value === 'police') {
+             policeProgress.value = Math.min(100, (distance.value / policeTargetDistance.value) * 100);
+          }
+          lastTs = Date.now();
+        }
+      },
+      fail: () => {}
+    });
+  }, 1000);
+  // #endif
+  // #ifndef H5
+  uni.startLocationUpdate({
+    success: () => {
+      locationCallback = (res) => {
+        const newLat = res.latitude;
+        const newLng = res.longitude;
+        lat.value = newLat;
+        lng.value = newLng;
+        if (res.speed && res.speed >= 0) {
+          currentSpeed.value = res.speed;
+        }
+        markers.value[0] = {
+          id: 0,
+          latitude: newLat,
+          longitude: newLng,
+          title: '我的位置',
+          iconPath: '/static/location.png',
+          width: 30,
+          height: 30
+        };
+        if (isRunning.value) {
+          if (trajectoryPoints.value.length > 0) {
+            const lastPoint = trajectoryPoints.value[trajectoryPoints.value.length - 1];
+            const d = getDistance(lastPoint.latitude, lastPoint.longitude, newLat, newLng);
+            if (d > 2 && d < 100) { 
+              distance.value += d;
+            }
+          }
+          const point = { latitude: newLat, longitude: newLng, timestamp: Date.now(), speed: currentSpeed.value };
+          trajectoryPoints.value.push(point);
+          polyline.value[0].points.push({ latitude: newLat, longitude: newLng });
+          if (currentMode.value === 'campus' && checkpoint.value.lat) {
+            distanceToCheckpoint.value = Math.floor(getDistance(newLat, newLng, checkpoint.value.lat, checkpoint.value.lng));
+            if (distanceToCheckpoint.value <= (checkpoint.value.radius || 50)) { 
+              isReach.value = true;
+              if (!uni.getStorageSync('checkpointReached')) {
+                 if (checkpoint.value.id) {
+                   checkIn({ lat: newLat, lng: newLng, checkpoint_id: checkpoint.value.id })
+                     .then(res => {
+                       if (res.success) {
+                         uni.showToast({ title: '打卡成功！', icon: 'success' });
+                         checkinRecords.value.push({ checkpoint_id: checkpoint.value.id, time: new Date().toISOString(), lat: newLat, lng: newLng });
+                       }
+                     }).catch(() => {});
+                 } else {
+                    uni.showToast({ title: '已到达打卡点范围！', icon: 'success' });
+                 }
+                 uni.setStorageSync('checkpointReached', '1');
+              }
+            } else {
+              isReach.value = false;
+            }
+          }
+          if (currentMode.value === 'normal') {
+             normalProgress.value = Math.min(100, ((distance.value/1000) / dailyTarget.value) * 100);
+          } else if (currentMode.value === 'police') {
+             policeProgress.value = Math.min(100, (distance.value / policeTargetDistance.value) * 100);
+          }
+        }
+      };
+      uni.onLocationChange(locationCallback);
+    },
+    fail: () => {
+      uni.showToast({ title: '无法获取实时位置，请检查权限', icon: 'none' });
+    }
+  });
+  // #endif
+};
+
+const stopRealLocationTracking = () => {
+  // #ifdef H5
+  if (h5LocationTimer) {
+    clearInterval(h5LocationTimer);
+    h5LocationTimer = null;
+  }
+  // #endif
+  // #ifndef H5
+  uni.stopLocationUpdate();
+  if (locationCallback) {
+    uni.offLocationChange(locationCallback);
+    locationCallback = null;
+  }
+  // #endif
+};
 
 // 2. 跑步核心配置
 const currentMode = ref('normal'); // normal-普通 police-警务 campus-校园
@@ -243,8 +491,12 @@ const distanceToCheckpoint = ref(0);
 const isReach = ref(false);
 const stepCount = ref(0);
 const heartRate = ref(80);
+const currentSpeed = ref(0); // 实时速度 m/s
+const maxSpeed = ref(0); // 最大速度 m/s
 let timer = null;
-let accelerometerListener = null;
+let accelerometerCallback = null;
+let locationCallback = null;
+let h5LocationTimer = null;
 
 // 3. 警务专项固定配置（按公安考核标准）
 const policeTargetDistance = ref(2000); // 固定2000米
@@ -253,7 +505,16 @@ const policeTargetPace = ref(6.5); // 达标配速：6.5分钟/公里（男生�
 const currentPace = computed(() => {
   const km = distance.value / 1000;
   const min = duration.value / 60;
-  return km === 0 ? 0 : min / km;
+  if (km === 0) return 0;
+  const p = min / km;
+  return p > 999 ? 999 : p;
+});
+// 实时速度展示 (km/h)
+const currentSpeedKmh = computed(() => (currentSpeed.value * 3.6).toFixed(1));
+// 平均速度 (km/h)
+const avgSpeedKmh = computed(() => {
+  if (duration.value === 0) return 0;
+  return ((distance.value / 1000) / (duration.value / 3600)).toFixed(1);
 });
 
 // 接收页面参数
@@ -269,63 +530,11 @@ onLoad((options) => {
   }
 });
 
-// 页面显示时初始化
-onShow(() => {
-    const role = uni.getStorageSync('userRole') || uni.getStorageSync('role');
-    if (role === 'teacher') {
-      uni.showToast({ title: '该功能仅对学生开放', icon: 'none' });
-      setTimeout(() => {
-        uni.redirectTo({ url: '/pages/teacher/home/home' });
-      }, 800);
-      return;
-    }
-  // 1. 处理从首页跳转过来的模式参数 (因 switchTab 不支持 URL 传参)
-  const targetMode = uni.getStorageSync('runMode');
-  if (targetMode) {
-    switchMode(targetMode); // 使用 switchMode 方法以确保状态重置
-    uni.removeStorageSync('runMode'); // 消费后清除
-  }
 
-  getLocation();
-  checkpoint.value = uni.getStorageSync('checkpoint') || {};
-  if (checkpoint.value.name) {
-    addCheckpointMarker(checkpoint.value.lat, checkpoint.value.lng, checkpoint.value.name);
-  }
-  const records = uni.getStorageSync('runRecordsList') || [];
-  const now = new Date();
-  const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const dayEnd = dayStart + 24 * 60 * 60 * 1000;
-  let c = 0;
-  let d = 0;
-  records.forEach(r => {
-    const t = new Date(r.createTime).getTime();
-    const isRunType = r.type ? r.type === 'run' : true;
-    if (isRunType && t >= dayStart && t < dayEnd) {
-      c += 1;
-      d += Number(r.distance) || 0;
-    }
-  });
-  todayRunCount.value = c;
-  todayRunDistance.value = Number(d.toFixed(2));
-  historyList.value = buildHistory(records);
-  const taskStr = uni.getStorageSync('teacherTask');
-  if (taskStr) {
-    try {
-      const obj = typeof taskStr === 'string' ? JSON.parse(taskStr) : taskStr;
-      teacherRunTask.value = obj.title || '';
-    } catch (e) {
-      teacherRunTask.value = '';
-    }
-  }
-});
 
 // 4. 定位优化（含权限申请+校园围栏）
 const getLocation = () => {
-  // #ifdef H5
-  doGetLocation();
-  // #endif
-
-  // #ifndef H5
+  // #ifdef MP-WEIXIN
   uni.authorize({
     scope: 'scope.userLocation',
     success: () => {
@@ -343,9 +552,30 @@ const getLocation = () => {
     }
   });
   // #endif
+
+  // #ifndef MP-WEIXIN
+  // App端和H5端直接调用getLocation，系统会自动处理权限请求
+  doGetLocation();
+  // #endif
 };
 
 const doGetLocation = () => {
+  // Load cached location for faster map rendering
+  const lastLoc = uni.getStorageSync('lastLocation');
+  if (lastLoc) {
+    lat.value = lastLoc.lat;
+    lng.value = lastLoc.lng;
+    markers.value = [{
+      id: 0,
+      latitude: lastLoc.lat,
+      longitude: lastLoc.lng,
+      title: '我的位置',
+      iconPath: '/static/location.png',
+      width: 30,
+      height: 30
+    }];
+  }
+
   uni.getLocation({
     type: 'gcj02',
     accuracy: 'high',
@@ -455,16 +685,62 @@ const switchMode = (mode) => {
 };
 
 // 8. 步数统计（加速度传感器）
-const startStepCount = () => {
-  accelerometerListener = uni.onAccelerometerChange((res) => {
-    const acceleration = Math.sqrt(res.x*res.x + res.y*res.y + res.z*res.z);
-    if (acceleration > 15) stepCount.value += 1;
-  });
-};
+// 计步逻辑：简单的波峰波谷或者阈值判定+防抖
+    let isStepActive = false;
+    let lastStepTime = 0;
+    const STEP_THRESHOLD_UP = 1.25; // 上升阈值 (g) - 调高以减少误触
+    const STEP_THRESHOLD_DOWN = 1.05; // 下降/重置阈值 (g) - 确保能复位
+    const MIN_STEP_INTERVAL = 300; // 最小间隔 ms
+    const RESET_TIMEOUT = 1500; // 强制复位超时 (ms)
+
+    const startStepCount = () => {
+      // 先停止之前的监听，防止重复
+      uni.stopAccelerometer();
+      
+      uni.startAccelerometer({
+        interval: 'game', // 使用 game (20ms) 频率，采样更密集，捕捉波峰更准
+        success: () => {
+          console.log('Accelerometer started');
+          isStepActive = false;
+          lastStepTime = Date.now();
+        },
+        fail: (err) => {
+          console.error('Start Accelerometer failed:', err);
+        }
+      });
+      
+      accelerometerCallback = (res) => {
+        let acceleration = Math.sqrt(res.x*res.x + res.y*res.y + res.z*res.z);
+        
+        // 归一化处理：如果加速度 > 5，说明单位是 m/s^2，转换为 g (除以 9.8)
+        if (acceleration > 5) {
+          acceleration = acceleration / 9.8;
+        }
+
+        const now = Date.now();
+        
+        // 强制复位检查：如果处于激活状态太久（超过1.5秒），说明卡住了，强制复位
+        if (isStepActive && (now - lastStepTime > RESET_TIMEOUT)) {
+            isStepActive = false;
+        }
+
+        if (!isStepActive && acceleration > STEP_THRESHOLD_UP) {
+           if (now - lastStepTime > MIN_STEP_INTERVAL) {
+             stepCount.value += 1;
+             lastStepTime = now;
+             isStepActive = true; 
+           }
+        } else if (isStepActive && acceleration < STEP_THRESHOLD_DOWN) {
+           isStepActive = false;
+        }
+      };
+      uni.onAccelerometerChange(accelerometerCallback);
+    };
 const stopStepCount = () => {
-  if (accelerometerListener) {
-    uni.offAccelerometerChange(accelerometerListener);
-    accelerometerListener = null;
+  if (accelerometerCallback) {
+    uni.stopAccelerometer(); // 停止监听
+    uni.offAccelerometerChange(accelerometerCallback);
+    accelerometerCallback = null;
   }
 };
 
@@ -488,11 +764,11 @@ const startNormalRun = () => {
   distance.value = 0;
   stepCount.value = 0;
   heartRate.value = 80;
+  uni.removeStorageSync('checkpointReached');
+  startRealLocationTracking();
   startStepCount();
   timer = setInterval(() => {
     duration.value += 1;
-    distance.value += Math.random() * 5; // 模拟每秒跑5米左右
-    normalProgress.value = Math.min(100, ((distance.value/1000) / dailyTarget.value) * 100);
     updateHeartRate();
   }, 1000);
 };
@@ -504,12 +780,11 @@ const startPoliceRun = () => {
   distance.value = 0;
   stepCount.value = 0;
   heartRate.value = 80;
+  uni.removeStorageSync('policeFinishTip');
+  startRealLocationTracking();
   startStepCount();
-  // 按达标配速6.5分钟/公里推进（约2.56米/秒）
   timer = setInterval(() => {
     duration.value += 1;
-    distance.value += 2.56; // 精准匹配6.5分钟/公里的配速
-    policeProgress.value = Math.min(100, (distance.value / policeTargetDistance.value) * 100);
     updateHeartRate();
     // 达到目标距离弹窗提示
     if (distance.value >= policeTargetDistance.value && !uni.getStorageSync('policeFinishTip')) {
@@ -523,24 +798,34 @@ const startPoliceRun = () => {
 const startCampusRun = () => {
   isRunning.value = true;
   duration.value = 0;
-  distanceToCheckpoint.value = 50;
   isReach.value = false;
   stepCount.value = 0;
   heartRate.value = 80;
+  uni.removeStorageSync('checkpointReached');
+  startRealLocationTracking();
   startStepCount();
   timer = setInterval(() => {
     duration.value += 1;
-    distanceToCheckpoint.value = Math.max(0, distanceToCheckpoint.value - 0.5);
-    isReach.value = distanceToCheckpoint.value <= 10;
     updateHeartRate();
   }, 1000);
 };
 
 // 11. 结束跑步（统一逻辑）
 const stopRun = async () => {
+  if (!isRunning.value) return;
   isRunning.value = false;
   clearInterval(timer);
   stopStepCount();
+  stopRealLocationTracking();
+
+  const token = uni.getStorageSync('token');
+  if (!token) {
+    uni.showToast({ title: '请先登录', icon: 'none' });
+    setTimeout(() => {
+      uni.reLaunch({ url: '/pages/login/login' });
+    }, 800);
+    return;
+  }
 
   const runData = {
     type: currentMode.value === 'police' ? 'test' : 'run',
@@ -552,7 +837,9 @@ const stopRun = async () => {
       duration: duration.value,
       pace: currentPace.value.toFixed(1),
       count: currentMode.value === 'police' ? 1 : null,
-      qualified: currentMode.value === 'police' ? currentPace.value <= policeTargetPace.value : false
+      qualified: currentMode.value === 'police' ? currentPace.value <= policeTargetPace.value : false,
+      trajectory: JSON.stringify(trajectoryPoints.value),
+      checkpoints: JSON.stringify(checkinRecords.value)
     },
     evidence: []
   };
@@ -561,18 +848,41 @@ const stopRun = async () => {
     uni.showLoading({ title: '提交中...' });
     const res = await submitActivity(runData);
     uni.hideLoading();
+    console.log('Submit success:', res);
     
     // Jump to result page with data
-    uni.navigateTo({
-      url: `/pages/result/result?data=${encodeURIComponent(JSON.stringify(runData))}`
+    // Use storage to pass data to avoid URL length limit
+    uni.setStorageSync('tempRunResult', runData);
+    
+    // 使用 reLaunch 确保清理页面栈，或者 redirectTo
+    uni.redirectTo({
+      url: '/pages/result/result?useStorage=true',
+      fail: (err) => {
+        console.error('Navigate failed:', err);
+        uni.showToast({ title: '页面跳转失败', icon: 'none' });
+      }
     });
   } catch (error) {
     uni.hideLoading();
     console.error('Submit failed:', error);
-    uni.showToast({
-      title: (error && error.detail) ? `提交失败：${error.detail}` : '提交失败，请重试',
-      icon: 'none',
-      duration: 2000
+    uni.showModal({
+      title: '提交失败',
+      content: (error && error.detail) ? error.detail : '网络或服务器错误，请重试',
+      confirmText: '重试',
+      cancelText: '强制结束',
+      success: (modalRes) => {
+         if (modalRes.confirm) {
+            // User wants to retry - do nothing, they can click stop again
+         } else if (modalRes.cancel) {
+            // Force stop - jump to home or result without saving?
+            // Let's jump to result but maybe with local data only?
+            // Or just back to home
+            uni.showToast({ title: '已强制结束', icon: 'none' });
+            setTimeout(() => {
+               uni.reLaunch({ url: '/pages/home/home' });
+            }, 800);
+         }
+      }
     });
   }
 };
@@ -605,6 +915,33 @@ const buildHistory = (records) => {
   background-color: #f5f5f5;
   padding-bottom: calc(120rpx + env(safe-area-inset-bottom));
 }
+
+.custom-navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  background-color: #20C997;
+  z-index: 999;
+}
+
+.navbar-content {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.navbar-title {
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.content-spacer {
+  width: 100%;
+}
+
 /* 新增顶部样式 */
 .top-widgets {
   margin-bottom: 20rpx;

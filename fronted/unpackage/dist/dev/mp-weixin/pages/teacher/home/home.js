@@ -9,6 +9,9 @@ const _sfc_main = {
   __name: "home",
   setup(__props) {
     const userInfo = common_vendor.ref({});
+    const goToApprove = () => {
+      common_vendor.index.navigateTo({ url: "/pages/teacher/approve/approve" });
+    };
     common_vendor.onShow(() => {
       common_vendor.index.hideHomeButton && common_vendor.index.hideHomeButton();
       const storedUser = common_vendor.index.getStorageSync("userInfo");
@@ -16,7 +19,7 @@ const _sfc_main = {
         try {
           userInfo.value = typeof storedUser === "string" ? JSON.parse(storedUser) : storedUser;
         } catch (e) {
-          common_vendor.index.__f__("error", "at pages/teacher/home/home.vue:194", "JSON parse error", e);
+          common_vendor.index.__f__("error", "at pages/teacher/home/home.vue:198", "JSON parse error", e);
           userInfo.value = {};
         }
       }
@@ -93,12 +96,13 @@ const _sfc_main = {
     };
     return (_ctx, _cache) => {
       return common_vendor.e({
-        a: common_vendor.t(userInfo.value.name || "教官"),
+        a: common_vendor.t(userInfo.value.name || "老师"),
         b: common_assets._imports_0,
         c: common_vendor.t(teacherStats.value.todayCheckin),
         d: common_vendor.t(teacherStats.value.abnormalCount),
         e: common_vendor.t(teacherStats.value.pendingApprovals || 12),
-        f: common_vendor.f(weeklyTrend.value, (d, i, i0) => {
+        f: common_vendor.o(goToApprove),
+        g: common_vendor.f(weeklyTrend.value, (d, i, i0) => {
           return {
             a: d.val + "%",
             b: d.color,
@@ -106,8 +110,8 @@ const _sfc_main = {
             d: i
           };
         }),
-        g: common_vendor.o(openTaskModal),
-        h: common_vendor.f(quickTasks.value, (task, idx, i0) => {
+        h: common_vendor.o(openTaskModal),
+        i: common_vendor.f(quickTasks.value, (task, idx, i0) => {
           return common_vendor.e({
             a: common_vendor.t(task.type),
             b: common_vendor.n(task.typeClass),
@@ -126,9 +130,9 @@ const _sfc_main = {
             l: common_vendor.o(($event) => handleQuickTask(task), idx)
           });
         }),
-        i: abnormalAlerts.value.length > 0
+        j: abnormalAlerts.value.length > 0
       }, abnormalAlerts.value.length > 0 ? {
-        j: common_vendor.f(abnormalAlerts.value, (alert, idx, i0) => {
+        k: common_vendor.f(abnormalAlerts.value, (alert, idx, i0) => {
           return {
             a: common_vendor.t(alert.student),
             b: common_vendor.t(alert.type),
@@ -139,26 +143,26 @@ const _sfc_main = {
           };
         })
       } : {}, {
-        k: showTaskModal.value
+        l: showTaskModal.value
       }, showTaskModal.value ? {
-        l: common_vendor.t(isEditing.value ? "编辑任务" : "快速发布任务"),
-        m: common_vendor.o(($event) => showTaskModal.value = false),
-        n: currentTask.value.title,
-        o: common_vendor.o(($event) => currentTask.value.title = $event.detail.value),
-        p: currentTask.value.type === "考核" ? 1 : "",
-        q: common_vendor.o(($event) => currentTask.value.type = "考核"),
-        r: currentTask.value.type === "日常" ? 1 : "",
-        s: common_vendor.o(($event) => currentTask.value.type = "日常"),
-        t: currentTask.value.type === "训练" ? 1 : "",
-        v: common_vendor.o(($event) => currentTask.value.type = "训练"),
-        w: currentTask.value.desc,
-        x: common_vendor.o(($event) => currentTask.value.desc = $event.detail.value),
-        y: common_vendor.o(saveTask),
-        z: common_vendor.o(() => {
+        m: common_vendor.t(isEditing.value ? "编辑任务" : "快速发布任务"),
+        n: common_vendor.o(($event) => showTaskModal.value = false),
+        o: currentTask.value.title,
+        p: common_vendor.o(($event) => currentTask.value.title = $event.detail.value),
+        q: currentTask.value.type === "考核" ? 1 : "",
+        r: common_vendor.o(($event) => currentTask.value.type = "考核"),
+        s: currentTask.value.type === "日常" ? 1 : "",
+        t: common_vendor.o(($event) => currentTask.value.type = "日常"),
+        v: currentTask.value.type === "训练" ? 1 : "",
+        w: common_vendor.o(($event) => currentTask.value.type = "训练"),
+        x: currentTask.value.desc,
+        y: common_vendor.o(($event) => currentTask.value.desc = $event.detail.value),
+        z: common_vendor.o(saveTask),
+        A: common_vendor.o(() => {
         }),
-        A: common_vendor.o(($event) => showTaskModal.value = false)
+        B: common_vendor.o(($event) => showTaskModal.value = false)
       } : {}, {
-        B: common_vendor.p({
+        C: common_vendor.p({
           current: "/pages/teacher/home/home"
         })
       });

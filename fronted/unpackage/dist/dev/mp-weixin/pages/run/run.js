@@ -1,5 +1,6 @@
 "use strict";
 const common_vendor = require("../../common/vendor.js");
+const utils_request = require("../../utils/request.js");
 if (!Math) {
   (AiChatRobot + CustomTabBar)();
 }
@@ -59,11 +60,91 @@ const _sfc_main = {
       dailyTarget.value = route.distance;
     };
     const checkpointName = common_vendor.ref("");
-    const lat = common_vendor.ref(0);
-    const lng = common_vendor.ref(0);
+    const lat = common_vendor.ref(39.909);
+    const lng = common_vendor.ref(116.397);
     const markers = common_vendor.ref([]);
-    const polyline = common_vendor.ref([]);
+    const polyline = common_vendor.ref([{ points: [], color: "#007AFF", width: 4 }]);
     const checkpoint = common_vendor.ref({});
+    const trajectoryPoints = common_vendor.ref([]);
+    const checkinRecords = common_vendor.ref([]);
+    const getDistance = (lat1, lng1, lat2, lng2) => {
+      const R = 6371e3;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLng = (lng2 - lng1) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    };
+    const startRealLocationTracking = () => {
+      common_vendor.index.startLocationUpdate({
+        success: () => {
+          common_vendor.index.onLocationChange((res) => {
+            const newLat = res.latitude;
+            const newLng = res.longitude;
+            lat.value = newLat;
+            lng.value = newLng;
+            if (res.speed && res.speed >= 0) {
+              currentSpeed.value = res.speed;
+            }
+            markers.value[0] = {
+              id: 0,
+              latitude: newLat,
+              longitude: newLng,
+              title: "我的位置",
+              iconPath: "/static/location.png",
+              width: 30,
+              height: 30
+            };
+            if (isRunning.value) {
+              if (trajectoryPoints.value.length > 0) {
+                const lastPoint = trajectoryPoints.value[trajectoryPoints.value.length - 1];
+                const d = getDistance(lastPoint.latitude, lastPoint.longitude, newLat, newLng);
+                if (d > 2 && d < 100) {
+                  distance.value += d;
+                }
+              }
+              const point = { latitude: newLat, longitude: newLng, timestamp: Date.now(), speed: currentSpeed.value };
+              trajectoryPoints.value.push(point);
+              polyline.value[0].points.push({ latitude: newLat, longitude: newLng });
+              if (currentMode.value === "campus" && checkpoint.value.lat) {
+                distanceToCheckpoint.value = Math.floor(getDistance(newLat, newLng, checkpoint.value.lat, checkpoint.value.lng));
+                if (distanceToCheckpoint.value <= (checkpoint.value.radius || 50)) {
+                  isReach.value = true;
+                  if (!common_vendor.index.getStorageSync("checkpointReached")) {
+                    if (checkpoint.value.id) {
+                      utils_request.checkIn({ lat: newLat, lng: newLng, checkpoint_id: checkpoint.value.id }).then((res2) => {
+                        if (res2.success) {
+                          common_vendor.index.showToast({ title: "打卡成功！", icon: "success" });
+                          checkinRecords.value.push({ checkpoint_id: checkpoint.value.id, time: (/* @__PURE__ */ new Date()).toISOString(), lat: newLat, lng: newLng });
+                        }
+                      }).catch(() => {
+                      });
+                    } else {
+                      common_vendor.index.showToast({ title: "已到达打卡点范围！", icon: "success" });
+                    }
+                    common_vendor.index.setStorageSync("checkpointReached", "1");
+                  }
+                } else {
+                  isReach.value = false;
+                }
+              }
+              if (currentMode.value === "normal") {
+                normalProgress.value = Math.min(100, distance.value / 1e3 / dailyTarget.value * 100);
+              } else if (currentMode.value === "police") {
+                policeProgress.value = Math.min(100, distance.value / policeTargetDistance.value * 100);
+              }
+            }
+          });
+        },
+        fail: () => {
+          common_vendor.index.showToast({ title: "无法获取实时位置，请检查权限", icon: "none" });
+        }
+      });
+    };
+    const stopRealLocationTracking = () => {
+      common_vendor.index.stopLocationUpdate();
+      common_vendor.index.offLocationChange();
+    };
     const currentMode = common_vendor.ref("normal");
     const isRunning = common_vendor.ref(false);
     const duration = common_vendor.ref(0);
@@ -72,14 +153,22 @@ const _sfc_main = {
     const isReach = common_vendor.ref(false);
     const stepCount = common_vendor.ref(0);
     const heartRate = common_vendor.ref(80);
+    const currentSpeed = common_vendor.ref(0);
+    common_vendor.ref(0);
     let timer = null;
-    let accelerometerListener = null;
+    let accelerometerCallback = null;
     const policeTargetDistance = common_vendor.ref(2e3);
     const policeTargetPace = common_vendor.ref(6.5);
     const currentPace = common_vendor.computed(() => {
       const km = distance.value / 1e3;
       const min = duration.value / 60;
       return km === 0 ? 0 : min / km;
+    });
+    const currentSpeedKmh = common_vendor.computed(() => (currentSpeed.value * 3.6).toFixed(1));
+    const avgSpeedKmh = common_vendor.computed(() => {
+      if (duration.value === 0)
+        return 0;
+      return (distance.value / 1e3 / (duration.value / 3600)).toFixed(1);
     });
     common_vendor.onLoad((options) => {
       if (options.mode) {
@@ -158,6 +247,20 @@ const _sfc_main = {
       });
     };
     const doGetLocation = () => {
+      const lastLoc = common_vendor.index.getStorageSync("lastLocation");
+      if (lastLoc) {
+        lat.value = lastLoc.lat;
+        lng.value = lastLoc.lng;
+        markers.value = [{
+          id: 0,
+          latitude: lastLoc.lat,
+          longitude: lastLoc.lng,
+          title: "我的位置",
+          iconPath: "/static/location.png",
+          width: 30,
+          height: 30
+        }];
+      }
       common_vendor.index.getLocation({
         type: "gcj02",
         accuracy: "high",
@@ -183,7 +286,7 @@ const _sfc_main = {
           }
         },
         fail: (err) => {
-          common_vendor.index.__f__("error", "at pages/run/run.vue:375", "Location failed:", err);
+          common_vendor.index.__f__("error", "at pages/run/run.vue:570", "Location failed:", err);
           let msg = "定位失败，已使用模拟位置";
           common_vendor.index.showToast({ title: msg, icon: "none", duration: 3e3 });
           lat.value = 39.908823;
@@ -245,16 +348,17 @@ const _sfc_main = {
       currentMode.value = mode;
     };
     const startStepCount = () => {
-      accelerometerListener = common_vendor.index.onAccelerometerChange((res) => {
+      accelerometerCallback = (res) => {
         const acceleration = Math.sqrt(res.x * res.x + res.y * res.y + res.z * res.z);
         if (acceleration > 15)
           stepCount.value += 1;
-      });
+      };
+      common_vendor.index.onAccelerometerChange(accelerometerCallback);
     };
     const stopStepCount = () => {
-      if (accelerometerListener) {
-        common_vendor.index.offAccelerometerChange(accelerometerListener);
-        accelerometerListener = null;
+      if (accelerometerCallback) {
+        common_vendor.index.offAccelerometerChange(accelerometerCallback);
+        accelerometerCallback = null;
       }
     };
     const updateHeartRate = () => {
@@ -273,11 +377,11 @@ const _sfc_main = {
       distance.value = 0;
       stepCount.value = 0;
       heartRate.value = 80;
+      common_vendor.index.removeStorageSync("checkpointReached");
+      startRealLocationTracking();
       startStepCount();
       timer = setInterval(() => {
         duration.value += 1;
-        distance.value += Math.random() * 5;
-        normalProgress.value = Math.min(100, distance.value / 1e3 / dailyTarget.value * 100);
         updateHeartRate();
       }, 1e3);
     };
@@ -287,11 +391,11 @@ const _sfc_main = {
       distance.value = 0;
       stepCount.value = 0;
       heartRate.value = 80;
+      common_vendor.index.removeStorageSync("policeFinishTip");
+      startRealLocationTracking();
       startStepCount();
       timer = setInterval(() => {
         duration.value += 1;
-        distance.value += 2.56;
-        policeProgress.value = Math.min(100, distance.value / policeTargetDistance.value * 100);
         updateHeartRate();
         if (distance.value >= policeTargetDistance.value && !common_vendor.index.getStorageSync("policeFinishTip")) {
           common_vendor.index.showToast({ title: "已完成2000米目标！", icon: "success" });
@@ -302,52 +406,65 @@ const _sfc_main = {
     const startCampusRun = () => {
       isRunning.value = true;
       duration.value = 0;
-      distanceToCheckpoint.value = 50;
       isReach.value = false;
       stepCount.value = 0;
       heartRate.value = 80;
+      common_vendor.index.removeStorageSync("checkpointReached");
+      startRealLocationTracking();
       startStepCount();
       timer = setInterval(() => {
         duration.value += 1;
-        distanceToCheckpoint.value = Math.max(0, distanceToCheckpoint.value - 0.5);
-        isReach.value = distanceToCheckpoint.value <= 10;
         updateHeartRate();
       }, 1e3);
     };
-    const stopRun = () => {
+    const stopRun = async () => {
+      if (!isRunning.value)
+        return;
+      isRunning.value = false;
       clearInterval(timer);
       stopStepCount();
-      isRunning.value = false;
-      common_vendor.index.removeStorageSync("policeFinishTip");
-      if (currentMode.value === "police") {
-        if (distance.value < policeTargetDistance.value) {
-          common_vendor.index.showModal({
-            title: "训练未完成",
-            content: `仅完成${(distance.value / 1e3).toFixed(2)}公里，未达到2000米目标`,
-            showCancel: false
-          });
-        } else if (currentPace.value > policeTargetPace.value) {
-          common_vendor.index.showModal({
-            title: "配速未达标",
-            content: `当前配速${currentPace.value.toFixed(1)}分钟/公里，未达到${policeTargetPace.value}分钟/公里的考核标准`,
-            showCancel: false
-          });
-        }
-      } else {
-        const km = distance.value / 1e3;
-        const min = duration.value / 60;
-        const pace = km === 0 ? 0 : min / km;
-        if (pace < 3 || pace > 10) {
-          common_vendor.index.showModal({
-            title: "数据异常",
-            content: "配速不在合理范围（3-10分钟/公里），数据可能无效",
-            showCancel: false
-          });
-        }
+      stopRealLocationTracking();
+      const token = common_vendor.index.getStorageSync("token");
+      if (!token) {
+        common_vendor.index.showToast({ title: "请先登录", icon: "none" });
+        setTimeout(() => {
+          common_vendor.index.reLaunch({ url: "/pages/login/login" });
+        }, 800);
+        return;
       }
-      common_vendor.index.navigateTo({
-        url: `/pages/result/result?mode=${currentMode.value}&duration=${duration.value}&distance=${currentMode.value === "campus" ? 50 - distanceToCheckpoint.value : distance.value}&isReach=${isReach.value}&isPoliceFinish=${distance.value >= policeTargetDistance.value}&policePace=${currentPace.value}`
-      });
+      const runData = {
+        type: currentMode.value === "police" ? "test" : "run",
+        source: "free",
+        started_at: new Date(Date.now() - duration.value * 1e3).toISOString(),
+        ended_at: (/* @__PURE__ */ new Date()).toISOString(),
+        metrics: {
+          distance: distance.value / 1e3,
+          // Convert meters to km
+          duration: duration.value,
+          pace: currentPace.value.toFixed(1),
+          count: currentMode.value === "police" ? 1 : null,
+          qualified: currentMode.value === "police" ? currentPace.value <= policeTargetPace.value : false,
+          trajectory: JSON.stringify(trajectoryPoints.value),
+          checkpoints: JSON.stringify(checkinRecords.value)
+        },
+        evidence: []
+      };
+      try {
+        common_vendor.index.showLoading({ title: "提交中..." });
+        const res = await utils_request.submitActivity(runData);
+        common_vendor.index.hideLoading();
+        common_vendor.index.navigateTo({
+          url: `/pages/result/result?data=${encodeURIComponent(JSON.stringify(runData))}`
+        });
+      } catch (error) {
+        common_vendor.index.hideLoading();
+        common_vendor.index.__f__("error", "at pages/run/run.vue:777", "Submit failed:", error);
+        common_vendor.index.showToast({
+          title: error && error.detail ? `提交失败：${error.detail}` : "提交失败，请重试",
+          icon: "none",
+          duration: 2e3
+        });
+      }
     };
     const buildHistory = (records) => {
       const days = 7;
@@ -438,51 +555,53 @@ const _sfc_main = {
       } : {
         K: common_vendor.t(duration.value),
         L: common_vendor.t((distance.value / 1e3).toFixed(2)),
-        M: common_vendor.t(stepCount.value),
-        N: common_vendor.t(heartRate.value),
-        O: normalProgress.value + "%",
-        P: common_vendor.t(dailyTarget.value),
-        Q: common_vendor.t((distance.value / 1e3).toFixed(2)),
-        R: common_vendor.o(stopRun)
+        M: common_vendor.t(currentSpeedKmh.value),
+        N: common_vendor.t(stepCount.value),
+        O: common_vendor.t(heartRate.value),
+        P: common_vendor.t(avgSpeedKmh.value),
+        Q: normalProgress.value + "%",
+        R: common_vendor.t(dailyTarget.value),
+        S: common_vendor.t((distance.value / 1e3).toFixed(2)),
+        T: common_vendor.o(stopRun)
       }) : {}, {
-        S: currentMode.value === "police"
+        U: currentMode.value === "police"
       }, currentMode.value === "police" ? common_vendor.e({
-        T: !isRunning.value
+        V: !isRunning.value
       }, !isRunning.value ? {
-        U: common_vendor.o(startPoliceRun)
+        W: common_vendor.o(startPoliceRun)
       } : common_vendor.e({
-        V: common_vendor.t(duration.value),
-        W: common_vendor.t((distance.value / 1e3).toFixed(2)),
-        X: common_vendor.t(((policeTargetDistance.value - distance.value) / 1e3).toFixed(2)),
-        Y: common_vendor.t(currentPace.value.toFixed(1)),
-        Z: common_vendor.t(heartRate.value),
-        aa: common_vendor.t(stepCount.value),
-        ab: common_vendor.t(currentPace.value <= policeTargetPace.value ? "✅ 配速达标" : "❌ 配速未达标"),
-        ac: currentPace.value <= policeTargetPace.value ? "green" : "red",
-        ad: distance.value >= policeTargetDistance.value
+        X: common_vendor.t(duration.value),
+        Y: common_vendor.t((distance.value / 1e3).toFixed(2)),
+        Z: common_vendor.t(((policeTargetDistance.value - distance.value) / 1e3).toFixed(2)),
+        aa: common_vendor.t(currentPace.value.toFixed(1)),
+        ab: common_vendor.t(heartRate.value),
+        ac: common_vendor.t(stepCount.value),
+        ad: common_vendor.t(currentPace.value <= policeTargetPace.value ? "✅ 配速达标" : "❌ 配速未达标"),
+        ae: currentPace.value <= policeTargetPace.value ? "green" : "red",
+        af: distance.value >= policeTargetDistance.value
       }, distance.value >= policeTargetDistance.value ? {} : {}, {
-        ae: policeProgress.value + "%",
-        af: common_vendor.t((distance.value / 1e3).toFixed(2)),
-        ag: common_vendor.o(stopRun)
+        ag: policeProgress.value + "%",
+        ah: common_vendor.t((distance.value / 1e3).toFixed(2)),
+        ai: common_vendor.o(stopRun)
       })) : {}, {
-        ah: currentMode.value === "campus"
+        aj: currentMode.value === "campus"
       }, currentMode.value === "campus" ? common_vendor.e({
-        ai: !checkpoint.value.name
+        ak: !checkpoint.value.name
       }, !checkpoint.value.name ? {} : common_vendor.e({
-        aj: !isRunning.value
+        al: !isRunning.value
       }, !isRunning.value ? {
-        ak: common_vendor.t(checkpoint.value.name),
-        al: common_vendor.o(startCampusRun)
+        am: common_vendor.t(checkpoint.value.name),
+        an: common_vendor.o(startCampusRun)
       } : {
-        am: common_vendor.t(duration.value),
-        an: common_vendor.t(distanceToCheckpoint.value),
-        ao: common_vendor.t(stepCount.value),
-        ap: common_vendor.t(heartRate.value),
-        aq: common_vendor.t(isReach.value ? "✅ 已到达打卡点" : "❌ 未到达打卡点"),
-        ar: isReach.value ? "green" : "red",
-        as: common_vendor.o(stopRun)
+        ao: common_vendor.t(duration.value),
+        ap: common_vendor.t(distanceToCheckpoint.value),
+        aq: common_vendor.t(stepCount.value),
+        ar: common_vendor.t(heartRate.value),
+        as: common_vendor.t(isReach.value ? "✅ 已到达打卡点" : "❌ 未到达打卡点"),
+        at: isReach.value ? "green" : "red",
+        av: common_vendor.o(stopRun)
       })) : {}, {
-        at: common_vendor.p({
+        aw: common_vendor.p({
           current: "/pages/run/run"
         })
       });

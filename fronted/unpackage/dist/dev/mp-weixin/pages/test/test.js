@@ -74,6 +74,14 @@ const _sfc_main = {
         common_vendor.index.showToast({ title: "已清理传参缓存", icon: "none" });
       }
     });
+    const showSelector = common_vendor.ref(false);
+    const showTypeSelector = () => {
+      showSelector.value = !showSelector.value;
+    };
+    const switchTestType = (project, type) => {
+      handleOptions({ project, type });
+      showSelector.value = false;
+    };
     const formatTime = (seconds) => {
       const m = Math.floor(seconds / 60);
       const s = seconds % 60;
@@ -135,7 +143,7 @@ const _sfc_main = {
       common_vendor.index.navigateTo({ url: "/pages/teacher/students/students" });
     };
     const handleCameraError = (e) => {
-      common_vendor.index.__f__("error", "at pages/test/test.vue:308", "Camera Error:", e);
+      common_vendor.index.__f__("error", "at pages/test/test.vue:325", "Camera Error:", e);
       let msg = "无法访问摄像头";
       if (e.name === "NotAllowedError" || e.message === "Permission denied") {
         msg = "权限被拒绝，请允许摄像头访问";
@@ -157,20 +165,27 @@ const _sfc_main = {
         c: common_vendor.t(projectName.value),
         d: common_vendor.t(standardDesc.value),
         e: common_vendor.t(projectEmoji.value),
-        f: common_vendor.t(count.value),
-        g: progressPercent.value + "%",
-        h: common_vendor.t(statusText.value),
-        i: isStandard.value ? 1 : "",
-        j: common_vendor.o(handleCameraError),
-        k: common_vendor.t(formatTime(duration.value)),
-        l: !isTesting.value
+        f: common_vendor.o(showTypeSelector),
+        g: showSelector.value
+      }, showSelector.value ? {
+        h: common_vendor.o(($event) => switchTestType("引体向上", "pull-up")),
+        i: common_vendor.o(($event) => switchTestType("仰卧起坐", "sit-up")),
+        j: common_vendor.o(($event) => switchTestType("俯卧撑", "push-up"))
+      } : {}, {
+        k: common_vendor.t(count.value),
+        l: progressPercent.value + "%",
+        m: common_vendor.t(statusText.value),
+        n: isStandard.value ? 1 : "",
+        o: common_vendor.o(handleCameraError),
+        p: common_vendor.t(formatTime(duration.value)),
+        q: !isTesting.value
       }, !isTesting.value ? {
-        m: common_vendor.o(startTest)
+        r: common_vendor.o(startTest)
       } : {
-        n: common_vendor.o(endTest),
-        o: common_vendor.o(mockCount)
+        s: common_vendor.o(endTest),
+        t: common_vendor.o(mockCount)
       }), {
-        p: common_vendor.p({
+        v: common_vendor.p({
           current: "/pages/test/test"
         })
       });

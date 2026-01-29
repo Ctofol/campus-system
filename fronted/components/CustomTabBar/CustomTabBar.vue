@@ -68,7 +68,7 @@ const switchTab = (item) => {
   background: white;
   display: flex;
   padding-bottom: env(safe-area-inset-bottom);
-  z-index: 9999;
+  z-index: 99999;
 }
 
 .tab-bar-border {
