@@ -16,7 +16,7 @@
         </view>
         <view class="user-info">
           <text class="username">{{userName}}</text>
-          <text class="user-desc">校园运动打卡 · {{userType}}</text>
+          <text class="user-desc">{{ className ? className + ' · ' : '校园运动打卡 · ' }}{{userType}}</text>
         </view>
         <view class="user-stats">
           <view class="stats-item">
@@ -37,7 +37,10 @@
       <!-- 2. 本周跑步统计 -->
       <view class="week-run-card">
         <view class="card-header">
-          <text class="card-title">本周跑步</text>
+          <view class="header-left">
+            <text class="card-title">本周跑步</text>
+            <text class="target-tag">目标 {{weeklyTarget}} 次</text>
+          </view>
           <text class="date-range">{{weekDateRange}}</text>
         </view>
         <view class="week-stats">
@@ -46,17 +49,20 @@
             <text class="week-text">跑步次数</text>
           </view>
           <view class="week-item">
-            <text class="week-num">{{weekRunDistance}}km</text>
-            <text class="week-text">总距离</text>
+            <text class="week-num">{{formatDistance(weekRunDistance)}}</text>
+            <text class="week-text">总距离(km)</text>
           </view>
           <view class="week-item">
-            <text class="week-num">{{weekPoliceSuccess}}次</text>
+            <text class="week-num">{{weekPoliceSuccess}}</text>
             <text class="week-text">体测达标</text>
           </view>
         </view>
         <!-- 本周目标进度条 -->
         <view class="progress-box">
-          <text class="progress-title">本周目标：跑步3次（完成{{weekRunCount}}/3）</text>
+          <view class="progress-header">
+            <text class="progress-info">已完成 {{weekRunCount}}/{{weeklyTarget}}</text>
+            <text class="progress-percent">{{Math.round(progressPercent)}}%</text>
+          </view>
           <view class="progress-bar">
             <view class="progress-fill" :style="{width: progressPercent + '%'}"></view>
           </view>
@@ -96,6 +102,12 @@
       
       <!-- 4. 设置中心 -->
       <view class="setting-card">
+        <view class="setting-item" @click="gotoHealthRequest">
+          <text class="setting-icon">🩺</text>
+          <text class="setting-text">健康报备</text>
+          <text class="setting-desc">请假/伤病申请</text>
+          <text class="arrow">＞</text>
+        </view>
         <view class="setting-item" @click="gotoDeviceBind">
           <text class="setting-icon">📱</text>
           <text class="setting-text">设备绑定（防代跑）</text>
@@ -136,11 +148,13 @@ const statusBarHeight = ref(20);
 
 const userName = ref('同学');
 const userType = ref('学生');
+const className = ref('');
 const totalRunCount = ref(0);
 const totalRunDistance = ref(0.0);
 const policeSuccessCount = ref(0);
 
 const weekDateRange = ref('本周');
+const weeklyTarget = ref(3);
 const weekRunCount = ref(0);
 const weekRunDistance = ref(0.0);
 const weekPoliceSuccess = ref(0);
@@ -150,6 +164,12 @@ const runRecords = ref([]);
 const showRecords = computed(() => runRecords.value.slice(0, 5));
 
 const deviceId = ref('');
+
+const formatDistance = (val) => {
+    const num = Number(val);
+    if (isNaN(num)) return '0.00';
+    return num.toFixed(2);
+};
 
 const formatDuration = (seconds) => {
     const h = Math.floor(seconds / 3600);
@@ -201,11 +221,34 @@ const fetchHistory = async () => {
             weekRunCount.value = runs.length;
             weekRunDistance.value = totalRunDistance.value;
             weekPoliceSuccess.value = policeSuccessCount.value;
-            progressPercent.value = Math.min((runs.length / 3) * 100, 100);
+            progressPercent.value = Math.min((runs.length / weeklyTarget.value) * 100, 100);
         }
     } catch (e) {
         console.error('Fetch history failed', e);
         // uni.showToast({ title: '获取记录失败', icon: 'none' });
+    }
+};
+
+const fetchUserProfile = async () => {
+    try {
+        const res = await request({
+            url: '/users/profile',
+            method: 'GET'
+        });
+        if (res) {
+            if (res.name) userName.value = res.name;
+            if (res.class_name) className.value = res.class_name;
+            
+            // Update storage
+            let currentUser = uni.getStorageSync('userInfo');
+            if (typeof currentUser === 'string') {
+                try { currentUser = JSON.parse(currentUser); } catch(e) { currentUser = {}; }
+            }
+            const newUser = { ...currentUser, ...res };
+            uni.setStorageSync('userInfo', newUser);
+        }
+    } catch (e) {
+        console.error('Fetch profile failed', e);
     }
 };
 
@@ -214,27 +257,36 @@ onShow(() => {
   
   const user = uni.getStorageSync('userInfo');
   if (user) {
+    let u = user;
     if (typeof user === 'string') {
         try {
-            const u = JSON.parse(user);
-            if(u.name) userName.value = u.name;
+            u = JSON.parse(user);
         } catch(e){}
-    } else if (user.name) {
-        userName.value = user.name;
+    }
+    
+    if (u) {
+        if(u.name) userName.value = u.name;
+        if(u.class_name) className.value = u.class_name;
     }
   }
   
   fetchHistory();
+  fetchUserProfile();
 });
 
 const gotoUserProfile = () => {
   uni.showToast({ title: '编辑资料功能待开发', icon: 'none' });
 };
 
+const gotoHealthRequest = () => {
+  uni.navigateTo({ url: '/pages/health/request' });
+};
+
 const viewAllRecords = () => {
   // uni.showToast({ title: '查看全部记录待开发', icon: 'none' });
   // 暂时不需要跳转，直接在本页看前20条即可，或者后续做列表页
-  uni.navigateTo({ url: '/pages/record/list' }); // 假设有这个页面，或者先不做动作
+  // uni.navigateTo({ url: '/pages/record/list' }); // 假设有这个页面，或者先不做动作
+  uni.showToast({ title: '功能开发中', icon: 'none' });
 };
 
 const gotoRecordDetail = (item) => {
@@ -311,36 +363,40 @@ const logout = () => {
 /* 1. 账号主页 */
 .user-header {
   background-color: #fff;
-  padding: 30rpx 20rpx;
+  padding: 40rpx 30rpx;
   margin-bottom: 20rpx;
 }
 .avatar-box {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 20rpx;
 }
 .avatar {
-  width: 120rpx;
-  height: 120rpx;
+  width: 140rpx;
+  height: 140rpx;
   border-radius: 50%;
   margin-right: 20rpx;
+  border: 4rpx solid #fff;
+  box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.08);
 }
 .edit-avatar {
   font-size: 24rpx;
   color: #20C997;
-  background-color: #f5f5f5;
+  background-color: rgba(32, 201, 151, 0.1);
   border: none;
-  padding: 8rpx 16rpx;
-  border-radius: 20rpx;
+  padding: 10rpx 24rpx;
+  border-radius: 30rpx;
+  margin-left: auto;
 }
 .user-info {
-  margin-bottom: 20rpx;
+  margin-bottom: 40rpx;
 }
 .username {
-  font-size: 36rpx;
+  font-size: 40rpx;
   font-weight: bold;
   color: #333;
   display: block;
+  margin-bottom: 8rpx;
 }
 .user-desc {
   font-size: 26rpx;
@@ -351,22 +407,25 @@ const logout = () => {
 .user-stats {
   display: flex;
   justify-content: space-around;
-  padding-top: 20rpx;
-  border-top: 1px dashed #eee;
+  padding-top: 30rpx;
+  border-top: 1px solid #f5f5f5;
 }
 .stats-item {
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 .stats-num {
-  font-size: 32rpx;
+  font-size: 36rpx;
   font-weight: bold;
   color: #20C997;
   display: block;
+  font-family: DINAlternate-Bold, sans-serif;
 }
 .stats-text {
   font-size: 24rpx;
-  color: #666;
-  margin-top: 5rpx;
+  color: #999;
+  margin-top: 8rpx;
   display: block;
 }
 
@@ -374,19 +433,32 @@ const logout = () => {
 .week-run-card {
   background-color: #fff;
   margin: 0 20rpx 20rpx;
-  padding: 20rpx;
-  border-radius: 12rpx;
+  padding: 24rpx;
+  border-radius: 16rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.05);
 }
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20rpx;
+  margin-bottom: 30rpx;
+}
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
 }
 .card-title {
-  font-size: 30rpx;
+  font-size: 32rpx;
   font-weight: bold;
   color: #333;
+}
+.target-tag {
+  font-size: 20rpx;
+  color: #fff;
+  background: #FF9F43;
+  padding: 2rpx 10rpx;
+  border-radius: 8rpx;
 }
 .date-range {
   font-size: 24rpx;
@@ -395,42 +467,54 @@ const logout = () => {
 .week-stats {
   display: flex;
   justify-content: space-around;
-  margin-bottom: 20rpx;
+  margin-bottom: 30rpx;
 }
 .week-item {
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 .week-num {
-  font-size: 28rpx;
+  font-size: 36rpx;
   font-weight: bold;
+  color: #333;
+  font-family: DINAlternate-Bold, sans-serif;
 }
 .week-text {
-  font-size: 22rpx;
-  color: #666;
-  margin-top: 4rpx;
-  display: block;
+  font-size: 24rpx;
+  color: #888;
+  margin-top: 8rpx;
 }
 .progress-box {
-  background-color: #f9f9f9;
+  background-color: #f8f9fa;
   padding: 20rpx;
-  border-radius: 8rpx;
+  border-radius: 12rpx;
 }
-.progress-title {
-  font-size: 22rpx;
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 12rpx;
+  font-size: 24rpx;
   color: #666;
-  margin-bottom: 10rpx;
-  display: block;
+}
+.progress-info {
+  font-weight: 500;
+}
+.progress-percent {
+  color: #20C997;
+  font-weight: bold;
 }
 .progress-bar {
-  height: 10rpx;
-  background-color: #e0e0e0;
-  border-radius: 5rpx;
+  height: 12rpx;
+  background-color: #e9ecef;
+  border-radius: 6rpx;
   overflow: hidden;
 }
 .progress-fill {
   height: 100%;
-  background-color: #20C997;
-  border-radius: 5rpx;
+  background: linear-gradient(90deg, #20C997, #4ECDC4);
+  border-radius: 6rpx;
+  transition: width 0.5s ease;
 }
 
 /* 3. 运动记录 */

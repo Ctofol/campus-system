@@ -95,6 +95,7 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { onShow, onLoad } from '@dcloudio/uni-app';
+import { request } from '@/utils/request';
 
 const id = ref('');
 const name = ref('');
@@ -104,19 +105,11 @@ const group = ref('体能A组'); // Mock group
 const healthStatus = ref('良好');
 const activeTab = ref('run');
 
-const runList = ref([
-  { date: '05-10 07:20', distance: 3.2, duration: '00:22', modeText: '普通跑步', pace: "6'52\"" },
-  { date: '05-12 18:05', distance: 2.0, duration: '00:13', modeText: '警务专项', pace: "6'30\"" },
-  { date: '05-15 06:40', distance: 5.0, duration: '00:30', modeText: '耐力跑', pace: "6'00\"" }
-]);
-
-const testList = ref([
-  { date: '05-08 09:30', testName: '引体向上', testCount: 12, result: '合格' },
-  { date: '05-14 15:10', testName: '仰卧起坐', testCount: 35, result: '未合格' }
-]);
+const runList = ref([]);
+const testList = ref([]);
 
 const totalDistance = computed(() => {
-  return runList.value.reduce((acc, cur) => acc + cur.distance, 0).toFixed(1);
+  return runList.value.reduce((acc, cur) => acc + parseFloat(cur.distance), 0).toFixed(1);
 });
 
 const healthClass = computed(() => {
@@ -125,24 +118,97 @@ const healthClass = computed(() => {
 
 onLoad((opt) => {
   id.value = opt.id || '';
-  name.value = opt.name || '';
-  no.value = opt.no || '';
-  className.value = opt.class || '';
-  // In real app, fetch detailed info by id
+  if (id.value) {
+      fetchData();
+  }
 });
 
+const formatTime = (isoString) => {
+    if (!isoString) return '';
+    const date = new Date(isoString);
+    const m = (date.getMonth() + 1).toString().padStart(2, '0');
+    const d = date.getDate().toString().padStart(2, '0');
+    const h = date.getHours().toString().padStart(2, '0');
+    const min = date.getMinutes().toString().padStart(2, '0');
+    return `${m}-${d} ${h}:${min}`;
+};
+
+const formatDuration = (seconds) => {
+    if (!seconds) return '00:00';
+    const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+    const s = (seconds % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+};
+
+const fetchData = async () => {
+    try {
+        // 0. Load classes to map name
+        const classes = await request({ url: '/teacher/classes' });
+        
+        // 1. Get student info
+        const student = await request({ url: `/teacher/students/${id.value}` });
+        name.value = student.name;
+        no.value = student.student_id || student.phone; // Use student_id if available
+        
+        // Map Class Name
+        if (student.class_id) {
+            const cls = classes.find(c => c.id === student.class_id);
+            className.value = cls ? cls.name : '未知班级';
+        } else {
+            className.value = '未分配班级';
+        }
+        
+        // Map Group & Health
+        group.value = student.group_name || '未分组';
+        
+        const statusMap = {
+            'normal': '正常',
+            'leave': '请假',
+            'injured': '受伤'
+        };
+        healthStatus.value = statusMap[student.health_status] || '正常';
+        
+        // 2. Get activities
+        const res = await request({ url: `/teacher/student/${id.value}/activities`, data: { size: 100 } });
+        // Check if res is array or object with items
+        const allActs = res.items || res; // handle pagination response or list
+        
+        if (Array.isArray(allActs)) {
+            runList.value = allActs.filter(a => a.type === 'run').map(a => ({
+                 date: formatTime(a.started_at),
+                 distance: (a.metrics?.distance || 0).toFixed(2),
+                 duration: formatDuration(a.metrics?.duration || 0),
+                 modeText: a.source === 'task' ? '任务跑步' : '自由跑',
+                 pace: a.metrics?.pace || '-'
+            }));
+
+            testList.value = allActs.filter(a => a.type === 'test').map(a => ({
+                 date: formatTime(a.started_at),
+                 testName: '体能测试',
+                 testCount: a.metrics?.count || 0,
+                 result: a.metrics?.qualified ? '合格' : '未合格'
+            }));
+        }
+
+    } catch (e) {
+        uni.showToast({ title: '加载数据失败', icon: 'none' });
+        console.error(e);
+    }
+};
+
 onShow(() => {
-  const role = uni.getStorageSync('userRole') || uni.getStorageSync('role');
-  if (role !== 'teacher') {
-    // Just a safeguard, usually handled by middleware
-  }
+  // 
 });
 
 const contactStudent = () => {
   uni.showActionSheet({
     itemList: ['拨打电话', '发送消息'],
     success: (res) => {
-      uni.showToast({ title: '操作已模拟', icon: 'none' });
+      if (res.tapIndex === 0) {
+          uni.makePhoneCall({ phoneNumber: no.value });
+      } else {
+          uni.showToast({ title: '功能开发中', icon: 'none' });
+      }
     }
   });
 };

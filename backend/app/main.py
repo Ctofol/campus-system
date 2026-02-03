@@ -1,17 +1,22 @@
-from fastapi import FastAPI, Depends, HTTPException, status, File, UploadFile
+from fastapi import FastAPI, Depends, HTTPException, status, File, UploadFile, Body
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from typing import List
+from sqlalchemy import or_
+from typing import List, Optional
+from datetime import datetime
 import shutil
 import os
 import uuid
 from . import models, schemas, auth, database
+from .routers import admin
 
 # 初始化数据库表
 models.Base.metadata.create_all(bind=database.engine)
 
 app = FastAPI(title="Campus Sports Health MVP")
+
+app.include_router(admin.router)
 
 # Mount uploads directory
 if not os.path.exists("uploads"):
@@ -32,6 +37,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Content-Disposition", "content-disposition"]
 )
 
 # Dependency
@@ -80,13 +86,38 @@ def login(user_data: schemas.UserLogin, db: Session = Depends(get_db)):
     access_token = auth.create_access_token(
         data={"sub": user.phone, "role": user.role}
     )
+    
+    class_name = user.student_class.name if user.student_class else None
+    
     return {
         "access_token": access_token, 
         "token_type": "bearer",
         "role": user.role,
         "user_id": user.id,
-        "name": user.name
+        "name": user.name,
+        "class_name": class_name,
+        "student_id": user.student_id
     }
+
+@app.get("/users/profile", response_model=schemas.UserProfile)
+def get_my_profile(
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    # Ensure fresh data
+    db.refresh(current_user)
+    
+    profile_data = {
+        "id": current_user.id,
+        "name": current_user.name,
+        "phone": current_user.phone,
+        "role": current_user.role,
+        "student_id": current_user.student_id,
+        "group_name": current_user.group_name,
+        "health_status": current_user.health_status,
+        "class_name": current_user.student_class.name if current_user.student_class else None
+    }
+    return profile_data
 
 # --- Student Interfaces ---
 
@@ -146,6 +177,214 @@ def get_history(
         "size": size
     }
 
+# --- Class Interfaces ---
+
+@app.get("/teacher/available_classes", response_model=List[schemas.ClassOut])
+def get_available_classes(
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db)
+):
+    classes = db.query(models.Class).filter(models.Class.teacher_id == None).all()
+    results = []
+    for c in classes:
+        c_dict = c.__dict__
+        c_dict["student_count"] = len(c.students)
+        results.append(c_dict)
+    return results
+
+@app.post("/teacher/classes/bind")
+def bind_classes(
+    bind_data: schemas.ClassBind,
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db)
+):
+    classes = db.query(models.Class).filter(models.Class.id.in_(bind_data.class_ids)).all()
+    for cls in classes:
+        if cls.teacher_id is not None and cls.teacher_id != current_user.id:
+            continue
+        cls.teacher_id = current_user.id
+    db.commit()
+    return {"ok": True}
+
+@app.get("/teacher/classes", response_model=List[schemas.ClassOut])
+def get_classes(
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db)
+):
+    classes = db.query(models.Class).filter(models.Class.teacher_id == current_user.id).all()
+    results = []
+    for c in classes:
+        c_dict = c.__dict__
+        c_dict["student_count"] = len(c.students)
+        results.append(c_dict)
+    return results
+
+@app.delete("/teacher/classes/{class_id}")
+def unbind_class(
+    class_id: int,
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db)
+):
+    cls = db.query(models.Class).filter(models.Class.id == class_id, models.Class.teacher_id == current_user.id).first()
+    if not cls:
+        raise HTTPException(status_code=404, detail="Class not found")
+    
+    cls.teacher_id = None
+    db.commit()
+    return {"ok": True}
+
+@app.get("/teacher/classes/{class_id}", response_model=schemas.ClassDetail)
+def get_class_detail(
+    class_id: int,
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db)
+):
+    cls = db.query(models.Class).filter(models.Class.id == class_id).first()
+    if not cls:
+         raise HTTPException(status_code=404, detail="Class not found")
+    
+    if cls.teacher_id != current_user.id:
+         raise HTTPException(status_code=403, detail="Not authorized to view this class")
+    
+    c_dict = cls.__dict__
+    c_dict["student_count"] = len(cls.students)
+    c_dict["students"] = cls.students
+    return c_dict
+
+@app.put("/teacher/classes/{class_id}", response_model=schemas.ClassOut)
+def update_class(
+    class_id: int,
+    class_in: schemas.ClassCreate,
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db)
+):
+    cls = db.query(models.Class).filter(models.Class.id == class_id, models.Class.teacher_id == current_user.id).first()
+    if not cls:
+        raise HTTPException(status_code=404, detail="Class not found")
+        
+    cls.name = class_in.name
+    db.commit()
+    db.refresh(cls)
+    
+    # Manually attach student count
+    c_dict = cls.__dict__
+    c_dict["student_count"] = len(cls.students)
+    return c_dict
+
+@app.get("/teacher/classes/{class_id}/students", response_model=List[schemas.StudentDetail])
+def get_class_students(
+    class_id: int,
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db)
+):
+    cls = db.query(models.Class).filter(models.Class.id == class_id, models.Class.teacher_id == current_user.id).first()
+    if not cls:
+        raise HTTPException(status_code=404, detail="Class not found")
+    
+    return cls.students
+
+@app.post("/teacher/classes/{class_id}/students")
+def add_student_to_class(
+    class_id: int,
+    phone: str = Body(..., embed=True),
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db)
+):
+    cls = db.query(models.Class).filter(models.Class.id == class_id, models.Class.teacher_id == current_user.id).first()
+    if not cls:
+        raise HTTPException(status_code=404, detail="Class not found")
+        
+    student = db.query(models.User).filter(models.User.phone == phone, models.User.role == "student").first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+        
+    student.class_id = class_id
+    db.commit()
+    return {"ok": True}
+
+@app.delete("/teacher/classes/{class_id}/students/{student_id}")
+def remove_student_from_class(
+    class_id: int,
+    student_id: int,
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db)
+):
+    cls = db.query(models.Class).filter(models.Class.id == class_id, models.Class.teacher_id == current_user.id).first()
+    if not cls:
+        raise HTTPException(status_code=404, detail="Class not found")
+        
+    student = db.query(models.User).filter(models.User.id == student_id, models.User.class_id == class_id).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found in this class")
+        
+    student.class_id = None
+    db.commit()
+    return {"ok": True}
+
+@app.get("/teacher/classes/{class_id}/stats")
+def get_class_stats(
+    class_id: int,
+    task_id: Optional[int] = None,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db)
+):
+    cls = db.query(models.Class).filter(models.Class.id == class_id, models.Class.teacher_id == current_user.id).first()
+    if not cls:
+        raise HTTPException(status_code=404, detail="Class not found")
+    
+    # Pre-fetch task if provided to filter by task type/window
+    task = None
+    if task_id:
+        task = db.query(models.Task).filter(models.Task.id == task_id).first()
+
+    # 简单统计：总里程，总运动次数，人均数据
+    total_distance = 0.0
+    total_activities = 0
+    student_stats = []
+    
+    for student in cls.students:
+        query = db.query(models.Activity).filter(models.Activity.user_id == student.id)
+        
+        # Filter by Task
+        if task:
+            query = query.filter(models.Activity.type == task.type)
+            if task.created_at:
+                 query = query.filter(models.Activity.started_at >= task.created_at)
+            if task.deadline:
+                query = query.filter(models.Activity.started_at <= task.deadline)
+
+        # Filter by Time Range
+        if start_date:
+            query = query.filter(models.Activity.started_at >= start_date)
+        if end_date:
+             query = query.filter(models.Activity.started_at <= end_date)
+
+        activities = query.all()
+        s_dist = 0.0
+        s_count = len(activities)
+        for act in activities:
+            if act.metrics and act.metrics.distance:
+                s_dist += act.metrics.distance
+        
+        total_distance += s_dist
+        total_activities += s_count
+        student_stats.append({
+            "id": student.id,
+            "name": student.name,
+            "distance": s_dist,
+            "count": s_count
+        })
+        
+    return {
+        "class_name": cls.name,
+        "student_count": len(cls.students),
+        "total_distance": total_distance,
+        "total_activities": total_activities,
+        "student_stats": student_stats
+    }
+
 # --- Teacher Interfaces ---
 
 @app.get("/teacher/activities", response_model=schemas.TeacherActivityListResponse)
@@ -180,6 +419,43 @@ def get_teacher_activities(
         "size": size
     }
 
+@app.get("/teacher/stats", response_model=schemas.TeacherStatsOut)
+def get_teacher_stats(
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db)
+):
+    # 1. Student Count
+    student_count = db.query(models.User).filter(models.User.role == "student").count()
+    
+    # 2. Pending Approvals (Health Requests)
+    pending_approvals = db.query(models.HealthRequest).filter(models.HealthRequest.status == "pending").count()
+    
+    # 3. Abnormal Count
+    abnormal_count = db.query(models.User).filter(
+        models.User.role == "student",
+        models.User.health_status != "normal"
+    ).count()
+    
+    # 4. Today Check-in (Activities today)
+    today = datetime.utcnow().date()
+    today_start = datetime(today.year, today.month, today.day)
+    today_checkin = db.query(models.Activity).filter(
+        models.Activity.started_at >= today_start
+    ).count()
+    
+    # 5. Task Count
+    task_count = db.query(models.Task).count()
+    
+    return {
+        "student_count": student_count,
+        "today_checkin": today_checkin,
+        "abnormal_count": abnormal_count,
+        "pending_approvals": pending_approvals,
+        "avg_pace": "5'45\"", # Mock for now
+        "task_count": task_count,
+        "compliance_rate": 92 # Mock for now
+    }
+
 @app.get("/teacher/student/{student_id}/activities", response_model=schemas.ActivityListResponse)
 def get_student_activities_for_teacher(
     student_id: int,
@@ -198,6 +474,257 @@ def get_student_activities_for_teacher(
         "page": page,
         "size": size
     }
+
+
+
+# --- Advanced Student Management ---
+
+@app.get("/teacher/students", response_model=List[schemas.StudentDetail])
+def get_all_students(
+    page: int = 1,
+    size: int = 20,
+    class_id: Optional[int] = None,
+    name: Optional[str] = None,
+    student_id: Optional[str] = None,
+    status: Optional[str] = None, # 'normal', 'leave', 'injured'
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db)
+):
+    # Only show students in classes managed by the current teacher
+    query = db.query(models.User).join(models.Class, models.User.class_id == models.Class.id).filter(
+        models.User.role == "student",
+        models.Class.teacher_id == current_user.id
+    )
+    
+    if class_id:
+        query = query.filter(models.User.class_id == class_id)
+    if name:
+        query = query.filter(models.User.name.contains(name))
+    if student_id:
+        query = query.filter(models.User.student_id.contains(student_id))
+    if status:
+        query = query.filter(models.User.health_status == status)
+    
+    total = query.count()
+    students = query.offset((page - 1) * size).limit(size).all()
+    return students
+
+@app.get("/teacher/students/abnormal", response_model=List[schemas.StudentDetail])
+def get_abnormal_students(
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db)
+):
+    students = db.query(models.User).join(models.Class, models.User.class_id == models.Class.id).filter(
+        models.User.role == "student",
+        models.Class.teacher_id == current_user.id,
+        models.User.health_status != "normal"
+    ).all()
+    return students
+
+@app.get("/teacher/students/{student_id}", response_model=schemas.StudentDetail)
+def get_student_detail(
+    student_id: int,
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db)
+):
+    student = db.query(models.User).filter(models.User.id == student_id, models.User.role == "student").first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    return student
+
+@app.put("/teacher/students/{student_id}", response_model=schemas.StudentDetail)
+def update_student(
+    student_id: int,
+    student_in: schemas.StudentUpdate,
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db)
+):
+    student = db.query(models.User).filter(models.User.id == student_id, models.User.role == "student").first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+        
+    if student_in.student_id is not None:
+        student.student_id = student_in.student_id
+    if student_in.health_status is not None:
+        student.health_status = student_in.health_status
+    if student_in.abnormal_reason is not None:
+        student.abnormal_reason = student_in.abnormal_reason
+    if student_in.group_name is not None:
+        student.group_name = student_in.group_name
+    if student_in.class_id is not None:
+        student.class_id = student_in.class_id
+        
+    db.commit()
+    db.refresh(student)
+    return student
+
+@app.post("/teacher/students/bulk-update", status_code=200)
+def bulk_update_students(
+    update_in: schemas.BulkUpdateStudent,
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db)
+):
+    query = db.query(models.User).filter(
+        models.User.id.in_(update_in.student_ids),
+        models.User.role == "student"
+    )
+    
+    update_data = {}
+    if update_in.health_status is not None:
+        update_data[models.User.health_status] = update_in.health_status
+    if update_in.abnormal_reason is not None:
+        update_data[models.User.abnormal_reason] = update_in.abnormal_reason
+    if update_in.group_name is not None:
+        update_data[models.User.group_name] = update_in.group_name
+    if update_in.class_id is not None:
+        update_data[models.User.class_id] = update_in.class_id
+        
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No update data provided")
+        
+    # Using synchronize_session=False for efficiency, but we need to verify if any rows matched
+    rows_updated = query.update(update_data, synchronize_session=False)
+    db.commit()
+    
+    return {"message": "Success", "updated_count": rows_updated}
+
+@app.post("/teacher/students/export")
+def export_students(
+    export_in: schemas.BulkUpdateStudent, # Reusing this schema as it has student_ids and filters
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db)
+):
+    import csv
+    import io
+    from fastapi.responses import StreamingResponse
+
+    query = db.query(models.User).filter(models.User.role == "student")
+    
+    # If specific IDs are provided, export those
+    if export_in.student_ids:
+        query = query.filter(models.User.id.in_(export_in.student_ids))
+    else:
+        # Otherwise apply filters
+        if export_in.class_id:
+            query = query.filter(models.User.class_id == export_in.class_id)
+        if export_in.health_status:
+            query = query.filter(models.User.health_status == export_in.health_status)
+        if export_in.group_name:
+            query = query.filter(models.User.group_name == export_in.group_name)
+        
+    students = query.all()
+    
+    # Generate CSV
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Header
+    writer.writerow(['ID', 'Name', 'Student ID', 'Phone', 'Class ID', 'Group', 'Health Status', 'Abnormal Reason'])
+    
+    for s in students:
+        writer.writerow([
+            s.id,
+            s.name,
+            s.student_id or '',
+            s.phone,
+            s.class_id or '',
+            s.group_name or '',
+            s.health_status,
+            s.abnormal_reason or ''
+        ])
+        
+    output.seek(0)
+    
+    response = StreamingResponse(iter([output.getvalue()]), media_type="text/csv")
+    response.headers["Content-Disposition"] = "attachment; filename=students_export.csv"
+    return response
+
+
+
+# --- Health Status Management ---
+
+@app.post("/student/health/request", response_model=schemas.HealthRequestOut)
+def create_health_request(
+    request_in: schemas.HealthRequestCreate,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    if current_user.role != "student":
+        raise HTTPException(status_code=403, detail="Only students can submit health requests")
+        
+    # Check if there is already a pending request
+    pending = db.query(models.HealthRequest).filter(
+        models.HealthRequest.student_id == current_user.id,
+        models.HealthRequest.status == "pending"
+    ).first()
+    
+    if pending:
+        raise HTTPException(status_code=400, detail="You already have a pending request")
+        
+    new_req = models.HealthRequest(
+        student_id=current_user.id,
+        type=request_in.type,
+        reason=request_in.reason,
+        status="pending"
+    )
+    db.add(new_req)
+    db.commit()
+    db.refresh(new_req)
+    return new_req
+
+@app.get("/student/health/requests", response_model=List[schemas.HealthRequestOut])
+def get_my_health_requests(
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    if current_user.role != "student":
+        raise HTTPException(status_code=403, detail="Only students can view their health requests")
+        
+    requests = db.query(models.HealthRequest).filter(
+        models.HealthRequest.student_id == current_user.id
+    ).order_by(models.HealthRequest.created_at.desc()).all()
+    
+    return requests
+
+@app.get("/teacher/health/requests", response_model=List[schemas.HealthRequestOut])
+def get_pending_health_requests(
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db)
+):
+    requests = db.query(models.HealthRequest).filter(
+        models.HealthRequest.status == "pending"
+    ).all()
+    return requests
+
+@app.put("/teacher/health/requests/{request_id}/review")
+def review_health_request(
+    request_id: int,
+    status: str = Body(..., embed=True), # 'approved' or 'rejected'
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db)
+):
+    if status not in ["approved", "rejected"]:
+        raise HTTPException(status_code=400, detail="Invalid status")
+        
+    req = db.query(models.HealthRequest).filter(models.HealthRequest.id == request_id).first()
+    if not req:
+        raise HTTPException(status_code=404, detail="Request not found")
+        
+    req.status = status
+    
+    # If approved, update student status
+    if status == "approved":
+        student = db.query(models.User).filter(models.User.id == req.student_id).first()
+        if student:
+            if req.type == "leave":
+                student.health_status = "leave"
+                student.abnormal_reason = req.reason
+            elif req.type == "injury":
+                student.health_status = "injured"
+                student.abnormal_reason = req.reason
+                
+    db.commit()
+    return {"ok": True}
 
 @app.post("/teacher/activity/{activity_id}/approve", response_model=schemas.ActivityOut)
 def approve_activity(
@@ -244,6 +771,7 @@ def create_task(
         deadline=task_in.deadline,
         description=task_in.description,
         target_group=task_in.target_group,
+        class_id=task_in.class_id,
         created_by=current_user.id
     )
     db.add(new_task)
@@ -255,10 +783,19 @@ def create_task(
 def get_teacher_tasks(
     page: int = 1,
     size: int = 20,
+    status: Optional[str] = None, # 'active', 'ended'
     current_user: models.User = Depends(auth.get_current_teacher),
     db: Session = Depends(get_db)
 ):
     query = db.query(models.Task).filter(models.Task.created_by == current_user.id)
+    
+    # Default to active tasks if status is not provided or explicitly 'active'
+    if status == 'ended':
+        query = query.filter(models.Task.deadline < datetime.utcnow())
+    elif status == 'active' or status is None:
+        # Show tasks with no deadline OR deadline in future
+        query = query.filter(or_(models.Task.deadline == None, models.Task.deadline > datetime.utcnow()))
+        
     total = query.count()
     tasks = query.order_by(models.Task.id.desc()).offset((page - 1) * size).limit(size).all()
     
@@ -443,6 +980,18 @@ def get_student_tasks(
     now = datetime.utcnow()
 
     query = db.query(models.Task)
+    
+    # 仅显示本班老师发布的任务或全局任务（class_id 为 NULL）
+    if current_user.class_id:
+        cls = db.query(models.Class).filter(models.Class.id == current_user.class_id).first()
+        teacher_id = cls.teacher_id if cls else None
+        query = query.filter(or_(models.Task.class_id == current_user.class_id, models.Task.class_id == None))
+        if teacher_id:
+            query = query.filter(models.Task.created_by == teacher_id)
+    else:
+        # 没有班级的学生仅显示全局任务
+        query = query.filter(models.Task.class_id == None)
+
     total = query.count()
     tasks = query.order_by(models.Task.id.desc()).offset((page - 1) * size).limit(size).all()
     

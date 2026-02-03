@@ -12,6 +12,25 @@ class User(Base):
     phone = Column(String, unique=True, index=True, nullable=False)
     password_hash = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+    class_id = Column(Integer, ForeignKey("classes.id"), nullable=True)
+    student_id = Column(String, unique=True, nullable=True) # 学号
+    health_status = Column(String, default="normal") # normal, leave, injured
+    abnormal_reason = Column(String, nullable=True)
+    group_name = Column(String, nullable=True)
+
+    student_class = relationship("Class", back_populates="students", foreign_keys=[class_id])
+    health_requests = relationship("HealthRequest", back_populates="student")
+
+class Class(Base):
+    __tablename__ = "classes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True, nullable=False)
+    teacher_id = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    teacher = relationship("User", foreign_keys=[teacher_id])
+    students = relationship("User", back_populates="student_class", foreign_keys="User.class_id")
 
 class Activity(Base):
     __tablename__ = "activities"
@@ -80,10 +99,12 @@ class Task(Base):
     deadline = Column(DateTime, nullable=True)
     description = Column(String, nullable=True)
     target_group = Column(String, default="all") # 'all', 'group_a', etc.
+    class_id = Column(Integer, ForeignKey("classes.id"), nullable=True)
     created_by = Column(Integer, ForeignKey("users.id"))  # teacher_id
     created_at = Column(DateTime, default=datetime.utcnow)
 
     creator = relationship("User")
+    target_class = relationship("Class")
 
 class ActivityReview(Base):
     __tablename__ = "activity_review"
@@ -94,5 +115,18 @@ class ActivityReview(Base):
     result = Column(String, default="approved")  # 'approved'
     reviewed_at = Column(DateTime, default=datetime.utcnow)
 
-    activity = relationship("Activity", back_populates="review")
     teacher = relationship("User")
+    activity = relationship("Activity", back_populates="review")
+
+class HealthRequest(Base):
+    __tablename__ = "health_requests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    student_id = Column(Integer, ForeignKey("users.id"))
+    type = Column(String, nullable=False)  # 'leave' | 'injury'
+    reason = Column(String, nullable=True)
+    status = Column(String, default="pending")  # 'pending' | 'approved' | 'rejected'
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    student = relationship("User", back_populates="health_requests")

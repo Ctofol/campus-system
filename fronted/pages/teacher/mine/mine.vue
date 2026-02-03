@@ -13,7 +13,7 @@
       <view class="avatar">👮‍♂️</view>
       <view class="info">
         <text class="name">{{ userInfo.name || '教官' }}</text>
-        <text class="role">警务体能教研室</text>
+        <text class="role">体能教研室</text>
       </view>
     </view>
     

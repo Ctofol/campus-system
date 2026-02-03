@@ -1,12 +1,19 @@
 // 基础配置
-let baseUrl = 'http://localhost:8000';
+let baseUrl = 'http://127.0.0.1:8000';
 // #ifndef H5
-baseUrl = 'http://10.48.100.174:8000'; // 真机调试地址（自动检测到的局域网IP）
+baseUrl = 'http://192.168.0.210:8000'; // 真机调试地址（自动检测到的局域网IP）
 // #endif
 export const BASE_URL = baseUrl;
 
 // 请求封装
-export const request = (options) => {
+export const request = (...args) => {
+  let options = {};
+  if (typeof args[0] === 'string') {
+    options = { url: args[0], ...args[1] };
+  } else {
+    options = args[0] || {};
+  }
+  
   return new Promise((resolve, reject) => {
     // 获取 Token
     const token = uni.getStorageSync('token');
@@ -14,7 +21,7 @@ export const request = (options) => {
     // 组装 Header
     const header = {
       'Content-Type': 'application/json',
-      ...options.header
+      ...(options.header || {})
     };
     
     if (token) {
@@ -140,7 +147,11 @@ export const deleteTask = (taskId) => {
 export const getTeacherTasks = (params) => {
   let queryString = '';
   if (params) {
-    queryString = `?page=${params.page}&size=${params.size}`;
+    const queryParts = [];
+    if (params.page) queryParts.push(`page=${params.page}`);
+    if (params.size) queryParts.push(`size=${params.size}`);
+    if (params.status) queryParts.push(`status=${params.status}`);
+    if (queryParts.length > 0) queryString = `?${queryParts.join('&')}`;
   }
   return request({
     url: `/teacher/tasks${queryString}`,

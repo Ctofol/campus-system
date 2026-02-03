@@ -17,7 +17,7 @@
           <text class="grid-desc">分组、档案</text>
         </view>
         
-        <view class="grid-item" @click="showToast('班级管理')">
+        <view class="grid-item" @click="navTo('/pages/teacher/class/class-list')">
           <view class="icon-box cyan">🏫</view>
           <text class="grid-label">班级管理</text>
           <text class="grid-desc">排课、考勤</text>

@@ -4,6 +4,12 @@
 
 ---
 
+## 文档索引
+- 项目需求文档：[requirements.md](file:///d:/PC/Document/HBuilderProjects/campus-system/fronted/requirements.md)
+- 常见报错与处理文档：[errors.md](file:///d:/PC/Document/HBuilderProjects/campus-system/fronted/errors.md)
+
+---
+
 ## 1. 公共模块
 
 ### 1.1 登录注册页 (Login/Register)
@@ -130,3 +136,133 @@
     *   **设备异常**：检测到设备更换或定位漂移。
 *   **处理操作**：
     *   支持“标记误报”、“驳回成绩”或“联系学生”等操作。
+
+---
+
+## 4. 项目需求文档
+
+### 4.1 项目背景与目标
+- 构建面向校园的跑步与体能考核平台，支持学生端运动采集与教师端教学管理。
+- 实现“跑步轨迹记录 + 校园打卡 + 专项体能测试 + 任务下发与统计”的闭环。
+
+### 4.2 技术栈与架构
+- 前端：Uni-app (Vue3, Vite)，多端适配（H5/小程序/App）。
+- 后端：FastAPI + SQLAlchemy + Pydantic，PostgreSQL 持久化。
+- 数据流原则：
+  - 分页列表采用服务端筛选与统计。
+  - 登录缓存 + 懒更新的用户信息同步策略。
+
+### 4.3 角色与权限
+- 学生：跑步记录、校园打卡、专项测试、查看历史、接收并完成教师任务。
+- 教师：发布任务、管理学生与班级、监控考核、查看统计与异常、审批处理。
+
+### 4.4 核心功能需求
+- 跑步页面（学生端）
+  - 模式切换：普通跑步/专项测试/校园打卡。
+  - 实时定位与轨迹绘制，多层折线管理（跑步轨迹/导航线）。
+  - 计步与心率展示，异常提示与进度条。
+  - 结束后提交活动数据，包含轨迹与打卡记录。
+  - 专项测试支持从任务页跳转携带目标距离与配速要求，并进行达标判定。
+- 学生任务
+  - 显示进行中与已结束任务，支持“去完成”跳转。
+  - 任务参数（min_distance/min_duration）转换为目标距离与配速。
+  - 完成统计依据后端匹配逻辑（类型 + 指标达成 + 时间窗口）。
+- 教师端
+  - 任务全生命周期管理，列表统计完成率与截止时间。
+  - 学员管理与批量操作，查看体能画像与提醒未完成。
+  - 实时监控与分析页面，支持成绩分布、合格率排行。
+  - 异常处理：生理/数据/设备异常分类与处置。
+
+### 4.5 数据模型与接口要点
+- Activity/ActivityMetrics：记录跑步或测试的核心数据（距离km、时长s、配速、轨迹JSON、打卡JSON、达标标记）。
+- Task：任务要求（类型、最小距离、最小时长、最小次数、截止时间、目标班级）。
+- 关键接口：
+  - 学生提交活动：后端创建 Activity 与 Metrics，并返回活动详情。[main.py](file:///d:/PC/Document/HBuilderProjects/campus-system/backend/app/main.py#L117-L156)
+  - 学生任务列表：返回带进度与状态的任务集合。[main.py](file:///d:/PC/Document/HBuilderProjects/campus-system/backend/app/main.py#L869-L1059)
+  - 跑步页提交数据：前端封装 ActivityFinish 并调用提交接口。[run.vue](file:///d:/PC/Document/HBuilderProjects/campus-system/fronted/pages/run/run.vue#L951-L1026)
+
+### 4.6 交互与业务规则
+- 跑步轨迹分层管理：蓝线为实时轨迹，红线为导航线；更新时进行深拷贝以触发地图渲染。[run.vue:updateMapPolyline](file:///d:/PC/Document/HBuilderProjects/campus-system/fronted/pages/run/run.vue#L340-L357)
+- 普通跑步开始时清空导航线，避免方向固定的问题。[run.vue:startNormalRun](file:///d:/PC/Document/HBuilderProjects/campus-system/fronted/pages/run/run.vue#L907-L919)
+- 专项测试参数传递：从任务列表将目标距离（米）与配速传入跑步页并应用。[run.vue:onLoad](file:///d:/PC/Document/HBuilderProjects/campus-system/fronted/pages/run/run.vue#L541-L557)
+- 校园打卡：根据电子围栏半径判定到达，成功即打卡并记录检查点列表。
+
+### 4.7 非功能性需求
+- 性能：地图与定位更新每秒级；长列表分页加载；轨迹渲染去抖动与异常点过滤。
+- 稳定性：H5端 HTTPS 权限与定位失败降级；传感器监听启动/停止的重复保护。
+- 安全：不泄露敏感信息；服务端权限校验；任务仅对目标班级可见。
+- 隐私：运动数据仅用于教学管理，遵循校内数据治理规范。
+- 兼容：适配 H5/微信小程序/App；定位与传感器在不支持端降级提示。
+
+### 4.8 验收标准与测试方案
+- 跑步轨迹：开始后首点立即绘制，轨迹能随移动更新且无直线覆盖问题。
+- 校园打卡：选择打卡点后生成导航线，进入围栏范围自动提示并记录。
+- 专项测试：从任务跳转后，页面显示教师任务标题，配速达标判定正确。
+- 数据提交：结束后成功写入后端，结果页可读取并展示。
+- 任务统计：后端完成率与状态计算符合距离/时长/次数要求与时间窗口。
+
+---
+
+## 5. 常见报错与处理文档
+
+### 5.1 H5 定位失败 / 需 HTTPS
+- 现象：浏览器提示无法获取定位或长时间无位置更新。
+- 触发条件：非 HTTPS 域名（localhost/127.0.0.1除外）或用户拒绝定位权限。
+- 日志关键字：`Location failed`, `H5定位需HTTPS`。[run.vue:getLocation/doGetLocation](file:///d:/PC/Document/HBuilderProjects/campus-system/fronted/pages/run/run.vue#L626-L653)
+- 解决方案：
+  - 在 HTTPS 环境访问；或本地使用 localhost/127.0.0.1。
+  - 引导用户开启定位权限；失败时降级使用模拟位置并提示。
+
+### 5.2 地图轨迹始终为直线或不更新
+- 现象：无论如何移动，地图上轨迹总朝同一方向或不刷新。
+- 触发条件：轨迹与导航线状态未分层或更新未触发渲染。
+- 日志关键字：`updateMapPolyline` 未执行或 points 未变化。
+- 解决方案：
+  - 运行轨迹与导航线分离管理；更新折线时进行深拷贝触发渲染。[run.vue:updateMapPolyline](file:///d:/PC/Document/HBuilderProjects/campus-system/fronted/pages/run/run.vue#L340-L357)
+  - 普通跑步开始时清空导航线。[run.vue:startNormalRun](file:///d:/PC/Document/HBuilderProjects/campus-system/fronted/pages/run/run.vue#L907-L919)
+
+### 5.3 搜索不同地点却总定位同方向
+- 现象：通过搜索或地图选择后，无论选哪个点，导航线始终指向固定方向。
+- 触发条件：未使用后端真实打卡点或目标点未更新到导航折线。
+- 解决方案：
+  - 使用后端返回的打卡点数据进行模糊搜索；更新导航折线时重新生成 points 并深拷贝。[run.vue:searchCheckpoint/handleMapSelect](file:///d:/PC/Document/HBuilderProjects/campus-system/fronted/pages/run/run.vue#L657-L783)
+
+### 5.4 计步/传感器监听异常
+- 现象：步数增长异常或重复监听导致性能问题。
+- 触发条件：未在开启前停止已有监听或未进行阈值与防抖控制。
+- 解决方案：
+  - 开启前停止已有监听；使用阈值、最小间隔与强制复位超时优化计步逻辑。[run.vue:startStepCount](file:///d:/PC/Document/HBuilderProjects/campus-system/fronted/pages/run/run.vue#L820-L869)
+
+### 5.5 提交数据失败
+- 现象：结束跑步后弹窗“提交失败”，或跳转结果页失败。
+- 触发条件：网络请求异常、后端错误、token 失效。
+- 日志关键字：`Submit failed`, `Navigate failed`。[run.vue:stopRun](file:///d:/PC/Document/HBuilderProjects/campus-system/fronted/pages/run/run.vue#L951-L1026)
+- 解决方案：
+  - 校验登录状态并引导重新登录；失败弹窗给出重试与强制结束选项。
+  - 调试后端接口并查看返回 detail。
+
+### 5.6 校园打卡未触发成功
+- 现象：已到达目标点附近却不提示“打卡成功”。
+- 触发条件：电子围栏半径与实际位置偏差、ID 未传入导致仅本地提示。
+- 解决方案：
+  - 确保 checkpoint.id 与 radius 正确传入并使用后端 checkIn。[run.vue:updateLocationLogic](file:///d:/PC/Document/HBuilderProjects/campus-system/fronted/pages/run/run.vue#L406-L425)
+
+### 5.7 配速达标判定不正确
+- 现象：专项测试页面配速状态与教师任务要求不一致。
+- 触发条件：未正确解析跳转参数 pace/target 或单位换算错误。
+- 解决方案：
+  - 在 onLoad 中解析 pace 与 target（米），并按照分钟/公里进行判定。[run.vue:onLoad](file:///d:/PC/Document/HBuilderProjects/campus-system/fronted/pages/run/run.vue#L541-L557)
+  - 任务列表将 min_distance(km)→米，min_duration(分钟)→pace(分钟/公里)。
+
+### 5.8 NaN/Infinity 数据异常
+- 现象：计算配速或距离时报错或显示异常值。
+- 触发条件：距离为0时计算配速、定位抖动导致异常速度、未过滤异常点。
+- 解决方案：
+  - 配速计算在 km=0 时返回0；过滤过小/过大的位移；限制异常值上限。[run.vue:currentPace](file:///d:/PC/Document/HBuilderProjects/campus-system/fronted/pages/run/run.vue#L526-L533)、[run.vue:updateLocationLogic](file:///d:/PC/Document/HBuilderProjects/campus-system/fronted/pages/run/run.vue#L385-L436)
+
+---
+
+## 6. 版本规划与里程碑（简要）
+- v1.0：基础跑步、校园打卡、任务下发与统计、基础异常处理。
+- v1.1：专项测试参数联动、AI助手卡片分享、推荐路线与概览。
+- v1.2：实时监控、成绩分布与班级分析、更多异常检测规则。

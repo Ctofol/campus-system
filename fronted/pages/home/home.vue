@@ -160,8 +160,9 @@ const fetchLatestTask = async () => {
         teacherTask.value = null;
     }
   } catch (e) {
+    // 忽略 401 导致的报错（request.js 会自动跳转登录）
+    if (!uni.getStorageSync('token')) return;
     console.error('Fetch task failed', e);
-    // teacherTask.value = { id: 101, title: '本周五前完成一次3000米拉练', desc: '示例任务' }; // Fallback? No, better null.
   }
 };
 

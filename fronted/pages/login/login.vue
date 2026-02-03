@@ -119,7 +119,7 @@ const handleLogin = async () => {
     });
     
     // 校验角色是否匹配
-    if (res.role !== currentRole.value) {
+    if (res.role !== 'admin' && res.role !== currentRole.value) {
       uni.showToast({
         title: '角色不匹配，请切换角色登录',
         icon: 'none'
@@ -151,10 +151,12 @@ const handleLogin = async () => {
 
     // 角色跳转逻辑
     setTimeout(() => {
-      if (currentRole.value === 'student') {
-        uni.redirectTo({ url: '/pages/home/home' });
+      if (res.role === 'admin') {
+        uni.reLaunch({ url: '/pages/admin/dashboard/index' });
+      } else if (currentRole.value === 'student') {
+        uni.reLaunch({ url: '/pages/home/home' });
       } else {
-        uni.redirectTo({ url: '/pages/teacher/home/home' });
+        uni.reLaunch({ url: '/pages/teacher/home/home' });
       }
     }, 1000);
 

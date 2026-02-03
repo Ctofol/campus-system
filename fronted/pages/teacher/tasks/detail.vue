@@ -164,7 +164,8 @@ const fetchTaskDetail = async () => {
         };
 
         // Map Students
-        students.value = res.student_statuses.map(s => ({
+        const statusList = res.student_statuses || [];
+        students.value = statusList.map(s => ({
             id: s.student_id,
             name: s.student_name,
             studentId: `ID:${s.student_id}`, // Mock student ID if not available

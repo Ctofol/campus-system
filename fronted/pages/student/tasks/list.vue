@@ -100,7 +100,19 @@ const getStatusClass = (status) => {
 
 const doTask = (item) => {
     if (item.type === 'run') {
-        uni.navigateTo({ url: '/pages/run/run' });
+        let url = '/pages/run/run?mode=normal';
+        // If task has specific distance requirement, use police/specialized mode
+        if (item.min_distance && item.min_distance > 0) {
+             // Calculate pace if duration is provided
+             let pace = 10; // Default slow pace
+             if (item.min_duration && item.min_duration > 0) {
+                 pace = item.min_duration / item.min_distance;
+             }
+             // Convert distance to meters for the run page
+             const targetMeters = item.min_distance * 1000;
+             url = `/pages/run/run?mode=police&target=${targetMeters}&pace=${pace.toFixed(2)}&taskId=${item.id}&taskTitle=${encodeURIComponent(item.title)}&taskType=${item.type}`;
+        }
+        uni.navigateTo({ url });
     } else {
         uni.navigateTo({ url: '/pages/test/test' });
     }

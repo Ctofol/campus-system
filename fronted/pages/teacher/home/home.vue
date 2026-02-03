@@ -30,7 +30,7 @@
           <text class="stat-label">异常待处理</text>
         </view>
         <view class="stat-card" @click="goToApprove">
-          <text class="stat-num">{{ teacherStats.pendingApprovals || 12 }}</text>
+          <text class="stat-num">{{ teacherStats.pendingApprovals }}</text>
           <text class="stat-label">待审批</text>
         </view>
       </view>
@@ -179,11 +179,34 @@
 import { ref } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 import CustomTabBar from '@/components/CustomTabBar/CustomTabBar.vue';
+import { request } from '@/utils/request.js';
 
 const userInfo = ref({});
 
 const goToApprove = () => {
   uni.navigateTo({ url: '/pages/teacher/approve/approve' });
+};
+
+const fetchTeacherStats = async () => {
+  try {
+    const res = await request({
+      url: '/teacher/stats',
+      method: 'GET'
+    });
+    // Map backend response to frontend state
+    teacherStats.value = {
+      studentCount: res.student_count,
+      todayCheckin: res.today_checkin,
+      abnormalCount: res.abnormal_count,
+      pendingApprovals: res.pending_approvals,
+      avgPace: res.avg_pace,
+      taskCount: res.task_count,
+      complianceRate: res.compliance_rate
+    };
+  } catch (e) {
+    if (!uni.getStorageSync('token')) return;
+    console.error('Failed to fetch teacher stats:', e);
+  }
 };
 
 onShow(() => {
@@ -199,43 +222,90 @@ onShow(() => {
         userInfo.value = {};
     }
   }
-});
+  
+  // Check token before fetching
+  if (!uni.getStorageSync('token')) {
+      uni.reLaunch({ url: '/pages/login/login' });
+      return;
+  }
+  
+  // Fetch real stats
+  fetchTeacherStats();
+    fetchTasks();
+    fetchAbnormalAlerts();
+  });
 
-// --- 教师端数据 ---
-const teacherStats = ref({
-  studentCount: 128,
-  todayCheckin: 105,
-  abnormalCount: 3,
-  avgPace: "5'45\"",
-  taskCount: 5,
-  complianceRate: 92
-});
+  // --- 教师端数据 ---
+  const teacherStats = ref({
+    studentCount: 0,
+    todayCheckin: 0,
+    abnormalCount: 0,
+    pendingApprovals: 0,
+    avgPace: "--",
+    taskCount: 0,
+    complianceRate: 0
+  });
 
-const weeklyTrend = ref([
-  { day: '周一', val: 60, color: '#e0e0e0' },
-  { day: '周二', val: 80, color: '#e0e0e0' },
-  { day: '周三', val: 45, color: '#e0e0e0' },
-  { day: '周四', val: 90, color: '#20C997' },
-  { day: '周五', val: 70, color: '#e0e0e0' },
-  { day: '周六', val: 30, color: '#e0e0e0' },
-  { day: '周日', val: 50, color: '#e0e0e0' }
-]);
+  const weeklyTrend = ref([
+    { day: '周一', val: 0, color: 'linear-gradient(180deg, #e0e0e0 0%, #f5f5f5 100%)' },
+    { day: '周二', val: 0, color: 'linear-gradient(180deg, #e0e0e0 0%, #f5f5f5 100%)' },
+    { day: '周三', val: 0, color: 'linear-gradient(180deg, #e0e0e0 0%, #f5f5f5 100%)' },
+    { day: '周四', val: 0, color: 'linear-gradient(180deg, #20C997 0%, #63e6be 100%)' },
+    { day: '周五', val: 0, color: 'linear-gradient(180deg, #e0e0e0 0%, #f5f5f5 100%)' },
+    { day: '周六', val: 0, color: 'linear-gradient(180deg, #e0e0e0 0%, #f5f5f5 100%)' },
+    { day: '周日', val: 0, color: 'linear-gradient(180deg, #e0e0e0 0%, #f5f5f5 100%)' }
+  ]);
 
-const showTaskModal = ref(false);
-const isEditing = ref(false);
-const currentTask = ref({ title: '', type: '日常', desc: '' });
+  const showTaskModal = ref(false);
+  const isEditing = ref(false);
+  const currentTask = ref({ title: '', type: '日常', desc: '' });
 
-const quickTasks = ref([
-  { title: '3000米摸底测试', type: '考核', typeClass: 'tag-red', status: '进行中', percent: 76 },
-  { title: '周末晨跑打卡', type: '日常', typeClass: 'tag-green', status: '进行中', percent: 35 },
-  { title: '核心力量专项', type: '训练', typeClass: 'tag-blue', status: '即将截止', percent: 88 }
-]);
+  const quickTasks = ref([]);
 
-const abnormalAlerts = ref([
-  { id: 1, student: '张三', type: '心率过高', value: '195 bpm', time: '10:30' },
-  { id: 2, student: '李四', type: '配速异常', value: '过快', time: '10:45' },
-  { id: 3, student: '王五', type: '动作不达标', value: '引体向上', time: '10:50' }
-]);
+  const abnormalAlerts = ref([]);
+
+  const fetchTasks = async () => {
+    try {
+      const res = await request({
+        url: '/teacher/tasks',
+        method: 'GET',
+        data: { page: 1, size: 5 }
+      });
+      if (res && res.items) {
+        quickTasks.value = res.items.map(task => ({
+          title: task.title,
+          type: task.type === 'run' ? '跑步' : '其他',
+          typeClass: task.type === 'run' ? 'tag-green' : 'tag-blue',
+          status: '进行中', // 简化处理
+          percent: task.total_students > 0 ? Math.round((task.completed_count / task.total_students) * 100) : 0
+        }));
+      }
+    } catch (e) {
+      if (!uni.getStorageSync('token')) return;
+      console.error('Failed to fetch tasks:', e);
+    }
+  };
+
+  const fetchAbnormalAlerts = async () => {
+    try {
+      const res = await request({
+        url: '/teacher/students/abnormal',
+        method: 'GET'
+      });
+      if (Array.isArray(res)) {
+        abnormalAlerts.value = res.map((s, index) => ({
+          id: s.id || index,
+          student: s.name,
+          type: s.health_status === 'injured' ? '受伤' : (s.health_status === 'leave' ? '请假' : '异常'),
+          value: s.abnormal_reason || '未说明',
+          time: s.updated_at ? new Date(s.updated_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '--:--'
+        })).slice(0, 5); // 只显示前5条
+      }
+    } catch (e) {
+      if (!uni.getStorageSync('token')) return;
+      console.error('Failed to fetch abnormal alerts:', e);
+    }
+  };
 
 const handleTeacherAction = (action) => {
   if (action === '学员管理') {
@@ -335,49 +405,86 @@ const handleResolveAlert = (index) => {
 
 /* 教师端样式 */
 .teacher-header {
-  background: #20C997;
-  padding: 40rpx 30rpx 60rpx;
+  background: linear-gradient(135deg, #20C997 0%, #17a2b8 100%);
+  padding: 40rpx 40rpx 80rpx;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom-left-radius: 40rpx;
-  border-bottom-right-radius: 40rpx;
+  border-bottom-left-radius: 48rpx;
+  border-bottom-right-radius: 48rpx;
   color: #fff;
   margin-bottom: 20rpx;
+  box-shadow: 0 10rpx 30rpx rgba(32, 201, 151, 0.2);
 }
-.teacher-name { font-size: 36rpx; font-weight: bold; display: block; }
-.teacher-title { font-size: 24rpx; opacity: 0.9; }
-.teacher-avatar { font-size: 60rpx; background: rgba(255,255,255,0.2); width: 100rpx; height: 100rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-.avatar-img { width: 100%; height: 100%; }
+.teacher-info {
+  display: flex;
+  flex-direction: column;
+}
+.teacher-name { 
+  font-size: 44rpx; 
+  font-weight: bold; 
+  display: block; 
+  margin-bottom: 12rpx;
+  text-shadow: 0 2rpx 4rpx rgba(0,0,0,0.1);
+}
+.teacher-title { 
+  font-size: 24rpx; 
+  background: rgba(255,255,255,0.2);
+  padding: 6rpx 20rpx;
+  border-radius: 30rpx;
+  display: inline-block;
+  align-self: flex-start;
+  backdrop-filter: blur(4px);
+}
+.teacher-avatar { 
+  width: 120rpx; 
+  height: 120rpx; 
+  border-radius: 50%; 
+  background: #fff;
+  padding: 6rpx;
+  box-shadow: 0 6rpx 16rpx rgba(0,0,0,0.15);
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  overflow: hidden; 
+}
+.avatar-img { width: 100%; height: 100%; border-radius: 50%; }
 
 /* Dashboard Stats */
 .dashboard-stats {
   display: flex;
   justify-content: space-between;
   padding: 0 30rpx;
-  margin-top: -40rpx;
-  margin-bottom: 30rpx;
+  margin-top: -60rpx;
+  margin-bottom: 40rpx;
+  position: relative;
+  z-index: 10;
 }
 .stat-card {
   width: 31%;
   background: #fff;
-  border-radius: 20rpx;
-  padding: 30rpx 20rpx;
+  border-radius: 24rpx;
+  padding: 36rpx 20rpx;
   display: flex;
   flex-direction: column;
   align-items: center;
-  box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.05);
+  box-shadow: 0 8rpx 24rpx rgba(0,0,0,0.06);
   box-sizing: border-box;
+  transition: transform 0.2s ease;
+}
+.stat-card:active {
+  transform: translateY(4rpx);
 }
 .stat-num {
-  font-size: 40rpx;
+  font-size: 44rpx;
   font-weight: bold;
-  color: #20C997;
-  margin-bottom: 8rpx;
+  color: #333;
+  margin-bottom: 12rpx;
+  font-family: DINAlternate-Bold, sans-serif;
 }
 .stat-label {
   font-size: 24rpx;
-  color: #666;
+  color: #888;
 }
 
 /* Todo List */
@@ -388,8 +495,12 @@ const handleResolveAlert = (index) => {
 .todo-item {
   display: flex;
   align-items: center;
-  padding: 20rpx 0;
+  padding: 24rpx 0;
   border-bottom: 1px solid #f5f5f5;
+  transition: background 0.2s;
+}
+.todo-item:active {
+  background: #fafafa;
 }
 .todo-item:last-child {
   border-bottom: none;
@@ -397,121 +508,103 @@ const handleResolveAlert = (index) => {
 .todo-check {
   width: 36rpx;
   height: 36rpx;
-  border: 2rpx solid #ddd;
+  border: 3rpx solid #ddd;
   border-radius: 50%;
-  margin-right: 20rpx;
+  margin-right: 24rpx;
+  box-sizing: border-box;
+  position: relative;
 }
+/* Optional: Add a checkmark if needed in future */
+/* .todo-check::after {
+  content: '';
+  position: absolute;
+  top: 6rpx;
+  left: 6rpx;
+  width: 18rpx;
+  height: 18rpx;
+  background: #20C997;
+  border-radius: 50%;
+} */
+
 .todo-content {
   display: flex;
   flex-direction: column;
 }
 .todo-text {
-  font-size: 28rpx;
+  font-size: 30rpx;
   color: #333;
-  margin-bottom: 4rpx;
+  margin-bottom: 6rpx;
+  font-weight: 500;
 }
 .todo-time {
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: #999;
 }
 
-.module-grid {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  margin-bottom: 30rpx;
-  padding: 0 30rpx;
-  margin-top: -40rpx; /* Overlap header */
-}
-
-.module-card {
-  width: 48%;
-  background: #fff;
-  border-radius: 20rpx;
-  padding: 24rpx;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: flex-start;
-  box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.05);
-  position: relative;
-  overflow: hidden;
-  margin-bottom: 20rpx;
-  min-height: 180rpx;
-  box-sizing: border-box;
-}
-
-.card-icon-container {
-  width: 70rpx;
-  height: 70rpx;
-  background: rgba(0,0,0,0.03);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 20rpx;
-}
-
-.card-emoji {
-  font-size: 36rpx;
-}
-
-.card-content {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.card-purple { border-left: 8rpx solid #a55eea; }
-.card-green { border-left: 8rpx solid #20C997; }
-.card-blue { border-left: 8rpx solid #4dabf7; }
-.card-orange { border-left: 8rpx solid #ff9f43; }
-
-.card-title { font-size: 30rpx; font-weight: bold; color: #333; margin-bottom: 8rpx; }
-.card-desc { font-size: 24rpx; color: #888; }
-
 .section-card {
   background: #fff;
-  border-radius: 20rpx;
-  margin: 20rpx 30rpx;
-  padding: 30rpx;
-  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.02);
+  border-radius: 24rpx;
+  margin: 0 30rpx 30rpx;
+  padding: 36rpx;
+  box-shadow: 0 4rpx 20rpx rgba(0,0,0,0.03);
 }
 
-.section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24rpx; }
-.section-title { font-size: 32rpx; font-weight: bold; color: #333; }
-.section-more, .section-action { font-size: 26rpx; color: #20C997; }
+.section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30rpx; }
+.section-title { font-size: 34rpx; font-weight: bold; color: #333; }
+.section-more, .section-action { font-size: 26rpx; color: #20C997; padding: 10rpx 0; }
 .red-dot { color: #ff6b6b; }
 
 .overview-chart { display: flex; justify-content: space-around; }
 .chart-col { text-align: center; }
-.chart-ring { width: 120rpx; height: 120rpx; border-radius: 50%; border: 8rpx solid #eee; display: flex; flex-direction: column; align-items: center; justify-content: center; margin-bottom: 10rpx; }
+.chart-ring { 
+  width: 130rpx; 
+  height: 130rpx; 
+  border-radius: 50%; 
+  border: 10rpx solid #eee; 
+  display: flex; 
+  flex-direction: column; 
+  align-items: center; 
+  justify-content: center; 
+  margin-bottom: 16rpx;
+  position: relative;
+}
 .ring-green { border-color: #20C997; }
 .ring-blue { border-color: #4dabf7; }
 .ring-red { border-color: #ff6b6b; }
-.ring-val { font-size: 28rpx; font-weight: bold; color: #333; }
-.ring-label { font-size: 18rpx; color: #999; }
-.chart-name { font-size: 24rpx; color: #666; }
+.ring-val { font-size: 32rpx; font-weight: bold; color: #333; font-family: DINAlternate-Bold, sans-serif; }
+.ring-label { font-size: 20rpx; color: #999; margin-top: 4rpx; }
+.chart-name { font-size: 26rpx; color: #666; font-weight: 500; }
 
 .quick-task-scroll { white-space: nowrap; width: 100%; }
-.quick-task-item { display: inline-block; width: 280rpx; background: #f8f9fa; border-radius: 12rpx; padding: 20rpx; margin-right: 20rpx; vertical-align: top; }
-.qt-header { display: flex; justify-content: space-between; margin-bottom: 12rpx; }
+.quick-task-item { 
+  display: inline-block; 
+  width: 280rpx; 
+  background: #f8f9fa; 
+  border-radius: 16rpx; 
+  padding: 24rpx; 
+  margin-right: 20rpx; 
+  vertical-align: top; 
+  border: 1px solid #f0f0f0;
+  box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.02);
+}
+.qt-header { display: flex; justify-content: space-between; margin-bottom: 16rpx; }
 
 .qt-actions {
   display: flex;
   justify-content: flex-end;
   gap: 16rpx;
-  margin-top: 16rpx;
-  border-top: 1px dashed #eee;
-  padding-top: 10rpx;
+  margin-top: 20rpx;
+  border-top: 1px solid #eee;
+  padding-top: 16rpx;
 }
 
 .qt-btn {
   font-size: 22rpx;
   color: #666;
-  padding: 4rpx 12rpx;
-  border: 1px solid #ddd;
-  border-radius: 8rpx;
+  padding: 8rpx 20rpx;
+  border: 1px solid #e0e0e0;
+  border-radius: 24rpx;
+  background: #fff;
 }
 
 .qt-btn.warn {
@@ -533,67 +626,100 @@ const handleResolveAlert = (index) => {
 /* Trend Chart */
 .trend-chart {
   margin-top: 30rpx;
-  border-top: 1px solid #f5f5f5;
-  padding-top: 20rpx;
+  border-top: 1px solid #f0f0f0;
+  padding-top: 30rpx;
 }
-.trend-title { font-size: 26rpx; color: #333; font-weight: bold; margin-bottom: 20rpx; display: block; }
+.trend-title { 
+  font-size: 28rpx; 
+  color: #333; 
+  font-weight: bold; 
+  margin-bottom: 24rpx; 
+  display: flex;
+  align-items: center;
+}
+.trend-title::before {
+  content: '';
+  width: 6rpx;
+  height: 24rpx;
+  background: #20C997;
+  border-radius: 4rpx;
+  margin-right: 12rpx;
+}
 .trend-bars {
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  height: 120rpx;
+  height: 140rpx;
+  padding: 0 10rpx;
 }
 .t-bar-group {
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: 40rpx;
+  width: 60rpx;
   height: 100%;
   justify-content: flex-end;
 }
 .t-bar {
-  width: 12rpx;
-  border-radius: 6rpx;
-  background: #eee;
+  width: 16rpx;
+  border-radius: 8rpx;
+  transition: height 0.3s ease;
 }
-.t-day { font-size: 20rpx; color: #999; margin-top: 8rpx; }
+.t-day { 
+  font-size: 22rpx; 
+  color: #999; 
+  margin-top: 12rpx; 
+  font-weight: 500;
+}
 
 /* Alert Feed */
-.alert-feed { display: flex; flex-direction: column; gap: 20rpx; }
+.alert-feed { display: flex; flex-direction: column; gap: 24rpx; }
 .feed-item { 
   display: flex; 
   justify-content: space-between; 
-  align-items: center; 
-  padding: 20rpx; 
-  background: #fff5f5; 
-  border-radius: 12rpx; 
-  border-left: 8rpx solid #ff6b6b; /* Increased border width */
-  box-shadow: 0 2rpx 6rpx rgba(255, 107, 107, 0.1); /* Added shadow */
+  align-items: flex-start; 
+  padding: 24rpx; 
+  background: #fff; 
+  border-radius: 16rpx; 
+  border: 1px solid #ffe3e3;
+  box-shadow: 0 4rpx 12rpx rgba(255, 107, 107, 0.08); 
+  position: relative;
+  overflow: hidden;
+}
+.feed-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 8rpx;
+  background: #ff6b6b;
 }
 .feed-content {
-  flex: 1; /* Allow content to take available space */
-  margin-right: 20rpx; /* Spacing between text and button */
-  overflow: hidden; /* Prevent overflow */
+  flex: 1; 
+  margin-right: 24rpx; 
+  padding-left: 16rpx;
 }
 .feed-msg { 
-  font-size: 26rpx; 
+  font-size: 28rpx; 
   color: #333; 
-  display: block; /* Ensure block display for wrapping */
-  word-wrap: break-word; /* Ensure long text wraps */
-  line-height: 1.4;
+  line-height: 1.5;
+  margin-bottom: 8rpx;
 }
-.feed-name { font-weight: bold; margin-right: 10rpx; }
-.feed-time { font-size: 22rpx; color: #999; display: block; margin-top: 8rpx; }
+.feed-name { font-weight: bold; color: #333; }
+.feed-time { font-size: 22rpx; color: #999; }
 .feed-btn { 
-  flex-shrink: 0; /* Prevent button from shrinking */
+  margin: 0;
   background: #ff6b6b; 
   color: #fff; 
-  font-size: 22rpx; 
-  padding: 0 24rpx; 
-  height: 56rpx; /* Increased height for better touch area */
-  line-height: 56rpx; 
-  border-radius: 28rpx; /* Rounded corners */
+  font-size: 24rpx; 
+  padding: 0 28rpx; 
+  height: 60rpx; 
+  line-height: 60rpx; 
+  border-radius: 30rpx; 
+  box-shadow: 0 4rpx 10rpx rgba(255, 107, 107, 0.3);
 }
+.feed-btn:active { opacity: 0.9; transform: translateY(2rpx); }
 
 /* Modal */
 .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; justify-content: center; align-items: center; }

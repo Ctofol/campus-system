@@ -106,7 +106,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 import { getTeacherTasks, deleteTask } from '@/utils/request.js';
 
@@ -121,7 +121,8 @@ const loadTasks = async () => {
   if (loading.value) return;
   loading.value = true;
   try {
-    const res = await getTeacherTasks({ page: page.value, size: size.value });
+    const status = currentTab.value === 0 ? 'active' : 'ended';
+    const res = await getTeacherTasks({ page: page.value, size: size.value, status });
     if (res.items) {
       const now = new Date();
       const newTasks = res.items.map(item => {
@@ -166,13 +167,25 @@ const loadTasks = async () => {
   }
 };
 
-onShow(() => {
+watch(currentTab, () => {
   page.value = 1;
+  tasks.value = [];
   loadTasks();
 });
 
-const ongoingCount = computed(() => tasks.value.filter(t => t.status === '进行中').length);
-const totalTasks = computed(() => tasks.value.length);
+onShow(() => {
+  page.value = 1;
+  // If tasks are empty, load them. If not, maybe we want to refresh?
+  // For now, let's refresh to ensure sync.
+  loadTasks();
+});
+
+const ongoingCount = computed(() => {
+    // This logic is imperfect as it only counts loaded tasks, but acceptable for now
+    if (currentTab.value === 0) return total.value;
+    return 0; // Or fetch separately if needed
+});
+const totalTasks = computed(() => total.value); // This is total of current tab, but maybe user wants total-total?
 const avgCompletion = computed(() => {
   if (tasks.value.length === 0) return 0;
   const sum = tasks.value.reduce((acc, cur) => acc + cur.percent, 0);
@@ -180,11 +193,8 @@ const avgCompletion = computed(() => {
 });
 
 const filteredTasks = computed(() => {
-  if (currentTab.value === 0) {
-    return tasks.value.filter(t => t.status === '进行中');
-  } else {
-    return tasks.value.filter(t => t.status !== '进行中');
-  }
+  // Backend now filters for us
+  return tasks.value;
 });
 
 const getTypeClass = (type) => {

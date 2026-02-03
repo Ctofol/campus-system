@@ -47,6 +47,10 @@
         placeholder="输入校园打卡点（如：操场/跑道）"
         class="search-input"
       />
+      <!-- Map Select Button -->
+      <view class="map-select-btn" @click="handleMapSelect">
+        <text class="map-icon">🗺️</text>
+      </view>
       <button @click="searchCheckpoint" class="search-btn">搜索</button>
     </view>
 
@@ -229,6 +233,14 @@ const openAiRobot = () => {
     }
 
     getLocation();
+    
+    // Load Checkpoints for Campus Mode
+    getCheckpoints().then(data => {
+      availableCheckpoints.value = data;
+    }).catch(err => {
+      console.error('Failed to load checkpoints', err);
+    });
+
     checkpoint.value = uni.getStorageSync('checkpoint') || {};
     if (checkpoint.value.name) {
       addCheckpointMarker(checkpoint.value.lat, checkpoint.value.lng, checkpoint.value.name);
@@ -250,13 +262,17 @@ const openAiRobot = () => {
     todayRunCount.value = c;
     todayRunDistance.value = Number(d.toFixed(2));
     historyList.value = buildHistory(records);
-    const taskStr = uni.getStorageSync('teacherTask');
-    if (taskStr) {
-      try {
-        const obj = typeof taskStr === 'string' ? JSON.parse(taskStr) : taskStr;
-        teacherRunTask.value = obj.title || '';
-      } catch (e) {
-        teacherRunTask.value = '';
+    
+    // Only load from storage if not already set by URL params (taskId)
+    if (!taskId.value) {
+      const taskStr = uni.getStorageSync('teacherTask');
+      if (taskStr) {
+        try {
+          const obj = typeof taskStr === 'string' ? JSON.parse(taskStr) : taskStr;
+          teacherRunTask.value = obj.title || '';
+        } catch (e) {
+          teacherRunTask.value = '';
+        }
       }
     }
   });
@@ -298,6 +314,7 @@ const recommendRoutes = ref([
   { name: '体育场冲刺', distance: 1.5, difficulty: '困难' }
 ]);
 const toggleRoutes = () => showRoutes.value = !showRoutes.value;
+const availableCheckpoints = ref([]);
 const useRoute = (route) => {
   uni.showToast({ title: `已加载路线：${route.name}`, icon: 'none' });
   dailyTarget.value = route.distance;
@@ -308,10 +325,40 @@ const checkpointName = ref('');
 const lat = ref(39.909);
 const lng = ref(116.397);
 const markers = ref([]);
-const polyline = ref([{ points: [], color: '#007AFF', width: 4 }]);
+
+// Separate line states for better management
+const runPolyline = ref({
+  points: [],
+  color: '#007AFF',
+  width: 4,
+  arrowLine: true // Show arrows on the path
+});
+const navPolyline = ref(null);
+
+const polyline = ref([]); // Final array for map component
 const checkpoint = ref({});
 const trajectoryPoints = ref([]); // Store real GPS points
 const checkinRecords = ref([]); // Store successful check-ins
+
+// Helper to update map polyline with deep clone to force render
+const updateMapPolyline = () => {
+  const lines = [];
+  // 1. Add running trajectory (Blue)
+  if (runPolyline.value.points.length > 0) {
+    // Deep clone to ensure Vue detects change
+    lines.push(JSON.parse(JSON.stringify(runPolyline.value)));
+  } else {
+    // Keep an empty line placeholder if needed, or just omit
+    lines.push({ ...runPolyline.value, points: [] });
+  }
+  
+  // 2. Add navigation line (Red) if exists
+  if (navPolyline.value) {
+    lines.push(JSON.parse(JSON.stringify(navPolyline.value)));
+  }
+  
+  polyline.value = lines;
+};
 
 // Distance Calculation (Haversine Formula)
 const getDistance = (lat1, lng1, lat2, lng2) => {
@@ -323,6 +370,74 @@ const getDistance = (lat1, lng1, lat2, lng2) => {
             Math.sin(dLng/2) * Math.sin(dLng/2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
   return R * c; // Distance in meters
+};
+
+// Unified location update logic
+const updateLocationLogic = (newLat, newLng, speed) => {
+  lat.value = newLat;
+  lng.value = newLng;
+  markers.value[0] = {
+    id: 0,
+    latitude: newLat,
+    longitude: newLng,
+    title: '我的位置',
+    iconPath: '/static/location.png',
+    width: 30,
+    height: 30
+  };
+
+  if (isRunning.value) {
+    // Calculate distance and speed
+    if (trajectoryPoints.value.length > 0) {
+      const lastPoint = trajectoryPoints.value[trajectoryPoints.value.length - 1];
+      const d = getDistance(lastPoint.latitude, lastPoint.longitude, newLat, newLng);
+      // Filter anomalies: too small (jitter) or too large (teleport)
+      if (d > 2 && d < 100) {
+        distance.value += d;
+      }
+    }
+    
+    // Update trajectory
+    const point = { latitude: newLat, longitude: newLng, timestamp: Date.now(), speed: speed || currentSpeed.value };
+    trajectoryPoints.value.push(point);
+    
+    // Update Blue Line Points
+    runPolyline.value.points.push({ latitude: newLat, longitude: newLng });
+    
+    // Force Map Update
+    updateMapPolyline();
+
+    // Checkpoint logic
+    if (currentMode.value === 'campus' && checkpoint.value.lat) {
+      distanceToCheckpoint.value = Math.floor(getDistance(newLat, newLng, checkpoint.value.lat, checkpoint.value.lng));
+      if (distanceToCheckpoint.value <= (checkpoint.value.radius || 50)) { 
+        isReach.value = true;
+        if (!uni.getStorageSync('checkpointReached')) {
+           if (checkpoint.value.id) {
+             checkIn({ lat: newLat, lng: newLng, checkpoint_id: checkpoint.value.id })
+               .then(res => {
+                 if (res.success) {
+                   uni.showToast({ title: '打卡成功！', icon: 'success' });
+                   checkinRecords.value.push({ checkpoint_id: checkpoint.value.id, time: new Date().toISOString(), lat: newLat, lng: newLng });
+                 }
+               }).catch(() => {});
+           } else {
+              uni.showToast({ title: '已到达打卡点范围！', icon: 'success' });
+           }
+           uni.setStorageSync('checkpointReached', '1');
+        }
+      } else {
+        isReach.value = false;
+      }
+    }
+
+    // Update progress
+    if (currentMode.value === 'normal') {
+       normalProgress.value = Math.min(100, ((distance.value/1000) / dailyTarget.value) * 100);
+    } else if (currentMode.value === 'police') {
+       policeProgress.value = Math.min(100, (distance.value / policeTargetDistance.value) * 100);
+    }
+  }
 };
 
 // Real-time Location Tracking
@@ -337,61 +452,19 @@ const startRealLocationTracking = () => {
       success: (res) => {
         const newLat = res.latitude;
         const newLng = res.longitude;
-        lat.value = newLat;
-        lng.value = newLng;
-        markers.value[0] = {
-          id: 0,
-          latitude: newLat,
-          longitude: newLng,
-          title: '我的位置',
-          iconPath: '/static/location.png',
-          width: 30,
-          height: 30
-        };
-        if (isRunning.value) {
-          let speedVal = 0;
-          if (trajectoryPoints.value.length > 0) {
-            const lastPoint = trajectoryPoints.value[trajectoryPoints.value.length - 1];
-            const d = getDistance(lastPoint.latitude, lastPoint.longitude, newLat, newLng);
-            const dt = (Date.now() - lastTs) / 1000;
-            if (d > 2 && d < 100 && dt > 0) {
-              distance.value += d;
-              speedVal = d / dt;
-            }
-          }
-          currentSpeed.value = speedVal;
-          const point = { latitude: newLat, longitude: newLng, timestamp: Date.now(), speed: currentSpeed.value };
-          trajectoryPoints.value.push(point);
-          polyline.value[0].points.push({ latitude: newLat, longitude: newLng });
-          if (currentMode.value === 'campus' && checkpoint.value.lat) {
-            distanceToCheckpoint.value = Math.floor(getDistance(newLat, newLng, checkpoint.value.lat, checkpoint.value.lng));
-            if (distanceToCheckpoint.value <= (checkpoint.value.radius || 50)) { 
-              isReach.value = true;
-              if (!uni.getStorageSync('checkpointReached')) {
-                 if (checkpoint.value.id) {
-                   checkIn({ lat: newLat, lng: newLng, checkpoint_id: checkpoint.value.id })
-                     .then(res => {
-                       if (res.success) {
-                         uni.showToast({ title: '打卡成功！', icon: 'success' });
-                         checkinRecords.value.push({ checkpoint_id: checkpoint.value.id, time: new Date().toISOString(), lat: newLat, lng: newLng });
-                       }
-                     }).catch(() => {});
-                 } else {
-                    uni.showToast({ title: '已到达打卡点范围！', icon: 'success' });
-                 }
-                 uni.setStorageSync('checkpointReached', '1');
-              }
-            } else {
-              isReach.value = false;
-            }
-          }
-          if (currentMode.value === 'normal') {
-             normalProgress.value = Math.min(100, ((distance.value/1000) / dailyTarget.value) * 100);
-          } else if (currentMode.value === 'police') {
-             policeProgress.value = Math.min(100, (distance.value / policeTargetDistance.value) * 100);
-          }
-          lastTs = Date.now();
+        
+        let speedVal = 0;
+        // Simple speed calc for H5
+        if (isRunning.value && trajectoryPoints.value.length > 0) {
+           const lastPoint = trajectoryPoints.value[trajectoryPoints.value.length - 1];
+           const d = getDistance(lastPoint.latitude, lastPoint.longitude, newLat, newLng);
+           const dt = (Date.now() - lastTs) / 1000;
+           if (dt > 0) speedVal = d / dt;
         }
+        currentSpeed.value = speedVal;
+        
+        updateLocationLogic(newLat, newLng, speedVal);
+        lastTs = Date.now();
       },
       fail: () => {}
     });
@@ -401,61 +474,10 @@ const startRealLocationTracking = () => {
   uni.startLocationUpdate({
     success: () => {
       locationCallback = (res) => {
-        const newLat = res.latitude;
-        const newLng = res.longitude;
-        lat.value = newLat;
-        lng.value = newLng;
         if (res.speed && res.speed >= 0) {
           currentSpeed.value = res.speed;
         }
-        markers.value[0] = {
-          id: 0,
-          latitude: newLat,
-          longitude: newLng,
-          title: '我的位置',
-          iconPath: '/static/location.png',
-          width: 30,
-          height: 30
-        };
-        if (isRunning.value) {
-          if (trajectoryPoints.value.length > 0) {
-            const lastPoint = trajectoryPoints.value[trajectoryPoints.value.length - 1];
-            const d = getDistance(lastPoint.latitude, lastPoint.longitude, newLat, newLng);
-            if (d > 2 && d < 100) { 
-              distance.value += d;
-            }
-          }
-          const point = { latitude: newLat, longitude: newLng, timestamp: Date.now(), speed: currentSpeed.value };
-          trajectoryPoints.value.push(point);
-          polyline.value[0].points.push({ latitude: newLat, longitude: newLng });
-          if (currentMode.value === 'campus' && checkpoint.value.lat) {
-            distanceToCheckpoint.value = Math.floor(getDistance(newLat, newLng, checkpoint.value.lat, checkpoint.value.lng));
-            if (distanceToCheckpoint.value <= (checkpoint.value.radius || 50)) { 
-              isReach.value = true;
-              if (!uni.getStorageSync('checkpointReached')) {
-                 if (checkpoint.value.id) {
-                   checkIn({ lat: newLat, lng: newLng, checkpoint_id: checkpoint.value.id })
-                     .then(res => {
-                       if (res.success) {
-                         uni.showToast({ title: '打卡成功！', icon: 'success' });
-                         checkinRecords.value.push({ checkpoint_id: checkpoint.value.id, time: new Date().toISOString(), lat: newLat, lng: newLng });
-                       }
-                     }).catch(() => {});
-                 } else {
-                    uni.showToast({ title: '已到达打卡点范围！', icon: 'success' });
-                 }
-                 uni.setStorageSync('checkpointReached', '1');
-              }
-            } else {
-              isReach.value = false;
-            }
-          }
-          if (currentMode.value === 'normal') {
-             normalProgress.value = Math.min(100, ((distance.value/1000) / dailyTarget.value) * 100);
-          } else if (currentMode.value === 'police') {
-             policeProgress.value = Math.min(100, (distance.value / policeTargetDistance.value) * 100);
-          }
-        }
+        updateLocationLogic(res.latitude, res.longitude, currentSpeed.value);
       };
       uni.onLocationChange(locationCallback);
     },
@@ -501,6 +523,9 @@ let h5LocationTimer = null;
 // 3. 警务专项固定配置（按公安考核标准）
 const policeTargetDistance = ref(2000); // 固定2000米
 const policeTargetPace = ref(6.5); // 达标配速：6.5分钟/公里（男生标准）
+const taskId = ref(null);
+const taskType = ref(null);
+
 // 计算当前配速（分钟/公里）
 const currentPace = computed(() => {
   const km = distance.value / 1000;
@@ -524,6 +549,19 @@ onLoad((options) => {
   }
   if (options.target) {
     policeTargetDistance.value = parseInt(options.target);
+  }
+  if (options.pace) {
+    policeTargetPace.value = parseFloat(options.pace);
+  }
+  if (options.taskId) {
+    taskId.value = options.taskId;
+    // Set task type if provided, or infer from mode
+    if (options.taskType) {
+      taskType.value = options.taskType;
+    }
+  }
+  if (options.taskTitle) {
+    teacherRunTask.value = decodeURIComponent(options.taskTitle);
   }
   if (options.course) {
     uni.showToast({ title: `开始课程：${options.course}`, icon: 'none' });
@@ -639,23 +677,126 @@ const searchCheckpoint = () => {
     uni.showToast({ title: '请输入打卡点名称', icon: 'none' });
     return;
   }
+  
+  // Fuzzy search in available checkpoints
+  const target = availableCheckpoints.value.find(cp => cp.name.includes(checkpointName.value));
+  
+  if (!target) {
+     uni.showToast({ title: '未找到该打卡点', icon: 'none' });
+     return;
+  }
+
   const newCheckpoint = {
-    name: checkpointName.value,
-    lat: lat.value + 0.001,
-    lng: lng.value + 0.001
+    name: target.name,
+    lat: target.latitude,
+    lng: target.longitude,
+    radius: target.radius
   };
   uni.setStorageSync('checkpoint', newCheckpoint);
   checkpoint.value = newCheckpoint;
   addCheckpointMarker(newCheckpoint.lat, newCheckpoint.lng, newCheckpoint.name);
-  polyline.value = [{
+  
+  // Update Navigation Line (Red Dotted)
+  navPolyline.value = {
     points: [
       { latitude: lat.value, longitude: lng.value },
       { latitude: newCheckpoint.lat, longitude: newCheckpoint.lng }
     ],
     color: '#FF0000',
-    width: 5
-  }];
+    width: 2,
+    dottedLine: true
+  };
+
+  // Force Map Update
+  updateMapPolyline();
+
   uni.showToast({ title: `找到${newCheckpoint.name}`, icon: 'success' });
+};
+
+// 5.5 Map Selection Handler
+const handleMapSelect = () => {
+  uni.chooseLocation({
+    success: (res) => {
+      console.log('Selected location:', res);
+      const selLat = res.latitude;
+      const selLng = res.longitude;
+      
+      // Find nearest checkpoint
+      let nearest = null;
+      let minDist = Infinity;
+      
+      availableCheckpoints.value.forEach(cp => {
+        const d = getDistance(selLat, selLng, cp.latitude, cp.longitude);
+        if (d < minDist) {
+          minDist = d;
+          nearest = cp;
+        }
+      });
+      
+      // Tolerance 200m
+      if (nearest && minDist <= 200) {
+        checkpointName.value = nearest.name;
+        
+        const newCheckpoint = {
+          name: nearest.name,
+          lat: nearest.latitude,
+          lng: nearest.longitude,
+          radius: nearest.radius,
+          id: nearest.id // Ensure ID is passed
+        };
+        uni.setStorageSync('checkpoint', newCheckpoint);
+        checkpoint.value = newCheckpoint;
+        addCheckpointMarker(newCheckpoint.lat, newCheckpoint.lng, newCheckpoint.name);
+        
+        navPolyline.value = {
+          points: [
+            { latitude: lat.value, longitude: lng.value },
+            { latitude: newCheckpoint.lat, longitude: newCheckpoint.lng }
+          ],
+          color: '#FF0000',
+          width: 2,
+          dottedLine: true
+        };
+        updateMapPolyline();
+        
+        uni.showToast({ title: `已定位到：${nearest.name}`, icon: 'success' });
+      } else {
+        uni.showModal({
+          title: '提示',
+          content: '您选择的地点不在校园打卡点范围内，是否仍要设为目标？(无法进行有效打卡)',
+          success: (mRes) => {
+            if (mRes.confirm) {
+               checkpointName.value = res.name || '自定义位置';
+               const customCheckpoint = {
+                 name: res.name || '自定义位置',
+                 lat: selLat,
+                 lng: selLng,
+                 radius: 50,
+                 id: null 
+               };
+               uni.setStorageSync('checkpoint', customCheckpoint);
+               checkpoint.value = customCheckpoint;
+               addCheckpointMarker(selLat, selLng, customCheckpoint.name);
+               
+               navPolyline.value = {
+                points: [
+                  { latitude: lat.value, longitude: lng.value },
+                  { latitude: selLat, longitude: selLng }
+                ],
+                color: '#FF0000',
+                width: 2,
+                dottedLine: true
+               };
+               updateMapPolyline();
+            }
+          }
+        });
+      }
+    },
+    fail: (err) => {
+      console.error('Choose location failed', err);
+    }
+  });
 };
 
 // 6. 添加打卡点标记
@@ -757,13 +898,34 @@ const updateHeartRate = () => {
 };
 
 // 10. 开始跑步（分三种模式）
-// 普通跑步（无固定目标）
-const startNormalRun = () => {
+// Common start logic
+const initializeRunState = () => {
   isRunning.value = true;
   duration.value = 0;
   distance.value = 0;
   stepCount.value = 0;
   heartRate.value = 80;
+  
+  // Clear previous trajectory
+  runPolyline.value.points = [];
+  trajectoryPoints.value = [];
+  
+  // Add start point immediately to avoid delay in drawing line
+  if (lat.value && lng.value) {
+     const startPoint = { latitude: lat.value, longitude: lng.value, timestamp: Date.now(), speed: 0 };
+     trajectoryPoints.value.push(startPoint);
+     runPolyline.value.points.push({ latitude: lat.value, longitude: lng.value });
+     
+     // Force Map Update
+     updateMapPolyline();
+  }
+};
+
+// 普通跑步（无固定目标）
+const startNormalRun = () => {
+  // Clear navigation line in normal mode to ensure clean map
+  navPolyline.value = null;
+  initializeRunState();
   uni.removeStorageSync('checkpointReached');
   startRealLocationTracking();
   startStepCount();
@@ -775,11 +937,7 @@ const startNormalRun = () => {
 
 // 专项训练（固定2000米，按达标配速跑）
 const startPoliceRun = () => {
-  isRunning.value = true;
-  duration.value = 0;
-  distance.value = 0;
-  stepCount.value = 0;
-  heartRate.value = 80;
+  initializeRunState();
   uni.removeStorageSync('policeFinishTip');
   startRealLocationTracking();
   startStepCount();
@@ -796,11 +954,8 @@ const startPoliceRun = () => {
 
 // 校园打卡
 const startCampusRun = () => {
-  isRunning.value = true;
-  duration.value = 0;
+  initializeRunState();
   isReach.value = false;
-  stepCount.value = 0;
-  heartRate.value = 80;
   uni.removeStorageSync('checkpointReached');
   startRealLocationTracking();
   startStepCount();
@@ -828,8 +983,8 @@ const stopRun = async () => {
   }
 
   const runData = {
-    type: currentMode.value === 'police' ? 'test' : 'run',
-    source: 'free',
+    type: taskType.value ? taskType.value : (currentMode.value === 'police' ? 'test' : 'run'),
+    source: taskId.value ? 'task' : 'free',
     started_at: new Date(Date.now() - duration.value * 1000).toISOString(),
     ended_at: new Date().toISOString(),
     metrics: {
@@ -1049,6 +1204,18 @@ const buildHistory = (records) => {
   border: none;
   border-radius: 8rpx;
   padding: 0 20rpx;
+}
+.map-select-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f0f0f0;
+  border-radius: 8rpx;
+  padding: 0 20rpx;
+  margin-right: 10rpx;
+}
+.map-icon {
+  font-size: 32rpx;
 }
 /* 地图 */
 .map {

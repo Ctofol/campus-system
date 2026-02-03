@@ -21,10 +21,54 @@ class Token(BaseModel):
     role: str
     user_id: int
     name: str
+    class_name: Optional[str] = None
+    student_id: Optional[str] = None
+
+class UserProfile(BaseModel):
+    id: int
+    name: str
+    phone: str
+    role: str
+    class_name: Optional[str] = None
+    student_id: Optional[str] = None
+    group_name: Optional[str] = None
+    health_status: str
+    
+    class Config:
+        from_attributes = True
 
 class TokenData(BaseModel):
     phone: str | None = None
     role: str | None = None
+
+# Class
+class ClassBase(BaseModel):
+    name: str
+
+class ClassCreate(ClassBase):
+    pass
+
+class ClassBind(BaseModel):
+    class_ids: List[int]
+
+class ClassOut(ClassBase):
+    id: int
+    teacher_id: Optional[int] = None
+    student_count: int = 0
+    created_at: Optional[datetime] = None
+    
+    class Config:
+        from_attributes = True
+
+class StudentInfo(UserBase):
+    id: int
+    class_id: Optional[int] = None
+    
+    class Config:
+        from_attributes = True
+
+class ClassDetail(ClassOut):
+    students: List[StudentInfo] = []
 
 # Metrics & Evidence
 class ActivityMetricsCreate(BaseModel):
@@ -44,13 +88,13 @@ class ActivityMetricsOut(ActivityMetricsCreate):
     id: int
     activity_id: int
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class ActivityEvidenceOut(ActivityEvidenceCreate):
     id: int
     activity_id: int
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # Activity
 class ActivityFinish(BaseModel):
@@ -67,7 +111,7 @@ class ActivityReviewOut(BaseModel):
     result: str
     reviewed_at: datetime
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class ActivityOut(BaseModel):
     id: int
@@ -82,7 +126,7 @@ class ActivityOut(BaseModel):
     review: Optional[ActivityReviewOut] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # Teacher
 class ApproveRequest(BaseModel):
@@ -92,7 +136,7 @@ class TeacherActivityListOut(ActivityOut):
     student_name: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class ActivityListResponse(BaseModel):
     items: List[ActivityOut]
@@ -116,13 +160,14 @@ class TaskCreate(BaseModel):
     deadline: Optional[datetime] = None
     description: Optional[str] = None
     target_group: Optional[str] = "all"
+    class_id: Optional[int] = None
 
 class TaskOut(TaskCreate):
     id: int
     created_by: int
     
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class TaskListStats(TaskOut):
     total_students: int
@@ -154,6 +199,7 @@ class StudentCompletionStatus(BaseModel):
 class TaskDetailStats(TaskOut):
     total_students: int
     completed_count: int
+    student_statuses: List[StudentCompletionStatus] = []
 
 # Checkpoint
 class CheckpointBase(BaseModel):
@@ -169,9 +215,54 @@ class CheckpointCreate(CheckpointBase):
 class CheckpointOut(CheckpointBase):
     id: int
     class Config:
-        orm_mode = True
+        from_attributes = True
+
+# Health & Student Management
+class HealthRequestCreate(BaseModel):
+    type: str  # 'leave' | 'injury'
+    reason: str
+
+class HealthRequestOut(HealthRequestCreate):
+    id: int
+    student_id: int
+    status: str
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+class StudentDetail(StudentInfo):
+    student_id: Optional[str] = None
+    health_status: str = "normal"
+    abnormal_reason: Optional[str] = None
+    group_name: Optional[str] = None
+    health_requests: List[HealthRequestOut] = []
+
+class StudentUpdate(BaseModel):
+    student_id: Optional[str] = None
+    health_status: Optional[str] = None
+    abnormal_reason: Optional[str] = None
+    group_name: Optional[str] = None
+    class_id: Optional[int] = None
+
+class BulkUpdateStudent(BaseModel):
+    student_ids: List[int]
+    health_status: Optional[str] = None
+    abnormal_reason: Optional[str] = None
+    group_name: Optional[str] = None
+    class_id: Optional[int] = None
 
 class CheckInRequest(BaseModel):
     lat: float
     lng: float
     checkpoint_id: int
+
+class TeacherStatsOut(BaseModel):
+    student_count: int
+    today_checkin: int
+    abnormal_count: int
+    pending_approvals: int
+    avg_pace: str
+    task_count: int
+    compliance_rate: int

@@ -54,13 +54,14 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
-import { createTeacherTask } from '@/utils/request.js';
+import { ref, onMounted } from 'vue';
+import { createTeacherTask, request } from '@/utils/request.js';
 
 const taskTypes = ['run', 'test']; // Simplified to match backend enum/string
 const taskTypeLabels = ['跑步任务', '体能测试']; // Display labels
-const groupOptions = ['all', 'group_a', 'group_b'];
-const groupLabels = ['全员', '体能A组', '体能B组'];
+const groupOptions = ref(['all']);
+const groupLabels = ref(['全员']);
+const classes = ref([]);
 
 const form = ref({
   title: '',
@@ -72,6 +73,22 @@ const form = ref({
   targetLabel: '全员',
   description: ''
 });
+
+onMounted(() => {
+  fetchClasses();
+});
+
+const fetchClasses = async () => {
+  try {
+    const res = await request({ url: '/teacher/classes' });
+    classes.value = res;
+    // Update group options
+    groupLabels.value = ['全员', ...res.map(c => `班级: ${c.name}`)];
+    groupOptions.value = ['all', ...res.map(c => c.id)];
+  } catch (e) {
+    console.error('Fetch classes failed', e);
+  }
+};
 
 const onTypeChange = (e) => {
   const index = e.detail.value;
@@ -85,8 +102,8 @@ const onDateChange = (e) => {
 
 const onGroupChange = (e) => {
   const index = e.detail.value;
-  form.value.target = groupOptions[index];
-  form.value.targetLabel = groupLabels[index];
+  form.value.target = groupOptions.value[index];
+  form.value.targetLabel = groupLabels.value[index];
 };
 
 const submitTask = async () => {
@@ -105,7 +122,8 @@ const submitTask = async () => {
       min_count: 0,
       deadline: new Date(form.value.deadline).toISOString(),
       description: form.value.description,
-      target_group: form.value.target
+      target_group: form.value.target === 'all' ? 'all' : null,
+      class_id: typeof form.value.target === 'number' ? form.value.target : null
     };
     
     await createTeacherTask(payload);

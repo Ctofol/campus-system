@@ -58,6 +58,12 @@
       }
     },
     {
+      "path": "pages/health/request",
+      "style": {
+        "navigationBarTitleText": "健康报备"
+      }
+    },
+    {
       "path": "pages/teacher/home/home",
       "style": {
         "navigationStyle": "custom",
@@ -135,6 +141,18 @@
       }
     },
     {
+      "path": "pages/teacher/class/class-list",
+      "style": {
+        "navigationBarTitleText": "班级管理"
+      }
+    },
+    {
+      "path": "pages/teacher/class/class-detail",
+      "style": {
+        "navigationBarTitleText": "班级详情"
+      }
+    },
+    {
       "path": "pages/activity/list",
       "style": {
         "navigationBarTitleText": "跑团活动"
@@ -152,6 +170,30 @@
         "navigationBarTitleText": "AI体能训练",
         "navigationBarBackgroundColor": "#1a1a1a",
         "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/admin/dashboard/index",
+      "style": {
+        "navigationBarTitleText": "管理后台"
+      }
+    },
+    {
+      "path": "pages/admin/classes/list",
+      "style": {
+        "navigationBarTitleText": "班级管理"
+      }
+    },
+    {
+      "path": "pages/admin/users/list",
+      "style": {
+        "navigationBarTitleText": "用户管理"
+      }
+    },
+    {
+      "path": "pages/admin/import/index",
+      "style": {
+        "navigationBarTitleText": "批量导入"
       }
     }
   ],
