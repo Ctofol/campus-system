@@ -2,11 +2,9 @@
   <view class="login-container">
     <!-- 1. 顶部 Logo 与 标题 -->
     <view class="header-section">
-      <view class="logo-circle">
-        <text class="logo-text">校</text>
-      </view>
-      <text class="app-name">大学生运动健康管理平台</text>
-      <text class="app-sub-name">Professional Sports Management System</text>
+      <image class="logo-image" src="/static/lingxiLOGO.png" mode="aspectFit"></image>
+      <text class="app-name">灵析运动</text>
+      <text class="app-sub-name">Lingxi Sports</text>
     </view>
 
     <!-- 2. 登录卡片 -->
@@ -194,6 +192,14 @@ const forgotPassword = () => {
   flex-direction: column;
   align-items: center;
   margin-bottom: 60rpx;
+}
+
+.logo-image {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: 24rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 10rpx 20rpx rgba(32, 201, 151, 0.3);
 }
 
 .logo-circle {

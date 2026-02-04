@@ -2,13 +2,23 @@
 // 开发环境地址
 let baseUrl = 'http://127.0.0.1:8000';
 
+// #ifdef H5
+try {
+  const proto = location && location.protocol ? location.protocol : 'http:';
+  const host = location && location.hostname ? location.hostname : 'localhost';
+  baseUrl = `${proto}//${host}:8000`;
+} catch (e) {
+  baseUrl = 'http://127.0.0.1:8000';
+}
+// #endif
+
 // #ifndef H5
 // 真机调试地址（请修改为你电脑/服务器的真实IP）
 baseUrl = 'http://192.168.0.210:8000'; 
 // #endif
 
 // --- 服务器生产环境配置 ---
-baseUrl = 'http://120.26.17.147:8000';
+// baseUrl = 'http://120.26.17.147:8000';
 // --------------------------------------------------------
 
 export const BASE_URL = baseUrl;

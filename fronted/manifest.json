@@ -18,9 +18,10 @@
         },
         /* 模块配置 */
         "modules" : {
-            "Camera" : {},
-            "Location" : {},
-            "Maps" : {}
+            "Maps" : {},
+            "VideoPlayer" : {},
+            "Geolocation" : {},
+            "Camera" : {}
         },
         /* 应用发布信息 */
         "distribute" : {
@@ -37,6 +38,8 @@
                     "<uses-permission android:name=\"android.permission.ACCESS_FINE_LOCATION\"/>",
                     "<uses-permission android:name=\"android.permission.ACCESS_COARSE_LOCATION\"/>",
                     "<uses-permission android:name=\"android.permission.CAMERA\"/>",
+                    "<uses-permission android:name=\"android.permission.WRITE_EXTERNAL_STORAGE\"/>",
+                    "<uses-permission android:name=\"android.permission.READ_EXTERNAL_STORAGE\"/>",
                     "<uses-permission android:name=\"android.permission.GET_ACCOUNTS\"/>",
                     "<uses-permission android:name=\"android.permission.READ_PHONE_STATE\"/>",
                     "<uses-permission android:name=\"android.permission.CHANGE_WIFI_STATE\"/>",
@@ -51,7 +54,14 @@
                 "dSYMs" : false
             },
             /* SDK配置 */
-            "sdkConfigs" : {}
+            "sdkConfigs" : {
+                "maps" : {
+                    "tencent" : {
+                        "key" : "ET4BZ-QJAL4-EMPUD-FBOLE-M23H3-3RBXD"
+                    }
+                },
+                "geolocation" : {}
+            }
         }
     },
     /* 快应用特有相关 */
@@ -103,5 +113,16 @@
     "uniStatistics" : {
         "enable" : false
     },
-    "vueVersion" : "3"
+    "vueVersion" : "3",
+    "app-harmony" : {
+        "distribute" : {
+            "modules" : {
+                "uni-map" : {
+                    "tencent" : {
+                        "key" : "ET4BZ-QJAL4-EMPUD-FBOLE-M23H3-3RBXD"
+                    }
+                }
+            }
+        }
+    }
 }
