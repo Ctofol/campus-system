@@ -1,0 +1,28 @@
+
+.container {
+  padding: 20px;
+}
+.section {
+  background-color: #fff;
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+.header {
+  font-size: 18px;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+.desc {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 15px;
+}
+.actions {
+  display: flex;
+  gap: 10px;
+}
+.btn {
+  margin: 0;
+}

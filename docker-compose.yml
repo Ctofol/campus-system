@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  # 后端服务
+  backend:
+    build: ./backend
+    container_name: campus-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - SQLALCHEMY_DATABASE_URL=postgresql://postgres:Chen20070509@db:5432/campus_db
+      - TZ=Asia/Shanghai
+    depends_on:
+      - db
+    restart: always
+    networks:
+      - campus-network
+
+  # 数据库服务
+  db:
+    image: postgres:13
+    container_name: campus-db
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=Chen20070509
+      - POSTGRES_DB=campus_db
+      - TZ=Asia/Shanghai
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: always
+    networks:
+      - campus-network
+
+  # 前端 H5 服务 (可选，需先在 HBuilderX 中发行 H5)
+  frontend:
+    build: ./fronted
+    container_name: campus-frontend-h5
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    restart: always
+    networks:
+      - campus-network
+
+volumes:
+  postgres_data:
+
+networks:
+  campus-network:
+    driver: bridge
