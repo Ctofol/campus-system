@@ -1,0 +1,862 @@
+<template>
+  <view class="test-page-root">
+    <!-- Custom Navigation Bar -->
+    <view class="custom-navbar" :style="{paddingTop: statusBarHeight + 'px'}">
+      <view class="navbar-content">
+        <text class="navbar-title">体能测试</text>
+      </view>
+    </view>
+    
+    <!-- Content Wrapper with padding for navbar and tabbar -->
+    <scroll-view scroll-y="true" class="content-wrapper" :style="{paddingTop: (statusBarHeight + 44) + 'px'}">
+      <view v-if="role === 'teacher'" class="teacher-tools">
+        <view class="teacher-card">
+          <text class="teacher-title">教师工具</text>
+          <view class="teacher-actions">
+            <button class="teacher-btn" @click="gotoStudents"><text class="teacher-btn-text">学员管理</text></button>
+          </view>
+        </view>
+      </view>
+      <view v-else class="student-container">
+        <view class="header-info">
+          <text class="project-name">{{ projectName }}</text>
+          <view class="standard-badge">
+            <text class="badge-text">国家学生体质健康标准</text>
+          </view>
+          <text class="standard-desc">动作标准：{{ standardDesc }}</text>
+          
+          <view class="test-type-switch">
+            <button class="switch-btn" @click="showTypeSelector"><text class="switch-btn-text">切换测试类型</text></button>
+            <view class="type-selector" v-if="showSelector">
+              <view class="type-item" @click="switchTestType('引体向上', 'pull-up')"><text class="type-item-text">引体向上</text></view>
+              <view class="type-item" @click="switchTestType('仰卧起坐', 'sit-up')"><text class="type-item-text">仰卧起坐</text></view>
+              <view class="type-item" @click="switchTestType('俯卧撑', 'push-up')"><text class="type-item-text">俯卧撑</text></view>
+            </view>
+          </view>
+        </view>
+      
+        <view class="camera-area">
+          <!-- #ifdef H5 -->
+          <view class="h5-camera-wrapper">
+            <!-- H5 specific implementation omitted for brevity in nvue if not targeting H5, but keeping for compatibility -->
+            <text class="error-text">H5 not fully supported in nvue mode</text>
+          </view>
+          <!-- #endif -->
+
+          <!-- #ifndef H5 -->
+          <camera
+            class="real-camera"
+            device-position="front"
+            flash="off"
+            @error="handleCameraError"
+          ></camera>
+          
+          <!-- In nvue, standard view can overlay camera if placed after it -->
+          <view class="camera-overlay-content" v-if="isTesting">
+            <view class="count-overlay">
+              <text class="count-val">{{ count }}</text>
+              <text class="count-label">次</text>
+            </view>
+            
+            <view class="progress-bar-container">
+              <view class="progress-fill" :style="{ width: progressPercent + '%' }"></view>
+            </view>
+
+            <view class="status-tips">
+              <text class="status-text" :class="[isStandard ? 'valid-text' : '']">{{ statusText }}</text>
+            </view>
+          </view>
+          <!-- #endif -->
+        </view>
+        
+        <view class="action-area">
+          <view class="timer-box">
+            <text class="timer-label">{{ isTesting ? '测试用时' : (lastResult ? '上次用时' : '测试用时') }}</text>
+            <text class="timer-text">{{ isTesting ? formatTime(duration) : (lastResult ? lastResult.duration : '00:00') }}</text>
+          </view>
+          
+          <!-- Last Result Display -->
+          <view v-if="!isTesting && lastResult" class="last-result-box">
+            <text class="result-title">上次成绩 ({{ projectName }})</text>
+            <view class="result-row">
+              <text class="result-label">数量：</text>
+              <text class="result-value">{{ lastResult.count }} 次</text>
+            </view>
+            <view class="result-row">
+              <text class="result-label">用时：</text>
+              <text class="result-value">{{ lastResult.duration }}</text>
+            </view>
+          </view>
+
+          <view class="btn-group">
+            <view v-if="!isTesting" class="main-btn start-btn" @click="startTest">
+              <text class="btn-text">{{ lastResult ? '再次测试' : '开始测试' }}</text>
+            </view>
+            <view v-else class="testing-btns">
+               <view class="sub-btn stop-btn" @click="endTest"><text class="btn-text">结束测试</text></view>
+               <view class="sub-btn mock-btn" @click="mockCount"><text class="btn-text mock-text">+1 模拟</text></view>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <!-- Guide Modal -->
+      <view v-if="showGuide" class="guide-modal" @click="showGuide = false">
+        <view class="guide-content" @click.stop>
+          <text class="guide-title">动作指南</text>
+          <view class="guide-visual">
+            <text class="guide-emoji">{{ projectEmoji }}</text>
+          </view>
+          <text class="guide-desc">{{ standardDesc }}</text>
+          <button class="guide-btn" @click="showGuide = false"><text class="guide-btn-text">我知道了</text></button>
+        </view>
+      </view>
+      
+    </scroll-view>
+
+    <!-- TabBar -->
+    <view class="tab-bar">
+      <view class="tab-bar-border"></view>
+      <view v-for="(item, index) in tabList" :key="index" class="tab-bar-item" @click="switchTab(item)">
+        <image class="tab-icon" :src="currentTab === item.pagePath ? item.selectedIconPath : item.iconPath"></image>
+        <text class="tab-text" :style="{ color: currentTab === item.pagePath ? '#20C997' : '#666666' }">{{ item.text }}</text>
+      </view>
+    </view>
+  </view>
+</template>
+
+<script setup>
+import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { onLoad, onShow, onHide } from '@dcloudio/uni-app';
+import { request, BASE_URL } from '@/utils/request.js';
+
+// 状态栏高度
+const statusBarHeight = ref(20);
+const cameraContext = ref(null);
+const captureTimer = ref(null);
+const isTesting = ref(false);
+const count = ref(0);
+const duration = ref(0);
+const timer = ref(null);
+const lastResult = ref(null);
+const pendingVideoUrl = ref('');
+const progressPercent = computed(() => Math.min((count.value / 20) * 100, 100)); // 假设目标20个
+const isStandard = ref(false);
+const statusText = ref('请做好准备');
+const showSelector = ref(false);
+const showGuide = ref(false);
+const role = ref('student');
+
+// 页面参数
+const projectName = ref('引体向上');
+const standardDesc = ref('下颌过杠，双臂伸直');
+const testType = ref('pull-up');
+
+const projectEmoji = computed(() => {
+  const map = { 'pull-up': '💪', 'sit-up': '🧘', 'push-up': '🙇' };
+  return map[testType.value] || '🏃';
+});
+
+// TabBar Logic
+const currentTab = '/pages/test/test';
+const tabList = computed(() => {
+  return role.value === 'teacher' ? [
+    { pagePath: "/pages/teacher/home/home", text: "主页", iconPath: "/static/tab/home.png", selectedIconPath: "/static/tab/home-active.png" },
+    { pagePath: "/pages/teacher/manage/manage", text: "管理", iconPath: "/static/tab/run.png", selectedIconPath: "/static/tab/run-active.png" },
+    { pagePath: "/pages/teacher/mine/mine", text: "我的", iconPath: "/static/tab/mine.png", selectedIconPath: "/static/tab/mine-active.png" }
+  ] : [
+    { pagePath: "/pages/home/home", text: "首页", iconPath: "/static/tab/home.png", selectedIconPath: "/static/tab/home-active.png" },
+    { pagePath: "/pages/run/run", text: "跑步", iconPath: "/static/tab/run.png", selectedIconPath: "/static/tab/run-active.png" },
+    { pagePath: "/pages/test/test", text: "体测", iconPath: "/static/tab/test.png", selectedIconPath: "/static/tab/test-active.png" },
+    { pagePath: "/pages/mine/mine", text: "我的", iconPath: "/static/tab/mine.png", selectedIconPath: "/static/tab/mine-active.png" }
+  ];
+});
+
+const switchTab = (item) => {
+  if (item.pagePath === currentTab) return;
+  uni.redirectTo({ url: item.pagePath });
+};
+
+onShow(() => {
+  const userRole = uni.getStorageSync('userRole') || 'student';
+  role.value = userRole;
+  
+  // #ifndef H5
+  if (!cameraContext.value && uni.createCameraContext) {
+    cameraContext.value = uni.createCameraContext();
+  }
+  // #endif
+});
+
+const showTypeSelector = () => {
+  showSelector.value = !showSelector.value;
+};
+
+const switchTestType = (name, type) => {
+  projectName.value = name;
+  testType.value = type;
+  showSelector.value = false;
+  
+  if (type === 'pull-up') standardDesc.value = '下颌过杠，双臂伸直';
+  else if (type === 'sit-up') standardDesc.value = '双手抱头，肘部触膝';
+  else if (type === 'push-up') standardDesc.value = '身体平直，屈臂90度';
+  
+  count.value = 0;
+  duration.value = 0;
+  isTesting.value = false;
+  statusText.value = '请做好准备';
+};
+
+const formatTime = (seconds) => {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+};
+
+const mockCount = () => {
+  count.value++;
+  isStandard.value = true;
+  statusText.value = '动作标准';
+  setTimeout(() => {
+    isStandard.value = false;
+    statusText.value = '保持动作';
+  }, 1000);
+};
+
+const startTest = () => {
+  if (isTesting.value) return;
+  
+  isTesting.value = true;
+  count.value = 0;
+  duration.value = 0;
+  statusText.value = '正在识别...';
+  pendingVideoUrl.value = '';
+  
+  timer.value = setInterval(() => {
+    duration.value++;
+  }, 1000);
+  
+  captureTimer.value = setInterval(() => {
+    mockCount();
+  }, 3000);
+};
+
+const endTest = async () => {
+  if (!isTesting.value) return;
+  
+  clearInterval(timer.value);
+  clearInterval(captureTimer.value);
+  isTesting.value = false;
+  statusText.value = '测试结束';
+  
+  lastResult.value = {
+    count: count.value,
+    duration: formatTime(duration.value),
+    date: new Date().toLocaleString()
+  };
+  
+  uni.showLoading({ title: '正在上传数据...' });
+  
+  try {
+    const snapshotPath = await takeSnapshot();
+    let evidenceUrl = '';
+    if (snapshotPath) {
+      const uploadRes = await uploadFile(snapshotPath);
+      if (uploadRes && uploadRes.url) {
+        evidenceUrl = uploadRes.url;
+      }
+    }
+    
+    await submitResult(evidenceUrl);
+    
+    uni.hideLoading();
+    uni.showModal({
+      title: '测试完成',
+      content: `项目：${projectName.value}\n本次成绩：${count.value}次\n用时：${formatTime(duration.value)}`,
+      showCancel: false
+    });
+    
+  } catch (e) {
+    uni.hideLoading();
+    uni.showToast({ title: '数据提交失败', icon: 'none' });
+    console.error(e);
+  }
+};
+
+const takeSnapshot = () => {
+  return new Promise((resolve, reject) => {
+    // #ifndef H5
+    if (cameraContext.value && cameraContext.value.takePhoto) {
+      cameraContext.value.takePhoto({
+        quality: 'normal',
+        success: (res) => {
+          resolve(res.tempImagePath);
+        },
+        fail: (err) => {
+          console.error('App snapshot failed', err);
+          resolve(null);
+        }
+      });
+    } else {
+      resolve(null);
+    }
+    // #endif
+    // #ifdef H5
+    resolve(null);
+    // #endif
+  });
+};
+
+const uploadFile = (filePath) => {
+  return new Promise((resolve, reject) => {
+    const token = uni.getStorageSync('token');
+    uni.uploadFile({
+      url: `${BASE_URL}/upload`,
+      filePath: filePath,
+      name: 'file',
+      header: {
+        'Authorization': `Bearer ${token}`
+      },
+      success: (uploadFileRes) => {
+        try {
+          const data = JSON.parse(uploadFileRes.data);
+          resolve(data);
+        } catch (e) {
+          reject(e);
+        }
+      },
+      fail: (err) => {
+        reject(err);
+      }
+    });
+  });
+};
+
+const submitResult = () => {
+  return request({
+    url: '/activity/finish',
+    method: 'POST',
+    data: {
+      type: 'test',
+      source: 'free',
+      started_at: new Date(Date.now() - duration.value * 1000).toISOString(),
+      ended_at: new Date().toISOString(),
+      metrics: {
+        count: count.value,
+        duration: duration.value,
+        qualified: count.value >= 10,
+        checkpoints: JSON.stringify([])
+      },
+      evidence: [
+        ...(pendingVideoUrl.value ? [{ evidence_type: 'video', data_ref: pendingVideoUrl.value }] : [])
+      ]
+    }
+  });
+};
+
+const handleOptions = (options) => {
+  if (options.project) projectName.value = options.project;
+  if (options.type) testType.value = options.type;
+  
+  const standards = {
+    '引体向上': '下颌过杠，双臂伸直',
+    '仰卧起坐': '双手抱头，肘部触膝',
+    '俯卧撑': '身体平直，屈臂90度'
+  };
+  
+  if (standards[projectName.value]) {
+    standardDesc.value = standards[projectName.value];
+  }
+};
+
+onLoad((options) => {
+  const sys = uni.getSystemInfoSync();
+  statusBarHeight.value = sys.statusBarHeight || 20;
+  if (options) {
+    handleOptions(options);
+  }
+});
+
+const gotoStudents = () => {
+  uni.navigateTo({ url: '/pages/teacher/students/students' });
+};
+
+const handleCameraError = (e) => {
+  console.error('Camera Error:', e);
+  uni.showToast({
+    title: '无法访问摄像头',
+    icon: 'none',
+    duration: 3000
+  });
+};
+
+onHide(() => {
+  if (isTesting.value) {
+    clearInterval(timer.value);
+    clearInterval(captureTimer.value);
+    isTesting.value = false;
+  }
+});
+</script>
+
+<style scoped>
+.test-page-root {
+  flex: 1;
+  background-color: #1a1a1a;
+  flex-direction: column;
+}
+
+.custom-navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 750rpx;
+  background-color: #1a1a1a;
+  /* z-index not needed if order is correct, but useful for fixed */
+}
+
+.navbar-content {
+  height: 44px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+}
+
+.navbar-title {
+  color: #fff;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.content-wrapper {
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  width: 750rpx;
+  padding-bottom: 120rpx;
+}
+
+.teacher-tools {
+  width: 750rpx;
+  padding: 40rpx 30rpx;
+}
+
+.teacher-card {
+  background-color: #fff;
+  border-radius: 12rpx;
+  padding: 20rpx;
+}
+
+.teacher-title {
+  font-size: 34rpx;
+  font-weight: bold;
+  margin-bottom: 10rpx;
+  color: #333;
+}
+
+.teacher-actions {
+  flex-direction: row;
+}
+
+.teacher-btn {
+  background-color: #20C997;
+  padding: 10rpx 20rpx;
+  border-radius: 8rpx;
+}
+
+.teacher-btn-text {
+  color: #fff;
+  font-size: 28rpx;
+}
+
+.student-container {
+  flex-direction: column;
+  width: 750rpx;
+  align-items: center;
+}
+
+.header-info {
+  padding: 40rpx 30rpx 20rpx;
+  align-items: center;
+}
+
+.project-name {
+  font-size: 36rpx;
+  font-weight: bold;
+  margin-bottom: 10rpx;
+  color: #fff;
+}
+
+.standard-badge {
+  background-color: rgba(32, 201, 151, 0.2);
+  padding: 8rpx 20rpx;
+  border-radius: 12rpx;
+  margin-bottom: 16rpx;
+}
+
+.badge-text {
+  color: #20C997;
+  font-size: 24rpx;
+  font-weight: bold;
+}
+
+.standard-desc {
+  font-size: 28rpx;
+  color: #aaa;
+  margin-top: 10rpx;
+}
+
+.test-type-switch {
+  margin-top: 20rpx;
+  flex-direction: column;
+  align-items: center;
+}
+
+.switch-btn {
+  background-color: rgba(255,255,255,0.1);
+  padding: 12rpx 36rpx;
+  border-radius: 30rpx;
+  border-width: 1px;
+  border-style: solid;
+  border-color: rgba(32, 201, 151, 0.3);
+}
+
+.switch-btn-text {
+  color: #20C997;
+  font-size: 28rpx;
+}
+
+.type-selector {
+  background-color: rgba(0,0,0,0.4);
+  border-width: 1px;
+  border-style: solid;
+  border-color: rgba(255,255,255,0.1);
+  border-radius: 16rpx;
+  margin-top: 10rpx;
+}
+
+.type-item {
+  padding: 16rpx 40rpx;
+  border-bottom-width: 1px;
+  border-bottom-style: solid;
+  border-bottom-color: rgba(255,255,255,0.08);
+}
+
+.type-item-text {
+  color: #fff;
+  font-size: 28rpx;
+  text-align: center;
+}
+
+.camera-area {
+  width: 750rpx;
+  height: 562.5rpx; /* 4:3 Aspect Ratio */
+  background-color: #000;
+  position: relative;
+  justify-content: center;
+  align-items: center;
+  border-top-width: 1px;
+  border-top-style: solid;
+  border-top-color: #333;
+  border-bottom-width: 1px;
+  border-bottom-style: solid;
+  border-bottom-color: #333;
+}
+
+.real-camera {
+  width: 750rpx;
+  height: 562.5rpx;
+}
+
+.camera-overlay-content {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 750rpx;
+  height: 562.5rpx;
+}
+
+.count-overlay {
+  position: absolute;
+  top: 200rpx;
+  left: 375rpx;
+  /* translate not fully supported in styles, use layout */
+  transform: translateX(-50%); 
+  flex-direction: row;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.count-val {
+  font-size: 100rpx;
+  font-weight: 800;
+  color: #20C997;
+  line-height: 100rpx;
+}
+
+.count-label {
+  font-size: 30rpx;
+  color: rgba(255,255,255,0.8);
+  margin-left: 12rpx;
+  font-weight: bold;
+  margin-bottom: 10rpx;
+}
+
+.progress-bar-container {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 750rpx;
+  height: 10rpx;
+  background-color: rgba(255,255,255,0.1);
+}
+
+.progress-fill {
+  height: 10rpx;
+  background-color: #20C997;
+}
+
+.status-tips {
+  position: absolute;
+  bottom: 60rpx;
+  left: 0;
+  width: 750rpx;
+  flex-direction: row;
+  justify-content: center;
+}
+
+.status-text {
+  background-color: rgba(0,0,0,0.7);
+  padding: 16rpx 48rpx;
+  border-radius: 50rpx;
+  font-size: 32rpx;
+  color: #fff;
+  border-width: 1px;
+  border-style: solid;
+  border-color: rgba(255,255,255,0.1);
+}
+
+.valid-text {
+  color: #20C997;
+  background-color: rgba(32, 201, 151, 0.15);
+  border-color: rgba(32, 201, 151, 0.4);
+}
+
+.action-area {
+  width: 750rpx;
+  padding: 20rpx 40rpx 60rpx;
+  align-items: center;
+}
+
+.timer-box {
+  margin-bottom: 40rpx;
+  background-color: rgba(255,255,255,0.05);
+  padding: 16rpx 40rpx;
+  border-radius: 20rpx;
+  align-items: center;
+  border-width: 1px;
+  border-style: solid;
+  border-color: rgba(255,255,255,0.05);
+}
+
+.timer-label {
+  font-size: 24rpx;
+  color: #888;
+  margin-bottom: 4rpx;
+}
+
+.timer-text {
+  font-size: 60rpx;
+  font-weight: bold;
+  color: #fff;
+}
+
+.last-result-box {
+  margin-top: 20px;
+  background-color: #2a2a2a;
+  border-radius: 12px;
+  padding: 15px;
+  width: 600rpx;
+  border-width: 1px;
+  border-style: solid;
+  border-color: #333;
+}
+
+.result-title {
+  color: #fff;
+  font-size: 32rpx;
+  font-weight: bold;
+  margin-bottom: 20rpx;
+  text-align: center;
+}
+
+.result-row {
+  flex-direction: row;
+  justify-content: space-between;
+  margin-bottom: 10rpx;
+}
+
+.result-label {
+  color: #888;
+  font-size: 28rpx;
+}
+
+.result-value {
+  color: #20C997;
+  font-size: 32rpx;
+  font-weight: bold;
+}
+
+.btn-group {
+  flex-direction: row;
+  width: 600rpx;
+  justify-content: center;
+}
+
+.testing-btns {
+  flex-direction: row;
+  flex: 1;
+  justify-content: space-between;
+}
+
+.main-btn {
+  flex: 1;
+  background-image: linear-gradient(to bottom right, #20C997, #17a077);
+  height: 110rpx;
+  align-items: center;
+  justify-content: center;
+  border-radius: 60rpx;
+}
+
+.sub-btn {
+  flex: 1;
+  height: 110rpx;
+  align-items: center;
+  justify-content: center;
+  border-radius: 60rpx;
+  margin: 0 10rpx;
+}
+
+.stop-btn {
+  background-image: linear-gradient(to bottom right, #ff6b6b, #ee5253);
+}
+
+.mock-btn {
+  background-color: rgba(255,255,255,0.1);
+  border-width: 1px;
+  border-style: solid;
+  border-color: rgba(255,255,255,0.1);
+}
+
+.btn-text {
+  color: #fff;
+  font-size: 36rpx;
+  font-weight: bold;
+}
+
+.mock-text {
+  color: #ccc;
+  font-size: 32rpx;
+}
+
+.tab-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 750rpx;
+  height: 100rpx;
+  background-color: #ffffff;
+  flex-direction: row;
+  border-top-width: 1px;
+  border-top-style: solid;
+  border-top-color: rgba(0,0,0,0.1);
+}
+
+.tab-bar-item {
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+}
+
+.tab-icon {
+  width: 50rpx;
+  height: 50rpx;
+  margin-bottom: 4rpx;
+}
+
+.tab-text {
+  font-size: 20rpx;
+}
+
+/* Modal styles */
+.guide-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  background-color: rgba(0,0,0,0.8);
+  justify-content: center;
+  align-items: center;
+}
+
+.guide-content {
+  background-color: #fff;
+  width: 600rpx;
+  border-radius: 20rpx;
+  padding: 40rpx;
+  align-items: center;
+}
+
+.guide-title {
+  font-size: 36rpx;
+  font-weight: bold;
+  margin-bottom: 30rpx;
+  color: #333;
+}
+
+.guide-visual {
+  width: 200rpx;
+  height: 200rpx;
+  background-color: #f5f5f5;
+  border-radius: 20rpx;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 30rpx;
+}
+
+.guide-emoji {
+  font-size: 80rpx;
+}
+
+.guide-desc {
+  font-size: 28rpx;
+  color: #666;
+  text-align: center;
+  margin-bottom: 40rpx;
+}
+
+.guide-btn {
+  background-color: #20C997;
+  padding: 10rpx 60rpx;
+  border-radius: 40rpx;
+}
+
+.guide-btn-text {
+  color: #fff;
+  font-size: 30rpx;
+}
+
+.h5-camera-wrapper {
+  width: 750rpx;
+  height: 562.5rpx;
+  justify-content: center;
+  align-items: center;
+  background-color: #333;
+}
+
+.error-text {
+  color: #aaa;
+  font-size: 28rpx;
+}
+</style>
