@@ -358,6 +358,7 @@ const logout = () => {
 .content-wrapper {
   width: 100%;
   box-sizing: border-box;
+  padding-bottom: 200rpx;
 }
 
 /* 1. 账号主页 */
