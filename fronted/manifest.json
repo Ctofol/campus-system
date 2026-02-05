@@ -21,7 +21,8 @@
             "Maps" : {},
             "VideoPlayer" : {},
             "Geolocation" : {},
-            "Camera" : {}
+            "Camera" : {},
+            "Record" : {}
         },
         /* 应用发布信息 */
         "distribute" : {
@@ -35,6 +36,7 @@
                     "<uses-permission android:name=\"android.permission.ACCESS_WIFI_STATE\"/>",
                     "<uses-feature android:name=\"android.hardware.camera.autofocus\"/>",
                     "<uses-permission android:name=\"android.permission.ACCESS_NETWORK_STATE\"/>",
+                    "<uses-permission android:name=\"android.permission.INTERNET\"/>",
                     "<uses-permission android:name=\"android.permission.ACCESS_FINE_LOCATION\"/>",
                     "<uses-permission android:name=\"android.permission.ACCESS_COARSE_LOCATION\"/>",
                     "<uses-permission android:name=\"android.permission.CAMERA\"/>",
@@ -60,7 +62,12 @@
                         "key" : "ET4BZ-QJAL4-EMPUD-FBOLE-M23H3-3RBXD"
                     }
                 },
-                "geolocation" : {}
+                "geolocation" : {
+                    "tencent" : {
+                        "apikey_ios" : "",
+                        "apikey_android" : "ET4BZ-QJAL4-EMPUD-FBOLE-M23H3-3RBXD"
+                    }
+                }
             }
         }
     },

@@ -10,13 +10,15 @@
     <view class="content-wrapper" :style="{paddingTop: (statusBarHeight + 44) + 'px'}">
       <view class="student-dashboard">
       <view class="header-section">
-        <view class="teacher-task-box" v-if="teacherTask" @click="handleTaskClick">
-          <view class="task-icon-box"><text class="task-icon">📢</text></view>
-          <view class="task-content">
-            <text class="task-title">老师发布了新任务</text>
-            <text class="task-desc">{{ teacherTask.title }}</text>
-          </view>
-          <view class="task-action"><text class="btn-text">去完成</text></view>
+        <view class="tasks-list" v-if="teacherTasks.length > 0">
+           <view class="teacher-task-box" v-for="(task, index) in teacherTasks" :key="task.id" @click="handleTaskClick(task)">
+              <view class="task-icon-box"><text class="task-icon">📢</text></view>
+              <view class="task-content">
+                <text class="task-title">新任务: {{ task.title }}</text>
+                <text class="task-desc">{{ task.desc }}</text>
+              </view>
+              <view class="task-action"><text class="btn-text">去完成</text></view>
+           </view>
         </view>
         <view class="student-func-grid">
           <view class="stu-func-item" @click="gotoAiPolice">
@@ -109,6 +111,29 @@
     <view style="height: 120rpx;"></view>
     
     <CustomTabBar current="/pages/home/home" />
+    
+    <!-- 任务提醒弹窗 -->
+    <view class="modal-overlay" v-if="showTaskModal" @click="closeTaskModal">
+      <view class="rank-modal" @click.stop>
+        <view class="modal-header">
+            <text class="modal-title">🔔 您有新的任务</text>
+            <text class="close-btn" @click="closeTaskModal">×</text>
+        </view>
+        <view class="rank-list"> 
+           <view class="teacher-task-box" v-for="(task, index) in teacherTasks" :key="task.id" @click="handleTaskClick(task)" style="margin-bottom: 20rpx; background: #f9f9f9; width: 100%; box-sizing: border-box;">
+              <view class="task-icon-box"><text class="task-icon">📝</text></view>
+              <view class="task-content">
+                <text class="task-title">{{ task.title }}</text>
+                <text class="task-desc" style="font-size: 20rpx; color: #666;">{{ task.desc }}</text>
+              </view>
+              <view class="task-action"><text class="btn-text">去完成</text></view>
+           </view>
+        </view>
+        <view style="margin-top: 20rpx; text-align: center;">
+            <button size="mini" type="primary" @click="closeTaskModal" style="background-color: #20C997;">我知道了</button>
+        </view>
+      </view>
+    </view>
 
     <!-- 排行榜弹窗 -->
     <view class="modal-overlay" v-if="showRankModal" @click="closeRank">
@@ -140,29 +165,43 @@ const statusBarHeight = ref(20);
 const role = ref('student');
 const userInfo = ref({});
 
-const teacherTask = ref(null);
+const teacherTasks = ref([]);
+const showTaskModal = ref(false);
 
-const fetchLatestTask = async () => {
+const fetchTasks = async () => {
   try {
-    const res = await getStudentTasks({ page: 1, size: 1 });
+    const res = await getStudentTasks({ page: 1, size: 20 });
     if (res.items && res.items.length > 0) {
-      const task = res.items[0];
-      // Only show if pending or urgent? Or just the latest one.
-      // If completed, maybe show "No pending tasks"?
-      // For now show latest regardless of status, or prefer pending?
-      // The API returns tasks ordered by ID desc.
-      teacherTask.value = {
+      // Filter tasks to only show ongoing/pending ones
+      // Statuses: pending, in_progress, completed, expired, canceled
+      const ongoingStatuses = ['pending', 'in_progress', 'uncompleted']; 
+      teacherTasks.value = res.items
+        .filter(task => ongoingStatuses.includes(task.status))
+        .map(task => ({
          id: task.id,
          title: task.title,
+         status: task.status, 
          desc: task.description || (task.min_distance ? `目标: ${task.min_distance}km` : '请查看详情')
-      };
+      }));
+      
+      // Auto show modal if there are NEW ongoing tasks
+      if (teacherTasks.value.length > 0) {
+        // Get viewed task IDs from storage
+        const viewedIds = uni.getStorageSync('viewed_task_ids') || [];
+        
+        // Check if there is any task that hasn't been viewed
+        const hasNewTask = teacherTasks.value.some(task => !viewedIds.includes(task.id));
+        
+        if (hasNewTask) {
+           showTaskModal.value = true;
+        }
+      }
     } else {
-        teacherTask.value = null;
+        teacherTasks.value = [];
     }
   } catch (e) {
-    // 忽略 401 导致的报错（request.js 会自动跳转登录）
     if (!uni.getStorageSync('token')) return;
-    console.error('Fetch task failed', e);
+    console.error('Fetch tasks failed', e);
   }
 };
 
@@ -171,7 +210,6 @@ onShow(() => {
   
   const token = uni.getStorageSync('token');
   if (!token) {
-    // No token, redirect to login immediately to avoid 401 errors
     uni.reLaunch({ url: '/pages/login/login' });
     return;
   }
@@ -189,7 +227,7 @@ onShow(() => {
     }
   }
   
-  fetchLatestTask();
+  fetchTasks();
 });
 
 // --- 学生端数据 ---
@@ -229,10 +267,19 @@ const getRandomColor = () => {
   return colors[Math.floor(Math.random() * colors.length)];
 };
 
-const handleTaskClick = () => { 
+const handleTaskClick = (task) => { 
   uni.navigateTo({
     url: '/pages/student/tasks/list'
   });
+};
+const closeTaskModal = () => { 
+  showTaskModal.value = false; 
+  // Mark current tasks as viewed
+  const viewedIds = uni.getStorageSync('viewed_task_ids') || [];
+  const newIds = teacherTasks.value.map(t => t.id);
+  // Merge unique IDs
+  const updatedIds = [...new Set([...viewedIds, ...newIds])];
+  uni.setStorageSync('viewed_task_ids', updatedIds);
 };
 const gotoAiPolice = () => { uni.navigateTo({url: '/pages/ai-police/ai-police'}); };
 const browseActivities = () => { uni.navigateTo({url: '/pages/activity/list'}); };

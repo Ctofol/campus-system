@@ -32,6 +32,7 @@ if (uni.restoreGlobal) {
 (function(vue) {
   "use strict";
   const ON_SHOW = "onShow";
+  const ON_HIDE = "onHide";
   const ON_LOAD = "onLoad";
   const ON_REACH_BOTTOM = "onReachBottom";
   function formatAppLog(type, filename, ...args) {
@@ -46,6 +47,11 @@ if (uni.restoreGlobal) {
   };
   const onShow = /* @__PURE__ */ createLifeCycleHook(
     ON_SHOW,
+    1 | 2
+    /* HookFlags.PAGE */
+  );
+  const onHide = /* @__PURE__ */ createLifeCycleHook(
+    ON_HIDE,
     1 | 2
     /* HookFlags.PAGE */
   );
@@ -68,7 +74,7 @@ if (uni.restoreGlobal) {
   };
   const color = "#666666";
   const selectedColor = "#20C997";
-  const _sfc_main$v = {
+  const _sfc_main$y = {
     __name: "CustomTabBar",
     props: {
       current: {
@@ -115,7 +121,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$u(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$x(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("cover-view", { class: "tab-bar" }, [
       vue.createElementVNode("cover-view", { class: "tab-bar-border" }),
       (vue.openBlock(true), vue.createElementBlock(
@@ -148,7 +154,7 @@ if (uni.restoreGlobal) {
       ))
     ]);
   }
-  const CustomTabBar = /* @__PURE__ */ _export_sfc(_sfc_main$v, [["render", _sfc_render$u], ["__scopeId", "data-v-208a9ade"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/components/CustomTabBar/CustomTabBar.vue"]]);
+  const CustomTabBar = /* @__PURE__ */ _export_sfc(_sfc_main$y, [["render", _sfc_render$x], ["__scopeId", "data-v-208a9ade"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/components/CustomTabBar/CustomTabBar.vue"]]);
   let baseUrl = "http://127.0.0.1:8000";
   baseUrl = "http://192.168.0.210:8000";
   const BASE_URL = baseUrl;
@@ -278,7 +284,15 @@ if (uni.restoreGlobal) {
   const getStudentTasks = (params) => {
     let queryString = "";
     if (params) {
-      queryString = `?page=${params.page}&size=${params.size}`;
+      const queryParts = [];
+      if (params.page)
+        queryParts.push(`page=${params.page}`);
+      if (params.size)
+        queryParts.push(`size=${params.size}`);
+      if (params.status)
+        queryParts.push(`status=${params.status}`);
+      if (queryParts.length > 0)
+        queryString = `?${queryParts.join("&")}`;
     }
     return request({
       url: `/student/tasks${queryString}`,
@@ -311,31 +325,36 @@ if (uni.restoreGlobal) {
       data
     });
   };
-  const _sfc_main$u = {
+  const _sfc_main$x = {
     __name: "home",
     setup(__props, { expose: __expose }) {
       __expose();
       const statusBarHeight = vue.ref(20);
       const role = vue.ref("student");
       const userInfo = vue.ref({});
-      const teacherTask = vue.ref(null);
-      const fetchLatestTask = async () => {
+      const teacherTasks = vue.ref([]);
+      const showTaskModal = vue.ref(false);
+      const fetchTasks = async () => {
         try {
-          const res = await getStudentTasks({ page: 1, size: 1 });
+          const res = await getStudentTasks({ page: 1, size: 20 });
           if (res.items && res.items.length > 0) {
-            const task = res.items[0];
-            teacherTask.value = {
+            const ongoingStatuses = ["pending", "in_progress", "uncompleted"];
+            teacherTasks.value = res.items.filter((task) => ongoingStatuses.includes(task.status)).map((task) => ({
               id: task.id,
               title: task.title,
+              status: task.status,
               desc: task.description || (task.min_distance ? `目标: ${task.min_distance}km` : "请查看详情")
-            };
+            }));
+            if (teacherTasks.value.length > 0) {
+              showTaskModal.value = true;
+            }
           } else {
-            teacherTask.value = null;
+            teacherTasks.value = [];
           }
         } catch (e) {
           if (!uni.getStorageSync("token"))
             return;
-          formatAppLog("error", "at pages/home/home.vue:165", "Fetch task failed", e);
+          formatAppLog("error", "at pages/home/home.vue:196", "Fetch tasks failed", e);
         }
       };
       onShow(() => {
@@ -353,11 +372,11 @@ if (uni.restoreGlobal) {
           try {
             userInfo.value = typeof storedUser === "string" ? JSON.parse(storedUser) : storedUser;
           } catch (e) {
-            formatAppLog("error", "at pages/home/home.vue:187", "JSON parse error", e);
+            formatAppLog("error", "at pages/home/home.vue:217", "JSON parse error", e);
             userInfo.value = {};
           }
         }
-        fetchLatestTask();
+        fetchTasks();
       });
       const showTrainingPlans = vue.ref(true);
       const showRankModal = vue.ref(false);
@@ -392,10 +411,13 @@ if (uni.restoreGlobal) {
         const colors = ["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#FFEEAD"];
         return colors[Math.floor(Math.random() * colors.length)];
       };
-      const handleTaskClick = () => {
+      const handleTaskClick = (task) => {
         uni.navigateTo({
           url: "/pages/student/tasks/list"
         });
+      };
+      const closeTaskModal = () => {
+        showTaskModal.value = false;
       };
       const gotoAiPolice = () => {
         uni.navigateTo({ url: "/pages/ai-police/ai-police" });
@@ -431,7 +453,7 @@ if (uni.restoreGlobal) {
           url: `/pages/run/run?mode=training&planId=${item.id}&name=${item.name}`
         });
       };
-      const __returned__ = { statusBarHeight, role, userInfo, teacherTask, fetchLatestTask, showTrainingPlans, showRankModal, testProjects, trainingPlans, myClub, activities, memberUpdates, rankList, getRandomColor, handleTaskClick, gotoAiPolice, browseActivities, createClub, joinClub, enterClubDetail, showRank, closeRank, showActivityDetail, startTestProject, startTraining, ref: vue.ref, get onShow() {
+      const __returned__ = { statusBarHeight, role, userInfo, teacherTasks, showTaskModal, fetchTasks, showTrainingPlans, showRankModal, testProjects, trainingPlans, myClub, activities, memberUpdates, rankList, getRandomColor, handleTaskClick, closeTaskModal, gotoAiPolice, browseActivities, createClub, joinClub, enterClubDetail, showRank, closeRank, showActivityDetail, startTestProject, startTraining, ref: vue.ref, get onShow() {
         return onShow;
       }, get onLoad() {
         return onLoad;
@@ -442,7 +464,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$t(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$w(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "home-container" }, [
       vue.createElementVNode(
         "view",
@@ -467,27 +489,46 @@ if (uni.restoreGlobal) {
         [
           vue.createElementVNode("view", { class: "student-dashboard" }, [
             vue.createElementVNode("view", { class: "header-section" }, [
-              $setup.teacherTask ? (vue.openBlock(), vue.createElementBlock("view", {
+              $setup.teacherTasks.length > 0 ? (vue.openBlock(), vue.createElementBlock("view", {
                 key: 0,
-                class: "teacher-task-box",
-                onClick: $setup.handleTaskClick
+                class: "tasks-list"
               }, [
-                vue.createElementVNode("view", { class: "task-icon-box" }, [
-                  vue.createElementVNode("text", { class: "task-icon" }, "📢")
-                ]),
-                vue.createElementVNode("view", { class: "task-content" }, [
-                  vue.createElementVNode("text", { class: "task-title" }, "老师发布了新任务"),
-                  vue.createElementVNode(
-                    "text",
-                    { class: "task-desc" },
-                    vue.toDisplayString($setup.teacherTask.title),
-                    1
-                    /* TEXT */
-                  )
-                ]),
-                vue.createElementVNode("view", { class: "task-action" }, [
-                  vue.createElementVNode("text", { class: "btn-text" }, "去完成")
-                ])
+                (vue.openBlock(true), vue.createElementBlock(
+                  vue.Fragment,
+                  null,
+                  vue.renderList($setup.teacherTasks, (task, index) => {
+                    return vue.openBlock(), vue.createElementBlock("view", {
+                      class: "teacher-task-box",
+                      key: task.id,
+                      onClick: ($event) => $setup.handleTaskClick(task)
+                    }, [
+                      vue.createElementVNode("view", { class: "task-icon-box" }, [
+                        vue.createElementVNode("text", { class: "task-icon" }, "📢")
+                      ]),
+                      vue.createElementVNode("view", { class: "task-content" }, [
+                        vue.createElementVNode(
+                          "text",
+                          { class: "task-title" },
+                          "新任务: " + vue.toDisplayString(task.title),
+                          1
+                          /* TEXT */
+                        ),
+                        vue.createElementVNode(
+                          "text",
+                          { class: "task-desc" },
+                          vue.toDisplayString(task.desc),
+                          1
+                          /* TEXT */
+                        )
+                      ]),
+                      vue.createElementVNode("view", { class: "task-action" }, [
+                        vue.createElementVNode("text", { class: "btn-text" }, "去完成")
+                      ])
+                    ], 8, ["onClick"]);
+                  }),
+                  128
+                  /* KEYED_FRAGMENT */
+                ))
               ])) : vue.createCommentVNode("v-if", true),
               vue.createElementVNode("view", { class: "student-func-grid" }, [
                 vue.createElementVNode("view", {
@@ -819,14 +860,83 @@ if (uni.restoreGlobal) {
           ]),
           vue.createElementVNode("view", { style: { "height": "120rpx" } }),
           vue.createVNode($setup["CustomTabBar"], { current: "/pages/home/home" }),
-          $setup.showRankModal ? (vue.openBlock(), vue.createElementBlock("view", {
+          $setup.showTaskModal ? (vue.openBlock(), vue.createElementBlock("view", {
             key: 0,
+            class: "modal-overlay",
+            onClick: $setup.closeTaskModal
+          }, [
+            vue.createElementVNode("view", {
+              class: "rank-modal",
+              onClick: _cache[3] || (_cache[3] = vue.withModifiers(() => {
+              }, ["stop"]))
+            }, [
+              vue.createElementVNode("view", { class: "modal-header" }, [
+                vue.createElementVNode("text", { class: "modal-title" }, "🔔 您有新的任务"),
+                vue.createElementVNode("text", {
+                  class: "close-btn",
+                  onClick: $setup.closeTaskModal
+                }, "×")
+              ]),
+              vue.createElementVNode("view", { class: "rank-list" }, [
+                (vue.openBlock(true), vue.createElementBlock(
+                  vue.Fragment,
+                  null,
+                  vue.renderList($setup.teacherTasks, (task, index) => {
+                    return vue.openBlock(), vue.createElementBlock("view", {
+                      class: "teacher-task-box",
+                      key: task.id,
+                      onClick: ($event) => $setup.handleTaskClick(task),
+                      style: { "margin-bottom": "20rpx", "background": "#f9f9f9", "width": "100%", "box-sizing": "border-box" }
+                    }, [
+                      vue.createElementVNode("view", { class: "task-icon-box" }, [
+                        vue.createElementVNode("text", { class: "task-icon" }, "📝")
+                      ]),
+                      vue.createElementVNode("view", { class: "task-content" }, [
+                        vue.createElementVNode(
+                          "text",
+                          { class: "task-title" },
+                          vue.toDisplayString(task.title),
+                          1
+                          /* TEXT */
+                        ),
+                        vue.createElementVNode(
+                          "text",
+                          {
+                            class: "task-desc",
+                            style: { "font-size": "20rpx", "color": "#666" }
+                          },
+                          vue.toDisplayString(task.desc),
+                          1
+                          /* TEXT */
+                        )
+                      ]),
+                      vue.createElementVNode("view", { class: "task-action" }, [
+                        vue.createElementVNode("text", { class: "btn-text" }, "去完成")
+                      ])
+                    ], 8, ["onClick"]);
+                  }),
+                  128
+                  /* KEYED_FRAGMENT */
+                ))
+              ]),
+              vue.createElementVNode("view", { style: { "margin-top": "20rpx", "text-align": "center" } }, [
+                vue.createElementVNode("button", {
+                  size: "mini",
+                  type: "primary",
+                  onClick: $setup.closeTaskModal,
+                  style: { "background-color": "#20C997" }
+                }, "我知道了")
+              ])
+            ])
+          ])) : vue.createCommentVNode("v-if", true),
+          $setup.showRankModal ? (vue.openBlock(), vue.createElementBlock("view", {
+            key: 1,
             class: "modal-overlay",
             onClick: $setup.closeRank
           }, [
             vue.createElementVNode("view", {
               class: "rank-modal",
-              onClick: _cache[3] || (_cache[3] = vue.withModifiers(() => {
+              onClick: _cache[4] || (_cache[4] = vue.withModifiers(() => {
               }, ["stop"]))
             }, [
               vue.createElementVNode("view", { class: "modal-header" }, [
@@ -893,8 +1003,8 @@ if (uni.restoreGlobal) {
       )
     ]);
   }
-  const PagesHomeHome = /* @__PURE__ */ _export_sfc(_sfc_main$u, [["render", _sfc_render$t], ["__scopeId", "data-v-07e72d3c"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/home/home.vue"]]);
-  const _sfc_main$t = {
+  const PagesHomeHome = /* @__PURE__ */ _export_sfc(_sfc_main$x, [["render", _sfc_render$w], ["__scopeId", "data-v-07e72d3c"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/home/home.vue"]]);
+  const _sfc_main$w = {
     __name: "ai-chat-robot",
     props: {
       visible: Boolean,
@@ -1011,7 +1121,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$s(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$v(_ctx, _cache, $props, $setup, $data, $options) {
     return $props.visible ? (vue.openBlock(), vue.createElementBlock("view", {
       key: 0,
       class: "ai-robot-container"
@@ -1201,12 +1311,67 @@ if (uni.restoreGlobal) {
       ])
     ])) : vue.createCommentVNode("v-if", true);
   }
-  const AiChatRobot = /* @__PURE__ */ _export_sfc(_sfc_main$t, [["render", _sfc_render$s], ["__scopeId", "data-v-b77ff380"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/components/ai-chat-robot/ai-chat-robot.vue"]]);
+  const AiChatRobot = /* @__PURE__ */ _export_sfc(_sfc_main$w, [["render", _sfc_render$v], ["__scopeId", "data-v-b77ff380"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/components/ai-chat-robot/ai-chat-robot.vue"]]);
+  const getCurrentLocation = (options = {}) => {
+    return new Promise((resolve, reject) => {
+      const config = {
+        type: "gcj02",
+        // 默认 gcj02，兼容性好
+        isHighAccuracy: true,
+        // 开启高精度
+        timeout: 1e4,
+        // 超时 10秒
+        ...options
+      };
+      uni.getLocation({
+        type: config.type,
+        isHighAccuracy: config.isHighAccuracy,
+        highAccuracyExpireTime: 4e3,
+        // 高精度定位超时时间(ms)，指定时间内返回最高精度，该值3000ms以上高精度定位才有效果
+        timeout: config.timeout,
+        success: (res) => {
+          resolve({
+            success: true,
+            latitude: res.latitude,
+            longitude: res.longitude,
+            speed: res.speed,
+            accuracy: res.accuracy,
+            originalRes: res
+          });
+        },
+        fail: (err) => {
+          let errorType = "system";
+          let errorMsg = "定位失败";
+          const errMsg = err.errMsg || "";
+          const errCode = err.code || 0;
+          if (errMsg.includes("auth") || errMsg.includes("denied") || errMsg.includes("permission") || errCode === 12) {
+            errorType = "permission";
+            errorMsg = "定位权限被拒绝，请前往设置开启";
+          } else if (errMsg.includes("timeout")) {
+            errorType = "timeout";
+            errorMsg = "定位超时，请检查网络或GPS信号";
+          } else if (errMsg.includes("service") || errMsg.includes("unavailable")) {
+            errorType = "system";
+            errorMsg = "定位服务不可用，请检查手机GPS开关";
+          } else {
+            errorMsg = `定位失败: ${errMsg}`;
+          }
+          reject({
+            success: false,
+            type: errorType,
+            message: errorMsg,
+            originalErr: err
+          });
+        }
+      });
+    });
+  };
+  const _imports_0$3 = "/static/location.png";
   const STEP_THRESHOLD_UP = 1.25;
   const STEP_THRESHOLD_DOWN = 1.05;
   const MIN_STEP_INTERVAL = 300;
   const RESET_TIMEOUT = 1500;
-  const _sfc_main$s = {
+  const _sfc_main$v = {
     __name: "run",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -1214,11 +1379,6 @@ if (uni.restoreGlobal) {
       onLoad(() => {
         const sys = uni.getSystemInfoSync();
         statusBarHeight.value = sys.statusBarHeight || 20;
-      });
-      vue.onUnmounted(() => {
-        if (timer)
-          clearInterval(timer);
-        stopStepCount();
       });
       const showAiRobot = vue.ref(false);
       const currentRunData = vue.computed(() => ({
@@ -1231,7 +1391,8 @@ if (uni.restoreGlobal) {
         showAiRobot.value = true;
       };
       onShow(() => {
-        formatAppLog("log", "at pages/run/run.vue:209", "run.vue onShow triggered");
+        isPageActive = true;
+        formatAppLog("log", "at pages/run/run.vue:225", "run.vue onShow triggered");
         uni.setNavigationBarTitle({
           title: "跑步"
         });
@@ -1252,11 +1413,11 @@ if (uni.restoreGlobal) {
           switchMode(targetMode);
           uni.removeStorageSync("runMode");
         }
-        getLocation();
+        startLocationService();
         getCheckpoints().then((data) => {
           availableCheckpoints.value = data;
         }).catch((err) => {
-          formatAppLog("error", "at pages/run/run.vue:241", "Failed to load checkpoints", err);
+          formatAppLog("error", "at pages/run/run.vue:257", "Failed to load checkpoints", err);
         });
         checkpoint.value = uni.getStorageSync("checkpoint") || {};
         if (checkpoint.value.name) {
@@ -1327,6 +1488,8 @@ if (uni.restoreGlobal) {
         uni.showToast({ title: `已加载路线：${route.name}`, icon: "none" });
         dailyTarget.value = route.distance;
       };
+      const locationState = vue.ref("idle");
+      let locationRetryTimer = null;
       const checkpointName = vue.ref("");
       const lat = vue.ref(39.909);
       const lng = vue.ref(116.397);
@@ -1376,43 +1539,52 @@ if (uni.restoreGlobal) {
           height: 30
         };
         if (isRunning.value) {
-          if (trajectoryPoints.value.length > 0) {
-            const lastPoint = trajectoryPoints.value[trajectoryPoints.value.length - 1];
-            const d = getDistance(lastPoint.latitude, lastPoint.longitude, newLat, newLng);
-            if (d > 2 && d < 100) {
-              distance.value += d;
-            }
+          if (trajectoryPoints.value.length === 0) {
+            const point = { latitude: newLat, longitude: newLng, timestamp: Date.now(), speed: speed || currentSpeed.value };
+            trajectoryPoints.value.push(point);
+            runPolyline.value.points.push({ latitude: newLat, longitude: newLng });
+            updateMapPolyline();
+            return;
           }
-          const point = { latitude: newLat, longitude: newLng, timestamp: Date.now(), speed: speed || currentSpeed.value };
-          trajectoryPoints.value.push(point);
-          runPolyline.value.points.push({ latitude: newLat, longitude: newLng });
-          updateMapPolyline();
-          if (currentMode.value === "campus" && checkpoint.value.lat) {
-            distanceToCheckpoint.value = Math.floor(getDistance(newLat, newLng, checkpoint.value.lat, checkpoint.value.lng));
-            if (distanceToCheckpoint.value <= (checkpoint.value.radius || 50)) {
-              isReach.value = true;
-              if (!uni.getStorageSync("checkpointReached")) {
-                if (checkpoint.value.id) {
-                  checkIn({ lat: newLat, lng: newLng, checkpoint_id: checkpoint.value.id }).then((res) => {
-                    if (res.success) {
-                      uni.showToast({ title: "打卡成功！", icon: "success" });
-                      checkinRecords.value.push({ checkpoint_id: checkpoint.value.id, time: (/* @__PURE__ */ new Date()).toISOString(), lat: newLat, lng: newLng });
-                    }
-                  }).catch(() => {
-                  });
-                } else {
-                  uni.showToast({ title: "已到达打卡点范围！", icon: "success" });
+          const lastPoint = trajectoryPoints.value[trajectoryPoints.value.length - 1];
+          const d = getDistance(lastPoint.latitude, lastPoint.longitude, newLat, newLng);
+          const timeDiff = (Date.now() - lastPoint.timestamp) / 1e3;
+          if (timeDiff < 0.5)
+            return;
+          const calculatedSpeed = d / timeDiff;
+          if (d >= 2 && calculatedSpeed < 20) {
+            distance.value += d;
+            const point = { latitude: newLat, longitude: newLng, timestamp: Date.now(), speed: speed || calculatedSpeed };
+            trajectoryPoints.value.push(point);
+            runPolyline.value.points.push({ latitude: newLat, longitude: newLng });
+            updateMapPolyline();
+            if (currentMode.value === "campus" && checkpoint.value.lat) {
+              distanceToCheckpoint.value = Math.floor(getDistance(newLat, newLng, checkpoint.value.lat, checkpoint.value.lng));
+              if (distanceToCheckpoint.value <= (checkpoint.value.radius || 100)) {
+                isReach.value = true;
+                if (!uni.getStorageSync("checkpointReached")) {
+                  if (checkpoint.value.id) {
+                    checkIn({ lat: newLat, lng: newLng, checkpoint_id: checkpoint.value.id }).then((res) => {
+                      if (res.success) {
+                        uni.showToast({ title: "打卡成功！", icon: "success" });
+                        checkinRecords.value.push({ checkpoint_id: checkpoint.value.id, time: (/* @__PURE__ */ new Date()).toISOString(), lat: newLat, lng: newLng });
+                      }
+                    }).catch(() => {
+                    });
+                  } else {
+                    uni.showToast({ title: "已到达打卡点范围！", icon: "success" });
+                  }
+                  uni.setStorageSync("checkpointReached", "1");
                 }
-                uni.setStorageSync("checkpointReached", "1");
+              } else {
+                isReach.value = false;
               }
-            } else {
-              isReach.value = false;
             }
-          }
-          if (currentMode.value === "normal") {
-            normalProgress.value = Math.min(100, distance.value / 1e3 / dailyTarget.value * 100);
-          } else if (currentMode.value === "police") {
-            policeProgress.value = Math.min(100, distance.value / policeTargetDistance.value * 100);
+            if (currentMode.value === "normal") {
+              normalProgress.value = Math.min(100, distance.value / 1e3 / dailyTarget.value * 100);
+            } else if (currentMode.value === "police") {
+              policeProgress.value = Math.min(100, distance.value / policeTargetDistance.value * 100);
+            }
           }
         }
       };
@@ -1427,8 +1599,25 @@ if (uni.restoreGlobal) {
             };
             uni.onLocationChange(locationCallback);
           },
-          fail: () => {
-            uni.showToast({ title: "无法获取实时位置，请检查权限", icon: "none" });
+          fail: (err) => {
+            formatAppLog("log", "at pages/run/run.vue:518", "startLocationUpdate failed:", err);
+            uni.showToast({ title: "定位服务兼容模式已启动", icon: "none" });
+            if (h5LocationTimer)
+              clearInterval(h5LocationTimer);
+            let preferredType = "gcj02";
+            const doPoll = () => {
+              getCurrentLocation({ type: preferredType }).then((res) => {
+                updateLocationLogic(res.latitude, res.longitude, res.speed || 0);
+              }).catch((err2) => {
+                formatAppLog("error", "at pages/run/run.vue:531", `Polling fallback failed for ${preferredType}`, err2);
+                if (preferredType === "gcj02") {
+                  preferredType = "wgs84";
+                  doPoll();
+                }
+              });
+            };
+            h5LocationTimer = setInterval(doPoll, 2e3);
+            doPoll();
           }
         });
       };
@@ -1453,6 +1642,7 @@ if (uni.restoreGlobal) {
       let accelerometerCallback = null;
       let locationCallback = null;
       let h5LocationTimer = null;
+      let isPageActive = true;
       const policeTargetDistance = vue.ref(2e3);
       const policeTargetPace = vue.ref(6.5);
       const taskId = vue.ref(null);
@@ -1494,10 +1684,103 @@ if (uni.restoreGlobal) {
           uni.showToast({ title: `开始课程：${options.course}`, icon: "none" });
         }
       });
+      uni.$on("onLocationChosen", (res) => {
+        processSelectedLocation(res);
+      });
+      vue.onUnmounted(() => {
+        uni.$off("onLocationChosen");
+        stopLocationPolling();
+        if (timer)
+          clearInterval(timer);
+      });
+      const startLocationService = () => {
+        getLocation();
+        if (uni.getSystemInfoSync().platform === "android") {
+          if (locationRetryTimer)
+            clearInterval(locationRetryTimer);
+          formatAppLog("log", "at pages/run/run.vue:647", "Starting Android location polling...");
+          locationRetryTimer = setInterval(() => {
+            if (!isPageActive)
+              return;
+            if (locationState.value !== "success") {
+              formatAppLog("log", "at pages/run/run.vue:651", "Retry locating (Android)...");
+              doGetLocation();
+            } else {
+              formatAppLog("log", "at pages/run/run.vue:654", "Location success, stop polling.");
+              clearInterval(locationRetryTimer);
+              locationRetryTimer = null;
+            }
+          }, 3e3);
+        }
+      };
+      const stopLocationPolling = () => {
+        if (locationRetryTimer) {
+          clearInterval(locationRetryTimer);
+          locationRetryTimer = null;
+        }
+      };
+      onHide(() => {
+        isPageActive = false;
+        stopLocationPolling();
+      });
+      vue.onUnmounted(() => {
+        stopLocationPolling();
+        if (timer)
+          clearInterval(timer);
+        stopStepCount();
+      });
       const getLocation = () => {
         doGetLocation();
       };
-      const doGetLocation = () => {
+      const handleLocationSuccess = (res) => {
+        lat.value = res.latitude;
+        lng.value = res.longitude;
+        uni.setStorageSync("lastLocation", { lat: res.latitude, lng: res.longitude });
+        markers.value = [{
+          id: 0,
+          latitude: res.latitude,
+          longitude: res.longitude,
+          title: "我的位置",
+          iconPath: "/static/location.png",
+          width: 30,
+          height: 30
+        }];
+        const campusLatMin = 39.9;
+        const campusLatMax = 39.92;
+        const campusLngMin = 116.39;
+        const campusLngMax = 116.41;
+        const isInCampus = res.latitude >= campusLatMin && res.latitude <= campusLatMax && res.longitude >= campusLngMin && res.longitude <= campusLngMax;
+        if (!isInCampus && currentMode.value === "campus") {
+          uni.showToast({ title: "仅校园内可进行打卡", icon: "none" });
+        }
+      };
+      const handleLocationError = (err) => {
+        formatAppLog("error", "at pages/run/run.vue:736", "Location failed:", err);
+        let msg = "定位失败";
+        let showSettings = false;
+        const errMsg = err.errMsg || "";
+        if (errMsg.includes("auth") || errMsg.includes("denied") || errMsg.includes("permission")) {
+          msg = "定位权限被拒绝，请去设置开启";
+          showSettings = true;
+        } else if (errMsg.includes("service") || errMsg.includes("unavailable")) {
+          msg = "定位服务不可用，请检查GPS";
+        }
+        if (showSettings) {
+          uni.showModal({
+            title: "权限提示",
+            content: msg,
+            confirmText: "去设置",
+            success: (res) => {
+              if (res.confirm)
+                uni.openSetting();
+            }
+          });
+        } else {
+          uni.showToast({ title: msg, icon: "none", duration: 3e3 });
+        }
+        locationState.value = "fail";
+      };
+      const doGetLocation = async () => {
         const lastLoc = uni.getStorageSync("lastLocation");
         if (lastLoc) {
           lat.value = lastLoc.lat;
@@ -1511,52 +1794,83 @@ if (uni.restoreGlobal) {
             width: 30,
             height: 30
           }];
+        } else {
+          uni.showLoading({ title: "定位中..." });
         }
-        uni.getLocation({
-          type: "gcj02",
-          accuracy: "high",
-          success: (res) => {
-            lat.value = res.latitude;
-            lng.value = res.longitude;
-            markers.value = [{
-              id: 0,
-              latitude: res.latitude,
-              longitude: res.longitude,
-              title: "我的位置",
-              iconPath: "/static/location.png",
-              width: 30,
-              height: 30
-            }];
-            const campusLatMin = 39.9;
-            const campusLatMax = 39.92;
-            const campusLngMin = 116.39;
-            const campusLngMax = 116.41;
-            const isInCampus = res.latitude >= campusLatMin && res.latitude <= campusLatMax && res.longitude >= campusLngMin && res.longitude <= campusLngMax;
-            if (!isInCampus && currentMode.value === "campus") {
-              uni.showToast({ title: "仅校园内可进行打卡", icon: "none" });
-            }
-          },
-          fail: (err) => {
-            formatAppLog("error", "at pages/run/run.vue:644", "Location failed:", err);
-            let msg = "定位失败，已使用模拟位置";
-            uni.showToast({ title: msg, icon: "none", duration: 3e3 });
-            lat.value = 39.908823;
-            lng.value = 116.39747;
-            markers.value = [{
-              id: 0,
-              latitude: 39.908823,
-              longitude: 116.39747,
-              title: "我的位置 (模拟)",
-              iconPath: "/static/location.png",
-              width: 30,
-              height: 30
-            }];
+        locationState.value = "locating";
+        try {
+          const res = await getCurrentLocation();
+          if (!isPageActive)
+            return;
+          uni.hideLoading();
+          if (res.success) {
+            handleLocationSuccess(res);
+            uni.showToast({ title: "定位成功", icon: "none" });
+            locationState.value = "success";
           }
+        } catch (err) {
+          if (!isPageActive)
+            return;
+          uni.hideLoading();
+          if (!lastLoc) {
+            handleLocationError(err);
+          } else {
+            uni.showToast({ title: "刷新定位失败，使用历史位置", icon: "none" });
+            locationState.value = "fail";
+          }
+        }
+      };
+      const handleRelocate = () => {
+        uni.showLoading({ title: "重新定位..." });
+        locationState.value = "locating";
+        setTimeout(() => uni.hideLoading(), 5e3);
+        getCurrentLocation().then((res) => {
+          if (!isPageActive)
+            return;
+          uni.hideLoading();
+          handleLocationSuccess(res);
+          uni.showToast({ title: "已更新位置", icon: "none" });
+          locationState.value = "success";
+        }).catch((err) => {
+          if (!isPageActive)
+            return;
+          uni.hideLoading();
+          handleLocationError(err);
         });
       };
+      const locationStatusText = vue.computed(() => {
+        switch (locationState.value) {
+          case "locating":
+            return "正在定位...";
+          case "success":
+            return "定位成功";
+          case "fail":
+            return "定位失败，请移至室外开阔地";
+          default:
+            return "等待定位";
+        }
+      });
       const searchCheckpoint = () => {
         if (!checkpointName.value) {
-          uni.showToast({ title: "请输入打卡点名称", icon: "none" });
+          if (availableCheckpoints.value.length === 0) {
+            uni.showToast({ title: "未加载到打卡点数据", icon: "none" });
+            getCheckpoints().then((data) => {
+              availableCheckpoints.value = data;
+              uni.showToast({ title: "数据已重新加载，请重试", icon: "none" });
+            });
+            return;
+          }
+          const itemList = availableCheckpoints.value.map((cp) => cp.name);
+          uni.showActionSheet({
+            itemList,
+            success: (res) => {
+              const target2 = availableCheckpoints.value[res.tapIndex];
+              selectCheckpoint(target2);
+            },
+            fail: (res) => {
+              formatAppLog("log", "at pages/run/run.vue:871", res.errMsg);
+            }
+          });
           return;
         }
         const target = availableCheckpoints.value.find((cp) => cp.name.includes(checkpointName.value));
@@ -1564,11 +1878,15 @@ if (uni.restoreGlobal) {
           uni.showToast({ title: "未找到该打卡点", icon: "none" });
           return;
         }
+        selectCheckpoint(target);
+      };
+      const selectCheckpoint = (target) => {
         const newCheckpoint = {
           name: target.name,
           lat: target.latitude,
           lng: target.longitude,
-          radius: target.radius
+          radius: target.radius,
+          id: target.id
         };
         uni.setStorageSync("checkpoint", newCheckpoint);
         checkpoint.value = newCheckpoint;
@@ -1583,82 +1901,80 @@ if (uni.restoreGlobal) {
           dottedLine: true
         };
         updateMapPolyline();
-        uni.showToast({ title: `找到${newCheckpoint.name}`, icon: "success" });
+        uni.showToast({ title: `已锁定：${newCheckpoint.name}`, icon: "success" });
+      };
+      const processSelectedLocation = (res) => {
+        formatAppLog("log", "at pages/run/run.vue:918", "Selected location:", res);
+        const selLat = res.latitude;
+        const selLng = res.longitude;
+        let nearest = null;
+        let minDist = Infinity;
+        availableCheckpoints.value.forEach((cp) => {
+          const d = getDistance(selLat, selLng, cp.latitude, cp.longitude);
+          if (d < minDist) {
+            minDist = d;
+            nearest = cp;
+          }
+        });
+        if (nearest && minDist <= 200) {
+          checkpointName.value = nearest.name;
+          const newCheckpoint = {
+            name: nearest.name,
+            lat: nearest.latitude,
+            lng: nearest.longitude,
+            radius: nearest.radius,
+            id: nearest.id
+            // Ensure ID is passed
+          };
+          uni.setStorageSync("checkpoint", newCheckpoint);
+          checkpoint.value = newCheckpoint;
+          addCheckpointMarker(newCheckpoint.lat, newCheckpoint.lng, newCheckpoint.name);
+          navPolyline.value = {
+            points: [
+              { latitude: lat.value, longitude: lng.value },
+              { latitude: newCheckpoint.lat, longitude: newCheckpoint.lng }
+            ],
+            color: "#FF0000",
+            width: 2,
+            dottedLine: true
+          };
+          updateMapPolyline();
+          uni.showToast({ title: `已定位到：${nearest.name}`, icon: "success" });
+        } else {
+          uni.showModal({
+            title: "提示",
+            content: "您选择的地点不在校园打卡点范围内，是否仍要设为目标？(无法进行有效打卡)",
+            success: (mRes) => {
+              if (mRes.confirm) {
+                checkpointName.value = res.name || "自定义位置";
+                const customCheckpoint = {
+                  name: res.name || "自定义位置",
+                  lat: selLat,
+                  lng: selLng,
+                  radius: 50,
+                  id: null
+                };
+                uni.setStorageSync("checkpoint", customCheckpoint);
+                checkpoint.value = customCheckpoint;
+                addCheckpointMarker(selLat, selLng, customCheckpoint.name);
+                navPolyline.value = {
+                  points: [
+                    { latitude: lat.value, longitude: lng.value },
+                    { latitude: selLat, longitude: selLng }
+                  ],
+                  color: "#FF0000",
+                  width: 2,
+                  dottedLine: true
+                };
+                updateMapPolyline();
+              }
+            }
+          });
+        }
       };
       const handleMapSelect = () => {
-        uni.chooseLocation({
-          success: (res) => {
-            formatAppLog("log", "at pages/run/run.vue:720", "Selected location:", res);
-            const selLat = res.latitude;
-            const selLng = res.longitude;
-            let nearest = null;
-            let minDist = Infinity;
-            availableCheckpoints.value.forEach((cp) => {
-              const d = getDistance(selLat, selLng, cp.latitude, cp.longitude);
-              if (d < minDist) {
-                minDist = d;
-                nearest = cp;
-              }
-            });
-            if (nearest && minDist <= 200) {
-              checkpointName.value = nearest.name;
-              const newCheckpoint = {
-                name: nearest.name,
-                lat: nearest.latitude,
-                lng: nearest.longitude,
-                radius: nearest.radius,
-                id: nearest.id
-                // Ensure ID is passed
-              };
-              uni.setStorageSync("checkpoint", newCheckpoint);
-              checkpoint.value = newCheckpoint;
-              addCheckpointMarker(newCheckpoint.lat, newCheckpoint.lng, newCheckpoint.name);
-              navPolyline.value = {
-                points: [
-                  { latitude: lat.value, longitude: lng.value },
-                  { latitude: newCheckpoint.lat, longitude: newCheckpoint.lng }
-                ],
-                color: "#FF0000",
-                width: 2,
-                dottedLine: true
-              };
-              updateMapPolyline();
-              uni.showToast({ title: `已定位到：${nearest.name}`, icon: "success" });
-            } else {
-              uni.showModal({
-                title: "提示",
-                content: "您选择的地点不在校园打卡点范围内，是否仍要设为目标？(无法进行有效打卡)",
-                success: (mRes) => {
-                  if (mRes.confirm) {
-                    checkpointName.value = res.name || "自定义位置";
-                    const customCheckpoint = {
-                      name: res.name || "自定义位置",
-                      lat: selLat,
-                      lng: selLng,
-                      radius: 50,
-                      id: null
-                    };
-                    uni.setStorageSync("checkpoint", customCheckpoint);
-                    checkpoint.value = customCheckpoint;
-                    addCheckpointMarker(selLat, selLng, customCheckpoint.name);
-                    navPolyline.value = {
-                      points: [
-                        { latitude: lat.value, longitude: lng.value },
-                        { latitude: selLat, longitude: selLng }
-                      ],
-                      color: "#FF0000",
-                      width: 2,
-                      dottedLine: true
-                    };
-                    updateMapPolyline();
-                  }
-                }
-              });
-            }
-          },
-          fail: (err) => {
-            formatAppLog("error", "at pages/run/run.vue:797", "Choose location failed", err);
-          }
+        uni.navigateTo({
+          url: "/pages/common/choose-location/choose-location"
         });
       };
       const addCheckpointMarker = (lat2, lng2, name) => {
@@ -1690,12 +2006,12 @@ if (uni.restoreGlobal) {
           interval: "game",
           // 使用 game (20ms) 频率，采样更密集，捕捉波峰更准
           success: () => {
-            formatAppLog("log", "at pages/run/run.vue:844", "Accelerometer started");
+            formatAppLog("log", "at pages/run/run.vue:1057", "Accelerometer started");
             isStepActive = false;
             lastStepTime = Date.now();
           },
           fail: (err) => {
-            formatAppLog("error", "at pages/run/run.vue:849", "Start Accelerometer failed:", err);
+            formatAppLog("error", "at pages/run/run.vue:1062", "Start Accelerometer failed:", err);
           }
         });
         accelerometerCallback = (res) => {
@@ -1737,6 +2053,11 @@ if (uni.restoreGlobal) {
         }
       };
       const initializeRunState = () => {
+        if (locationState.value !== "success") {
+          uni.showToast({ title: "定位未成功，无法开始", icon: "none" });
+          doGetLocation();
+          return false;
+        }
         isRunning.value = true;
         duration.value = 0;
         distance.value = 0;
@@ -1750,10 +2071,12 @@ if (uni.restoreGlobal) {
           runPolyline.value.points.push({ latitude: lat.value, longitude: lng.value });
           updateMapPolyline();
         }
+        return true;
       };
       const startNormalRun = () => {
         navPolyline.value = null;
-        initializeRunState();
+        if (!initializeRunState())
+          return;
         uni.removeStorageSync("checkpointReached");
         startRealLocationTracking();
         startStepCount();
@@ -1763,7 +2086,8 @@ if (uni.restoreGlobal) {
         }, 1e3);
       };
       const startPoliceRun = () => {
-        initializeRunState();
+        if (!initializeRunState())
+          return;
         uni.removeStorageSync("policeFinishTip");
         startRealLocationTracking();
         startStepCount();
@@ -1777,7 +2101,8 @@ if (uni.restoreGlobal) {
         }, 1e3);
       };
       const startCampusRun = () => {
-        initializeRunState();
+        if (!initializeRunState())
+          return;
         isReach.value = false;
         uni.removeStorageSync("checkpointReached");
         startRealLocationTracking();
@@ -1823,18 +2148,18 @@ if (uni.restoreGlobal) {
           uni.showLoading({ title: "提交中..." });
           const res = await submitActivity(runData);
           uni.hideLoading();
-          formatAppLog("log", "at pages/run/run.vue:1006", "Submit success:", res);
+          formatAppLog("log", "at pages/run/run.vue:1229", "Submit success:", res);
           uni.setStorageSync("tempRunResult", runData);
           uni.redirectTo({
             url: "/pages/result/result?useStorage=true",
             fail: (err) => {
-              formatAppLog("error", "at pages/run/run.vue:1016", "Navigate failed:", err);
+              formatAppLog("error", "at pages/run/run.vue:1239", "Navigate failed:", err);
               uni.showToast({ title: "页面跳转失败", icon: "none" });
             }
           });
         } catch (error) {
           uni.hideLoading();
-          formatAppLog("error", "at pages/run/run.vue:1022", "Submit failed:", error);
+          formatAppLog("error", "at pages/run/run.vue:1245", "Submit failed:", error);
           uni.showModal({
             title: "提交失败",
             content: error && error.detail ? error.detail : "网络或服务器错误，请重试",
@@ -1872,7 +2197,11 @@ if (uni.restoreGlobal) {
         }
         return arr.reverse();
       };
-      const __returned__ = { statusBarHeight, showAiRobot, currentRunData, openAiRobot, handleShareToTeacher, todayRunCount, todayRunDistance, teacherRunTask, dailyTarget, normalProgress, policeProgress, historyList, achievements, showRoutes, recommendRoutes, toggleRoutes, availableCheckpoints, useRoute, checkpointName, lat, lng, markers, runPolyline, navPolyline, polyline, checkpoint, trajectoryPoints, checkinRecords, updateMapPolyline, getDistance, updateLocationLogic, startRealLocationTracking, stopRealLocationTracking, currentMode, isRunning, duration, distance, distanceToCheckpoint, isReach, stepCount, heartRate, currentSpeed, maxSpeed, get timer() {
+      const __returned__ = { statusBarHeight, showAiRobot, currentRunData, openAiRobot, handleShareToTeacher, todayRunCount, todayRunDistance, teacherRunTask, dailyTarget, normalProgress, policeProgress, historyList, achievements, showRoutes, recommendRoutes, toggleRoutes, availableCheckpoints, useRoute, locationState, get locationRetryTimer() {
+        return locationRetryTimer;
+      }, set locationRetryTimer(v) {
+        locationRetryTimer = v;
+      }, checkpointName, lat, lng, markers, runPolyline, navPolyline, polyline, checkpoint, trajectoryPoints, checkinRecords, updateMapPolyline, getDistance, updateLocationLogic, startRealLocationTracking, stopRealLocationTracking, currentMode, isRunning, duration, distance, distanceToCheckpoint, isReach, stepCount, heartRate, currentSpeed, maxSpeed, get timer() {
         return timer;
       }, set timer(v) {
         timer = v;
@@ -1888,7 +2217,11 @@ if (uni.restoreGlobal) {
         return h5LocationTimer;
       }, set h5LocationTimer(v) {
         h5LocationTimer = v;
-      }, policeTargetDistance, policeTargetPace, taskId, taskType, currentPace, currentSpeedKmh, avgSpeedKmh, getLocation, doGetLocation, searchCheckpoint, handleMapSelect, addCheckpointMarker, switchMode, get isStepActive() {
+      }, get isPageActive() {
+        return isPageActive;
+      }, set isPageActive(v) {
+        isPageActive = v;
+      }, policeTargetDistance, policeTargetPace, taskId, taskType, currentPace, currentSpeedKmh, avgSpeedKmh, startLocationService, stopLocationPolling, getLocation, handleLocationSuccess, handleLocationError, doGetLocation, handleRelocate, locationStatusText, searchCheckpoint, selectCheckpoint, processSelectedLocation, handleMapSelect, addCheckpointMarker, switchMode, get isStepActive() {
         return isStepActive;
       }, set isStepActive(v) {
         isStepActive = v;
@@ -1900,18 +2233,22 @@ if (uni.restoreGlobal) {
         return onShow;
       }, get onLoad() {
         return onLoad;
+      }, get onHide() {
+        return onHide;
       }, AiChatRobot, CustomTabBar, get submitActivity() {
         return submitActivity;
       }, get getCheckpoints() {
         return getCheckpoints;
       }, get checkIn() {
         return checkIn;
+      }, get getCurrentLocation() {
+        return getCurrentLocation;
       } };
       Object.defineProperty(__returned__, "__isScriptSetup", { enumerable: false, value: true });
       return __returned__;
     }
   };
-  function _sfc_render$r(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$u(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "run" }, [
       vue.createElementVNode(
         "view",
@@ -2057,8 +2394,43 @@ if (uni.restoreGlobal) {
         latitude: $setup.lat,
         longitude: $setup.lng,
         markers: $setup.markers,
-        polyline: $setup.polyline
-      }, null, 8, ["latitude", "longitude", "markers", "polyline"]),
+        polyline: $setup.polyline,
+        "enable-zoom": true,
+        "min-scale": 3,
+        "max-scale": 20,
+        scale: "16",
+        "show-location": true
+      }, [
+        vue.createElementVNode(
+          "cover-view",
+          {
+            class: "location-status-bar",
+            style: vue.normalizeStyle({ display: $setup.locationState === "success" ? "none" : "flex" })
+          },
+          [
+            vue.createElementVNode(
+              "text",
+              { class: "status-text" },
+              vue.toDisplayString($setup.locationStatusText),
+              1
+              /* TEXT */
+            )
+          ],
+          4
+          /* STYLE */
+        ),
+        vue.createElementVNode("cover-view", { class: "map-controls" }, [
+          vue.createElementVNode("cover-view", {
+            class: "control-btn",
+            onClick: $setup.handleRelocate
+          }, [
+            vue.createElementVNode("cover-image", {
+              src: _imports_0$3,
+              class: "control-icon"
+            })
+          ])
+        ])
+      ], 8, ["latitude", "longitude", "markers", "polyline"]),
       $setup.currentMode === "normal" ? (vue.openBlock(), vue.createElementBlock("view", {
         key: 2,
         class: "routes-card"
@@ -2370,9 +2742,9 @@ if (uni.restoreGlobal) {
       vue.createVNode($setup["CustomTabBar"], { current: "/pages/run/run" })
     ]);
   }
-  const PagesRunRun = /* @__PURE__ */ _export_sfc(_sfc_main$s, [["render", _sfc_render$r], ["__scopeId", "data-v-8ae35d30"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/run/run.vue"]]);
-  const _imports_0$1 = "/static/avatar.png";
-  const _sfc_main$r = {
+  const PagesRunRun = /* @__PURE__ */ _export_sfc(_sfc_main$v, [["render", _sfc_render$u], ["__scopeId", "data-v-8ae35d30"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/run/run.vue"]]);
+  const _imports_0$2 = "/static/avatar.png";
+  const _sfc_main$u = {
     __name: "mine",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -2499,7 +2871,7 @@ if (uni.restoreGlobal) {
         uni.navigateTo({ url: "/pages/health/request" });
       };
       const viewAllRecords = () => {
-        uni.showToast({ title: "功能开发中", icon: "none" });
+        uni.navigateTo({ url: "/pages/history/history" });
       };
       const gotoRecordDetail = (item) => {
       };
@@ -2543,7 +2915,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$q(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$t(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "mine-page" }, [
       vue.createElementVNode(
         "view",
@@ -2570,7 +2942,7 @@ if (uni.restoreGlobal) {
             vue.createElementVNode("view", { class: "avatar-box" }, [
               vue.createElementVNode("image", {
                 class: "avatar",
-                src: _imports_0$1,
+                src: _imports_0$2,
                 mode: "aspectFill"
               }),
               vue.createElementVNode("button", {
@@ -2868,8 +3240,8 @@ if (uni.restoreGlobal) {
       vue.createVNode($setup["CustomTabBar"], { current: "/pages/mine/mine" })
     ]);
   }
-  const PagesMineMine = /* @__PURE__ */ _export_sfc(_sfc_main$r, [["render", _sfc_render$q], ["__scopeId", "data-v-7c2ebfa5"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/mine/mine.vue"]]);
-  const _sfc_main$q = {
+  const PagesMineMine = /* @__PURE__ */ _export_sfc(_sfc_main$u, [["render", _sfc_render$t], ["__scopeId", "data-v-7c2ebfa5"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/mine/mine.vue"]]);
+  const _sfc_main$t = {
     __name: "result",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -2969,7 +3341,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$p(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$s(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "result-page" }, [
       vue.createElementVNode(
         "view",
@@ -3222,8 +3594,9 @@ if (uni.restoreGlobal) {
       ])
     ]);
   }
-  const PagesResultResult = /* @__PURE__ */ _export_sfc(_sfc_main$q, [["render", _sfc_render$p], ["__scopeId", "data-v-b615976f"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/result/result.vue"]]);
-  const _sfc_main$p = {
+  const PagesResultResult = /* @__PURE__ */ _export_sfc(_sfc_main$t, [["render", _sfc_render$s], ["__scopeId", "data-v-b615976f"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/result/result.vue"]]);
+  const _imports_0$1 = "/static/lingxiLOGO.png";
+  const _sfc_main$s = {
     __name: "login",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -3289,7 +3662,7 @@ if (uni.restoreGlobal) {
             }
           }, 1e3);
         } catch (error) {
-          formatAppLog("error", "at pages/login/login.vue:164", "Login failed:", error);
+          formatAppLog("error", "at pages/login/login.vue:162", "Login failed:", error);
         } finally {
           loading.value = false;
         }
@@ -3307,14 +3680,16 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$o(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$r(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "login-container" }, [
       vue.createElementVNode("view", { class: "header-section" }, [
-        vue.createElementVNode("view", { class: "logo-circle" }, [
-          vue.createElementVNode("text", { class: "logo-text" }, "校")
-        ]),
-        vue.createElementVNode("text", { class: "app-name" }, "大学生运动健康管理平台"),
-        vue.createElementVNode("text", { class: "app-sub-name" }, "Professional Sports Management System")
+        vue.createElementVNode("image", {
+          class: "logo-image",
+          src: _imports_0$1,
+          mode: "aspectFit"
+        }),
+        vue.createElementVNode("text", { class: "app-name" }, "灵析运动"),
+        vue.createElementVNode("text", { class: "app-sub-name" }, "Lingxi Sports")
       ]),
       vue.createElementVNode("view", { class: "login-card" }, [
         vue.createElementVNode("view", { class: "role-tabs" }, [
@@ -3402,8 +3777,8 @@ if (uni.restoreGlobal) {
       ])
     ]);
   }
-  const PagesLoginLogin = /* @__PURE__ */ _export_sfc(_sfc_main$p, [["render", _sfc_render$o], ["__scopeId", "data-v-e4e4508d"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/login/login.vue"]]);
-  const _sfc_main$o = {
+  const PagesLoginLogin = /* @__PURE__ */ _export_sfc(_sfc_main$s, [["render", _sfc_render$r], ["__scopeId", "data-v-e4e4508d"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/login/login.vue"]]);
+  const _sfc_main$r = {
     __name: "register",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -3505,7 +3880,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$n(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$q(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "register-container" }, [
       vue.createElementVNode("view", { class: "header-section" }, [
         vue.createElementVNode("text", { class: "title" }, "注册新账号"),
@@ -3802,8 +4177,8 @@ if (uni.restoreGlobal) {
       ])
     ]);
   }
-  const PagesRegisterRegister = /* @__PURE__ */ _export_sfc(_sfc_main$o, [["render", _sfc_render$n], ["__scopeId", "data-v-bac4a35d"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/register/register.vue"]]);
-  const _sfc_main$n = {
+  const PagesRegisterRegister = /* @__PURE__ */ _export_sfc(_sfc_main$r, [["render", _sfc_render$q], ["__scopeId", "data-v-bac4a35d"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/register/register.vue"]]);
+  const _sfc_main$q = {
     __name: "list",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -3887,7 +4262,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$m(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$p(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "container" }, [
       vue.createElementVNode("view", { class: "tabs" }, [
         vue.createElementVNode(
@@ -4007,8 +4382,415 @@ if (uni.restoreGlobal) {
       )
     ]);
   }
-  const PagesStudentTasksList = /* @__PURE__ */ _export_sfc(_sfc_main$n, [["render", _sfc_render$m], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/student/tasks/list.vue"]]);
-  const _sfc_main$m = {
+  const PagesStudentTasksList = /* @__PURE__ */ _export_sfc(_sfc_main$q, [["render", _sfc_render$p], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/student/tasks/list.vue"]]);
+  const _sfc_main$p = {
+    __name: "history",
+    setup(__props, { expose: __expose }) {
+      __expose();
+      const currentTab = vue.ref("all");
+      const tasks = vue.ref([]);
+      const page = vue.ref(1);
+      const size = vue.ref(20);
+      const loading = vue.ref(false);
+      const loadTasks = async () => {
+        if (loading.value)
+          return;
+        loading.value = true;
+        try {
+          const params = { page: page.value, size: size.value };
+          if (currentTab.value !== "all") {
+            params.status = currentTab.value;
+          }
+          const res = await getStudentTasks(params);
+          if (res.items) {
+            const newTasks = res.items.map((t) => ({
+              ...t,
+              statusText: getStatusText(t.status),
+              desc: t.description || (t.min_distance ? `目标: ${t.min_distance}km` : "无具体描述"),
+              deadline: t.deadline ? t.deadline.split("T")[0] : "无限制",
+              resultText: t.metrics ? t.metrics.qualified ? "达标" : "未达标" : ""
+            }));
+            if (page.value === 1)
+              tasks.value = newTasks;
+            else
+              tasks.value = [...tasks.value, ...newTasks];
+          }
+        } catch (e) {
+          formatAppLog("error", "at pages/history/history.vue:70", e);
+          uni.showToast({ title: "加载任务失败", icon: "none" });
+        } finally {
+          loading.value = false;
+        }
+      };
+      const switchTab = (tab) => {
+        if (currentTab.value === tab)
+          return;
+        currentTab.value = tab;
+        page.value = 1;
+        tasks.value = [];
+        loadTasks();
+      };
+      const loadMore = () => {
+        if (loading.value)
+          return;
+        page.value++;
+        loadTasks();
+      };
+      onShow(() => {
+        page.value = 1;
+        tasks.value = [];
+        loadTasks();
+      });
+      const getStatusText = (status) => {
+        const map = {
+          "pending": "进行中",
+          "completed": "已完成",
+          "expired": "已超时",
+          "canceled": "已取消"
+        };
+        return map[status] || status;
+      };
+      const filteredTasks = vue.computed(() => {
+        if (currentTab.value === "all")
+          return tasks.value;
+        if (currentTab.value === "pending") {
+          return tasks.value.filter((t) => ["pending", "in_progress", "uncompleted"].includes(t.status));
+        }
+        return tasks.value.filter((t) => t.status === currentTab.value);
+      });
+      const getTypeClass = (type) => {
+        return type === "test" ? "tag-red" : "tag-blue";
+      };
+      const getStatusClass = (status) => {
+        if (status === "completed")
+          return "text-green";
+        if (status === "expired")
+          return "text-gray";
+        if (status === "pending")
+          return "text-orange";
+        return "text-gray";
+      };
+      const goToDetail = (item) => {
+        const dataStr = encodeURIComponent(JSON.stringify(item));
+        uni.navigateTo({ url: `/pages/history/detail?data=${dataStr}` });
+      };
+      const __returned__ = { currentTab, tasks, page, size, loading, loadTasks, switchTab, loadMore, getStatusText, filteredTasks, getTypeClass, getStatusClass, goToDetail, ref: vue.ref, computed: vue.computed, get onShow() {
+        return onShow;
+      }, get getStudentTasks() {
+        return getStudentTasks;
+      } };
+      Object.defineProperty(__returned__, "__isScriptSetup", { enumerable: false, value: true });
+      return __returned__;
+    }
+  };
+  function _sfc_render$o(_ctx, _cache, $props, $setup, $data, $options) {
+    return vue.openBlock(), vue.createElementBlock("view", { class: "container" }, [
+      vue.createElementVNode("view", { class: "tabs" }, [
+        vue.createElementVNode(
+          "view",
+          {
+            class: vue.normalizeClass(["tab-item", { active: $setup.currentTab === "all" }]),
+            onClick: _cache[0] || (_cache[0] = ($event) => $setup.switchTab("all"))
+          },
+          "全部",
+          2
+          /* CLASS */
+        ),
+        vue.createElementVNode(
+          "view",
+          {
+            class: vue.normalizeClass(["tab-item", { active: $setup.currentTab === "completed" }]),
+            onClick: _cache[1] || (_cache[1] = ($event) => $setup.switchTab("completed"))
+          },
+          "已完成",
+          2
+          /* CLASS */
+        ),
+        vue.createElementVNode(
+          "view",
+          {
+            class: vue.normalizeClass(["tab-item", { active: $setup.currentTab === "pending" }]),
+            onClick: _cache[2] || (_cache[2] = ($event) => $setup.switchTab("pending"))
+          },
+          "未完成",
+          2
+          /* CLASS */
+        )
+      ]),
+      vue.createElementVNode(
+        "scroll-view",
+        {
+          "scroll-y": "",
+          class: "task-list",
+          onScrolltolower: $setup.loadMore
+        },
+        [
+          (vue.openBlock(true), vue.createElementBlock(
+            vue.Fragment,
+            null,
+            vue.renderList($setup.filteredTasks, (item) => {
+              return vue.openBlock(), vue.createElementBlock("view", {
+                class: "task-card",
+                key: item.id,
+                onClick: ($event) => $setup.goToDetail(item)
+              }, [
+                vue.createElementVNode("view", { class: "card-header" }, [
+                  vue.createElementVNode("view", { class: "title-row" }, [
+                    vue.createElementVNode(
+                      "text",
+                      {
+                        class: vue.normalizeClass(["tag", $setup.getTypeClass(item.type)])
+                      },
+                      vue.toDisplayString(item.type === "run" ? "跑步" : "体测"),
+                      3
+                      /* TEXT, CLASS */
+                    ),
+                    vue.createElementVNode(
+                      "text",
+                      { class: "title" },
+                      vue.toDisplayString(item.title),
+                      1
+                      /* TEXT */
+                    )
+                  ]),
+                  vue.createElementVNode(
+                    "text",
+                    {
+                      class: vue.normalizeClass(["status", $setup.getStatusClass(item.status)])
+                    },
+                    vue.toDisplayString(item.statusText),
+                    3
+                    /* TEXT, CLASS */
+                  )
+                ]),
+                vue.createElementVNode("view", { class: "card-body" }, [
+                  vue.createElementVNode(
+                    "text",
+                    { class: "desc" },
+                    vue.toDisplayString(item.desc),
+                    1
+                    /* TEXT */
+                  ),
+                  vue.createElementVNode("view", { class: "meta-row" }, [
+                    vue.createElementVNode(
+                      "text",
+                      { class: "time" },
+                      "截止: " + vue.toDisplayString(item.deadline),
+                      1
+                      /* TEXT */
+                    ),
+                    item.status === "completed" ? (vue.openBlock(), vue.createElementBlock(
+                      "text",
+                      {
+                        key: 0,
+                        class: "result"
+                      },
+                      vue.toDisplayString(item.resultText),
+                      1
+                      /* TEXT */
+                    )) : vue.createCommentVNode("v-if", true)
+                  ])
+                ]),
+                vue.createElementVNode("view", { class: "card-footer" }, [
+                  vue.createElementVNode("text", { class: "detail-link" }, "查看详情 >")
+                ])
+              ], 8, ["onClick"]);
+            }),
+            128
+            /* KEYED_FRAGMENT */
+          )),
+          $setup.loading ? (vue.openBlock(), vue.createElementBlock("view", {
+            key: 0,
+            class: "loading-more"
+          }, "加载中...")) : vue.createCommentVNode("v-if", true),
+          !$setup.loading && $setup.filteredTasks.length === 0 ? (vue.openBlock(), vue.createElementBlock("view", {
+            key: 1,
+            class: "no-more"
+          }, "暂无任务")) : vue.createCommentVNode("v-if", true)
+        ],
+        32
+        /* NEED_HYDRATION */
+      )
+    ]);
+  }
+  const PagesHistoryHistory = /* @__PURE__ */ _export_sfc(_sfc_main$p, [["render", _sfc_render$o], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/history/history.vue"]]);
+  const _sfc_main$o = {
+    __name: "detail",
+    setup(__props, { expose: __expose }) {
+      __expose();
+      const task = vue.ref({});
+      const centerLat = vue.ref(39.909);
+      const centerLng = vue.ref(116.397);
+      const polyline = vue.ref([]);
+      const markers = vue.ref([]);
+      const videoUrl = vue.ref("");
+      const hasTrajectory = vue.computed(() => {
+        return polyline.value.length > 0 && polyline.value[0].points.length > 0;
+      });
+      onLoad((options) => {
+        if (options.data) {
+          try {
+            const data = JSON.parse(decodeURIComponent(options.data));
+            task.value = data;
+            let points = [];
+            if (data.trajectory) {
+              points = typeof data.trajectory === "string" ? JSON.parse(data.trajectory) : data.trajectory;
+            } else if (data.metrics && data.metrics.trajectory) {
+              points = typeof data.metrics.trajectory === "string" ? JSON.parse(data.metrics.trajectory) : data.metrics.trajectory;
+            }
+            if (points && points.length > 0) {
+              polyline.value = [{
+                points,
+                color: "#20C997",
+                width: 4
+              }];
+              centerLat.value = points[0].latitude;
+              centerLng.value = points[0].longitude;
+              markers.value = [
+                {
+                  id: 0,
+                  latitude: points[0].latitude,
+                  longitude: points[0].longitude,
+                  title: "起点",
+                  iconPath: "/static/location.png",
+                  width: 20,
+                  height: 20
+                },
+                {
+                  id: 1,
+                  latitude: points[points.length - 1].latitude,
+                  longitude: points[points.length - 1].longitude,
+                  title: "终点",
+                  iconPath: "/static/location.png",
+                  width: 20,
+                  height: 20
+                }
+              ];
+            }
+            if (data.evidence) {
+              if (Array.isArray(data.evidence)) {
+                const vid = data.evidence.find((e) => e.type === "video" || e.url.endsWith(".mp4"));
+                if (vid)
+                  videoUrl.value = vid.url;
+              } else if (typeof data.evidence === "string" && data.evidence.endsWith(".mp4")) {
+                videoUrl.value = data.evidence;
+              }
+            }
+          } catch (e) {
+            formatAppLog("error", "at pages/history/detail.vue:128", "Parse task detail failed", e);
+          }
+        }
+      });
+      const __returned__ = { task, centerLat, centerLng, polyline, markers, videoUrl, hasTrajectory, ref: vue.ref, computed: vue.computed, get onLoad() {
+        return onLoad;
+      } };
+      Object.defineProperty(__returned__, "__isScriptSetup", { enumerable: false, value: true });
+      return __returned__;
+    }
+  };
+  function _sfc_render$n(_ctx, _cache, $props, $setup, $data, $options) {
+    return vue.openBlock(), vue.createElementBlock("view", { class: "container" }, [
+      vue.createElementVNode("view", { class: "info-card" }, [
+        vue.createElementVNode("view", { class: "header" }, [
+          vue.createElementVNode(
+            "text",
+            { class: "title" },
+            vue.toDisplayString($setup.task.title),
+            1
+            /* TEXT */
+          ),
+          vue.createElementVNode(
+            "text",
+            {
+              class: vue.normalizeClass(["status", $setup.task.status])
+            },
+            vue.toDisplayString($setup.task.statusText),
+            3
+            /* TEXT, CLASS */
+          )
+        ]),
+        vue.createElementVNode("view", { class: "detail-row" }, [
+          vue.createElementVNode("text", { class: "label" }, "任务类型:"),
+          vue.createElementVNode(
+            "text",
+            { class: "value" },
+            vue.toDisplayString($setup.task.type === "run" ? "跑步" : "体测"),
+            1
+            /* TEXT */
+          )
+        ]),
+        vue.createElementVNode("view", { class: "detail-row" }, [
+          vue.createElementVNode("text", { class: "label" }, "截止时间:"),
+          vue.createElementVNode(
+            "text",
+            { class: "value" },
+            vue.toDisplayString($setup.task.deadline),
+            1
+            /* TEXT */
+          )
+        ]),
+        $setup.task.description ? (vue.openBlock(), vue.createElementBlock("view", {
+          key: 0,
+          class: "detail-row"
+        }, [
+          vue.createElementVNode("text", { class: "label" }, "任务描述:"),
+          vue.createElementVNode(
+            "text",
+            { class: "value" },
+            vue.toDisplayString($setup.task.description),
+            1
+            /* TEXT */
+          )
+        ])) : vue.createCommentVNode("v-if", true),
+        $setup.task.resultText ? (vue.openBlock(), vue.createElementBlock("view", {
+          key: 1,
+          class: "detail-row"
+        }, [
+          vue.createElementVNode("text", { class: "label" }, "考核结果:"),
+          vue.createElementVNode(
+            "text",
+            { class: "value highlight" },
+            vue.toDisplayString($setup.task.resultText),
+            1
+            /* TEXT */
+          )
+        ])) : vue.createCommentVNode("v-if", true)
+      ]),
+      $setup.hasTrajectory ? (vue.openBlock(), vue.createElementBlock("view", {
+        key: 0,
+        class: "map-card"
+      }, [
+        vue.createElementVNode("text", { class: "section-title" }, "运动轨迹"),
+        vue.createElementVNode("map", {
+          class: "map",
+          latitude: $setup.centerLat,
+          longitude: $setup.centerLng,
+          polyline: $setup.polyline,
+          markers: $setup.markers,
+          "enable-zoom": true,
+          "enable-scroll": true
+        }, null, 8, ["latitude", "longitude", "polyline", "markers"])
+      ])) : $setup.task.status === "completed" ? (vue.openBlock(), vue.createElementBlock("view", {
+        key: 1,
+        class: "no-data-card"
+      }, [
+        vue.createElementVNode("text", { class: "tip" }, "暂无轨迹数据")
+      ])) : vue.createCommentVNode("v-if", true),
+      $setup.videoUrl ? (vue.openBlock(), vue.createElementBlock("view", {
+        key: 2,
+        class: "video-card"
+      }, [
+        vue.createElementVNode("text", { class: "section-title" }, "视频记录"),
+        vue.createElementVNode("video", {
+          src: $setup.videoUrl,
+          class: "video",
+          controls: ""
+        }, null, 8, ["src"])
+      ])) : vue.createCommentVNode("v-if", true)
+    ]);
+  }
+  const PagesHistoryDetail = /* @__PURE__ */ _export_sfc(_sfc_main$o, [["render", _sfc_render$n], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/history/detail.vue"]]);
+  const _sfc_main$n = {
     __name: "request",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -4075,7 +4857,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$l(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$m(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "container" }, [
       vue.createElementVNode("view", { class: "form-card" }, [
         vue.createElementVNode("view", { class: "form-header" }, [
@@ -4201,8 +4983,8 @@ if (uni.restoreGlobal) {
       ])
     ]);
   }
-  const PagesHealthRequest = /* @__PURE__ */ _export_sfc(_sfc_main$m, [["render", _sfc_render$l], ["__scopeId", "data-v-d1f05d00"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/health/request.vue"]]);
-  const _sfc_main$l = {
+  const PagesHealthRequest = /* @__PURE__ */ _export_sfc(_sfc_main$n, [["render", _sfc_render$m], ["__scopeId", "data-v-d1f05d00"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/health/request.vue"]]);
+  const _sfc_main$m = {
     __name: "home",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -4381,7 +5163,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$k(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$l(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "home-container" }, [
       vue.createElementVNode("view", { class: "teacher-dashboard" }, [
         vue.createElementVNode("view", { class: "custom-nav-bar" }, [
@@ -4404,7 +5186,7 @@ if (uni.restoreGlobal) {
           vue.createElementVNode("view", { class: "teacher-avatar" }, [
             vue.createElementVNode("image", {
               class: "avatar-img",
-              src: _imports_0$1,
+              src: _imports_0$2,
               mode: "aspectFill"
             })
           ])
@@ -4766,8 +5548,8 @@ if (uni.restoreGlobal) {
       ])
     ]);
   }
-  const PagesTeacherHomeHome = /* @__PURE__ */ _export_sfc(_sfc_main$l, [["render", _sfc_render$k], ["__scopeId", "data-v-c5a4d262"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/teacher/home/home.vue"]]);
-  const _sfc_main$k = {
+  const PagesTeacherHomeHome = /* @__PURE__ */ _export_sfc(_sfc_main$m, [["render", _sfc_render$l], ["__scopeId", "data-v-c5a4d262"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/teacher/home/home.vue"]]);
+  const _sfc_main$l = {
     __name: "manage",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -4790,7 +5572,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$j(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$k(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "manage-container" }, [
       vue.createElementVNode("view", { class: "custom-nav-bar" }, [
         vue.createElementVNode("view", { class: "nav-status-bar" }),
@@ -4889,8 +5671,8 @@ if (uni.restoreGlobal) {
       ])
     ]);
   }
-  const PagesTeacherManageManage = /* @__PURE__ */ _export_sfc(_sfc_main$k, [["render", _sfc_render$j], ["__scopeId", "data-v-b30bafb4"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/teacher/manage/manage.vue"]]);
-  const _sfc_main$j = {
+  const PagesTeacherManageManage = /* @__PURE__ */ _export_sfc(_sfc_main$l, [["render", _sfc_render$k], ["__scopeId", "data-v-b30bafb4"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/teacher/manage/manage.vue"]]);
+  const _sfc_main$k = {
     __name: "mine",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -4920,7 +5702,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$i(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$j(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "mine-container" }, [
       vue.createElementVNode("view", { class: "custom-nav-bar" }, [
         vue.createElementVNode("view", { class: "nav-status-bar" }),
@@ -4981,9 +5763,9 @@ if (uni.restoreGlobal) {
       ])
     ]);
   }
-  const PagesTeacherMineMine = /* @__PURE__ */ _export_sfc(_sfc_main$j, [["render", _sfc_render$i], ["__scopeId", "data-v-f7dece31"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/teacher/mine/mine.vue"]]);
+  const PagesTeacherMineMine = /* @__PURE__ */ _export_sfc(_sfc_main$k, [["render", _sfc_render$j], ["__scopeId", "data-v-f7dece31"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/teacher/mine/mine.vue"]]);
   const pageSize = 20;
-  const _sfc_main$i = {
+  const _sfc_main$j = {
     __name: "students",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -5365,7 +6147,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$h(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$i(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "students-page" }, [
       vue.createElementVNode("view", { class: "header" }, [
         vue.createElementVNode("view", { class: "nav-row" }, [
@@ -5950,8 +6732,8 @@ if (uni.restoreGlobal) {
       ])) : vue.createCommentVNode("v-if", true)
     ]);
   }
-  const PagesTeacherStudentsStudents = /* @__PURE__ */ _export_sfc(_sfc_main$i, [["render", _sfc_render$h], ["__scopeId", "data-v-87e02a48"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/teacher/students/students.vue"]]);
-  const _sfc_main$h = {
+  const PagesTeacherStudentsStudents = /* @__PURE__ */ _export_sfc(_sfc_main$j, [["render", _sfc_render$i], ["__scopeId", "data-v-87e02a48"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/teacher/students/students.vue"]]);
+  const _sfc_main$i = {
     __name: "detail",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -6071,7 +6853,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$g(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$h(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "detail-page" }, [
       vue.createElementVNode("view", { class: "header-card" }, [
         vue.createElementVNode("view", { class: "user-info" }, [
@@ -6310,8 +7092,8 @@ if (uni.restoreGlobal) {
       ])
     ]);
   }
-  const PagesTeacherStudentsDetail = /* @__PURE__ */ _export_sfc(_sfc_main$h, [["render", _sfc_render$g], ["__scopeId", "data-v-c1f3574c"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/teacher/students/detail.vue"]]);
-  const _sfc_main$g = {
+  const PagesTeacherStudentsDetail = /* @__PURE__ */ _export_sfc(_sfc_main$i, [["render", _sfc_render$h], ["__scopeId", "data-v-c1f3574c"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/teacher/students/detail.vue"]]);
+  const _sfc_main$h = {
     __name: "tasks",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -6462,7 +7244,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$f(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$g(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "tasks-page" }, [
       vue.createElementVNode("view", { class: "dashboard-header" }, [
         vue.createElementVNode("view", { class: "header-top" }, [
@@ -6696,8 +7478,8 @@ if (uni.restoreGlobal) {
       ])
     ]);
   }
-  const PagesTeacherTasksTasks = /* @__PURE__ */ _export_sfc(_sfc_main$g, [["render", _sfc_render$f], ["__scopeId", "data-v-6877fe60"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/teacher/tasks/tasks.vue"]]);
-  const _sfc_main$f = {
+  const PagesTeacherTasksTasks = /* @__PURE__ */ _export_sfc(_sfc_main$h, [["render", _sfc_render$g], ["__scopeId", "data-v-6877fe60"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/teacher/tasks/tasks.vue"]]);
+  const _sfc_main$g = {
     __name: "detail",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -6807,7 +7589,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$e(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$f(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "container" }, [
       vue.createElementVNode("view", { class: "header-card" }, [
         vue.createElementVNode("view", { class: "title-row" }, [
@@ -6995,8 +7777,8 @@ if (uni.restoreGlobal) {
       ])
     ]);
   }
-  const PagesTeacherTasksDetail = /* @__PURE__ */ _export_sfc(_sfc_main$f, [["render", _sfc_render$e], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/teacher/tasks/detail.vue"]]);
-  const _sfc_main$e = {
+  const PagesTeacherTasksDetail = /* @__PURE__ */ _export_sfc(_sfc_main$g, [["render", _sfc_render$f], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/teacher/tasks/detail.vue"]]);
+  const _sfc_main$f = {
     __name: "create",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -7078,7 +7860,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$d(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$e(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "create-task-page" }, [
       vue.createElementVNode("view", { class: "form-card" }, [
         vue.createElementVNode("view", { class: "form-item" }, [
@@ -7207,8 +7989,8 @@ if (uni.restoreGlobal) {
       ])
     ]);
   }
-  const PagesTeacherTasksCreate = /* @__PURE__ */ _export_sfc(_sfc_main$e, [["render", _sfc_render$d], ["__scopeId", "data-v-ddf6333b"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/teacher/tasks/create.vue"]]);
-  const _sfc_main$d = {
+  const PagesTeacherTasksCreate = /* @__PURE__ */ _export_sfc(_sfc_main$f, [["render", _sfc_render$e], ["__scopeId", "data-v-ddf6333b"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/teacher/tasks/create.vue"]]);
+  const _sfc_main$e = {
     __name: "exceptions",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -7297,7 +8079,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$c(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$d(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "container" }, [
       vue.createElementVNode("view", { class: "header" }, [
         vue.createElementVNode("text", { class: "page-title" }, "异常处理"),
@@ -7462,8 +8244,8 @@ if (uni.restoreGlobal) {
       ])
     ]);
   }
-  const PagesTeacherExceptionsExceptions = /* @__PURE__ */ _export_sfc(_sfc_main$d, [["render", _sfc_render$c], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/teacher/exceptions/exceptions.vue"]]);
-  const _sfc_main$c = {
+  const PagesTeacherExceptionsExceptions = /* @__PURE__ */ _export_sfc(_sfc_main$e, [["render", _sfc_render$d], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/teacher/exceptions/exceptions.vue"]]);
+  const _sfc_main$d = {
     __name: "tests",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -7503,7 +8285,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$b(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$c(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "teacher-test-page" }, [
       vue.createElementVNode("view", { class: "header-tabs" }, [
         vue.createElementVNode(
@@ -7844,8 +8626,8 @@ if (uni.restoreGlobal) {
       ])) : vue.createCommentVNode("v-if", true)
     ]);
   }
-  const PagesTeacherTestsTests = /* @__PURE__ */ _export_sfc(_sfc_main$c, [["render", _sfc_render$b], ["__scopeId", "data-v-20d5ebe7"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/teacher/tests/tests.vue"]]);
-  const _sfc_main$b = {
+  const PagesTeacherTestsTests = /* @__PURE__ */ _export_sfc(_sfc_main$d, [["render", _sfc_render$c], ["__scopeId", "data-v-20d5ebe7"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/teacher/tests/tests.vue"]]);
+  const _sfc_main$c = {
     __name: "approve",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -7890,7 +8672,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$a(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$b(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "container" }, [
       vue.createElementVNode("view", { class: "header" }, [
         vue.createElementVNode("text", { class: "title" }, "待审批活动")
@@ -7964,8 +8746,8 @@ if (uni.restoreGlobal) {
       ])
     ]);
   }
-  const PagesTeacherApproveApprove = /* @__PURE__ */ _export_sfc(_sfc_main$b, [["render", _sfc_render$a], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/teacher/approve/approve.vue"]]);
-  const _sfc_main$a = {
+  const PagesTeacherApproveApprove = /* @__PURE__ */ _export_sfc(_sfc_main$c, [["render", _sfc_render$b], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/teacher/approve/approve.vue"]]);
+  const _sfc_main$b = {
     __name: "student-detail",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -8074,7 +8856,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$9(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$a(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "container" }, [
       vue.createElementVNode("view", { class: "header" }, [
         vue.createElementVNode(
@@ -8234,8 +9016,8 @@ if (uni.restoreGlobal) {
       ])) : vue.createCommentVNode("v-if", true)
     ]);
   }
-  const PagesTeacherApproveStudentDetail = /* @__PURE__ */ _export_sfc(_sfc_main$a, [["render", _sfc_render$9], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/teacher/approve/student-detail.vue"]]);
-  const _sfc_main$9 = {
+  const PagesTeacherApproveStudentDetail = /* @__PURE__ */ _export_sfc(_sfc_main$b, [["render", _sfc_render$a], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/teacher/approve/student-detail.vue"]]);
+  const _sfc_main$a = {
     __name: "class-list",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -8312,7 +9094,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$8(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$9(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "container" }, [
       vue.createElementVNode("view", { class: "header" }, [
         vue.createElementVNode("text", { class: "title" }, "班级管理"),
@@ -8427,8 +9209,8 @@ if (uni.restoreGlobal) {
       ])) : vue.createCommentVNode("v-if", true)
     ]);
   }
-  const PagesTeacherClassClassList = /* @__PURE__ */ _export_sfc(_sfc_main$9, [["render", _sfc_render$8], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/teacher/class/class-list.vue"]]);
-  const _sfc_main$8 = {
+  const PagesTeacherClassClassList = /* @__PURE__ */ _export_sfc(_sfc_main$a, [["render", _sfc_render$9], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/teacher/class/class-list.vue"]]);
+  const _sfc_main$9 = {
     __name: "class-detail",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -8550,7 +9332,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$7(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$8(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "container" }, [
       $setup.classInfo ? (vue.openBlock(), vue.createElementBlock("view", {
         key: 0,
@@ -8745,8 +9527,8 @@ if (uni.restoreGlobal) {
       ])) : vue.createCommentVNode("v-if", true)
     ]);
   }
-  const PagesTeacherClassClassDetail = /* @__PURE__ */ _export_sfc(_sfc_main$8, [["render", _sfc_render$7], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/teacher/class/class-detail.vue"]]);
-  const _sfc_main$7 = {
+  const PagesTeacherClassClassDetail = /* @__PURE__ */ _export_sfc(_sfc_main$9, [["render", _sfc_render$8], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/teacher/class/class-detail.vue"]]);
+  const _sfc_main$8 = {
     __name: "list",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -8765,7 +9547,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$6(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$7(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "activity-list-page" }, [
       vue.createElementVNode("view", { class: "header" }, [
         vue.createElementVNode("text", { class: "title" }, "跑团活动")
@@ -8842,9 +9624,9 @@ if (uni.restoreGlobal) {
       ])
     ]);
   }
-  const PagesActivityList = /* @__PURE__ */ _export_sfc(_sfc_main$7, [["render", _sfc_render$6], ["__scopeId", "data-v-e2466d57"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/activity/list.vue"]]);
+  const PagesActivityList = /* @__PURE__ */ _export_sfc(_sfc_main$8, [["render", _sfc_render$7], ["__scopeId", "data-v-e2466d57"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/activity/list.vue"]]);
   const _imports_0 = "/static/activity-placeholder.png";
-  const _sfc_main$6 = {
+  const _sfc_main$7 = {
     __name: "detail",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -8875,7 +9657,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$5(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$6(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "activity-detail-page" }, [
       vue.createElementVNode("view", { class: "banner" }, [
         vue.createElementVNode("image", {
@@ -8945,8 +9727,8 @@ if (uni.restoreGlobal) {
       ])
     ]);
   }
-  const PagesActivityDetail = /* @__PURE__ */ _export_sfc(_sfc_main$6, [["render", _sfc_render$5], ["__scopeId", "data-v-19f90eeb"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/activity/detail.vue"]]);
-  const _sfc_main$5 = {
+  const PagesActivityDetail = /* @__PURE__ */ _export_sfc(_sfc_main$7, [["render", _sfc_render$6], ["__scopeId", "data-v-19f90eeb"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/activity/detail.vue"]]);
+  const _sfc_main$6 = {
     __name: "ai-police",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -9047,7 +9829,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$4(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$5(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "ai-police" }, [
       vue.createElementVNode("view", { class: "camera-area" }, [
         vue.createElementVNode(
@@ -9143,8 +9925,8 @@ if (uni.restoreGlobal) {
       ])
     ]);
   }
-  const PagesAiPoliceAiPolice = /* @__PURE__ */ _export_sfc(_sfc_main$5, [["render", _sfc_render$4], ["__scopeId", "data-v-97c40662"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/ai-police/ai-police.vue"]]);
-  const _sfc_main$4 = {
+  const PagesAiPoliceAiPolice = /* @__PURE__ */ _export_sfc(_sfc_main$6, [["render", _sfc_render$5], ["__scopeId", "data-v-97c40662"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/ai-police/ai-police.vue"]]);
+  const _sfc_main$5 = {
     __name: "index",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -9160,7 +9942,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$3(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$4(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "container" }, [
       vue.createElementVNode("view", { class: "header" }, [
         vue.createElementVNode("text", { class: "title" }, "管理控制台")
@@ -9199,8 +9981,8 @@ if (uni.restoreGlobal) {
       ])
     ]);
   }
-  const PagesAdminDashboardIndex = /* @__PURE__ */ _export_sfc(_sfc_main$4, [["render", _sfc_render$3], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/admin/dashboard/index.vue"]]);
-  const _sfc_main$3 = {
+  const PagesAdminDashboardIndex = /* @__PURE__ */ _export_sfc(_sfc_main$5, [["render", _sfc_render$4], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/admin/dashboard/index.vue"]]);
+  const _sfc_main$4 = {
     __name: "list",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -9260,7 +10042,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$2(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$3(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "container" }, [
       vue.createElementVNode("view", { class: "header" }, [
         vue.createElementVNode("text", { class: "title" }, "班级管理"),
@@ -9360,8 +10142,8 @@ if (uni.restoreGlobal) {
       ])) : vue.createCommentVNode("v-if", true)
     ]);
   }
-  const PagesAdminClassesList = /* @__PURE__ */ _export_sfc(_sfc_main$3, [["render", _sfc_render$2], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/admin/classes/list.vue"]]);
-  const _sfc_main$2 = {
+  const PagesAdminClassesList = /* @__PURE__ */ _export_sfc(_sfc_main$4, [["render", _sfc_render$3], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/admin/classes/list.vue"]]);
+  const _sfc_main$3 = {
     __name: "list",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -9426,7 +10208,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$1(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$2(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "container" }, [
       vue.createElementVNode("view", { class: "tabs" }, [
         vue.createElementVNode(
@@ -9516,8 +10298,8 @@ if (uni.restoreGlobal) {
       ])
     ]);
   }
-  const PagesAdminUsersList = /* @__PURE__ */ _export_sfc(_sfc_main$2, [["render", _sfc_render$1], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/admin/users/list.vue"]]);
-  const _sfc_main$1 = {
+  const PagesAdminUsersList = /* @__PURE__ */ _export_sfc(_sfc_main$3, [["render", _sfc_render$2], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/admin/users/list.vue"]]);
+  const _sfc_main$2 = {
     __name: "index",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -9616,7 +10398,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$1(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "container" }, [
       vue.createElementVNode("view", { class: "section" }, [
         vue.createElementVNode("view", { class: "header" }, "批量导入学生 (含模板下载)"),
@@ -9656,7 +10438,131 @@ if (uni.restoreGlobal) {
       ])
     ]);
   }
-  const PagesAdminImportIndex = /* @__PURE__ */ _export_sfc(_sfc_main$1, [["render", _sfc_render], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/admin/import/index.vue"]]);
+  const PagesAdminImportIndex = /* @__PURE__ */ _export_sfc(_sfc_main$2, [["render", _sfc_render$1], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/admin/import/index.vue"]]);
+  const _sfc_main$1 = {
+    __name: "choose-location",
+    setup(__props, { expose: __expose }) {
+      __expose();
+      const latitude = vue.ref(39.909);
+      const longitude = vue.ref(116.397);
+      const currentCenter = vue.ref({ lat: 39.909, lng: 116.397 });
+      const backButtonTop = vue.ref("40px");
+      let mapContext = null;
+      vue.onMounted(() => {
+        try {
+          const sysInfo = uni.getSystemInfoSync();
+          if (sysInfo.statusBarHeight) {
+            backButtonTop.value = sysInfo.statusBarHeight + 10 + "px";
+          }
+        } catch (e) {
+          formatAppLog("error", "at pages/common/choose-location/choose-location.vue:56", "Get system info failed", e);
+        }
+        mapContext = uni.createMapContext("choose-map");
+        getCurrentLocation().then((res) => {
+          if (res.success) {
+            latitude.value = res.latitude;
+            longitude.value = res.longitude;
+            currentCenter.value = { lat: res.latitude, lng: res.longitude };
+          }
+        }).catch((err) => {
+          formatAppLog("error", "at pages/common/choose-location/choose-location.vue:69", "Init location failed", err);
+          uni.showToast({ title: "定位失败，请手动移动地图", icon: "none" });
+        });
+      });
+      const onRegionChange = (e) => {
+        if (e.type === "end" || e.detail && (e.detail.type === "end" || e.detail.type === "regionchange")) {
+          mapContext.getCenterLocation({
+            success: (res) => {
+              currentCenter.value = { lat: res.latitude, lng: res.longitude };
+            },
+            fail: (err) => {
+              formatAppLog("error", "at pages/common/choose-location/choose-location.vue:81", "Get center failed", err);
+            }
+          });
+        }
+      };
+      const goBack = () => {
+        uni.navigateBack();
+      };
+      const confirmSelection = () => {
+        uni.getFileSystemManager ? null : getCurrentPages()[getCurrentPages().length - 1].getOpenerEventChannel();
+        uni.$emit("onLocationChosen", {
+          latitude: currentCenter.value.lat,
+          longitude: currentCenter.value.lng,
+          name: "自选打卡点",
+          address: `经纬度: ${currentCenter.value.lng.toFixed(4)}, ${currentCenter.value.lat.toFixed(4)}`
+        });
+        uni.navigateBack();
+      };
+      const __returned__ = { latitude, longitude, currentCenter, backButtonTop, get mapContext() {
+        return mapContext;
+      }, set mapContext(v) {
+        mapContext = v;
+      }, onRegionChange, goBack, confirmSelection, ref: vue.ref, onMounted: vue.onMounted, get getCurrentLocation() {
+        return getCurrentLocation;
+      } };
+      Object.defineProperty(__returned__, "__isScriptSetup", { enumerable: false, value: true });
+      return __returned__;
+    }
+  };
+  function _sfc_render(_ctx, _cache, $props, $setup, $data, $options) {
+    return vue.openBlock(), vue.createElementBlock("view", { class: "choose-location-container" }, [
+      vue.createElementVNode("map", {
+        id: "choose-map",
+        class: "map",
+        latitude: $setup.latitude,
+        longitude: $setup.longitude,
+        "show-location": true,
+        "enable-zoom": true,
+        "enable-scroll": true,
+        onRegionchange: $setup.onRegionChange
+      }, [
+        vue.createElementVNode("cover-view", { class: "center-pin" }, [
+          vue.createElementVNode("cover-image", {
+            src: _imports_0$3,
+            class: "pin-icon"
+          })
+        ]),
+        vue.createElementVNode(
+          "cover-view",
+          {
+            class: "back-btn",
+            onClick: $setup.goBack,
+            style: vue.normalizeStyle({ top: $setup.backButtonTop })
+          },
+          [
+            vue.createElementVNode("text", { class: "back-text" }, "返回")
+          ],
+          4
+          /* STYLE */
+        )
+      ], 40, ["latitude", "longitude"]),
+      vue.createElementVNode("view", { class: "bottom-panel" }, [
+        vue.createElementVNode("view", { class: "location-info" }, [
+          vue.createElementVNode("text", { class: "info-title" }, "已选位置"),
+          vue.createElementVNode(
+            "text",
+            { class: "info-coords" },
+            "经度: " + vue.toDisplayString($setup.currentCenter.lng.toFixed(6)),
+            1
+            /* TEXT */
+          ),
+          vue.createElementVNode(
+            "text",
+            { class: "info-coords" },
+            "纬度: " + vue.toDisplayString($setup.currentCenter.lat.toFixed(6)),
+            1
+            /* TEXT */
+          )
+        ]),
+        vue.createElementVNode("button", {
+          class: "confirm-btn",
+          onClick: $setup.confirmSelection
+        }, "确认选择")
+      ])
+    ]);
+  }
+  const PagesCommonChooseLocationChooseLocation = /* @__PURE__ */ _export_sfc(_sfc_main$1, [["render", _sfc_render], ["__scopeId", "data-v-5c23fc50"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/common/choose-location/choose-location.vue"]]);
   __definePage("pages/home/home", PagesHomeHome);
   __definePage("pages/run/run", PagesRunRun);
   __definePage("pages/mine/mine", PagesMineMine);
@@ -9664,6 +10570,8 @@ if (uni.restoreGlobal) {
   __definePage("pages/login/login", PagesLoginLogin);
   __definePage("pages/register/register", PagesRegisterRegister);
   __definePage("pages/student/tasks/list", PagesStudentTasksList);
+  __definePage("pages/history/history", PagesHistoryHistory);
+  __definePage("pages/history/detail", PagesHistoryDetail);
   __definePage("pages/health/request", PagesHealthRequest);
   __definePage("pages/teacher/home/home", PagesTeacherHomeHome);
   __definePage("pages/teacher/manage/manage", PagesTeacherManageManage);
@@ -9686,6 +10594,7 @@ if (uni.restoreGlobal) {
   __definePage("pages/admin/classes/list", PagesAdminClassesList);
   __definePage("pages/admin/users/list", PagesAdminUsersList);
   __definePage("pages/admin/import/index", PagesAdminImportIndex);
+  __definePage("pages/common/choose-location/choose-location", PagesCommonChooseLocationChooseLocation);
   const _sfc_main = {
     onLaunch: function() {
       try {

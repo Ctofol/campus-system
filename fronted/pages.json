@@ -20,8 +20,15 @@
       "path": "pages/mine/mine",
       "style": {
         "navigationStyle": "custom",
-        "navigationBarTitleText": "我的",
+        "navigationBarTitleText": "个人中心",
         "enablePullDownRefresh": false
+      }
+    },
+    {
+      "path": "pages/mine/history-tasks/history-tasks",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "历史任务"
       }
     },
     {
@@ -52,9 +59,28 @@
       }
     },
     {
+      "path": "pages/test/camera-min",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "摄像头测试"
+      }
+    },
+    {
       "path": "pages/student/tasks/list",
       "style": {
         "navigationBarTitleText": "我的任务"
+      }
+    },
+    {
+      "path": "pages/history/history",
+      "style": {
+        "navigationBarTitleText": "历史任务"
+      }
+    },
+    {
+      "path": "pages/history/detail",
+      "style": {
+        "navigationBarTitleText": "任务详情"
       }
     },
     {
@@ -194,6 +220,13 @@
       "path": "pages/admin/import/index",
       "style": {
         "navigationBarTitleText": "批量导入"
+      }
+    },
+    {
+      "path": "pages/common/choose-location/choose-location",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "选择位置"
       }
     }
   ],

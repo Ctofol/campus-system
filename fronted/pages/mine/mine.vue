@@ -73,7 +73,10 @@
       <view class="record-card">
         <view class="card-header">
           <text class="card-title">运动记录</text>
-          <button class="view-all" @click="viewAllRecords">查看全部</button>
+          <view class="header-actions">
+            <text class="history-task-link" @click="gotoHistoryTasks">历史任务</text>
+            <button class="view-all" @click="viewAllRecords">查看全部</button>
+          </view>
         </view>
         <!-- 记录列表 -->
         <view class="record-list" v-if="runRecords.length > 0">
@@ -204,9 +207,11 @@ const fetchHistory = async () => {
                     testCount: item.metrics?.count || 0,
                     result: item.metrics?.qualified ? '达标' : '未达标',
                     statusText: item.status === 'finished' ? '有效' : '待审核',
-                    statusColor: '#20C997'
+                    statusColor: '#20C997',
+                    // Add flags for filtering
+                    isTask: !!(item.task_id || item.plan_id)
                 };
-            });
+            }).filter(item => !item.isTask); // Filter out task records
             
             // 更新统计数据
             const runs = runRecords.value.filter(r => r.type === 'run');
@@ -282,11 +287,12 @@ const gotoHealthRequest = () => {
   uni.navigateTo({ url: '/pages/health/request' });
 };
 
+const gotoHistoryTasks = () => {
+  uni.navigateTo({ url: '/pages/mine/history-tasks/history-tasks' });
+};
+
 const viewAllRecords = () => {
-  // uni.showToast({ title: '查看全部记录待开发', icon: 'none' });
-  // 暂时不需要跳转，直接在本页看前20条即可，或者后续做列表页
-  // uni.navigateTo({ url: '/pages/record/list' }); // 假设有这个页面，或者先不做动作
-  uni.showToast({ title: '功能开发中', icon: 'none' });
+  uni.navigateTo({ url: '/pages/history/history' });
 };
 
 const gotoRecordDetail = (item) => {
@@ -330,12 +336,6 @@ const logout = () => {
 </script>
 
 <style scoped>
-.mine-page {
-  min-height: 100vh;
-  background-color: #f8f8f8;
-  padding-bottom: calc(120rpx + env(safe-area-inset-bottom));
-}
-
 .custom-navbar {
   position: fixed;
   top: 0;
@@ -523,6 +523,18 @@ const logout = () => {
   margin: 0 20rpx 20rpx;
   padding: 20rpx;
   border-radius: 12rpx;
+}
+.header-actions {
+  display: flex;
+  align-items: center;
+}
+.history-task-link {
+  font-size: 24rpx;
+  color: #666;
+  margin-right: 20rpx;
+  padding: 6rpx 16rpx;
+  background: #f0f0f0;
+  border-radius: 20rpx;
 }
 .view-all {
   font-size: 24rpx;

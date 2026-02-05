@@ -17,11 +17,13 @@
     "url": ""
   },
   "permissions": {
-    "Camera": {},
-    "Location": {},
     "Maps": {
       "coordType": "gcj02"
     },
+    "VideoPlayer": {},
+    "Geolocation": {},
+    "Camera": {},
+    "Record": {},
     "UniNView": {
       "description": "UniNView原生渲染"
     }
@@ -59,6 +61,8 @@
           "<uses-permission android:name=\"android.permission.ACCESS_FINE_LOCATION\"/>",
           "<uses-permission android:name=\"android.permission.ACCESS_COARSE_LOCATION\"/>",
           "<uses-permission android:name=\"android.permission.CAMERA\"/>",
+          "<uses-permission android:name=\"android.permission.WRITE_EXTERNAL_STORAGE\"/>",
+          "<uses-permission android:name=\"android.permission.READ_EXTERNAL_STORAGE\"/>",
           "<uses-permission android:name=\"android.permission.GET_ACCOUNTS\"/>",
           "<uses-permission android:name=\"android.permission.READ_PHONE_STATE\"/>",
           "<uses-permission android:name=\"android.permission.CHANGE_WIFI_STATE\"/>",
@@ -72,6 +76,20 @@
         "dSYMs": false
       },
       "plugins": {
+        "maps": {
+          "tencent": {
+            "key": "ET4BZ-QJAL4-EMPUD-FBOLE-M23H3-3RBXD"
+          }
+        },
+        "geolocation": {
+          "tencent": {
+            "__platform__": [
+              "android"
+            ],
+            "apikey_ios": "",
+            "apikey_android": "ET4BZ-QJAL4-EMPUD-FBOLE-M23H3-3RBXD"
+          }
+        },
         "audio": {
           "mp3": {
             "description": "Android平台录音支持MP3格式文件"
@@ -107,6 +125,15 @@
     "useragent": {
       "value": "uni-app",
       "concatenate": true
+    },
+    "distribute": {
+      "modules": {
+        "uni-map": {
+          "tencent": {
+            "key": "ET4BZ-QJAL4-EMPUD-FBOLE-M23H3-3RBXD"
+          }
+        }
+      }
     },
     "uniStatistics": {
       "enable": false

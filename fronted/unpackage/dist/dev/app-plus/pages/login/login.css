@@ -13,6 +13,13 @@
   align-items: center;
   margin-bottom: 1.875rem;
 }
+.logo-image[data-v-e4e4508d] {
+  width: 5rem;
+  height: 5rem;
+  border-radius: 0.75rem;
+  margin-bottom: 0.75rem;
+  box-shadow: 0 0.3125rem 0.625rem rgba(32, 201, 151, 0.3);
+}
 .logo-circle[data-v-e4e4508d] {
   width: 3.75rem;
   height: 3.75rem;

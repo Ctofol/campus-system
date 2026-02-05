@@ -180,7 +180,11 @@ export const getTeacherTasks = (params) => {
 export const getStudentTasks = (params) => {
   let queryString = '';
   if (params) {
-    queryString = `?page=${params.page}&size=${params.size}`;
+    const queryParts = [];
+    if (params.page) queryParts.push(`page=${params.page}`);
+    if (params.size) queryParts.push(`size=${params.size}`);
+    if (params.status) queryParts.push(`status=${params.status}`);
+    if (queryParts.length > 0) queryString = `?${queryParts.join('&')}`;
   }
   return request({
     url: `/student/tasks${queryString}`,

@@ -45,11 +45,24 @@
 
           <!-- #ifndef H5 -->
           <camera
+            v-if="showCamera"
             class="real-camera"
-            device-position="front"
+            :device-position="cameraPosition"
             flash="off"
             @error="handleCameraError"
           ></camera>
+          
+          <view class="camera-controls" v-if="showCamera">
+            <button class="switch-cam-btn" @click="toggleCamera">
+               <text class="switch-text">📷 切换</text>
+            </button>
+          </view>
+          
+          <view v-if="!showCamera" class="camera-error-view">
+             <text class="error-text">无法访问摄像头</text>
+             <button class="retry-btn" @click="retryCamera"><text class="retry-text">重试</text></button>
+             <button class="retry-btn setting-btn" @click="openSysSettings" style="margin-top: 20rpx; background-color: #555;"><text class="retry-text">去设置开启权限</text></button>
+          </view>
           
           <!-- In nvue, standard view can overlay camera if placed after it -->
           <view class="camera-overlay-content" v-if="isTesting">
@@ -146,6 +159,8 @@ const statusText = ref('请做好准备');
 const showSelector = ref(false);
 const showGuide = ref(false);
 const role = ref('student');
+const showCamera = ref(true);
+const cameraPosition = ref('back');
 
 // 页面参数
 const projectName = ref('引体向上');
@@ -226,6 +241,17 @@ const mockCount = () => {
 const startTest = () => {
   if (isTesting.value) return;
   
+  // #ifdef APP-PLUS
+  if (cameraContext.value) {
+      cameraContext.value.startRecord({
+          success: () => console.log('Start record success'),
+          fail: (e) => {
+              console.error('Start record fail', e);
+          }
+      });
+  }
+  // #endif
+  
   isTesting.value = true;
   count.value = 0;
   duration.value = 0;
@@ -255,32 +281,66 @@ const endTest = async () => {
     date: new Date().toLocaleString()
   };
   
-  uni.showLoading({ title: '正在上传数据...' });
+  uni.showLoading({ title: '正在处理视频...' });
   
-  try {
-    const snapshotPath = await takeSnapshot();
-    let evidenceUrl = '';
-    if (snapshotPath) {
-      const uploadRes = await uploadFile(snapshotPath);
-      if (uploadRes && uploadRes.url) {
-        evidenceUrl = uploadRes.url;
-      }
+  // #ifdef APP-PLUS
+  if (cameraContext.value) {
+      cameraContext.value.stopRecord({
+          success: async (res) => {
+              const videoPath = res.tempVideoPath;
+              try {
+                  uni.showLoading({ title: '正在上传视频...' });
+                  const uploadRes = await uploadFile(videoPath);
+                  let evidenceUrl = '';
+                  if (uploadRes && uploadRes.url) {
+                      evidenceUrl = uploadRes.url;
+                  }
+                  await submitResult(evidenceUrl);
+                  uni.hideLoading();
+                  showCompletionModal();
+              } catch (e) {
+                  uni.hideLoading();
+                  uni.showToast({ title: '视频上传失败', icon: 'none' });
+              }
+          },
+          fail: (e) => {
+              console.error('Stop record fail', e);
+              fallbackToSnapshot();
+          }
+      });
+      return; 
+  }
+  // #endif
+
+  fallbackToSnapshot();
+};
+
+const fallbackToSnapshot = async () => {
+    try {
+        const snapshotPath = await takeSnapshot();
+        let evidenceUrl = '';
+        if (snapshotPath) {
+            const uploadRes = await uploadFile(snapshotPath);
+            if (uploadRes && uploadRes.url) {
+                evidenceUrl = uploadRes.url;
+            }
+        }
+        await submitResult(evidenceUrl);
+        uni.hideLoading();
+        showCompletionModal();
+    } catch (e) {
+        uni.hideLoading();
+        uni.showToast({ title: '数据提交失败', icon: 'none' });
+        console.error(e);
     }
-    
-    await submitResult(evidenceUrl);
-    
-    uni.hideLoading();
+};
+
+const showCompletionModal = () => {
     uni.showModal({
       title: '测试完成',
       content: `项目：${projectName.value}\n本次成绩：${count.value}次\n用时：${formatTime(duration.value)}`,
       showCancel: false
     });
-    
-  } catch (e) {
-    uni.hideLoading();
-    uni.showToast({ title: '数据提交失败', icon: 'none' });
-    console.error(e);
-  }
 };
 
 const takeSnapshot = () => {
@@ -332,7 +392,7 @@ const uploadFile = (filePath) => {
   });
 };
 
-const submitResult = () => {
+const submitResult = (evidenceUrlArg) => {
   return request({
     url: '/activity/finish',
     method: 'POST',
@@ -348,7 +408,7 @@ const submitResult = () => {
         checkpoints: JSON.stringify([])
       },
       evidence: [
-        ...(pendingVideoUrl.value ? [{ evidence_type: 'video', data_ref: pendingVideoUrl.value }] : [])
+        ...(evidenceUrlArg ? [{ evidence_type: 'video', data_ref: evidenceUrlArg }] : [])
       ]
     }
   });
@@ -381,12 +441,36 @@ const gotoStudents = () => {
   uni.navigateTo({ url: '/pages/teacher/students/students' });
 };
 
+const toggleCamera = () => {
+  cameraPosition.value = cameraPosition.value === 'back' ? 'front' : 'back';
+};
+
+const retryCamera = () => {
+  showCamera.value = false;
+  setTimeout(() => {
+    showCamera.value = true;
+  }, 100);
+};
+
+const openSysSettings = () => {
+    // #ifdef APP-PLUS
+    uni.openAppAuthorizeSetting();
+    // #endif
+    // #ifndef APP-PLUS
+    uni.openSetting();
+    // #endif
+};
+
 const handleCameraError = (e) => {
   console.error('Camera Error:', e);
-  uni.showToast({
-    title: '无法访问摄像头',
-    icon: 'none',
-    duration: 3000
+  showCamera.value = false;
+  uni.showModal({
+      title: '摄像头权限受限',
+      content: '请在设置中开启摄像头权限以进行拍摄',
+      confirmText: '去设置',
+      success: (res) => {
+          if (res.confirm) openSysSettings();
+      }
   });
 };
 
@@ -566,6 +650,34 @@ onHide(() => {
 .real-camera {
   width: 750rpx;
   height: 562.5rpx;
+}
+
+.camera-error-view {
+  width: 750rpx;
+  height: 562.5rpx;
+  background-color: #222;
+  justify-content: center;
+  align-items: center;
+}
+
+.error-text {
+  color: #ff6b6b;
+  font-size: 30rpx;
+  margin-bottom: 20rpx;
+}
+
+.retry-btn {
+  background-color: #333;
+  padding: 10rpx 30rpx;
+  border-radius: 8rpx;
+  border-width: 1px;
+  border-style: solid;
+  border-color: #444;
+}
+
+.retry-text {
+  color: #fff;
+  font-size: 28rpx;
 }
 
 .camera-overlay-content {
