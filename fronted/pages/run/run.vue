@@ -392,7 +392,7 @@ const getDistance = (lat1, lng1, lat2, lng2) => {
 };
 
 // Unified location update logic
-const updateLocationLogic = (newLat, newLng, speed) => {
+const updateLocationLogic = (newLat, newLng, speed, accuracy) => {
   lat.value = newLat;
   lng.value = newLng;
   markers.value[0] = {
@@ -406,6 +406,13 @@ const updateLocationLogic = (newLat, newLng, speed) => {
   };
 
   if (isRunning.value) {
+    // 0. Accuracy Filter (Anti-Drift)
+    // Ignore points with poor accuracy (> 40m) to prevent "teleporting"
+    if (accuracy && accuracy > 40) {
+        // console.log('Dropped weak signal point, accuracy:', accuracy);
+        return; 
+    }
+
     // 1. Initial point
     if (trajectoryPoints.value.length === 0) {
         const point = { latitude: newLat, longitude: newLng, timestamp: Date.now(), speed: speed || currentSpeed.value };
@@ -427,9 +434,9 @@ const updateLocationLogic = (newLat, newLng, speed) => {
     const calculatedSpeed = d / timeDiff;
 
     // Filter Logic:
-    // 1. Ignore tiny jitters (d < 2m) to keep path smooth
+    // 1. Ignore tiny jitters (d < 4m) to keep path smooth (increased from 2m)
     // 2. Ignore teleportation (Speed > 20m/s)
-    if (d >= 2 && calculatedSpeed < 20) {
+    if (d >= 4 && calculatedSpeed < 20) {
         distance.value += d;
         
         const point = { latitude: newLat, longitude: newLng, timestamp: Date.now(), speed: speed || calculatedSpeed };
@@ -496,7 +503,7 @@ const startRealLocationTracking = () => {
         }
         currentSpeed.value = speedVal;
         
-        updateLocationLogic(newLat, newLng, speedVal);
+        updateLocationLogic(newLat, newLng, speedVal, res.accuracy);
         lastTs = Date.now();
     }).catch(err => {
         console.warn('H5 Polling failed', err);
@@ -510,7 +517,7 @@ const startRealLocationTracking = () => {
         if (res.speed && res.speed >= 0) {
           currentSpeed.value = res.speed;
         }
-        updateLocationLogic(res.latitude, res.longitude, currentSpeed.value);
+        updateLocationLogic(res.latitude, res.longitude, currentSpeed.value, res.accuracy);
       };
       uni.onLocationChange(locationCallback);
     },
@@ -526,7 +533,7 @@ const startRealLocationTracking = () => {
       
       const doPoll = () => {
           getCurrentLocation({ type: preferredType }).then(res => {
-              updateLocationLogic(res.latitude, res.longitude, res.speed || 0);
+              updateLocationLogic(res.latitude, res.longitude, res.speed || 0, res.accuracy);
           }).catch(err => {
               console.error(`Polling fallback failed for ${preferredType}`, err);
               // If gcj02 failed, try wgs84 immediately
