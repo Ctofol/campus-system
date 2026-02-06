@@ -97,49 +97,77 @@ if (typeof uni !== 'undefined' && uni && uni.requireGlobal) {
 
   // D:/PC/Document/HBuilderProjects/campus-system/fronted/unpackage/dist/dev/.nvue/pages/test/camera-min.js
   var import_vue2 = __toESM(require_vue());
-  var _style_0 = { "camera-min-page": { "": { "flex": 1, "backgroundColor": "#f5f5f5", "flexDirection": "column" } }, "status-bar": { "": { "backgroundColor": "#ffffff" } }, "header": { "": { "paddingTop": 20, "paddingRight": 20, "paddingBottom": 20, "paddingLeft": 20, "backgroundColor": "#ffffff", "borderBottomWidth": 1, "borderBottomColor": "#eeeeee" } }, "title": { "": { "fontSize": 18, "fontWeight": "bold", "color": "#333333" } }, "subtitle": { "": { "fontSize": 12, "color": "#999999", "marginTop": 5 } }, "camera-container": { "": { "width": "750rpx", "height": "500rpx", "backgroundColor": "#000000", "marginTop": 20, "position": "relative" } }, "live-camera": { "": { "width": "750rpx", "height": "500rpx" } }, "camera-overlay": { "": { "position": "absolute", "bottom": "20rpx", "left": "20rpx", "backgroundColor": "rgba(0,0,0,0.5)", "paddingTop": 5, "paddingRight": 10, "paddingBottom": 5, "paddingLeft": 10, "borderRadius": 4 } }, "overlay-text": { "": { "color": "#ffffff", "fontSize": 12 } }, "debug-info": { "": { "paddingTop": 20, "paddingRight": 20, "paddingBottom": 20, "paddingLeft": 20, "marginTop": 10, "backgroundColor": "#ffffff" } }, "info-item": { "": { "fontSize": 14, "color": "#666666", "marginBottom": 5 } }, "action-btn": { "": { "marginTop": 10, "marginRight": 20, "marginBottom": 10, "marginLeft": 20, "backgroundColor": "#20C997", "borderRadius": 8, "height": 44, "justifyContent": "center", "alignItems": "center" } }, "secondary": { "": { "backgroundColor": "#dddddd" } } };
+  var _style_0 = { "page": { "": { "flex": 1, "backgroundColor": "#f5f7fa", "flexDirection": "column" } }, "status-bar": { "": { "backgroundColor": "#ffffff" } }, "header": { "": { "paddingTop": 20, "paddingRight": 20, "paddingBottom": 20, "paddingLeft": 20, "backgroundColor": "#ffffff", "borderBottomWidth": 1, "borderBottomColor": "#eeeeee", "marginBottom": 15 } }, "title": { "": { "fontSize": 20, "fontWeight": "bold", "color": "#333333" } }, "subtitle": { "": { "fontSize": 14, "color": "#999999", "marginTop": 5 } }, "action-card": { "": { "marginTop": 0, "marginRight": 15, "marginBottom": 15, "marginLeft": 15, "paddingTop": 20, "paddingRight": 20, "paddingBottom": 20, "paddingLeft": 20, "backgroundColor": "#ffffff", "borderRadius": 12 } }, "card-title": { "": { "fontSize": 16, "fontWeight": "bold", "color": "#333333", "marginBottom": 15, "borderLeftWidth": 4, "borderLeftColor": "#20C997", "paddingLeft": 10 } }, "btn-group": { "": { "flexDirection": "row", "justifyContent": "space-between" } }, "action-btn": { "": { "flex": 1, "height": 50, "backgroundColor": "#f0f0f0", "borderRadius": 8, "justifyContent": "center", "alignItems": "center", "marginTop": 0, "marginRight": 5, "marginBottom": 0, "marginLeft": 5, "borderWidth": 0 } }, "primary": { "": { "backgroundColor": "#20C997" } }, "btn-text": { "": { "fontSize": 14, "color": "#333333" } }, "result-card": { "": { "marginTop": 0, "marginRight": 15, "marginBottom": 15, "marginLeft": 15, "paddingTop": 20, "paddingRight": 20, "paddingBottom": 20, "paddingLeft": 20, "backgroundColor": "#ffffff", "borderRadius": 12 } }, "preview-img": { "": { "width": "650rpx", "height": "400rpx", "backgroundColor": "#000000", "borderRadius": 8, "marginBottom": 10 } }, "preview-video": { "": { "width": "650rpx", "height": "400rpx", "backgroundColor": "#000000", "borderRadius": 8, "marginBottom": 10 } }, "path-text": { "": { "fontSize": 12, "color": "#999999", "wordWrap": "break-word" } }, "ai-card": { "": { "marginTop": 0, "marginRight": 15, "marginBottom": 15, "marginLeft": 15, "paddingTop": 20, "paddingRight": 20, "paddingBottom": 20, "paddingLeft": 20, "backgroundColor": "#e8f5e9", "borderRadius": 12, "borderWidth": 1, "borderColor": "#c8e6c9" } }, "ai-header": { "": { "flexDirection": "row", "justifyContent": "space-between", "alignItems": "center", "marginBottom": 15, "paddingBottom": 10, "borderBottomWidth": 1, "borderBottomColor": "#c8e6c9" } }, "ai-title": { "": { "fontSize": 16, "fontWeight": "bold", "color": "#2e7d32" } }, "ai-tag": { "": { "fontSize": 10, "color": "#ffffff", "backgroundColor": "#4caf50", "paddingTop": 2, "paddingRight": 6, "paddingBottom": 2, "paddingLeft": 6, "borderRadius": 4 } }, "ai-row": { "": { "flexDirection": "row", "justifyContent": "space-between", "marginBottom": 8 } }, "ai-label": { "": { "fontSize": 14, "color": "#555555" } }, "ai-value": { "": { "fontSize": 14, "color": "#333333", "fontWeight": "bold" } }, "score": { "": { "color": "#ff9800", "fontSize": 18 } }, "footer": { "": { "marginTop": 20, "marginRight": 15, "marginBottom": 20, "marginLeft": 15 } }, "back-btn": { "": { "backgroundColor": "#ffffff", "borderWidth": 1, "borderColor": "#dddddd", "color": "#666666" } } };
   var _sfc_main = {
     data() {
       return {
         statusBarHeight: 20,
-        statusMsg: "\u521D\u59CB\u5316...",
-        authStatus: "\u672A\u77E5"
+        result: {
+          type: "",
+          // 'image' | 'video'
+          path: ""
+        },
+        aiReport: null
       };
     },
     onLoad() {
       const sys = uni.getSystemInfoSync();
       this.statusBarHeight = sys.statusBarHeight || 20;
-      this.statusMsg = "\u9875\u9762\u5DF2\u52A0\u8F7D";
-      this.checkAuth();
     },
     methods: {
-      handleCameraError(e) {
-        formatAppLog("error", "at pages/test/camera-min.nvue:62", "Camera Error:", e);
-        this.statusMsg = "\u6444\u50CF\u5934\u9519\u8BEF: " + (e.detail.errMsg || "\u672A\u77E5");
-        uni.showToast({
-          title: "\u6444\u50CF\u5934\u542F\u52A8\u5931\u8D25",
-          icon: "none"
+      // 拍照功能
+      takePhoto() {
+        const cmr = plus.camera.getCamera();
+        cmr.captureImage((p) => {
+          plus.io.resolveLocalFileSystemURL(p, (entry) => {
+            this.result = {
+              type: "image",
+              path: entry.toLocalURL()
+            };
+            this.aiReport = null;
+            uni.showToast({ title: "\u62CD\u7167\u6210\u529F", icon: "success" });
+          });
+        }, (e) => {
+          formatAppLog("error", "at pages/test/camera-min.nvue:105", "\u62CD\u7167\u5931\u8D25: " + e.message);
+        }, {
+          filename: "_doc/camera/",
+          index: 1
         });
       },
-      checkAuth() {
-        const permission = uni.getAppAuthorizeSetting();
-        this.authStatus = permission.cameraAuthorized || "\u672A\u68C0\u6D4B\u5230";
-        if (permission.cameraAuthorized === "denied") {
-          this.statusMsg = "\u6743\u9650\u88AB\u62D2\u7EDD";
-          uni.showModal({
-            title: "\u6743\u9650\u63D0\u793A",
-            content: "\u6444\u50CF\u5934\u6743\u9650\u5DF2\u88AB\u62D2\u7EDD\uFF0C\u8BF7\u524D\u5F80\u7CFB\u7EDF\u8BBE\u7F6E\u5F00\u542F",
-            confirmText: "\u53BB\u8BBE\u7F6E",
-            success: (res) => {
-              if (res.confirm)
-                uni.openAppAuthorizeSetting();
-            }
+      // 录像功能
+      recordVideo() {
+        const cmr = plus.camera.getCamera();
+        cmr.startVideoCapture((p) => {
+          plus.io.resolveLocalFileSystemURL(p, (entry) => {
+            this.result = {
+              type: "video",
+              path: entry.toLocalURL()
+            };
+            this.simulateAIAnalysis();
           });
-        } else {
-          this.statusMsg = "\u6743\u9650\u6B63\u5E38";
-        }
+        }, (e) => {
+          formatAppLog("error", "at pages/test/camera-min.nvue:131", "\u5F55\u50CF\u5931\u8D25: " + e.message);
+        }, {
+          filename: "_doc/camera/",
+          index: 1,
+          videoMaximumDuration: 10
+          // 限制10秒
+        });
       },
-      back() {
+      // 模拟 AI 分析
+      simulateAIAnalysis() {
+        uni.showLoading({ title: "AI \u6B63\u5728\u5206\u6790..." });
+        setTimeout(() => {
+          uni.hideLoading();
+          this.aiReport = {
+            duration: (Math.random() * 5 + 5).toFixed(1),
+            score: Math.floor(Math.random() * 10 + 85),
+            comment: "\u52A8\u4F5C\u6807\u51C6\uFF0C\u8282\u594F\u63A7\u5236\u826F\u597D\uFF0C\u672A\u53D1\u73B0\u660E\u663E\u8FDD\u89C4\u3002"
+          };
+          uni.showToast({ title: "\u5206\u6790\u5B8C\u6210", icon: "success" });
+        }, 2e3);
+      },
+      goBack() {
         uni.navigateBack();
       }
     }
@@ -153,7 +181,7 @@ if (typeof uni !== 'undefined' && uni && uni.requireGlobal) {
       bubble: "true",
       style: { flexDirection: "column" }
     }, [
-      (0, import_vue2.createElementVNode)("view", { class: "camera-min-page" }, [
+      (0, import_vue2.createElementVNode)("view", { class: "page" }, [
         (0, import_vue2.createElementVNode)(
           "view",
           {
@@ -165,63 +193,115 @@ if (typeof uni !== 'undefined' && uni && uni.requireGlobal) {
           /* STYLE */
         ),
         (0, import_vue2.createElementVNode)("view", { class: "header" }, [
-          (0, import_vue2.createElementVNode)("u-text", { class: "title" }, "\u6444\u50CF\u5934\u6700\u5C0F\u53EF\u7528\u6D4B\u8BD5"),
-          (0, import_vue2.createElementVNode)("u-text", { class: "subtitle" }, "\u4EC5\u7528\u4E8E\u68C0\u6D4B App \u7AEF\u6444\u50CF\u5934\u753B\u9762\u662F\u5426\u6B63\u5E38")
+          (0, import_vue2.createElementVNode)("u-text", { class: "title" }, "\u6444\u50CF\u5934\u529F\u80FD\u6D4B\u8BD5"),
+          (0, import_vue2.createElementVNode)("u-text", { class: "subtitle" }, "\u57FA\u4E8E\u7CFB\u7EDF\u539F\u751F\u63A5\u53E3 (Plus API)")
         ]),
-        (0, import_vue2.createElementVNode)("view", { class: "camera-container" }, [
-          (0, import_vue2.createElementVNode)(
-            "camera",
-            {
-              class: "live-camera",
-              devicePosition: "back",
-              flash: "off",
-              onError: _cache[0] || (_cache[0] = (...args) => $options.handleCameraError && $options.handleCameraError(...args))
-            },
-            [
-              (0, import_vue2.createElementVNode)("cover-view", { class: "camera-overlay" }, [
-                (0, import_vue2.createElementVNode)("u-text", { class: "overlay-text" }, "\u539F\u751F\u7EC4\u4EF6\u8FD0\u884C\u4E2D")
-              ])
-            ],
-            32
-            /* NEED_HYDRATION */
-          )
+        (0, import_vue2.createElementVNode)("view", { class: "action-card" }, [
+          (0, import_vue2.createElementVNode)("u-text", { class: "card-title" }, "\u529F\u80FD\u9009\u62E9"),
+          (0, import_vue2.createElementVNode)("view", { class: "btn-group" }, [
+            (0, import_vue2.createVNode)(_component_button, {
+              class: "action-btn",
+              onClick: $options.takePhoto
+            }, {
+              default: (0, import_vue2.withCtx)(() => [
+                (0, import_vue2.createElementVNode)("u-text", { class: "btn-text" }, "\u{1F4F7} \u62CD\u7167\u6D4B\u8BD5")
+              ]),
+              _: 1
+              /* STABLE */
+            }, 8, ["onClick"]),
+            (0, import_vue2.createVNode)(_component_button, {
+              class: "action-btn primary",
+              onClick: $options.recordVideo
+            }, {
+              default: (0, import_vue2.withCtx)(() => [
+                (0, import_vue2.createElementVNode)("u-text", {
+                  class: "btn-text",
+                  style: { "color": "#fff" }
+                }, "\u{1F4F9} \u5F55\u50CF\u6D4B\u8BD5 (\u6A21\u62DFAI\u5206\u6790)")
+              ]),
+              _: 1
+              /* STABLE */
+            }, 8, ["onClick"])
+          ])
         ]),
-        (0, import_vue2.createElementVNode)("view", { class: "debug-info" }, [
+        $data.result.path ? ((0, import_vue2.openBlock)(), (0, import_vue2.createElementBlock)("view", {
+          key: 0,
+          class: "result-card"
+        }, [
+          (0, import_vue2.createElementVNode)("u-text", { class: "card-title" }, "\u6267\u884C\u7ED3\u679C"),
+          $data.result.type === "image" ? ((0, import_vue2.openBlock)(), (0, import_vue2.createElementBlock)("u-image", {
+            key: 0,
+            src: $data.result.path,
+            mode: "aspectFit",
+            class: "preview-img"
+          }, null, 8, ["src"])) : (0, import_vue2.createCommentVNode)("v-if", true),
+          $data.result.type === "video" ? ((0, import_vue2.openBlock)(), (0, import_vue2.createElementBlock)("u-video", {
+            key: 1,
+            src: $data.result.path,
+            controls: "",
+            class: "preview-video"
+          }, null, 8, ["src"])) : (0, import_vue2.createCommentVNode)("v-if", true),
           (0, import_vue2.createElementVNode)(
             "u-text",
-            { class: "info-item" },
-            "\u72B6\u6001\uFF1A" + (0, import_vue2.toDisplayString)($data.statusMsg),
-            1
-            /* TEXT */
-          ),
-          (0, import_vue2.createElementVNode)(
-            "u-text",
-            { class: "info-item" },
-            "\u6743\u9650\uFF1A" + (0, import_vue2.toDisplayString)($data.authStatus),
+            { class: "path-text" },
+            "\u6587\u4EF6\u8DEF\u5F84: " + (0, import_vue2.toDisplayString)($data.result.path),
             1
             /* TEXT */
           )
-        ]),
-        (0, import_vue2.createVNode)(_component_button, {
-          class: "action-btn",
-          onClick: $options.checkAuth
-        }, {
-          default: (0, import_vue2.withCtx)(() => [
-            (0, import_vue2.createTextVNode)("\u68C0\u67E5\u6743\u9650")
+        ])) : (0, import_vue2.createCommentVNode)("v-if", true),
+        $data.aiReport ? ((0, import_vue2.openBlock)(), (0, import_vue2.createElementBlock)("view", {
+          key: 1,
+          class: "ai-card"
+        }, [
+          (0, import_vue2.createElementVNode)("view", { class: "ai-header" }, [
+            (0, import_vue2.createElementVNode)("u-text", { class: "ai-title" }, "\u{1F916} AI \u667A\u80FD\u5206\u6790\u62A5\u544A"),
+            (0, import_vue2.createElementVNode)("u-text", { class: "ai-tag" }, "\u6A21\u62DF\u6570\u636E")
           ]),
-          _: 1
-          /* STABLE */
-        }, 8, ["onClick"]),
-        (0, import_vue2.createVNode)(_component_button, {
-          class: "action-btn secondary",
-          onClick: $options.back
-        }, {
-          default: (0, import_vue2.withCtx)(() => [
-            (0, import_vue2.createTextVNode)("\u8FD4\u56DE")
-          ]),
-          _: 1
-          /* STABLE */
-        }, 8, ["onClick"])
+          (0, import_vue2.createElementVNode)("view", { class: "ai-content" }, [
+            (0, import_vue2.createElementVNode)("view", { class: "ai-row" }, [
+              (0, import_vue2.createElementVNode)("u-text", { class: "ai-label" }, "\u89C6\u9891\u65F6\u957F"),
+              (0, import_vue2.createElementVNode)(
+                "u-text",
+                { class: "ai-value" },
+                (0, import_vue2.toDisplayString)($data.aiReport.duration) + " \u79D2",
+                1
+                /* TEXT */
+              )
+            ]),
+            (0, import_vue2.createElementVNode)("view", { class: "ai-row" }, [
+              (0, import_vue2.createElementVNode)("u-text", { class: "ai-label" }, "\u52A8\u4F5C\u8BC4\u5206"),
+              (0, import_vue2.createElementVNode)(
+                "u-text",
+                { class: "ai-value score" },
+                (0, import_vue2.toDisplayString)($data.aiReport.score),
+                1
+                /* TEXT */
+              )
+            ]),
+            (0, import_vue2.createElementVNode)("view", { class: "ai-row" }, [
+              (0, import_vue2.createElementVNode)("u-text", { class: "ai-label" }, "\u7EFC\u5408\u8BC4\u4EF7"),
+              (0, import_vue2.createElementVNode)(
+                "u-text",
+                { class: "ai-value" },
+                (0, import_vue2.toDisplayString)($data.aiReport.comment),
+                1
+                /* TEXT */
+              )
+            ])
+          ])
+        ])) : (0, import_vue2.createCommentVNode)("v-if", true),
+        (0, import_vue2.createElementVNode)("view", { class: "footer" }, [
+          (0, import_vue2.createVNode)(_component_button, {
+            class: "back-btn",
+            onClick: $options.goBack
+          }, {
+            default: (0, import_vue2.withCtx)(() => [
+              (0, import_vue2.createTextVNode)("\u8FD4\u56DE\u9996\u9875")
+            ]),
+            _: 1
+            /* STABLE */
+          }, 8, ["onClick"])
+        ])
       ])
     ]);
   }

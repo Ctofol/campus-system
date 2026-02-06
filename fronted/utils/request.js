@@ -80,9 +80,11 @@ export const request = (...args) => {
         }
       },
       fail: (err) => {
-        uni.showToast({
-          title: '网络请求失败',
-          icon: 'none'
+        console.error('Request fail:', err);
+        uni.showModal({
+            title: '网络请求失败',
+            content: err.errMsg || JSON.stringify(err),
+            showCancel: false
         });
         reject(err);
       }

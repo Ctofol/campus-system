@@ -1,7 +1,7 @@
-import { _ as _export_sfc, o as onShow, a as onLoad, b as onHide, f as formatAppLog } from "../../_plugin-vue_export-helper.js";
+import { f as formatAppLog, _ as _export_sfc, o as onShow, a as onLoad, b as onHide } from "../../_plugin-vue_export-helper.js";
 import { ref, computed, resolveComponent, openBlock, createElementBlock, createElementVNode, normalizeStyle, createVNode, withCtx, toDisplayString, createCommentVNode, normalizeClass, withModifiers, Fragment, renderList } from "vue";
 let baseUrl = "http://127.0.0.1:8000";
-baseUrl = "http://192.168.0.210:8000";
+baseUrl = "http://120.26.17.147:8000";
 const BASE_URL = baseUrl;
 const request = (...args) => {
   let options = {};
@@ -49,9 +49,11 @@ const request = (...args) => {
         }
       },
       fail: (err) => {
-        uni.showToast({
+        formatAppLog("error", "at utils/request.js:83", "Request fail:", err);
+        uni.showModal({
           title: "网络请求失败",
-          icon: "none"
+          content: err.errMsg || JSON.stringify(err),
+          showCancel: false
         });
         reject(err);
       }

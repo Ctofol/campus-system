@@ -3,7 +3,8 @@
     <view class="header">
       <!-- 1. 顶部标题栏 -->
       <view class="nav-row">
-        <text class="page-title">学员管理</text>
+        <!-- <text class="page-title">学员管理</text> -->
+        <view class="placeholder"></view>
         <view class="batch-btn" @click="toggleBatchMode" :class="{active: isBatchMode}">
           <text>{{ isBatchMode ? '完成' : '批量管理' }}</text>
         </view>
@@ -840,16 +841,19 @@ const replyStudent = (report) => {
   bottom: 0;
   left: 0;
   width: 100%;
-  height: 100rpx;
+  height: 100rpx; /* Content height */
   background: #fff;
   border-top: 1px solid #eee;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 30rpx;
+  /* Safe Area Support */
+  padding-bottom: constant(safe-area-inset-bottom);
+  padding-bottom: env(safe-area-inset-bottom);
+  box-sizing: content-box; /* Height excludes padding */
   box-shadow: 0 -2rpx 10rpx rgba(0,0,0,0.05);
   z-index: 99;
-  box-sizing: border-box;
 }
 .batch-info { display: flex; align-items: center; gap: 10rpx; font-size: 28rpx; color: #333; }
 .batch-actions { display: flex; gap: 20rpx; }
@@ -859,6 +863,11 @@ const replyStudent = (report) => {
   background: #fff;
   color: #20C997;
   border: 1px solid #20C997;
+}
+
+.has-bottom-bar {
+  padding-bottom: calc(120rpx + constant(safe-area-inset-bottom));
+  padding-bottom: calc(120rpx + env(safe-area-inset-bottom));
 }
 
 .card-main {

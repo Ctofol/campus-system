@@ -59,13 +59,6 @@
       }
     },
     {
-      "path": "pages/test/camera-min",
-      "style": {
-        "navigationStyle": "custom",
-        "navigationBarTitleText": "摄像头测试"
-      }
-    },
-    {
       "path": "pages/student/tasks/list",
       "style": {
         "navigationBarTitleText": "我的任务"

@@ -138,7 +138,7 @@ if (typeof uni !== 'undefined' && uni && uni.requireGlobal) {
   // D:/PC/Document/HBuilderProjects/campus-system/fronted/unpackage/dist/dev/.nvue/pages/test/test.js
   var import_vue2 = __toESM(require_vue());
   var baseUrl = "http://127.0.0.1:8000";
-  baseUrl = "http://192.168.0.210:8000";
+  baseUrl = "http://120.26.17.147:8000";
   var BASE_URL = baseUrl;
   var request = (...args) => {
     let options = {};
@@ -185,9 +185,11 @@ if (typeof uni !== 'undefined' && uni && uni.requireGlobal) {
           }
         },
         fail: (err) => {
-          uni.showToast({
+          formatAppLog("error", "at utils/request.js:83", "Request fail:", err);
+          uni.showModal({
             title: "\u7F51\u7EDC\u8BF7\u6C42\u5931\u8D25",
-            icon: "none"
+            content: err.errMsg || JSON.stringify(err),
+            showCancel: false
           });
           reject(err);
         }

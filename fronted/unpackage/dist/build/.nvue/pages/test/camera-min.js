@@ -1,48 +1,105 @@
 import { _ as _export_sfc, f as formatAppLog } from "../../_plugin-vue_export-helper.js";
-import { resolveComponent, openBlock, createElementBlock, createElementVNode, normalizeStyle, toDisplayString, createVNode, withCtx, createTextVNode } from "vue";
-const _style_0 = { "camera-min-page": { "": { "flex": 1, "backgroundColor": "#f5f5f5", "flexDirection": "column" } }, "status-bar": { "": { "backgroundColor": "#ffffff" } }, "header": { "": { "paddingTop": 20, "paddingRight": 20, "paddingBottom": 20, "paddingLeft": 20, "backgroundColor": "#ffffff", "borderBottomWidth": 1, "borderBottomColor": "#eeeeee" } }, "title": { "": { "fontSize": 18, "fontWeight": "bold", "color": "#333333" } }, "subtitle": { "": { "fontSize": 12, "color": "#999999", "marginTop": 5 } }, "camera-container": { "": { "width": "750rpx", "height": "500rpx", "backgroundColor": "#000000", "marginTop": 20, "position": "relative" } }, "live-camera": { "": { "width": "750rpx", "height": "500rpx" } }, "camera-overlay": { "": { "position": "absolute", "bottom": "20rpx", "left": "20rpx", "backgroundColor": "rgba(0,0,0,0.5)", "paddingTop": 5, "paddingRight": 10, "paddingBottom": 5, "paddingLeft": 10, "borderRadius": 4 } }, "overlay-text": { "": { "color": "#ffffff", "fontSize": 12 } }, "debug-info": { "": { "paddingTop": 20, "paddingRight": 20, "paddingBottom": 20, "paddingLeft": 20, "marginTop": 10, "backgroundColor": "#ffffff" } }, "info-item": { "": { "fontSize": 14, "color": "#666666", "marginBottom": 5 } }, "action-btn": { "": { "marginTop": 10, "marginRight": 20, "marginBottom": 10, "marginLeft": 20, "backgroundColor": "#20C997", "borderRadius": 8, "height": 44, "justifyContent": "center", "alignItems": "center" } }, "secondary": { "": { "backgroundColor": "#dddddd" } } };
+import { resolveComponent, openBlock, createElementBlock, createElementVNode, createCommentVNode, toDisplayString, createVNode, withCtx, createTextVNode } from "vue";
+const _style_0 = { "page": { "": { "flex": 1, "backgroundColor": "#f8f8f8", "flexDirection": "column" } }, "header": { "": { "paddingTop": 60, "paddingRight": 20, "paddingBottom": 20, "paddingLeft": 20, "backgroundColor": "#ffffff" } }, "title": { "": { "fontSize": 20, "fontWeight": "bold" } }, "subtitle": { "": { "fontSize": 12, "color": "#666666", "marginTop": 5 } }, "camera-box": { "": { "width": "750rpx", "height": "500rpx", "backgroundColor": "#333333", "marginTop": 10, "position": "relative", "justifyContent": "center", "alignItems": "center" } }, "camera-placeholder": { "": { "position": "absolute", "top": "200rpx", "left": 0, "width": "750rpx", "alignItems": "center" } }, "camera-view": { "": { "width": "750rpx", "height": "500rpx", "position": "absolute", "top": 0, "left": 0 } }, "error-overlay": { "": { "position": "absolute", "top": 0, "left": 0, "width": "750rpx", "height": "500rpx", "backgroundColor": "rgba(0,0,0,0.8)", "justifyContent": "center", "alignItems": "center" } }, "error-text": { "": { "color": "#ff0000", "fontSize": 18, "fontWeight": "bold", "marginBottom": 10 } }, "error-desc": { "": { "color": "#ffffff", "fontSize": 14, "marginBottom": 5 } }, "log-box": { "": { "flex": 1, "backgroundColor": "#333333", "marginTop": 10, "marginRight": 10, "marginBottom": 10, "marginLeft": 10, "paddingTop": 10, "paddingRight": 10, "paddingBottom": 10, "paddingLeft": 10, "borderRadius": 5 } }, "log-text": { "": { "color": "#00ff00", "fontSize": 12, "fontFamily": "monospace" } }, "btn-group": { "": { "paddingTop": 10, "paddingRight": 10, "paddingBottom": 10, "paddingLeft": 10, "backgroundColor": "#ffffff" } }, "btn": { "": { "marginBottom": 10, "backgroundColor": "#007aff", "borderRadius": 5, "height": 44, "justifyContent": "center", "alignItems": "center" } }, "secondary": { "": { "backgroundColor": "#999999" } } };
 const _sfc_main = {
   data() {
     return {
-      statusBarHeight: 20,
-      statusMsg: "初始化...",
-      authStatus: "未知"
+      logs: "Ready...\n",
+      ctx: null,
+      devicePosition: "back",
+      isAPIMissing: false,
+      isCustomBase: false
     };
   },
   onLoad() {
-    const sys = uni.getSystemInfoSync();
-    this.statusBarHeight = sys.statusBarHeight || 20;
-    this.statusMsg = "页面已加载";
-    this.checkAuth();
+    this.addLog("Page onLoad");
+    this.checkRuntime();
+  },
+  onReady() {
+    this.addLog("Page onReady");
+    if (typeof uni.createCameraContext === "function") {
+      this.ctx = uni.createCameraContext();
+      this.addLog("Camera Context Created");
+    } else {
+      this.addLog("Error: uni.createCameraContext is not a function");
+      this.isAPIMissing = true;
+      uni.showModal({
+        title: "环境异常",
+        content: "检测到 uni.createCameraContext 方法缺失。\n\n这通常是因为“自定义基座”未包含 Camera 模块。\n\n请在 HBuilderX 菜单中选择：\n运行 -> 运行到手机 -> 制作自定义调试基座\n(确保 manifest 已勾选 Camera 模块)",
+        showCancel: false
+      });
+    }
   },
   methods: {
-    handleCameraError(e) {
-      formatAppLog("error", "at pages/test/camera-min.nvue:62", "Camera Error:", e);
-      this.statusMsg = "摄像头错误: " + (e.detail.errMsg || "未知");
-      uni.showToast({
-        title: "摄像头启动失败",
-        icon: "none"
-      });
+    addLog(msg) {
+      const time = (/* @__PURE__ */ new Date()).toTimeString().split(" ")[0];
+      this.logs = `[${time}] ${msg}
+` + this.logs;
+      formatAppLog("log", "at pages/test/camera-min.nvue:91", msg);
     },
-    checkAuth() {
-      const permission = uni.getAppAuthorizeSetting();
-      this.authStatus = permission.cameraAuthorized || "未检测到";
-      if (permission.cameraAuthorized === "denied") {
-        this.statusMsg = "权限被拒绝";
-        uni.showModal({
-          title: "权限提示",
-          content: "摄像头权限已被拒绝，请前往系统设置开启",
-          confirmText: "去设置",
-          success: (res) => {
-            if (res.confirm)
-              uni.openAppAuthorizeSetting();
-          }
+    onError(e) {
+      this.addLog("Camera Error Event: " + JSON.stringify(e.detail));
+    },
+    onInitDone(e) {
+      this.addLog("Camera InitDone Event: " + JSON.stringify(e.detail));
+    },
+    checkRuntime() {
+      this.isCustomBase = plus.runtime.isCustomRuntime;
+      const info = uni.getSystemInfoSync();
+      this.addLog("SysInfo: " + info.platform + " / " + info.system);
+      this.addLog("AppID: " + info.appId);
+      this.addLog("Runtime CustomBase: " + this.isCustomBase);
+      if (!this.isCustomBase) {
+        this.addLog("WARNING: Running on Standard Base!");
+        uni.showToast({
+          title: "请切换到自定义基座",
+          icon: "none",
+          duration: 3e3
         });
-      } else {
-        this.statusMsg = "权限正常";
       }
     },
-    back() {
+    testSystemCamera() {
+      this.addLog("尝试调用系统相机...");
+      const cmr = plus.camera.getCamera();
+      cmr.captureImage((p) => {
+        this.addLog("系统相机拍照成功: " + p);
+        uni.showToast({ title: "硬件正常", icon: "success" });
+      }, (e) => {
+        this.addLog("系统相机失败: " + e.message);
+        uni.showModal({ title: "相机启动失败", content: "错误: " + e.message });
+      }, {
+        filename: "_doc/camera/",
+        index: 1
+      });
+    },
+    testPlusCamera() {
+      try {
+        const cmr = plus.camera.getCamera();
+        this.addLog("Plus Camera Obj: " + (cmr ? "OK" : "NULL"));
+        if (cmr) {
+          const res = cmr.supportedImageResolutions;
+          this.addLog("Supported Res: " + JSON.stringify(res));
+        }
+      } catch (e) {
+        this.addLog("Plus Error: " + e.message);
+      }
+    },
+    startPreviewManual() {
+      if (this.ctx) {
+        this.addLog("Calling startPreview...");
+        this.ctx.startPreview({
+          success: () => this.addLog("startPreview Success"),
+          fail: (e) => this.addLog("startPreview Fail: " + e.errMsg)
+        });
+      } else {
+        this.addLog("No Camera Context");
+      }
+    },
+    toggleCamera() {
+      this.devicePosition = this.devicePosition === "back" ? "front" : "back";
+      this.addLog("Switched to: " + this.devicePosition);
+    },
+    goBack() {
       uni.navigateBack();
     }
   }
@@ -56,49 +113,83 @@ function _sfc_render(_ctx, _cache, $props, $setup, $data, $options) {
     bubble: "true",
     style: { flexDirection: "column" }
   }, [
-    createElementVNode("view", { class: "camera-min-page" }, [
-      createElementVNode("view", {
-        class: "status-bar",
-        style: normalizeStyle({ height: $data.statusBarHeight + "px" })
-      }, null, 4),
+    createElementVNode("view", { class: "page" }, [
       createElementVNode("view", { class: "header" }, [
-        createElementVNode("u-text", { class: "title" }, "摄像头最小可用测试"),
-        createElementVNode("u-text", { class: "subtitle" }, "仅用于检测 App 端摄像头画面是否正常")
+        createElementVNode("u-text", { class: "title" }, "Camera Debug V3"),
+        createElementVNode("u-text", { class: "subtitle" }, "红底=容器, 绿底=组件, 画面=正常")
       ]),
-      createElementVNode("view", { class: "camera-container" }, [
+      createElementVNode("view", { class: "camera-box" }, [
+        createElementVNode("view", { class: "camera-placeholder" }, [
+          createElementVNode("u-text", { style: { "color": "#666", "font-size": "14px" } }, "摄像头区域")
+        ]),
         createElementVNode("camera", {
-          class: "live-camera",
-          devicePosition: "back",
+          id: "myCamera",
+          class: "camera-view",
+          devicePosition: $data.devicePosition,
           flash: "off",
-          onError: _cache[0] || (_cache[0] = (...args) => $options.handleCameraError && $options.handleCameraError(...args))
+          onError: _cache[0] || (_cache[0] = (...args) => $options.onError && $options.onError(...args)),
+          onInitdone: _cache[1] || (_cache[1] = (...args) => $options.onInitDone && $options.onInitDone(...args)),
+          style: { "width": "750rpx", "height": "500rpx", "background-color": "transparent" }
+        }, null, 40, ["devicePosition"]),
+        $data.isAPIMissing ? (openBlock(), createElementBlock("view", {
+          key: 0,
+          class: "error-overlay",
+          style: { "background-color": "rgba(0,0,0,0.5)", "pointer-events": "none" }
         }, [
-          createElementVNode("cover-view", { class: "camera-overlay" }, [
-            createElementVNode("u-text", { class: "overlay-text" }, "原生组件运行中")
-          ])
-        ], 32)
+          createElementVNode("u-text", {
+            class: "error-text",
+            style: { "font-size": "14px", "color": "#ff9900" }
+          }, "⚠️ Camera API 未就绪"),
+          createElementVNode("u-text", {
+            class: "error-desc",
+            style: { "font-size": "12px" }
+          }, "请尝试卸载 App 后重装")
+        ])) : createCommentVNode("", true)
       ]),
-      createElementVNode("view", { class: "debug-info" }, [
-        createElementVNode("u-text", { class: "info-item" }, "状态：" + toDisplayString($data.statusMsg), 1),
-        createElementVNode("u-text", { class: "info-item" }, "权限：" + toDisplayString($data.authStatus), 1)
+      createElementVNode("scroll-view", {
+        class: "log-box",
+        scrollY: "true"
+      }, [
+        createElementVNode("u-text", { class: "log-text" }, toDisplayString($data.logs), 1)
       ]),
-      createVNode(_component_button, {
-        class: "action-btn",
-        onClick: $options.checkAuth
-      }, {
-        default: withCtx(() => [
-          createTextVNode("检查权限")
-        ]),
-        _: 1
-      }, 8, ["onClick"]),
-      createVNode(_component_button, {
-        class: "action-btn secondary",
-        onClick: $options.back
-      }, {
-        default: withCtx(() => [
-          createTextVNode("返回")
-        ]),
-        _: 1
-      }, 8, ["onClick"])
+      createElementVNode("view", { class: "btn-group" }, [
+        createVNode(_component_button, {
+          class: "btn",
+          onClick: $options.testSystemCamera
+        }, {
+          default: withCtx(() => [
+            createTextVNode("1. 调用系统相机 (验证硬件)")
+          ]),
+          _: 1
+        }, 8, ["onClick"]),
+        createVNode(_component_button, {
+          class: "btn",
+          onClick: $options.startPreviewManual
+        }, {
+          default: withCtx(() => [
+            createTextVNode("2. 强制启动预览")
+          ]),
+          _: 1
+        }, 8, ["onClick"]),
+        createVNode(_component_button, {
+          class: "btn",
+          onClick: $options.toggleCamera
+        }, {
+          default: withCtx(() => [
+            createTextVNode("3. 切换摄像头")
+          ]),
+          _: 1
+        }, 8, ["onClick"]),
+        createVNode(_component_button, {
+          class: "btn secondary",
+          onClick: $options.goBack
+        }, {
+          default: withCtx(() => [
+            createTextVNode("返回")
+          ]),
+          _: 1
+        }, 8, ["onClick"])
+      ])
     ])
   ]);
 }

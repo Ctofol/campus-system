@@ -156,7 +156,7 @@ if (uni.restoreGlobal) {
   }
   const CustomTabBar = /* @__PURE__ */ _export_sfc(_sfc_main$z, [["render", _sfc_render$y], ["__scopeId", "data-v-208a9ade"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/components/CustomTabBar/CustomTabBar.vue"]]);
   let baseUrl = "http://127.0.0.1:8000";
-  baseUrl = "http://192.168.0.210:8000";
+  baseUrl = "http://120.26.17.147:8000";
   const BASE_URL = baseUrl;
   const request = (...args) => {
     let options = {};
@@ -204,9 +204,11 @@ if (uni.restoreGlobal) {
           }
         },
         fail: (err) => {
-          uni.showToast({
+          formatAppLog("error", "at utils/request.js:83", "Request fail:", err);
+          uni.showModal({
             title: "网络请求失败",
-            icon: "none"
+            content: err.errMsg || JSON.stringify(err),
+            showCancel: false
           });
           reject(err);
         }
@@ -1534,7 +1536,7 @@ if (uni.restoreGlobal) {
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         return R * c;
       };
-      const updateLocationLogic = (newLat, newLng, speed) => {
+      const updateLocationLogic = (newLat, newLng, speed, accuracy) => {
         lat.value = newLat;
         lng.value = newLng;
         markers.value[0] = {
@@ -1547,6 +1549,9 @@ if (uni.restoreGlobal) {
           height: 30
         };
         if (isRunning.value) {
+          if (accuracy && accuracy > 40) {
+            return;
+          }
           if (trajectoryPoints.value.length === 0) {
             const point = { latitude: newLat, longitude: newLng, timestamp: Date.now(), speed: speed || currentSpeed.value };
             trajectoryPoints.value.push(point);
@@ -1560,7 +1565,7 @@ if (uni.restoreGlobal) {
           if (timeDiff < 0.5)
             return;
           const calculatedSpeed = d / timeDiff;
-          if (d >= 2 && calculatedSpeed < 20) {
+          if (d >= 4 && calculatedSpeed < 20) {
             distance.value += d;
             const point = { latitude: newLat, longitude: newLng, timestamp: Date.now(), speed: speed || calculatedSpeed };
             trajectoryPoints.value.push(point);
@@ -1603,21 +1608,21 @@ if (uni.restoreGlobal) {
               if (res.speed && res.speed >= 0) {
                 currentSpeed.value = res.speed;
               }
-              updateLocationLogic(res.latitude, res.longitude, currentSpeed.value);
+              updateLocationLogic(res.latitude, res.longitude, currentSpeed.value, res.accuracy);
             };
             uni.onLocationChange(locationCallback);
           },
           fail: (err) => {
-            formatAppLog("log", "at pages/run/run.vue:518", "startLocationUpdate failed:", err);
+            formatAppLog("log", "at pages/run/run.vue:525", "startLocationUpdate failed:", err);
             uni.showToast({ title: "定位服务兼容模式已启动", icon: "none" });
             if (h5LocationTimer)
               clearInterval(h5LocationTimer);
             let preferredType = "gcj02";
             const doPoll = () => {
               getCurrentLocation({ type: preferredType }).then((res) => {
-                updateLocationLogic(res.latitude, res.longitude, res.speed || 0);
+                updateLocationLogic(res.latitude, res.longitude, res.speed || 0, res.accuracy);
               }).catch((err2) => {
-                formatAppLog("error", "at pages/run/run.vue:531", `Polling fallback failed for ${preferredType}`, err2);
+                formatAppLog("error", "at pages/run/run.vue:538", `Polling fallback failed for ${preferredType}`, err2);
                 if (preferredType === "gcj02") {
                   preferredType = "wgs84";
                   doPoll();
@@ -1706,15 +1711,15 @@ if (uni.restoreGlobal) {
         if (uni.getSystemInfoSync().platform === "android") {
           if (locationRetryTimer)
             clearInterval(locationRetryTimer);
-          formatAppLog("log", "at pages/run/run.vue:647", "Starting Android location polling...");
+          formatAppLog("log", "at pages/run/run.vue:654", "Starting Android location polling...");
           locationRetryTimer = setInterval(() => {
             if (!isPageActive)
               return;
             if (locationState.value !== "success") {
-              formatAppLog("log", "at pages/run/run.vue:651", "Retry locating (Android)...");
+              formatAppLog("log", "at pages/run/run.vue:658", "Retry locating (Android)...");
               doGetLocation();
             } else {
-              formatAppLog("log", "at pages/run/run.vue:654", "Location success, stop polling.");
+              formatAppLog("log", "at pages/run/run.vue:661", "Location success, stop polling.");
               clearInterval(locationRetryTimer);
               locationRetryTimer = null;
             }
@@ -1763,7 +1768,7 @@ if (uni.restoreGlobal) {
         }
       };
       const handleLocationError = (err) => {
-        formatAppLog("error", "at pages/run/run.vue:736", "Location failed:", err);
+        formatAppLog("error", "at pages/run/run.vue:743", "Location failed:", err);
         let msg = "定位失败";
         let showSettings = false;
         const errMsg = err.errMsg || "";
@@ -1876,7 +1881,7 @@ if (uni.restoreGlobal) {
               selectCheckpoint(target2);
             },
             fail: (res) => {
-              formatAppLog("log", "at pages/run/run.vue:871", res.errMsg);
+              formatAppLog("log", "at pages/run/run.vue:878", res.errMsg);
             }
           });
           return;
@@ -1912,7 +1917,7 @@ if (uni.restoreGlobal) {
         uni.showToast({ title: `已锁定：${newCheckpoint.name}`, icon: "success" });
       };
       const processSelectedLocation = (res) => {
-        formatAppLog("log", "at pages/run/run.vue:918", "Selected location:", res);
+        formatAppLog("log", "at pages/run/run.vue:925", "Selected location:", res);
         const selLat = res.latitude;
         const selLng = res.longitude;
         let nearest = null;
@@ -2014,12 +2019,12 @@ if (uni.restoreGlobal) {
           interval: "game",
           // 使用 game (20ms) 频率，采样更密集，捕捉波峰更准
           success: () => {
-            formatAppLog("log", "at pages/run/run.vue:1057", "Accelerometer started");
+            formatAppLog("log", "at pages/run/run.vue:1064", "Accelerometer started");
             isStepActive = false;
             lastStepTime = Date.now();
           },
           fail: (err) => {
-            formatAppLog("error", "at pages/run/run.vue:1062", "Start Accelerometer failed:", err);
+            formatAppLog("error", "at pages/run/run.vue:1069", "Start Accelerometer failed:", err);
           }
         });
         accelerometerCallback = (res) => {
@@ -2156,18 +2161,18 @@ if (uni.restoreGlobal) {
           uni.showLoading({ title: "提交中..." });
           const res = await submitActivity(runData);
           uni.hideLoading();
-          formatAppLog("log", "at pages/run/run.vue:1229", "Submit success:", res);
+          formatAppLog("log", "at pages/run/run.vue:1236", "Submit success:", res);
           uni.setStorageSync("tempRunResult", runData);
           uni.redirectTo({
             url: "/pages/result/result?useStorage=true",
             fail: (err) => {
-              formatAppLog("error", "at pages/run/run.vue:1239", "Navigate failed:", err);
+              formatAppLog("error", "at pages/run/run.vue:1246", "Navigate failed:", err);
               uni.showToast({ title: "页面跳转失败", icon: "none" });
             }
           });
         } catch (error) {
           uni.hideLoading();
-          formatAppLog("error", "at pages/run/run.vue:1245", "Submit failed:", error);
+          formatAppLog("error", "at pages/run/run.vue:1252", "Submit failed:", error);
           uni.showModal({
             title: "提交失败",
             content: error && error.detail ? error.detail : "网络或服务器错误，请重试",
@@ -5961,7 +5966,7 @@ if (uni.restoreGlobal) {
           const res = await request("/teacher/classes", { method: "GET" });
           classList.value = res;
         } catch (e) {
-          formatAppLog("error", "at pages/teacher/students/students.vue:257", e);
+          formatAppLog("error", "at pages/teacher/students/students.vue:258", e);
         }
       };
       const loadStudents = async (reset = false) => {
@@ -6021,7 +6026,7 @@ if (uni.restoreGlobal) {
           students.value = [...students.value, ...newStudents];
           page.value++;
         } catch (e) {
-          formatAppLog("error", "at pages/teacher/students/students.vue:315", e);
+          formatAppLog("error", "at pages/teacher/students/students.vue:316", e);
           uni.showToast({ title: "加载失败", icon: "none" });
         } finally {
           isLoading.value = false;
@@ -6035,7 +6040,7 @@ if (uni.restoreGlobal) {
           const res = await request("/teacher/health/requests", { method: "GET" });
           pendingRequests.value = res;
         } catch (e) {
-          formatAppLog("error", "at pages/teacher/students/students.vue:331", e);
+          formatAppLog("error", "at pages/teacher/students/students.vue:332", e);
         }
       };
       onShow(() => {
@@ -6259,7 +6264,7 @@ if (uni.restoreGlobal) {
           uni.showToast({ title: "已更新", icon: "success" });
           loadStudents(true);
         } catch (e) {
-          formatAppLog("error", "at pages/teacher/students/students.vue:574", e);
+          formatAppLog("error", "at pages/teacher/students/students.vue:575", e);
         }
       };
       const openDetail = (stu) => {
@@ -6308,7 +6313,7 @@ if (uni.restoreGlobal) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "students-page" }, [
       vue.createElementVNode("view", { class: "header" }, [
         vue.createElementVNode("view", { class: "nav-row" }, [
-          vue.createElementVNode("text", { class: "page-title" }, "学员管理"),
+          vue.createElementVNode("view", { class: "placeholder" }),
           vue.createElementVNode(
             "view",
             {
@@ -10758,18 +10763,10 @@ if (uni.restoreGlobal) {
       try {
         const userInfo = uni.getStorageSync("userInfo");
         if (!userInfo) {
-          uni.reLaunch({
-            url: "/pages/login/login",
-            success: () => {
-            },
-            fail: (err) => {
-              formatAppLog("error", "at App.vue:20", "跳转登录页失败:", err);
-            }
-          });
         } else {
         }
       } catch (e) {
-        formatAppLog("error", "at App.vue:27", "读取缓存失败:", e);
+        formatAppLog("error", "at App.vue:29", "读取缓存失败:", e);
         uni.reLaunch({ url: "/pages/login/login" });
       }
     },

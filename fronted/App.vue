@@ -10,7 +10,6 @@
 				
 				if (!userInfo) {
 					// console.log('用户未登录，即将跳转至登录页');
-					// 使用 reLaunch 关闭所有页面，打开到登录页
 					uni.reLaunch({
 						url: '/pages/login/login',
 						success: () => {
