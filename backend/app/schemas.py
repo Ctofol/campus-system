@@ -10,6 +10,8 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str
+    captcha_code: str
+    captcha_key: str
 
 class UserLogin(BaseModel):
     phone: str
@@ -266,3 +268,17 @@ class TeacherStatsOut(BaseModel):
     avg_pace: str
     task_count: int
     compliance_rate: int
+
+class TodoItem(BaseModel):
+    id: str
+    title: str
+    type: str  # 'approval' | 'task'
+    desc: str
+    time: str
+    path: str
+    priority: str = 'normal'
+
+class TeacherDashboardOut(BaseModel):
+    stats: TeacherStatsOut
+    todos: List[TodoItem]
+

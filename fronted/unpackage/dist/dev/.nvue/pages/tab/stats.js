@@ -1,0 +1,1089 @@
+import { ref, computed, onMounted, resolveComponent, openBlock, createElementBlock, createElementVNode, normalizeStyle, createVNode, withCtx, toDisplayString, createCommentVNode, normalizeClass, withModifiers, onUnmounted, Fragment, renderList, nextTick, createBlock } from "vue";
+import { _ as _export_sfc, o as onLoad, r as request, B as BASE_URL, f as formatAppLog, a as onShow, b as onHide } from "../../_plugin-vue_export-helper.js";
+const _style_0$2 = { "test-page-root": { "": { "flex": 1, "backgroundColor": "#1a1a1a", "flexDirection": "column" } }, "custom-navbar": { "": { "position": "fixed", "top": 0, "left": 0, "width": "750rpx", "backgroundColor": "#1a1a1a" } }, "navbar-content": { "": { "height": 44, "flexDirection": "row", "alignItems": "center", "justifyContent": "center" } }, "navbar-title": { "": { "color": "#ffffff", "fontSize": 16, "fontWeight": "bold" } }, "content-wrapper": { "": { "flex": 1, "flexDirection": "column", "alignItems": "center", "width": "750rpx", "paddingBottom": "20rpx" } }, "teacher-tools": { "": { "width": "750rpx", "paddingTop": "40rpx", "paddingRight": "30rpx", "paddingBottom": "40rpx", "paddingLeft": "30rpx" } }, "teacher-card": { "": { "backgroundColor": "#ffffff", "borderRadius": "12rpx", "paddingTop": "20rpx", "paddingRight": "20rpx", "paddingBottom": "20rpx", "paddingLeft": "20rpx" } }, "teacher-title": { "": { "fontSize": "34rpx", "fontWeight": "bold", "marginBottom": "10rpx", "color": "#333333" } }, "teacher-actions": { "": { "flexDirection": "row" } }, "teacher-btn": { "": { "backgroundColor": "#20C997", "paddingTop": "10rpx", "paddingRight": "20rpx", "paddingBottom": "10rpx", "paddingLeft": "20rpx", "borderRadius": "8rpx" } }, "teacher-btn-text": { "": { "color": "#ffffff", "fontSize": "28rpx" } }, "student-container": { "": { "flexDirection": "column", "width": "750rpx", "alignItems": "center" } }, "header-info": { "": { "paddingTop": "40rpx", "paddingRight": "30rpx", "paddingBottom": "20rpx", "paddingLeft": "30rpx", "alignItems": "center" } }, "project-name": { "": { "fontSize": "36rpx", "fontWeight": "bold", "marginBottom": "10rpx", "color": "#ffffff" } }, "standard-badge": { "": { "backgroundColor": "rgba(32,201,151,0.2)", "paddingTop": "8rpx", "paddingRight": "20rpx", "paddingBottom": "8rpx", "paddingLeft": "20rpx", "borderRadius": "12rpx", "marginBottom": "16rpx" } }, "badge-text": { "": { "color": "#20C997", "fontSize": "24rpx", "fontWeight": "bold" } }, "standard-desc": { "": { "fontSize": "28rpx", "color": "#aaaaaa", "marginTop": "10rpx" } }, "test-type-switch": { "": { "marginTop": "20rpx", "flexDirection": "column", "alignItems": "center" } }, "switch-btn": { "": { "backgroundColor": "rgba(255,255,255,0.1)", "paddingTop": "12rpx", "paddingRight": "36rpx", "paddingBottom": "12rpx", "paddingLeft": "36rpx", "borderRadius": "30rpx", "borderWidth": 1, "borderStyle": "solid", "borderColor": "rgba(32,201,151,0.3)" } }, "switch-btn-text": { "": { "color": "#20C997", "fontSize": "28rpx" } }, "type-selector": { "": { "backgroundColor": "rgba(0,0,0,0.4)", "borderWidth": 1, "borderStyle": "solid", "borderColor": "rgba(255,255,255,0.1)", "borderRadius": "16rpx", "marginTop": "10rpx" } }, "type-item": { "": { "paddingTop": "16rpx", "paddingRight": "40rpx", "paddingBottom": "16rpx", "paddingLeft": "40rpx", "borderBottomWidth": 1, "borderBottomStyle": "solid", "borderBottomColor": "rgba(255,255,255,0.08)" } }, "type-item-text": { "": { "color": "#ffffff", "fontSize": "28rpx", "textAlign": "center" } }, "camera-area": { "": { "width": "750rpx", "height": "562.5rpx", "backgroundColor": "#000000", "position": "relative", "justifyContent": "center", "alignItems": "center", "borderTopWidth": 1, "borderTopStyle": "solid", "borderTopColor": "#333333", "borderBottomWidth": 1, "borderBottomStyle": "solid", "borderBottomColor": "#333333" } }, "real-camera": { "": { "width": "750rpx", "height": "562.5rpx" } }, "camera-error-view": { "": { "width": "750rpx", "height": "562.5rpx", "backgroundColor": "#222222", "justifyContent": "center", "alignItems": "center" } }, "error-text": { "": { "color": "#ff6b6b", "fontSize": "30rpx", "marginBottom": "20rpx" } }, "retry-btn": { "": { "backgroundColor": "#333333", "paddingTop": "10rpx", "paddingRight": "30rpx", "paddingBottom": "10rpx", "paddingLeft": "30rpx", "borderRadius": "8rpx", "borderWidth": 1, "borderStyle": "solid", "borderColor": "#444444" } }, "retry-text": { "": { "color": "#ffffff", "fontSize": "28rpx" } }, "camera-overlay-content": { "": { "position": "absolute", "top": 0, "left": 0, "width": "750rpx", "height": "562.5rpx" } }, "count-overlay": { "": { "position": "absolute", "top": "200rpx", "left": "375rpx", "transform": "translateX(-50%)", "flexDirection": "row", "alignItems": "flex-end", "justifyContent": "center" } }, "count-val": { "": { "fontSize": "100rpx", "fontWeight": "800", "color": "#20C997", "lineHeight": "100rpx" } }, "count-label": { "": { "fontSize": "30rpx", "color": "rgba(255,255,255,0.8)", "marginLeft": "12rpx", "fontWeight": "bold", "marginBottom": "10rpx" } }, "progress-bar-container": { "": { "position": "absolute", "bottom": 0, "left": 0, "width": "750rpx", "height": "10rpx", "backgroundColor": "rgba(255,255,255,0.1)" } }, "progress-fill": { "": { "height": "10rpx", "backgroundColor": "#20C997" } }, "status-tips": { "": { "position": "absolute", "bottom": "60rpx", "left": 0, "width": "750rpx", "flexDirection": "row", "justifyContent": "center" } }, "status-text": { "": { "backgroundColor": "rgba(0,0,0,0.7)", "paddingTop": "16rpx", "paddingRight": "48rpx", "paddingBottom": "16rpx", "paddingLeft": "48rpx", "borderRadius": "50rpx", "fontSize": "32rpx", "color": "#ffffff", "borderWidth": 1, "borderStyle": "solid", "borderColor": "rgba(255,255,255,0.1)" } }, "valid-text": { "": { "color": "#20C997", "backgroundColor": "rgba(32,201,151,0.15)", "borderColor": "rgba(32,201,151,0.4)" } }, "action-area": { "": { "width": "750rpx", "paddingTop": "20rpx", "paddingRight": "40rpx", "paddingBottom": "60rpx", "paddingLeft": "40rpx", "alignItems": "center" } }, "timer-box": { "": { "marginBottom": "40rpx", "backgroundColor": "rgba(255,255,255,0.05)", "paddingTop": "16rpx", "paddingRight": "40rpx", "paddingBottom": "16rpx", "paddingLeft": "40rpx", "borderRadius": "20rpx", "alignItems": "center", "borderWidth": 1, "borderStyle": "solid", "borderColor": "rgba(255,255,255,0.05)" } }, "timer-label": { "": { "fontSize": "24rpx", "color": "#888888", "marginBottom": "4rpx" } }, "timer-text": { "": { "fontSize": "60rpx", "fontWeight": "bold", "color": "#ffffff" } }, "last-result-box": { "": { "marginTop": 20, "backgroundColor": "#2a2a2a", "borderRadius": 12, "paddingTop": 15, "paddingRight": 15, "paddingBottom": 15, "paddingLeft": 15, "width": "600rpx", "borderWidth": 1, "borderStyle": "solid", "borderColor": "#333333" } }, "result-title": { "": { "color": "#ffffff", "fontSize": "32rpx", "fontWeight": "bold", "marginBottom": "20rpx", "textAlign": "center" } }, "result-row": { "": { "flexDirection": "row", "justifyContent": "space-between", "marginBottom": "10rpx" } }, "result-label": { "": { "color": "#888888", "fontSize": "28rpx" } }, "result-value": { "": { "color": "#20C997", "fontSize": "32rpx", "fontWeight": "bold" } }, "btn-group": { "": { "flexDirection": "row", "width": "600rpx", "justifyContent": "center" } }, "testing-btns": { "": { "flexDirection": "row", "flex": 1, "justifyContent": "space-between" } }, "main-btn": { "": { "flex": 1, "backgroundImage": "linear-gradient(to bottom right, #20C997, #17a077)", "height": "110rpx", "alignItems": "center", "justifyContent": "center", "borderRadius": "60rpx" } }, "sub-btn": { "": { "flex": 1, "height": "110rpx", "alignItems": "center", "justifyContent": "center", "borderRadius": "60rpx", "marginTop": 0, "marginRight": "10rpx", "marginBottom": 0, "marginLeft": "10rpx" } }, "stop-btn": { "": { "backgroundImage": "linear-gradient(to bottom right, #ff6b6b, #ee5253)" } }, "mock-btn": { "": { "backgroundColor": "rgba(255,255,255,0.1)", "borderWidth": 1, "borderStyle": "solid", "borderColor": "rgba(255,255,255,0.1)" } }, "btn-text": { "": { "color": "#ffffff", "fontSize": "36rpx", "fontWeight": "bold" } }, "mock-text": { "": { "color": "#cccccc", "fontSize": "32rpx" } }, "guide-modal": { "": { "position": "fixed", "top": 0, "left": 0, "bottom": 0, "right": 0, "backgroundColor": "rgba(0,0,0,0.8)", "justifyContent": "center", "alignItems": "center" } }, "guide-content": { "": { "backgroundColor": "#ffffff", "width": "600rpx", "borderRadius": "20rpx", "paddingTop": "40rpx", "paddingRight": "40rpx", "paddingBottom": "40rpx", "paddingLeft": "40rpx", "alignItems": "center" } }, "guide-title": { "": { "fontSize": "36rpx", "fontWeight": "bold", "marginBottom": "30rpx", "color": "#333333" } }, "guide-visual": { "": { "width": "200rpx", "height": "200rpx", "backgroundColor": "#f5f5f5", "borderRadius": "20rpx", "alignItems": "center", "justifyContent": "center", "marginBottom": "30rpx" } }, "guide-emoji": { "": { "fontSize": "80rpx" } }, "guide-desc": { "": { "fontSize": "28rpx", "color": "#666666", "textAlign": "center", "marginBottom": "40rpx" } }, "guide-btn": { "": { "backgroundColor": "#20C997", "paddingTop": "10rpx", "paddingRight": "60rpx", "paddingBottom": "10rpx", "paddingLeft": "60rpx", "borderRadius": "40rpx" } }, "guide-btn-text": { "": { "color": "#ffffff", "fontSize": "30rpx" } }, "h5-camera-wrapper": { "": { "width": "750rpx", "height": "562.5rpx", "justifyContent": "center", "alignItems": "center", "backgroundColor": "#333333" } } };
+const _sfc_main$2 = {
+  __name: "student-test",
+  setup(__props, { expose: __expose }) {
+    const statusBarHeight = ref(20);
+    const cameraContext = ref(null);
+    const captureTimer = ref(null);
+    const isTesting = ref(false);
+    const count = ref(0);
+    const duration = ref(0);
+    const timer = ref(null);
+    const lastResult = ref(null);
+    const pendingVideoUrl = ref("");
+    const progressPercent = computed(() => Math.min(count.value / 20 * 100, 100));
+    const isStandard = ref(false);
+    const statusText = ref("请做好准备");
+    const showSelector = ref(false);
+    const showGuide = ref(false);
+    const role = ref("student");
+    const showCamera = ref(true);
+    const cameraPosition = ref("back");
+    const projectName = ref("引体向上");
+    const standardDesc = ref("下颌过杠，双臂伸直");
+    const testType = ref("pull-up");
+    const projectEmoji = computed(() => {
+      const map = { "pull-up": "💪", "sit-up": "🧘", "push-up": "🙇" };
+      return map[testType.value] || "🏃";
+    });
+    const onPageShow = () => {
+      const userRole = uni.getStorageSync("userRole") || "student";
+      role.value = userRole;
+      if (!cameraContext.value && uni.createCameraContext) {
+        cameraContext.value = uni.createCameraContext();
+      }
+    };
+    const onPageHide = () => {
+      if (isTesting.value) {
+        clearInterval(timer.value);
+        clearInterval(captureTimer.value);
+        isTesting.value = false;
+      }
+    };
+    onMounted(() => {
+      onPageShow();
+    });
+    __expose({
+      onPageShow,
+      onPageHide
+    });
+    const showTypeSelector = () => {
+      showSelector.value = !showSelector.value;
+    };
+    const switchTestType = (name, type) => {
+      projectName.value = name;
+      testType.value = type;
+      showSelector.value = false;
+      if (type === "pull-up")
+        standardDesc.value = "下颌过杠，双臂伸直";
+      else if (type === "sit-up")
+        standardDesc.value = "双手抱头，肘部触膝";
+      else if (type === "push-up")
+        standardDesc.value = "身体平直，屈臂90度";
+      count.value = 0;
+      duration.value = 0;
+      isTesting.value = false;
+      statusText.value = "请做好准备";
+    };
+    const formatTime = (seconds) => {
+      const m = Math.floor(seconds / 60);
+      const s = seconds % 60;
+      return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+    };
+    const mockCount = () => {
+      count.value++;
+      isStandard.value = true;
+      statusText.value = "动作标准";
+      setTimeout(() => {
+        isStandard.value = false;
+        statusText.value = "保持动作";
+      }, 1e3);
+    };
+    const startTest = () => {
+      if (isTesting.value)
+        return;
+      if (cameraContext.value) {
+        cameraContext.value.startRecord({
+          success: () => formatAppLog("log", "at components/student-test/student-test.nvue:235", "Start record success"),
+          fail: (e) => {
+            formatAppLog("error", "at components/student-test/student-test.nvue:237", "Start record fail", e);
+          }
+        });
+      }
+      isTesting.value = true;
+      count.value = 0;
+      duration.value = 0;
+      statusText.value = "正在识别...";
+      pendingVideoUrl.value = "";
+      timer.value = setInterval(() => {
+        duration.value++;
+      }, 1e3);
+      captureTimer.value = setInterval(() => {
+        mockCount();
+      }, 3e3);
+    };
+    const endTest = async () => {
+      if (!isTesting.value)
+        return;
+      clearInterval(timer.value);
+      clearInterval(captureTimer.value);
+      isTesting.value = false;
+      statusText.value = "测试结束";
+      lastResult.value = {
+        count: count.value,
+        duration: formatTime(duration.value),
+        date: (/* @__PURE__ */ new Date()).toLocaleString()
+      };
+      uni.showLoading({ title: "正在处理视频..." });
+      if (cameraContext.value) {
+        cameraContext.value.stopRecord({
+          success: async (res) => {
+            const videoPath = res.tempVideoPath;
+            try {
+              uni.showLoading({ title: "正在上传视频..." });
+              const uploadRes = await uploadFile(videoPath);
+              let evidenceUrl = "";
+              if (uploadRes && uploadRes.url) {
+                evidenceUrl = uploadRes.url;
+              }
+              await submitResult(evidenceUrl);
+              uni.hideLoading();
+              showCompletionModal();
+            } catch (e) {
+              uni.hideLoading();
+              uni.showToast({ title: "视频上传失败", icon: "none" });
+            }
+          },
+          fail: (e) => {
+            formatAppLog("error", "at components/student-test/student-test.nvue:295", "Stop record fail", e);
+            fallbackToSnapshot();
+          }
+        });
+        return;
+      }
+      fallbackToSnapshot();
+    };
+    const fallbackToSnapshot = async () => {
+      try {
+        const snapshotPath = await takeSnapshot();
+        let evidenceUrl = "";
+        if (snapshotPath) {
+          const uploadRes = await uploadFile(snapshotPath);
+          if (uploadRes && uploadRes.url) {
+            evidenceUrl = uploadRes.url;
+          }
+        }
+        await submitResult(evidenceUrl);
+        uni.hideLoading();
+        showCompletionModal();
+      } catch (e) {
+        uni.hideLoading();
+        uni.showToast({ title: "数据提交失败", icon: "none" });
+        formatAppLog("error", "at components/student-test/student-test.nvue:322", e);
+      }
+    };
+    const showCompletionModal = () => {
+      uni.showModal({
+        title: "测试完成",
+        content: `项目：${projectName.value}
+本次成绩：${count.value}次
+用时：${formatTime(duration.value)}`,
+        showCancel: false
+      });
+    };
+    const takeSnapshot = () => {
+      return new Promise((resolve, reject) => {
+        if (cameraContext.value && cameraContext.value.takePhoto) {
+          cameraContext.value.takePhoto({
+            quality: "normal",
+            success: (res) => {
+              resolve(res.tempImagePath);
+            },
+            fail: (err) => {
+              formatAppLog("error", "at components/student-test/student-test.nvue:344", "App snapshot failed", err);
+              resolve(null);
+            }
+          });
+        } else {
+          resolve(null);
+        }
+      });
+    };
+    const uploadFile = (filePath) => {
+      return new Promise((resolve, reject) => {
+        const token = uni.getStorageSync("token");
+        uni.uploadFile({
+          url: `${BASE_URL}/upload`,
+          filePath,
+          name: "file",
+          header: {
+            "Authorization": `Bearer ${token}`
+          },
+          success: (uploadFileRes) => {
+            try {
+              const data = JSON.parse(uploadFileRes.data);
+              resolve(data);
+            } catch (e) {
+              reject(e);
+            }
+          },
+          fail: (err) => {
+            reject(err);
+          }
+        });
+      });
+    };
+    const submitResult = (evidenceUrlArg) => {
+      return request({
+        url: "/activity/finish",
+        method: "POST",
+        data: {
+          type: "test",
+          source: "free",
+          started_at: new Date(Date.now() - duration.value * 1e3).toISOString(),
+          ended_at: (/* @__PURE__ */ new Date()).toISOString(),
+          metrics: {
+            count: count.value,
+            duration: duration.value,
+            qualified: count.value >= 10,
+            checkpoints: JSON.stringify([])
+          },
+          evidence: [
+            ...evidenceUrlArg ? [{ evidence_type: "video", data_ref: evidenceUrlArg }] : []
+          ]
+        }
+      });
+    };
+    const handleOptions = (options) => {
+      if (options.project)
+        projectName.value = options.project;
+      if (options.type)
+        testType.value = options.type;
+      const standards = {
+        "引体向上": "下颌过杠，双臂伸直",
+        "仰卧起坐": "双手抱头，肘部触膝",
+        "俯卧撑": "身体平直，屈臂90度"
+      };
+      if (standards[projectName.value]) {
+        standardDesc.value = standards[projectName.value];
+      }
+    };
+    onLoad((options) => {
+      const sys = uni.getSystemInfoSync();
+      statusBarHeight.value = sys.statusBarHeight || 20;
+      if (options) {
+        handleOptions(options);
+      }
+    });
+    const gotoStudents = () => {
+      uni.navigateTo({ url: "/pages/teacher/students/students" });
+    };
+    const toggleCamera = () => {
+      cameraPosition.value = cameraPosition.value === "back" ? "front" : "back";
+    };
+    const retryCamera = () => {
+      showCamera.value = false;
+      setTimeout(() => {
+        showCamera.value = true;
+      }, 100);
+    };
+    const openSysSettings = () => {
+      uni.openAppAuthorizeSetting();
+    };
+    const handleCameraError = (e) => {
+      formatAppLog("error", "at components/student-test/student-test.nvue:453", "Camera Error:", e);
+      showCamera.value = false;
+      uni.showModal({
+        title: "摄像头权限受限",
+        content: "请在设置中开启摄像头权限以进行拍摄",
+        confirmText: "去设置",
+        success: (res) => {
+          if (res.confirm)
+            openSysSettings();
+        }
+      });
+    };
+    const __returned__ = { statusBarHeight, cameraContext, captureTimer, isTesting, count, duration, timer, lastResult, pendingVideoUrl, progressPercent, isStandard, statusText, showSelector, showGuide, role, showCamera, cameraPosition, projectName, standardDesc, testType, projectEmoji, onPageShow, onPageHide, showTypeSelector, switchTestType, formatTime, mockCount, startTest, endTest, fallbackToSnapshot, showCompletionModal, takeSnapshot, uploadFile, submitResult, handleOptions, gotoStudents, toggleCamera, retryCamera, openSysSettings, handleCameraError, ref, computed, onMounted, onUnmounted, get onLoad() {
+      return onLoad;
+    }, get request() {
+      return request;
+    }, get BASE_URL() {
+      return BASE_URL;
+    } };
+    Object.defineProperty(__returned__, "__isScriptSetup", { enumerable: false, value: true });
+    return __returned__;
+  }
+};
+function _sfc_render$2(_ctx, _cache, $props, $setup, $data, $options) {
+  const _component_button = resolveComponent("button");
+  return openBlock(), createElementBlock("view", {
+    class: "test-page-root",
+    renderWhole: true
+  }, [
+    createElementVNode(
+      "view",
+      {
+        class: "custom-navbar",
+        style: normalizeStyle({ paddingTop: $setup.statusBarHeight + "px" })
+      },
+      [
+        createElementVNode("view", { class: "navbar-content" }, [
+          createElementVNode("u-text", { class: "navbar-title" }, "体能测试")
+        ])
+      ],
+      4
+      /* STYLE */
+    ),
+    createElementVNode(
+      "scroll-view",
+      {
+        scrollY: "true",
+        class: "content-wrapper",
+        style: normalizeStyle({ paddingTop: $setup.statusBarHeight + 44 + "px" })
+      },
+      [
+        $setup.role === "teacher" ? (openBlock(), createElementBlock("view", {
+          key: 0,
+          class: "teacher-tools"
+        }, [
+          createElementVNode("view", { class: "teacher-card" }, [
+            createElementVNode("u-text", { class: "teacher-title" }, "教师工具"),
+            createElementVNode("view", { class: "teacher-actions" }, [
+              createVNode(_component_button, {
+                class: "teacher-btn",
+                onClick: $setup.gotoStudents
+              }, {
+                default: withCtx(() => [
+                  createElementVNode("u-text", { class: "teacher-btn-text" }, "学员管理")
+                ]),
+                _: 1
+                /* STABLE */
+              })
+            ])
+          ])
+        ])) : (openBlock(), createElementBlock("view", {
+          key: 1,
+          class: "student-container"
+        }, [
+          createElementVNode("view", { class: "header-info" }, [
+            createElementVNode(
+              "u-text",
+              { class: "project-name" },
+              toDisplayString($setup.projectName),
+              1
+              /* TEXT */
+            ),
+            createElementVNode("view", { class: "standard-badge" }, [
+              createElementVNode("u-text", { class: "badge-text" }, "国家学生体质健康标准")
+            ]),
+            createElementVNode(
+              "u-text",
+              { class: "standard-desc" },
+              "动作标准：" + toDisplayString($setup.standardDesc),
+              1
+              /* TEXT */
+            ),
+            createElementVNode("view", { class: "test-type-switch" }, [
+              createVNode(_component_button, {
+                class: "switch-btn",
+                onClick: $setup.showTypeSelector
+              }, {
+                default: withCtx(() => [
+                  createElementVNode("u-text", { class: "switch-btn-text" }, "切换测试类型")
+                ]),
+                _: 1
+                /* STABLE */
+              }),
+              $setup.showSelector ? (openBlock(), createElementBlock("view", {
+                key: 0,
+                class: "type-selector"
+              }, [
+                createElementVNode("view", {
+                  class: "type-item",
+                  onClick: _cache[0] || (_cache[0] = ($event) => $setup.switchTestType("引体向上", "pull-up"))
+                }, [
+                  createElementVNode("u-text", { class: "type-item-text" }, "引体向上")
+                ]),
+                createElementVNode("view", {
+                  class: "type-item",
+                  onClick: _cache[1] || (_cache[1] = ($event) => $setup.switchTestType("仰卧起坐", "sit-up"))
+                }, [
+                  createElementVNode("u-text", { class: "type-item-text" }, "仰卧起坐")
+                ]),
+                createElementVNode("view", {
+                  class: "type-item",
+                  onClick: _cache[2] || (_cache[2] = ($event) => $setup.switchTestType("俯卧撑", "push-up"))
+                }, [
+                  createElementVNode("u-text", { class: "type-item-text" }, "俯卧撑")
+                ])
+              ])) : createCommentVNode("v-if", true)
+            ])
+          ]),
+          createElementVNode("view", { class: "camera-area" }, [
+            $setup.showCamera ? (openBlock(), createElementBlock("camera", {
+              key: 0,
+              class: "real-camera",
+              devicePosition: $setup.cameraPosition,
+              flash: "off",
+              onError: $setup.handleCameraError
+            }, null, 40, ["devicePosition"])) : createCommentVNode("v-if", true),
+            $setup.showCamera ? (openBlock(), createElementBlock("view", {
+              key: 1,
+              class: "camera-controls"
+            }, [
+              createVNode(_component_button, {
+                class: "switch-cam-btn",
+                onClick: $setup.toggleCamera
+              }, {
+                default: withCtx(() => [
+                  createElementVNode("u-text", { class: "switch-text" }, "📷 切换")
+                ]),
+                _: 1
+                /* STABLE */
+              })
+            ])) : createCommentVNode("v-if", true),
+            !$setup.showCamera ? (openBlock(), createElementBlock("view", {
+              key: 2,
+              class: "camera-error-view"
+            }, [
+              createElementVNode("u-text", { class: "error-text" }, "无法访问摄像头"),
+              createVNode(_component_button, {
+                class: "retry-btn",
+                onClick: $setup.retryCamera
+              }, {
+                default: withCtx(() => [
+                  createElementVNode("u-text", { class: "retry-text" }, "重试")
+                ]),
+                _: 1
+                /* STABLE */
+              }),
+              createVNode(_component_button, {
+                class: "retry-btn setting-btn",
+                onClick: $setup.openSysSettings,
+                style: { "margin-top": "20rpx", "background-color": "#555" }
+              }, {
+                default: withCtx(() => [
+                  createElementVNode("u-text", { class: "retry-text" }, "去设置开启权限")
+                ]),
+                _: 1
+                /* STABLE */
+              })
+            ])) : createCommentVNode("v-if", true),
+            $setup.isTesting ? (openBlock(), createElementBlock("view", {
+              key: 3,
+              class: "camera-overlay-content"
+            }, [
+              createElementVNode("view", { class: "count-overlay" }, [
+                createElementVNode(
+                  "u-text",
+                  { class: "count-val" },
+                  toDisplayString($setup.count),
+                  1
+                  /* TEXT */
+                ),
+                createElementVNode("u-text", { class: "count-label" }, "次")
+              ]),
+              createElementVNode("view", { class: "progress-bar-container" }, [
+                createElementVNode(
+                  "view",
+                  {
+                    class: "progress-fill",
+                    style: normalizeStyle({ width: $setup.progressPercent + "%" })
+                  },
+                  null,
+                  4
+                  /* STYLE */
+                )
+              ]),
+              createElementVNode("view", { class: "status-tips" }, [
+                createElementVNode(
+                  "u-text",
+                  {
+                    class: normalizeClass(["status-text", [$setup.isStandard ? "valid-text" : ""]])
+                  },
+                  toDisplayString($setup.statusText),
+                  3
+                  /* TEXT, CLASS */
+                )
+              ])
+            ])) : createCommentVNode("v-if", true)
+          ]),
+          createElementVNode("view", { class: "action-area" }, [
+            createElementVNode("view", { class: "timer-box" }, [
+              createElementVNode(
+                "u-text",
+                { class: "timer-label" },
+                toDisplayString($setup.isTesting ? "测试用时" : $setup.lastResult ? "上次用时" : "测试用时"),
+                1
+                /* TEXT */
+              ),
+              createElementVNode(
+                "u-text",
+                { class: "timer-text" },
+                toDisplayString($setup.isTesting ? $setup.formatTime($setup.duration) : $setup.lastResult ? $setup.lastResult.duration : "00:00"),
+                1
+                /* TEXT */
+              )
+            ]),
+            !$setup.isTesting && $setup.lastResult ? (openBlock(), createElementBlock("view", {
+              key: 0,
+              class: "last-result-box"
+            }, [
+              createElementVNode(
+                "u-text",
+                { class: "result-title" },
+                "上次成绩 (" + toDisplayString($setup.projectName) + ")",
+                1
+                /* TEXT */
+              ),
+              createElementVNode("view", { class: "result-row" }, [
+                createElementVNode("u-text", { class: "result-label" }, "数量："),
+                createElementVNode(
+                  "u-text",
+                  { class: "result-value" },
+                  toDisplayString($setup.lastResult.count) + " 次",
+                  1
+                  /* TEXT */
+                )
+              ]),
+              createElementVNode("view", { class: "result-row" }, [
+                createElementVNode("u-text", { class: "result-label" }, "用时："),
+                createElementVNode(
+                  "u-text",
+                  { class: "result-value" },
+                  toDisplayString($setup.lastResult.duration),
+                  1
+                  /* TEXT */
+                )
+              ])
+            ])) : createCommentVNode("v-if", true),
+            createElementVNode("view", { class: "btn-group" }, [
+              !$setup.isTesting ? (openBlock(), createElementBlock("view", {
+                key: 0,
+                class: "main-btn start-btn",
+                onClick: $setup.startTest
+              }, [
+                createElementVNode(
+                  "u-text",
+                  { class: "btn-text" },
+                  toDisplayString($setup.lastResult ? "再次测试" : "开始测试"),
+                  1
+                  /* TEXT */
+                )
+              ])) : (openBlock(), createElementBlock("view", {
+                key: 1,
+                class: "testing-btns"
+              }, [
+                createElementVNode("view", {
+                  class: "sub-btn stop-btn",
+                  onClick: $setup.endTest
+                }, [
+                  createElementVNode("u-text", { class: "btn-text" }, "结束测试")
+                ]),
+                createElementVNode("view", {
+                  class: "sub-btn mock-btn",
+                  onClick: $setup.mockCount
+                }, [
+                  createElementVNode("u-text", { class: "btn-text mock-text" }, "+1 模拟")
+                ])
+              ]))
+            ])
+          ])
+        ])),
+        $setup.showGuide ? (openBlock(), createElementBlock("view", {
+          key: 2,
+          class: "guide-modal",
+          onClick: _cache[5] || (_cache[5] = ($event) => $setup.showGuide = false)
+        }, [
+          createElementVNode("view", {
+            class: "guide-content",
+            onClick: _cache[4] || (_cache[4] = withModifiers(() => {
+            }, ["stop"]))
+          }, [
+            createElementVNode("u-text", { class: "guide-title" }, "动作指南"),
+            createElementVNode("view", { class: "guide-visual" }, [
+              createElementVNode(
+                "u-text",
+                { class: "guide-emoji" },
+                toDisplayString($setup.projectEmoji),
+                1
+                /* TEXT */
+              )
+            ]),
+            createElementVNode(
+              "u-text",
+              { class: "guide-desc" },
+              toDisplayString($setup.standardDesc),
+              1
+              /* TEXT */
+            ),
+            createVNode(_component_button, {
+              class: "guide-btn",
+              onClick: _cache[3] || (_cache[3] = ($event) => $setup.showGuide = false)
+            }, {
+              default: withCtx(() => [
+                createElementVNode("u-text", { class: "guide-btn-text" }, "我知道了")
+              ]),
+              _: 1
+              /* STABLE */
+            })
+          ])
+        ])) : createCommentVNode("v-if", true)
+      ],
+      4
+      /* STYLE */
+    )
+  ]);
+}
+const StudentTest = /* @__PURE__ */ _export_sfc(_sfc_main$2, [["render", _sfc_render$2], ["styles", [_style_0$2]], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/components/student-test/student-test.nvue"]]);
+const _style_0$1 = { "teacher-test-page": { "": { "flex": 1, "backgroundColor": "#f8f9fa", "display": "flex", "flexDirection": "column" } }, "header-tabs": { "": { "backgroundColor": "#ffffff", "display": "flex", "paddingTop": 0, "paddingRight": "20rpx", "paddingBottom": 0, "paddingLeft": "20rpx", "borderBottomWidth": 1, "borderBottomStyle": "solid", "borderBottomColor": "#eeeeee" } }, "tab-item": { "": { "flex": 1, "textAlign": "center", "paddingTop": "30rpx", "paddingRight": 0, "paddingBottom": "30rpx", "paddingLeft": 0, "position": "relative", "fontSize": "30rpx", "color": "#666666" }, ".active": { "color": "#20C997", "fontWeight": "bold" } }, "tab-indicator": { "": { "position": "absolute", "bottom": 0, "left": 50, "transform": "translateX(-50%)", "width": "40rpx", "height": "6rpx", "backgroundColor": "#20C997", "borderRadius": "4rpx" } }, "content-area": { "": { "flex": 1, "paddingTop": "20rpx", "paddingRight": "20rpx", "paddingBottom": "20rpx", "paddingLeft": "20rpx" } }, "live-header": { "": { "display": "flex", "justifyContent": "space-between", "alignItems": "center", "marginBottom": "20rpx" } }, "live-title": { "": { "fontSize": "32rpx", "fontWeight": "bold", "color": "#333333" } }, "live-badge": { "": { "backgroundColor": "rgba(32,201,151,0.1)", "color": "#20C997", "fontSize": "24rpx", "paddingTop": "4rpx", "paddingRight": "12rpx", "paddingBottom": "4rpx", "paddingLeft": "12rpx", "borderRadius": "8rpx" } }, "student-live-grid": { "": { "display": "flex", "flexDirection": "row", "flexWrap": "wrap", "justifyContent": "space-between" } }, "student-monitor-card": { "": { "width": "345rpx", "backgroundColor": "#ffffff", "borderRadius": "12rpx", "overflow": "hidden", "boxShadow": "0 2rpx 8rpx rgba(0,0,0,0.05)", "marginBottom": "20rpx" } }, "monitor-video-placeholder": { "": { "height": "200rpx", "backgroundColor": "#000000", "position": "relative", "display": "flex", "alignItems": "center", "justifyContent": "center" } }, "ai-overlay": { "": { "position": "absolute", "top": "10rpx", "left": "10rpx", "color": "#00ff00", "fontSize": "20rpx", "fontFamily": "monospace" } }, "live-score": { "": { "position": "absolute", "bottom": "10rpx", "right": "10rpx", "color": "#ffffff", "fontWeight": "bold", "fontSize": "36rpx" } }, "pose-skeleton": { "": { "width": "60rpx", "height": "100rpx", "position": "relative" } }, "bone": { "": { "backgroundColor": "#00ff00", "position": "absolute" }, ".head": { "width": "16rpx", "height": "16rpx", "borderRadius": 50, "top": 0, "left": "22rpx" }, ".body": { "width": "4rpx", "height": "40rpx", "top": "16rpx", "left": "28rpx" }, ".arm-l": { "width": "20rpx", "height": "4rpx", "top": "24rpx", "left": "8rpx", "transform": "rotate(20deg)" }, ".arm-r": { "width": "20rpx", "height": "4rpx", "top": "24rpx", "right": "8rpx", "transform": "rotate(-20deg)" }, ".leg-l": { "width": "4rpx", "height": "30rpx", "top": "56rpx", "left": "24rpx", "transform": "rotate(10deg)" }, ".leg-r": { "width": "4rpx", "height": "30rpx", "top": "56rpx", "left": "34rpx", "transform": "rotate(-10deg)" } }, "ai-bbox": { "": { "position": "absolute", "top": "20rpx", "left": 20, "width": 60, "height": 80, "borderWidth": "2rpx", "borderStyle": "dashed", "borderColor": "#00ff00", "borderRadius": "8rpx" } }, "bbox-label": { "": { "position": "absolute", "top": "-24rpx", "left": 0, "backgroundColor": "#00ff00", "color": "#000000", "fontSize": "18rpx", "paddingTop": 0, "paddingRight": "4rpx", "paddingBottom": 0, "paddingLeft": "4rpx" } }, "monitor-info": { "": { "paddingTop": "16rpx", "paddingRight": "16rpx", "paddingBottom": "16rpx", "paddingLeft": "16rpx" } }, "skills-matrix": { "": { "display": "flex", "flexDirection": "column" } }, "skill-row": { "": { "display": "flex", "alignItems": "center", "marginBottom": "16rpx" } }, "skill-name": { "": { "fontSize": "24rpx", "color": "#666666", "width": "100rpx", "marginRight": "20rpx" } }, "skill-track": { "": { "flex": 1, "height": "16rpx", "backgroundColor": "#f0f0f0", "borderRadius": "8rpx", "overflow": "hidden" } }, "skill-bar": { "": { "height": 100, "borderRadius": "8rpx" } }, "skill-val": { "": { "fontSize": "24rpx", "fontWeight": "bold", "color": "#333333", "width": "50rpx", "textAlign": "right" } }, "analysis-summary": { "": { "marginTop": "20rpx", "paddingTop": "16rpx", "paddingRight": "16rpx", "paddingBottom": "16rpx", "paddingLeft": "16rpx", "backgroundColor": "#f8f9fa", "borderRadius": "8rpx" } }, "summary-text": { "": { "fontSize": "26rpx", "color": "#666666" } }, "highlight": { "": { "color": "#ff6b6b", "fontWeight": "bold" } }, "s-name": { "": { "fontSize": "28rpx", "fontWeight": "bold" } }, "s-action": { "": { "fontSize": "24rpx", "color": "#666666", "marginTop": "4rpx", "marginRight": 0, "marginBottom": "4rpx", "marginLeft": 0 } }, "s-status": { "": { "fontSize": "22rpx", "paddingTop": "2rpx", "paddingRight": "8rpx", "paddingBottom": "2rpx", "paddingLeft": "8rpx", "borderRadius": "4rpx" }, ".good": { "backgroundColor": "#e6fffa", "color": "#20C997" }, ".warning": { "backgroundColor": "#fff5f5", "color": "#ff6b6b" } }, "chart-card": { "": { "backgroundColor": "#ffffff", "borderRadius": "16rpx", "paddingTop": "30rpx", "paddingRight": "30rpx", "paddingBottom": "30rpx", "paddingLeft": "30rpx", "marginBottom": "20rpx" } }, "card-title": { "": { "fontSize": "30rpx", "fontWeight": "bold", "marginBottom": "30rpx", "borderLeftWidth": "8rpx", "borderLeftStyle": "solid", "borderLeftColor": "#20C997", "paddingLeft": "16rpx" } }, "bar-chart": { "": { "display": "flex", "justifyContent": "space-around", "alignItems": "flex-end", "height": "300rpx", "paddingBottom": "20rpx", "borderBottomWidth": 1, "borderBottomStyle": "solid", "borderBottomColor": "#eeeeee" } }, "bar-group": { "": { "display": "flex", "flexDirection": "column", "alignItems": "center", "height": 100, "justifyContent": "flex-end" } }, "bar-col": { "": { "width": "40rpx", "height": 80, "backgroundColor": "#f0f0f0", "borderRadius": "20rpx", "position": "relative", "display": "flex", "alignItems": "flex-end" } }, "bar-fill": { "": { "width": 100, "borderRadius": "20rpx", "transitionProperty": "height", "transitionDuration": 1e3 } }, "bar-val": { "": { "position": "absolute", "top": "-30rpx", "left": 50, "transform": "translateX(-50%)", "fontSize": "22rpx", "color": "#666666" } }, "bar-label": { "": { "marginTop": "10rpx", "fontSize": "24rpx", "color": "#666666" } }, "progress-list": { "": { "display": "flex", "flexDirection": "column" } }, "prog-item": { "": { "width": 100, "marginBottom": "24rpx" } }, "prog-header": { "": { "display": "flex", "justifyContent": "space-between", "marginBottom": "8rpx" } }, "prog-name": { "": { "fontSize": "26rpx", "color": "#333333" } }, "prog-val": { "": { "fontSize": "26rpx", "fontWeight": "bold", "color": "#20C997" } }, "prog-track": { "": { "height": "12rpx", "backgroundColor": "#f0f0f0", "borderRadius": "6rpx", "overflow": "hidden" } }, "prog-bar": { "": { "height": 100, "backgroundColor": "#20C997", "borderRadius": "6rpx" } }, "history-list": { "": { "backgroundColor": "#ffffff", "borderRadius": "16rpx" } }, "history-item": { "": { "display": "flex", "justifyContent": "space-between", "alignItems": "center", "paddingTop": "30rpx", "paddingRight": "30rpx", "paddingBottom": "30rpx", "paddingLeft": "30rpx", "borderBottomWidth": 1, "borderBottomStyle": "solid", "borderBottomColor": "#f5f5f5", "borderBottomWidth:last-child": 0 } }, "h-left": { "": { "display": "flex", "flexDirection": "column" } }, "h-date": { "": { "fontSize": "24rpx", "color": "#999999", "marginBottom": "8rpx" } }, "h-name": { "": { "fontSize": "30rpx", "fontWeight": "bold", "color": "#333333" } }, "h-right": { "": { "display": "flex", "alignItems": "center" } }, "h-stat": { "": { "fontSize": "24rpx", "color": "#666666", "marginRight": "20rpx" } }, "arrow": { "": { "color": "#cccccc", "fontSize": "24rpx" } }, "@TRANSITION": { "bar-fill": { "property": "height", "duration": 1e3 } } };
+const _sfc_main$1 = {
+  __name: "teacher-tests",
+  setup(__props, { expose: __expose }) {
+    const currentTab = ref("live");
+    const liveStudents = ref([
+      { name: "张伟", action: "引体向上", currentScore: 8, isAbnormal: false, confidence: 98 },
+      { name: "李强", action: "仰卧起坐", currentScore: 24, isAbnormal: true, confidence: 85 },
+      { name: "王芳", action: "深蹲", currentScore: 15, isAbnormal: false, confidence: 96 },
+      { name: "赵杰", action: "俯卧撑", currentScore: 12, isAbnormal: false, confidence: 99 }
+    ]);
+    const classSkills = ref([
+      { name: "爆发力", val: 85, color: "#ff6b6b" },
+      { name: "耐力", val: 72, color: "#4dabf7" },
+      { name: "柔韧性", val: 68, color: "#ffd43b" },
+      { name: "协调性", val: 90, color: "#20C997" },
+      { name: "核心力量", val: 78, color: "#a55eea" }
+    ]);
+    const classComparison = ref([
+      { label: "优秀", value: 15, percent: 30, color: "#20C997" },
+      { label: "良好", value: 45, percent: 60, color: "#4dabf7" },
+      { label: "及格", value: 30, percent: 45, color: "#ffd43b" },
+      { label: "不及格", value: 10, percent: 20, color: "#ff6b6b" }
+    ]);
+    const passRates = ref([
+      { name: "1000米跑", rate: 85 },
+      { name: "引体向上", rate: 62 },
+      { name: "立定跳远", rate: 94 },
+      { name: "坐位体前屈", rate: 78 }
+    ]);
+    const historyList = ref([
+      { date: "2026-05-18", testName: "全员体能摸底测试", count: 128, passRate: 92 },
+      { date: "2026-05-10", testName: "力量专项考核", count: 45, passRate: 88 },
+      { date: "2026-04-28", testName: "耐力跑测试", count: 128, passRate: 76 }
+    ]);
+    const onPageShow = () => {
+      formatAppLog("log", "at components/teacher-tests/teacher-tests.vue:178", "teacher-tests onPageShow");
+    };
+    const onPageHide = () => {
+    };
+    __expose({
+      onPageShow,
+      onPageHide
+    });
+    const __returned__ = { currentTab, liveStudents, classSkills, classComparison, passRates, historyList, onPageShow, onPageHide, ref };
+    Object.defineProperty(__returned__, "__isScriptSetup", { enumerable: false, value: true });
+    return __returned__;
+  }
+};
+function _sfc_render$1(_ctx, _cache, $props, $setup, $data, $options) {
+  return openBlock(), createElementBlock("view", {
+    class: "teacher-test-page",
+    renderWhole: true
+  }, [
+    createElementVNode("view", { class: "header-tabs" }, [
+      createElementVNode(
+        "view",
+        {
+          class: normalizeClass(["tab-item", { active: $setup.currentTab === "live" }]),
+          onClick: _cache[0] || (_cache[0] = ($event) => $setup.currentTab = "live")
+        },
+        [
+          createElementVNode("u-text", { class: "tab-title" }, "实时监控"),
+          $setup.currentTab === "live" ? (openBlock(), createElementBlock("view", {
+            key: 0,
+            class: "tab-indicator"
+          })) : createCommentVNode("v-if", true)
+        ],
+        2
+        /* CLASS */
+      ),
+      createElementVNode(
+        "view",
+        {
+          class: normalizeClass(["tab-item", { active: $setup.currentTab === "analysis" }]),
+          onClick: _cache[1] || (_cache[1] = ($event) => $setup.currentTab = "analysis")
+        },
+        [
+          createElementVNode("u-text", { class: "tab-title" }, "数据分析"),
+          $setup.currentTab === "analysis" ? (openBlock(), createElementBlock("view", {
+            key: 0,
+            class: "tab-indicator"
+          })) : createCommentVNode("v-if", true)
+        ],
+        2
+        /* CLASS */
+      ),
+      createElementVNode(
+        "view",
+        {
+          class: normalizeClass(["tab-item", { active: $setup.currentTab === "history" }]),
+          onClick: _cache[2] || (_cache[2] = ($event) => $setup.currentTab = "history")
+        },
+        [
+          createElementVNode("u-text", { class: "tab-title" }, "历史回顾"),
+          $setup.currentTab === "history" ? (openBlock(), createElementBlock("view", {
+            key: 0,
+            class: "tab-indicator"
+          })) : createCommentVNode("v-if", true)
+        ],
+        2
+        /* CLASS */
+      )
+    ]),
+    $setup.currentTab === "live" ? (openBlock(), createElementBlock("scroll-view", {
+      key: 0,
+      scrollY: "",
+      class: "content-area"
+    }, [
+      createElementVNode("view", { class: "live-card" }, [
+        createElementVNode("view", { class: "live-header" }, [
+          createElementVNode("u-text", { class: "live-title" }, "当前正在进行的测试"),
+          createElementVNode("view", { class: "live-badge" }, [
+            createElementVNode("u-text", null, "AI 评分接入中")
+          ])
+        ]),
+        createElementVNode("view", { class: "student-live-grid" }, [
+          (openBlock(true), createElementBlock(
+            Fragment,
+            null,
+            renderList($setup.liveStudents, (stu, idx) => {
+              return openBlock(), createElementBlock("view", {
+                class: "student-monitor-card",
+                key: idx
+              }, [
+                createElementVNode("view", { class: "monitor-video-placeholder" }, [
+                  createElementVNode("u-text", { class: "ai-overlay" }, "AI Analyzing..."),
+                  createElementVNode(
+                    "view",
+                    {
+                      class: "ai-bbox",
+                      style: normalizeStyle({ borderColor: stu.isAbnormal ? "#ff6b6b" : "#0f0" })
+                    },
+                    [
+                      createElementVNode(
+                        "u-text",
+                        { class: "bbox-label" },
+                        toDisplayString(stu.confidence) + "%",
+                        1
+                        /* TEXT */
+                      )
+                    ],
+                    4
+                    /* STYLE */
+                  ),
+                  createElementVNode("view", { class: "pose-skeleton" }, [
+                    createElementVNode("view", { class: "bone head" }),
+                    createElementVNode("view", { class: "bone body" }),
+                    createElementVNode("view", { class: "bone arm-l" }),
+                    createElementVNode("view", { class: "bone arm-r" }),
+                    createElementVNode("view", { class: "bone leg-l" }),
+                    createElementVNode("view", { class: "bone leg-r" })
+                  ]),
+                  createElementVNode(
+                    "u-text",
+                    { class: "live-score" },
+                    toDisplayString(stu.currentScore),
+                    1
+                    /* TEXT */
+                  )
+                ]),
+                createElementVNode("view", { class: "monitor-info" }, [
+                  createElementVNode(
+                    "u-text",
+                    { class: "s-name" },
+                    toDisplayString(stu.name),
+                    1
+                    /* TEXT */
+                  ),
+                  createElementVNode(
+                    "u-text",
+                    { class: "s-action" },
+                    toDisplayString(stu.action),
+                    1
+                    /* TEXT */
+                  ),
+                  stu.isAbnormal ? (openBlock(), createElementBlock("u-text", {
+                    key: 0,
+                    class: "s-status warning"
+                  }, "动作不标准")) : (openBlock(), createElementBlock("u-text", {
+                    key: 1,
+                    class: "s-status good"
+                  }, "动作标准"))
+                ])
+              ]);
+            }),
+            128
+            /* KEYED_FRAGMENT */
+          ))
+        ])
+      ])
+    ])) : createCommentVNode("v-if", true),
+    $setup.currentTab === "analysis" ? (openBlock(), createElementBlock("scroll-view", {
+      key: 1,
+      scrollY: "",
+      class: "content-area"
+    }, [
+      createElementVNode("view", { class: "chart-card" }, [
+        createElementVNode("view", { class: "card-title" }, [
+          createElementVNode("u-text", null, "班级体能综合模型")
+        ]),
+        createElementVNode("view", { class: "skills-matrix" }, [
+          (openBlock(true), createElementBlock(
+            Fragment,
+            null,
+            renderList($setup.classSkills, (skill, idx) => {
+              return openBlock(), createElementBlock("view", {
+                class: "skill-row",
+                key: idx
+              }, [
+                createElementVNode(
+                  "u-text",
+                  { class: "skill-name" },
+                  toDisplayString(skill.name),
+                  1
+                  /* TEXT */
+                ),
+                createElementVNode("view", { class: "skill-track" }, [
+                  createElementVNode(
+                    "view",
+                    {
+                      class: "skill-bar",
+                      style: normalizeStyle({ width: skill.val + "%", background: skill.color })
+                    },
+                    null,
+                    4
+                    /* STYLE */
+                  )
+                ]),
+                createElementVNode(
+                  "u-text",
+                  { class: "skill-val" },
+                  toDisplayString(skill.val),
+                  1
+                  /* TEXT */
+                )
+              ]);
+            }),
+            128
+            /* KEYED_FRAGMENT */
+          ))
+        ]),
+        createElementVNode("view", { class: "analysis-summary" }, [
+          createElementVNode("u-text", { class: "summary-text" }, "💡 建议加强  专项训练")
+        ])
+      ]),
+      createElementVNode("view", { class: "chart-card" }, [
+        createElementVNode("view", { class: "card-title" }, [
+          createElementVNode("u-text", null, "班级成绩分布对比")
+        ]),
+        createElementVNode("view", { class: "bar-chart" }, [
+          (openBlock(true), createElementBlock(
+            Fragment,
+            null,
+            renderList($setup.classComparison, (item, idx) => {
+              return openBlock(), createElementBlock("view", {
+                class: "bar-group",
+                key: idx
+              }, [
+                createElementVNode("view", { class: "bar-col" }, [
+                  createElementVNode(
+                    "view",
+                    {
+                      class: "bar-fill",
+                      style: normalizeStyle({ height: item.percent + "%", background: item.color })
+                    },
+                    null,
+                    4
+                    /* STYLE */
+                  ),
+                  createElementVNode(
+                    "u-text",
+                    { class: "bar-val" },
+                    toDisplayString(item.value),
+                    1
+                    /* TEXT */
+                  )
+                ]),
+                createElementVNode(
+                  "u-text",
+                  { class: "bar-label" },
+                  toDisplayString(item.label),
+                  1
+                  /* TEXT */
+                )
+              ]);
+            }),
+            128
+            /* KEYED_FRAGMENT */
+          ))
+        ])
+      ]),
+      createElementVNode("view", { class: "chart-card" }, [
+        createElementVNode("view", { class: "card-title" }, [
+          createElementVNode("u-text", null, "各项体能合格率")
+        ]),
+        createElementVNode("view", { class: "progress-list" }, [
+          (openBlock(true), createElementBlock(
+            Fragment,
+            null,
+            renderList($setup.passRates, (p, idx) => {
+              return openBlock(), createElementBlock("view", {
+                class: "prog-item",
+                key: idx
+              }, [
+                createElementVNode("view", { class: "prog-header" }, [
+                  createElementVNode(
+                    "u-text",
+                    { class: "prog-name" },
+                    toDisplayString(p.name),
+                    1
+                    /* TEXT */
+                  ),
+                  createElementVNode(
+                    "u-text",
+                    { class: "prog-val" },
+                    toDisplayString(p.rate) + "%",
+                    1
+                    /* TEXT */
+                  )
+                ]),
+                createElementVNode("view", { class: "prog-track" }, [
+                  createElementVNode(
+                    "view",
+                    {
+                      class: "prog-bar",
+                      style: normalizeStyle({ width: p.rate + "%" })
+                    },
+                    null,
+                    4
+                    /* STYLE */
+                  )
+                ])
+              ]);
+            }),
+            128
+            /* KEYED_FRAGMENT */
+          ))
+        ])
+      ])
+    ])) : createCommentVNode("v-if", true),
+    $setup.currentTab === "history" ? (openBlock(), createElementBlock("scroll-view", {
+      key: 2,
+      scrollY: "",
+      class: "content-area"
+    }, [
+      createElementVNode("view", { class: "history-list" }, [
+        (openBlock(true), createElementBlock(
+          Fragment,
+          null,
+          renderList($setup.historyList, (h, idx) => {
+            return openBlock(), createElementBlock("view", {
+              class: "history-item",
+              key: idx
+            }, [
+              createElementVNode("view", { class: "h-left" }, [
+                createElementVNode(
+                  "u-text",
+                  { class: "h-date" },
+                  toDisplayString(h.date),
+                  1
+                  /* TEXT */
+                ),
+                createElementVNode(
+                  "u-text",
+                  { class: "h-name" },
+                  toDisplayString(h.testName),
+                  1
+                  /* TEXT */
+                )
+              ]),
+              createElementVNode("view", { class: "h-right" }, [
+                createElementVNode(
+                  "u-text",
+                  { class: "h-stat" },
+                  "参与: " + toDisplayString(h.count) + "人",
+                  1
+                  /* TEXT */
+                ),
+                createElementVNode(
+                  "u-text",
+                  { class: "h-stat" },
+                  "合格: " + toDisplayString(h.passRate) + "%",
+                  1
+                  /* TEXT */
+                ),
+                createElementVNode("u-text", { class: "arrow" }, ">")
+              ])
+            ]);
+          }),
+          128
+          /* KEYED_FRAGMENT */
+        ))
+      ])
+    ])) : createCommentVNode("v-if", true)
+  ]);
+}
+const TeacherTests = /* @__PURE__ */ _export_sfc(_sfc_main$1, [["render", _sfc_render$1], ["styles", [_style_0$1]], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/components/teacher-tests/teacher-tests.vue"]]);
+const _style_0 = { "container": { "": { "flex": 1 } } };
+const _sfc_main = {
+  __name: "stats",
+  setup(__props, { expose: __expose }) {
+    __expose();
+    const role = ref(uni.getStorageSync("userRole") || "student");
+    const studentTestRef = ref(null);
+    const teacherTestsRef = ref(null);
+    onShow(() => {
+      role.value = uni.getStorageSync("userRole") || "student";
+      nextTick(() => {
+        if (role.value === "student" && studentTestRef.value && studentTestRef.value.onPageShow) {
+          studentTestRef.value.onPageShow();
+        } else if (role.value === "teacher" && teacherTestsRef.value && teacherTestsRef.value.onPageShow) {
+          teacherTestsRef.value.onPageShow();
+        }
+      });
+    });
+    onHide(() => {
+      if (role.value === "student" && studentTestRef.value && studentTestRef.value.onPageHide) {
+        studentTestRef.value.onPageHide();
+      } else if (role.value === "teacher" && teacherTestsRef.value && teacherTestsRef.value.onPageHide) {
+        teacherTestsRef.value.onPageHide();
+      }
+    });
+    const __returned__ = { role, studentTestRef, teacherTestsRef, ref, nextTick, get onShow() {
+      return onShow;
+    }, get onHide() {
+      return onHide;
+    }, get StudentTest() {
+      return StudentTest;
+    }, TeacherTests };
+    Object.defineProperty(__returned__, "__isScriptSetup", { enumerable: false, value: true });
+    return __returned__;
+  }
+};
+function _sfc_render(_ctx, _cache, $props, $setup, $data, $options) {
+  return openBlock(), createElementBlock("scroll-view", {
+    scrollY: true,
+    showScrollbar: true,
+    enableBackToTop: true,
+    bubble: "true",
+    style: { flexDirection: "column" }
+  }, [
+    createElementVNode("view", { class: "container" }, [
+      $setup.role === "student" ? (openBlock(), createBlock(
+        $setup["StudentTest"],
+        {
+          key: 0,
+          ref: "studentTestRef"
+        },
+        null,
+        512
+        /* NEED_PATCH */
+      )) : (openBlock(), createBlock(
+        $setup["TeacherTests"],
+        {
+          key: 1,
+          ref: "teacherTestsRef"
+        },
+        null,
+        512
+        /* NEED_PATCH */
+      ))
+    ])
+  ]);
+}
+const stats = /* @__PURE__ */ _export_sfc(_sfc_main, [["render", _sfc_render], ["styles", [_style_0]], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/tab/stats.nvue"]]);
+export {
+  stats as default
+};

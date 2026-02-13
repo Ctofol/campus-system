@@ -14,13 +14,13 @@ try {
 
 // #ifndef H5
 // 真机调试地址（请修改为你电脑/服务器的真实IP）
-// baseUrl = 'http://192.168.0.210:8000'; 
+baseUrl = 'http://192.168.0.210:8000'; 
 // 改为远程服务器地址，以便在不启动本地后端时也能使用
-baseUrl = 'http://120.26.17.147:8000';
+// baseUrl = 'http://120.26.17.147:8000';
 // #endif
 
 // --- 服务器生产环境配置 ---
-// baseUrl = 'http://120.26.17.147:8000';
+baseUrl = 'http://120.26.17.147:8000';
 // --------------------------------------------------------
 
 export const BASE_URL = baseUrl;
@@ -226,12 +226,20 @@ export const checkIn = (data) => {
   });
 };
 
+export const getTeacherDashboardStats = () => {
+  return request({
+    url: '/teacher/dashboard/stats',
+    method: 'GET'
+  });
+};
+
 export default {
   login,
   register,
   submitActivity,
   getActivityHistory,
   getTeacherActivities,
+  getTeacherDashboardStats,
   approveActivity,
   createTeacherTask,
   getTeacherTasks,

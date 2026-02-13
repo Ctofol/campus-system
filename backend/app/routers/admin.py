@@ -165,6 +165,24 @@ def reset_password(
     db.commit()
     return {"message": "Password reset to 123456"}
 
+# --- Dashboard ---
+
+@router.get("/dashboard/stats")
+def get_dashboard_stats(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_admin)
+):
+    # 2. Pending Approvals (Health Requests + Pending Activities)
+    pending_health = db.query(models.HealthRequest).filter(models.HealthRequest.status == "pending").count()
+    pending_activities = db.query(models.Activity).filter(models.Activity.status == "pending_review").count()
+    pending_approvals = pending_health + pending_activities
+    
+    # 3. Abnormal Count
+    
+    return {
+        "pending_approvals": pending_approvals
+    }
+
 # --- Import ---
 
 @router.post("/import/students")
@@ -203,7 +221,11 @@ async def import_students(
             # Check class
             db_class = db.query(models.Class).filter(models.Class.name == class_name).first()
             if not db_class:
-                raise ValueError(f"班级 '{class_name}' 未找到")
+                # Create class if not exists
+                db_class = models.Class(name=class_name)
+                db.add(db_class)
+                db.commit()
+                db.refresh(db_class)
                 
             hashed_password = auth.get_password_hash(password)
             new_user = models.User(

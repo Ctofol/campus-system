@@ -851,7 +851,7 @@ const replyStudent = (report) => {
   /* Safe Area Support */
   padding-bottom: constant(safe-area-inset-bottom);
   padding-bottom: env(safe-area-inset-bottom);
-  box-sizing: content-box; /* Height excludes padding */
+  box-sizing: border-box; /* 修复高度计算问题 */
   box-shadow: 0 -2rpx 10rpx rgba(0,0,0,0.05);
   z-index: 99;
 }

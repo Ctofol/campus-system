@@ -150,11 +150,17 @@ const handleLogin = async () => {
     // 角色跳转逻辑
     setTimeout(() => {
       if (res.role === 'admin') {
-        uni.reLaunch({ url: '/pages/admin/dashboard/index' });
-      } else if (currentRole.value === 'student') {
-        uni.reLaunch({ url: '/pages/home/home' });
+        uni.reLaunch({ 
+          url: '/pages/admin/dashboard/index',
+          fail: (err) => {
+            console.error('Admin redirect failed:', err);
+            // Fallback to home, which now handles admin redirect
+            uni.reLaunch({ url: '/pages/tab/home' });
+          }
+        });
       } else {
-        uni.reLaunch({ url: '/pages/teacher/home/home' });
+        // 学生和教师都跳转到统一的 Tab 容器页，内部会自动根据角色渲染不同组件
+        uni.reLaunch({ url: '/pages/tab/home' });
       }
     }, 1000);
 

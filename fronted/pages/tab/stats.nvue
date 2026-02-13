@@ -1,0 +1,43 @@
+<template>
+  <view class="container">
+    <student-test v-if="role === 'student'" ref="studentTestRef" />
+    <teacher-tests v-else ref="teacherTestsRef" />
+  </view>
+</template>
+
+<script setup>
+import { ref, nextTick } from 'vue';
+import { onShow, onHide } from '@dcloudio/uni-app';
+import StudentTest from '@/components/student-test/student-test.nvue';
+import TeacherTests from '@/components/teacher-tests/teacher-tests.vue';
+
+const role = ref(uni.getStorageSync('userRole') || 'student');
+const studentTestRef = ref(null);
+const teacherTestsRef = ref(null);
+
+onShow(() => {
+  role.value = uni.getStorageSync('userRole') || 'student';
+  
+  nextTick(() => {
+    if (role.value === 'student' && studentTestRef.value && studentTestRef.value.onPageShow) {
+      studentTestRef.value.onPageShow();
+    } else if (role.value === 'teacher' && teacherTestsRef.value && teacherTestsRef.value.onPageShow) {
+      teacherTestsRef.value.onPageShow();
+    }
+  });
+});
+
+onHide(() => {
+  if (role.value === 'student' && studentTestRef.value && studentTestRef.value.onPageHide) {
+    studentTestRef.value.onPageHide();
+  } else if (role.value === 'teacher' && teacherTestsRef.value && teacherTestsRef.value.onPageHide) {
+    teacherTestsRef.value.onPageHide();
+  }
+});
+</script>
+
+<style>
+.container {
+  flex: 1;
+}
+</style>

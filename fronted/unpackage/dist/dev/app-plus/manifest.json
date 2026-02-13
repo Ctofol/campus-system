@@ -41,12 +41,8 @@
     },
     "popGesture": "close",
     "launchwebview": {
-      "render": "always",
       "id": "1",
-      "kernel": "WKWebview",
-      "uniNView": {
-        "path": "pages/test/camera-min.js"
-      }
+      "kernel": "WKWebview"
     },
     "usingComponents": true,
     "nvueStyleCompiler": "uni-app",
@@ -142,6 +138,12 @@
       "enable": false
     },
     "allowsInlineMediaPlayback": true,
+    "safearea": {
+      "background": "#ffffff",
+      "bottom": {
+        "offset": "auto"
+      }
+    },
     "uni-app": {
       "control": "uni-v3",
       "vueVersion": "3",
@@ -155,6 +157,50 @@
       "webView": {
         "minUserAgentVersion": "49.0"
       }
+    },
+    "tabBar": {
+      "position": "bottom",
+      "color": "#999999",
+      "selectedColor": "#20C997",
+      "borderStyle": "rgba(0,0,0,0.4)",
+      "blurEffect": "none",
+      "fontSize": "10px",
+      "iconWidth": "24px",
+      "spacing": "3px",
+      "height": "50px",
+      "list": [
+        {
+          "pagePath": "pages/tab/home",
+          "iconPath": "/static/tab/home.png",
+          "selectedIconPath": "/static/tab/home-active.png",
+          "text": "首页"
+        },
+        {
+          "pagePath": "pages/tab/function",
+          "iconPath": "/static/tab/run.png",
+          "selectedIconPath": "/static/tab/run-active.png",
+          "text": "跑步"
+        },
+        {
+          "pagePath": "pages/tab/stats",
+          "iconPath": "/static/tab/test.png",
+          "selectedIconPath": "/static/tab/test-active.png",
+          "text": "体测"
+        },
+        {
+          "pagePath": "pages/tab/mine",
+          "iconPath": "/static/tab/mine.png",
+          "selectedIconPath": "/static/tab/mine-active.png",
+          "text": "我的"
+        }
+      ],
+      "backgroundColor": "#ffffff",
+      "selectedIndex": 0,
+      "shown": true,
+      "child": [
+        "lauchwebview"
+      ],
+      "selected": 0
     }
   },
   "app-harmony": {
@@ -173,6 +219,13 @@
     },
     "uniStatistics": {
       "enable": false
+    },
+    "safearea": {
+      "background": "#ffffff",
+      "bottom": {
+        "offset": "auto"
+      }
     }
-  }
+  },
+  "launch_path": "__uniappview.html"
 }

@@ -126,21 +126,12 @@
       </view>
       
     </scroll-view>
-
-    <!-- TabBar -->
-    <view class="tab-bar">
-      <view class="tab-bar-border"></view>
-      <view v-for="(item, index) in tabList" :key="index" class="tab-bar-item" @click="switchTab(item)">
-        <image class="tab-icon" :src="currentTab === item.pagePath ? item.selectedIconPath : item.iconPath"></image>
-        <text class="tab-text" :style="{ color: currentTab === item.pagePath ? '#20C997' : '#666666' }">{{ item.text }}</text>
-      </view>
-    </view>
   </view>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { onLoad, onShow, onHide } from '@dcloudio/uni-app';
+import { onLoad } from '@dcloudio/uni-app';
 import { request, BASE_URL } from '@/utils/request.js';
 
 // 状态栏高度
@@ -172,27 +163,7 @@ const projectEmoji = computed(() => {
   return map[testType.value] || '🏃';
 });
 
-// TabBar Logic
-const currentTab = '/pages/test/test';
-const tabList = computed(() => {
-  return role.value === 'teacher' ? [
-    { pagePath: "/pages/teacher/home/home", text: "主页", iconPath: "/static/tab/home.png", selectedIconPath: "/static/tab/home-active.png" },
-    { pagePath: "/pages/teacher/manage/manage", text: "管理", iconPath: "/static/tab/run.png", selectedIconPath: "/static/tab/run-active.png" },
-    { pagePath: "/pages/teacher/mine/mine", text: "我的", iconPath: "/static/tab/mine.png", selectedIconPath: "/static/tab/mine-active.png" }
-  ] : [
-    { pagePath: "/pages/home/home", text: "首页", iconPath: "/static/tab/home.png", selectedIconPath: "/static/tab/home-active.png" },
-    { pagePath: "/pages/run/run", text: "跑步", iconPath: "/static/tab/run.png", selectedIconPath: "/static/tab/run-active.png" },
-    { pagePath: "/pages/test/test", text: "体测", iconPath: "/static/tab/test.png", selectedIconPath: "/static/tab/test-active.png" },
-    { pagePath: "/pages/mine/mine", text: "我的", iconPath: "/static/tab/mine.png", selectedIconPath: "/static/tab/mine-active.png" }
-  ];
-});
-
-const switchTab = (item) => {
-  if (item.pagePath === currentTab) return;
-  uni.redirectTo({ url: item.pagePath });
-};
-
-onShow(() => {
+const onPageShow = () => {
   const userRole = uni.getStorageSync('userRole') || 'student';
   role.value = userRole;
   
@@ -201,6 +172,23 @@ onShow(() => {
     cameraContext.value = uni.createCameraContext();
   }
   // #endif
+};
+
+const onPageHide = () => {
+  if (isTesting.value) {
+    clearInterval(timer.value);
+    clearInterval(captureTimer.value);
+    isTesting.value = false;
+  }
+};
+
+onMounted(() => {
+  onPageShow();
+});
+
+defineExpose({
+  onPageShow,
+  onPageHide
 });
 
 const showTypeSelector = () => {
@@ -473,14 +461,6 @@ const handleCameraError = (e) => {
       }
   });
 };
-
-onHide(() => {
-  if (isTesting.value) {
-    clearInterval(timer.value);
-    clearInterval(captureTimer.value);
-    isTesting.value = false;
-  }
-});
 </script>
 
 <style scoped>
@@ -871,35 +851,6 @@ onHide(() => {
   font-size: 32rpx;
 }
 
-.tab-bar {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  width: 750rpx;
-  height: 100rpx;
-  background-color: #ffffff;
-  flex-direction: row;
-  border-top-width: 1px;
-  border-top-style: solid;
-  border-top-color: rgba(0,0,0,0.1);
-}
-
-.tab-bar-item {
-  flex: 1;
-  align-items: center;
-  justify-content: center;
-}
-
-.tab-icon {
-  width: 50rpx;
-  height: 50rpx;
-  margin-bottom: 4rpx;
-}
-
-.tab-text {
-  font-size: 20rpx;
-}
-
 /* Modal styles */
 .guide-modal {
   position: fixed;
@@ -965,10 +916,5 @@ onHide(() => {
   justify-content: center;
   align-items: center;
   background-color: #333;
-}
-
-.error-text {
-  color: #aaa;
-  font-size: 28rpx;
 }
 </style>

@@ -65,98 +65,8 @@ if (uni.restoreGlobal) {
     2
     /* HookFlags.PAGE */
   );
-  const _export_sfc = (sfc, props) => {
-    const target = sfc.__vccOpts || sfc;
-    for (const [key, val] of props) {
-      target[key] = val;
-    }
-    return target;
-  };
-  const color = "#666666";
-  const selectedColor = "#20C997";
-  const _sfc_main$z = {
-    __name: "CustomTabBar",
-    props: {
-      current: {
-        type: String,
-        default: ""
-      }
-    },
-    setup(__props, { expose: __expose }) {
-      __expose();
-      const props = __props;
-      const role = vue.ref("student");
-      const studentList = [
-        { pagePath: "/pages/home/home", text: "首页", iconPath: "/static/tab/home.png", selectedIconPath: "/static/tab/home-active.png" },
-        { pagePath: "/pages/run/run", text: "跑步", iconPath: "/static/tab/run.png", selectedIconPath: "/static/tab/run-active.png" },
-        { pagePath: "/pages/test/test", text: "体测", iconPath: "/static/tab/test.png", selectedIconPath: "/static/tab/test-active.png" },
-        { pagePath: "/pages/mine/mine", text: "我的", iconPath: "/static/tab/mine.png", selectedIconPath: "/static/tab/mine-active.png" }
-      ];
-      const teacherList = [
-        { pagePath: "/pages/teacher/home/home", text: "主页", iconPath: "/static/tab/home.png", selectedIconPath: "/static/tab/home-active.png" },
-        { pagePath: "/pages/teacher/manage/manage", text: "管理", iconPath: "/static/tab/run.png", selectedIconPath: "/static/tab/run-active.png" },
-        // 暂用 run 图标
-        { pagePath: "/pages/teacher/mine/mine", text: "我的", iconPath: "/static/tab/mine.png", selectedIconPath: "/static/tab/mine-active.png" }
-      ];
-      vue.onMounted(() => {
-        const userRole = uni.getStorageSync("userRole") || "student";
-        role.value = userRole;
-      });
-      const list = vue.computed(() => {
-        return role.value === "teacher" ? teacherList : studentList;
-      });
-      const selected = vue.computed(() => {
-        return list.value.findIndex((item) => item.pagePath === props.current || props.current.startsWith(item.pagePath));
-      });
-      const switchTab = (item) => {
-        const url = item.pagePath;
-        if (url === props.current)
-          return;
-        uni.redirectTo({
-          url
-        });
-      };
-      const __returned__ = { props, color, selectedColor, role, studentList, teacherList, list, selected, switchTab, ref: vue.ref, computed: vue.computed, onMounted: vue.onMounted };
-      Object.defineProperty(__returned__, "__isScriptSetup", { enumerable: false, value: true });
-      return __returned__;
-    }
-  };
-  function _sfc_render$y(_ctx, _cache, $props, $setup, $data, $options) {
-    return vue.openBlock(), vue.createElementBlock("cover-view", { class: "tab-bar" }, [
-      vue.createElementVNode("cover-view", { class: "tab-bar-border" }),
-      (vue.openBlock(true), vue.createElementBlock(
-        vue.Fragment,
-        null,
-        vue.renderList($setup.list, (item, index) => {
-          return vue.openBlock(), vue.createElementBlock("cover-view", {
-            key: index,
-            class: "tab-bar-item",
-            onClick: ($event) => $setup.switchTab(item)
-          }, [
-            vue.createElementVNode("cover-image", {
-              class: "tab-icon",
-              src: $setup.selected === index ? item.selectedIconPath : item.iconPath
-            }, null, 8, ["src"]),
-            vue.createElementVNode(
-              "cover-view",
-              {
-                class: "tab-text",
-                style: vue.normalizeStyle({ color: $setup.selected === index ? $setup.selectedColor : $setup.color })
-              },
-              vue.toDisplayString(item.text),
-              5
-              /* TEXT, STYLE */
-            )
-          ], 8, ["onClick"]);
-        }),
-        128
-        /* KEYED_FRAGMENT */
-      ))
-    ]);
-  }
-  const CustomTabBar = /* @__PURE__ */ _export_sfc(_sfc_main$z, [["render", _sfc_render$y], ["__scopeId", "data-v-208a9ade"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/components/CustomTabBar/CustomTabBar.vue"]]);
   let baseUrl = "http://127.0.0.1:8000";
-  baseUrl = "http://120.26.17.147:8000";
+  baseUrl = "http://192.168.0.210:8000";
   const BASE_URL = baseUrl;
   const request = (...args) => {
     let options = {};
@@ -327,10 +237,22 @@ if (uni.restoreGlobal) {
       data
     });
   };
-  const _sfc_main$y = {
-    __name: "home",
+  const getTeacherDashboardStats = () => {
+    return request({
+      url: "/teacher/dashboard/stats",
+      method: "GET"
+    });
+  };
+  const _export_sfc = (sfc, props) => {
+    const target = sfc.__vccOpts || sfc;
+    for (const [key, val] of props) {
+      target[key] = val;
+    }
+    return target;
+  };
+  const _sfc_main$I = {
+    __name: "student-home",
     setup(__props, { expose: __expose }) {
-      __expose();
       const statusBarHeight = vue.ref(20);
       const role = vue.ref("student");
       const userInfo = vue.ref({});
@@ -360,10 +282,10 @@ if (uni.restoreGlobal) {
         } catch (e) {
           if (!uni.getStorageSync("token"))
             return;
-          formatAppLog("error", "at pages/home/home.vue:204", "Fetch tasks failed", e);
+          formatAppLog("error", "at components/student-home/student-home.vue:208", "Fetch tasks failed", e);
         }
       };
-      onShow(() => {
+      const onPageShow = () => {
         statusBarHeight.value = uni.getSystemInfoSync().statusBarHeight || 20;
         const token = uni.getStorageSync("token");
         if (!token) {
@@ -378,11 +300,17 @@ if (uni.restoreGlobal) {
           try {
             userInfo.value = typeof storedUser === "string" ? JSON.parse(storedUser) : storedUser;
           } catch (e) {
-            formatAppLog("error", "at pages/home/home.vue:225", "JSON parse error", e);
+            formatAppLog("error", "at components/student-home/student-home.vue:230", "JSON parse error", e);
             userInfo.value = {};
           }
         }
         fetchTasks();
+      };
+      vue.onMounted(() => {
+        onPageShow();
+      });
+      __expose({
+        onPageShow
       });
       const showTrainingPlans = vue.ref(true);
       const showRankModal = vue.ref(false);
@@ -456,25 +384,21 @@ if (uni.restoreGlobal) {
         });
       };
       const startTestProject = (item) => {
-        uni.redirectTo({ url: "/pages/test/test?project=" + item.name + "&type=" + item.type });
+        uni.switchTab({ url: "/pages/tab/stats" });
       };
       const startTraining = (item) => {
-        uni.navigateTo({
-          url: `/pages/run/run?mode=training&planId=${item.id}&name=${item.name}`
+        uni.switchTab({
+          url: `/pages/tab/run`
         });
       };
-      const __returned__ = { statusBarHeight, role, userInfo, teacherTasks, showTaskModal, fetchTasks, showTrainingPlans, showRankModal, testProjects, trainingPlans, myClub, activities, memberUpdates, rankList, getRandomColor, handleTaskClick, closeTaskModal, gotoAiPolice, browseActivities, createClub, joinClub, enterClubDetail, showRank, closeRank, showActivityDetail, startTestProject, startTraining, ref: vue.ref, get onShow() {
-        return onShow;
-      }, get onLoad() {
-        return onLoad;
-      }, CustomTabBar, get getStudentTasks() {
+      const __returned__ = { statusBarHeight, role, userInfo, teacherTasks, showTaskModal, fetchTasks, onPageShow, showTrainingPlans, showRankModal, testProjects, trainingPlans, myClub, activities, memberUpdates, rankList, getRandomColor, handleTaskClick, closeTaskModal, gotoAiPolice, browseActivities, createClub, joinClub, enterClubDetail, showRank, closeRank, showActivityDetail, startTestProject, startTraining, ref: vue.ref, onMounted: vue.onMounted, get getStudentTasks() {
         return getStudentTasks;
       } };
       Object.defineProperty(__returned__, "__isScriptSetup", { enumerable: false, value: true });
       return __returned__;
     }
   };
-  function _sfc_render$x(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$H(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "home-container" }, [
       vue.createElementVNode(
         "view",
@@ -501,44 +425,56 @@ if (uni.restoreGlobal) {
             vue.createElementVNode("view", { class: "header-section" }, [
               $setup.teacherTasks.length > 0 ? (vue.openBlock(), vue.createElementBlock("view", {
                 key: 0,
-                class: "tasks-list"
+                class: "tasks-swiper-container"
               }, [
-                (vue.openBlock(true), vue.createElementBlock(
-                  vue.Fragment,
-                  null,
-                  vue.renderList($setup.teacherTasks, (task, index) => {
-                    return vue.openBlock(), vue.createElementBlock("view", {
-                      class: "teacher-task-box",
-                      key: task.id,
-                      onClick: ($event) => $setup.handleTaskClick(task)
-                    }, [
-                      vue.createElementVNode("view", { class: "task-icon-box" }, [
-                        vue.createElementVNode("text", { class: "task-icon" }, "📢")
-                      ]),
-                      vue.createElementVNode("view", { class: "task-content" }, [
-                        vue.createElementVNode(
-                          "text",
-                          { class: "task-title" },
-                          "新任务: " + vue.toDisplayString(task.title),
-                          1
-                          /* TEXT */
-                        ),
-                        vue.createElementVNode(
-                          "text",
-                          { class: "task-desc" },
-                          vue.toDisplayString(task.desc),
-                          1
-                          /* TEXT */
-                        )
-                      ]),
-                      vue.createElementVNode("view", { class: "task-action" }, [
-                        vue.createElementVNode("text", { class: "btn-text" }, "去完成")
-                      ])
-                    ], 8, ["onClick"]);
-                  }),
-                  128
-                  /* KEYED_FRAGMENT */
-                ))
+                vue.createElementVNode("swiper", {
+                  class: "task-swiper",
+                  vertical: true,
+                  autoplay: true,
+                  interval: 4e3,
+                  duration: 500,
+                  circular: true
+                }, [
+                  (vue.openBlock(true), vue.createElementBlock(
+                    vue.Fragment,
+                    null,
+                    vue.renderList($setup.teacherTasks, (task, index) => {
+                      return vue.openBlock(), vue.createElementBlock("swiper-item", {
+                        key: task.id
+                      }, [
+                        vue.createElementVNode("view", {
+                          class: "teacher-task-box",
+                          onClick: ($event) => $setup.handleTaskClick(task)
+                        }, [
+                          vue.createElementVNode("view", { class: "task-icon-box" }, [
+                            vue.createElementVNode("text", { class: "task-icon" }, "📢")
+                          ]),
+                          vue.createElementVNode("view", { class: "task-content" }, [
+                            vue.createElementVNode(
+                              "text",
+                              { class: "task-title" },
+                              "新任务: " + vue.toDisplayString(task.title),
+                              1
+                              /* TEXT */
+                            ),
+                            vue.createElementVNode(
+                              "text",
+                              { class: "task-desc" },
+                              vue.toDisplayString(task.desc),
+                              1
+                              /* TEXT */
+                            )
+                          ]),
+                          vue.createElementVNode("view", { class: "task-action" }, [
+                            vue.createElementVNode("text", { class: "btn-text" }, "去完成")
+                          ])
+                        ], 8, ["onClick"])
+                      ]);
+                    }),
+                    128
+                    /* KEYED_FRAGMENT */
+                  ))
+                ])
               ])) : vue.createCommentVNode("v-if", true),
               vue.createElementVNode("view", { class: "student-func-grid" }, [
                 vue.createElementVNode("view", {
@@ -557,14 +493,14 @@ if (uni.restoreGlobal) {
                 ]),
                 vue.createElementVNode("view", {
                   class: "stu-func-item",
-                  onClick: _cache[0] || (_cache[0] = ($event) => uni.redirectTo({ url: "/pages/test/test" }))
+                  onClick: _cache[0] || (_cache[0] = ($event) => uni.switchTab({ url: "/pages/tab/stats" }))
                 }, [
                   vue.createElementVNode("view", { class: "stu-func-icon" }, "📊"),
                   vue.createElementVNode("text", { class: "stu-func-name" }, "体测成绩")
                 ]),
                 vue.createElementVNode("view", {
                   class: "stu-func-item",
-                  onClick: _cache[1] || (_cache[1] = ($event) => uni.redirectTo({ url: "/pages/mine/mine" }))
+                  onClick: _cache[1] || (_cache[1] = ($event) => uni.switchTab({ url: "/pages/tab/mine" }))
                 }, [
                   vue.createElementVNode("view", { class: "stu-func-icon" }, "👤"),
                   vue.createElementVNode("text", { class: "stu-func-name" }, "个人中心")
@@ -868,8 +804,7 @@ if (uni.restoreGlobal) {
               ])
             ])
           ]),
-          vue.createElementVNode("view", { style: { "height": "120rpx" } }),
-          vue.createVNode($setup["CustomTabBar"], { current: "/pages/home/home" }),
+          vue.createElementVNode("view", { style: { "height": "20rpx" } }),
           $setup.showTaskModal ? (vue.openBlock(), vue.createElementBlock("view", {
             key: 0,
             class: "modal-overlay",
@@ -1013,8 +948,688 @@ if (uni.restoreGlobal) {
       )
     ]);
   }
-  const PagesHomeHome = /* @__PURE__ */ _export_sfc(_sfc_main$y, [["render", _sfc_render$x], ["__scopeId", "data-v-07e72d3c"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/home/home.vue"]]);
-  const _sfc_main$x = {
+  const StudentHome = /* @__PURE__ */ _export_sfc(_sfc_main$I, [["render", _sfc_render$H], ["__scopeId", "data-v-ab0a9528"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/components/student-home/student-home.vue"]]);
+  const _imports_0$3 = "/static/avatar.png";
+  const _sfc_main$H = {
+    __name: "teacher-home",
+    setup(__props, { expose: __expose }) {
+      const userInfo = vue.ref({});
+      const goToApprove = () => {
+        uni.navigateTo({ url: "/pages/teacher/approve/approve" });
+      };
+      const todoList = vue.ref([]);
+      const fetchTeacherStats = async () => {
+        try {
+          const res = await getTeacherDashboardStats();
+          teacherStats.value = {
+            studentCount: res.stats.student_count,
+            todayCheckin: res.stats.today_checkin,
+            abnormalCount: res.stats.abnormal_count,
+            pendingApprovals: res.stats.pending_approvals,
+            avgPace: res.stats.avg_pace,
+            taskCount: res.stats.task_count,
+            complianceRate: res.stats.compliance_rate
+          };
+          todoList.value = res.todos || [];
+        } catch (e) {
+          if (!uni.getStorageSync("token"))
+            return;
+          formatAppLog("error", "at components/teacher-home/teacher-home.vue:201", "Failed to fetch teacher stats:", e);
+        }
+      };
+      const onPageShow = () => {
+        const storedUser = uni.getStorageSync("userInfo");
+        if (storedUser) {
+          try {
+            userInfo.value = typeof storedUser === "string" ? JSON.parse(storedUser) : storedUser;
+          } catch (e) {
+            formatAppLog("error", "at components/teacher-home/teacher-home.vue:213", "JSON parse error", e);
+            userInfo.value = {};
+          }
+        }
+        if (!uni.getStorageSync("token")) {
+          uni.reLaunch({ url: "/pages/login/login" });
+          return;
+        }
+        fetchTeacherStats();
+        fetchTasks();
+        fetchAbnormalAlerts();
+      };
+      vue.onMounted(() => {
+        onPageShow();
+      });
+      __expose({
+        onPageShow
+      });
+      const teacherStats = vue.ref({
+        studentCount: 0,
+        todayCheckin: 0,
+        abnormalCount: 0,
+        pendingApprovals: 0,
+        avgPace: "--",
+        taskCount: 0,
+        complianceRate: 0
+      });
+      const weeklyTrend = vue.ref([
+        { day: "周一", val: 0, color: "linear-gradient(180deg, #e0e0e0 0%, #f5f5f5 100%)" },
+        { day: "周二", val: 0, color: "linear-gradient(180deg, #e0e0e0 0%, #f5f5f5 100%)" },
+        { day: "周三", val: 0, color: "linear-gradient(180deg, #e0e0e0 0%, #f5f5f5 100%)" },
+        { day: "周四", val: 0, color: "linear-gradient(180deg, #20C997 0%, #63e6be 100%)" },
+        { day: "周五", val: 0, color: "linear-gradient(180deg, #e0e0e0 0%, #f5f5f5 100%)" },
+        { day: "周六", val: 0, color: "linear-gradient(180deg, #e0e0e0 0%, #f5f5f5 100%)" },
+        { day: "周日", val: 0, color: "linear-gradient(180deg, #e0e0e0 0%, #f5f5f5 100%)" }
+      ]);
+      const showTaskModal = vue.ref(false);
+      const isEditing = vue.ref(false);
+      const currentTask = vue.ref({ title: "", type: "日常", desc: "" });
+      const quickTasks = vue.ref([]);
+      const abnormalAlerts = vue.ref([]);
+      const fetchTasks = async () => {
+        try {
+          const res = await request({
+            url: "/teacher/tasks",
+            method: "GET",
+            data: { page: 1, size: 5 }
+          });
+          if (res && res.items) {
+            quickTasks.value = res.items.map((task) => ({
+              title: task.title,
+              type: task.type === "run" ? "跑步" : "其他",
+              typeClass: task.type === "run" ? "tag-green" : "tag-blue",
+              status: "进行中",
+              // 简化处理
+              percent: task.total_students > 0 ? Math.round(task.completed_count / task.total_students * 100) : 0
+            }));
+          }
+        } catch (e) {
+          if (!uni.getStorageSync("token"))
+            return;
+          formatAppLog("error", "at components/teacher-home/teacher-home.vue:285", "Failed to fetch tasks:", e);
+        }
+      };
+      const fetchAbnormalAlerts = async () => {
+        try {
+          const res = await request({
+            url: "/teacher/students/abnormal",
+            method: "GET"
+          });
+          if (Array.isArray(res)) {
+            abnormalAlerts.value = res.map((s, index) => ({
+              id: s.id || index,
+              student: s.name,
+              type: s.health_status === "injured" ? "受伤" : s.health_status === "leave" ? "请假" : "异常",
+              value: s.abnormal_reason || "未说明",
+              time: s.updated_at ? new Date(s.updated_at).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }) : "--:--"
+            })).slice(0, 5);
+          }
+        } catch (e) {
+          if (!uni.getStorageSync("token"))
+            return;
+          formatAppLog("error", "at components/teacher-home/teacher-home.vue:306", "Failed to fetch abnormal alerts:", e);
+        }
+      };
+      const handleTeacherAction = (action) => {
+        if (action === "学员管理") {
+          uni.navigateTo({ url: "/pages/teacher/students/students" });
+        } else if (action === "任务管理") {
+          uni.navigateTo({ url: "/pages/teacher/tasks/tasks" });
+        } else if (action === "发布任务") {
+          uni.navigateTo({ url: "/pages/teacher/tasks/create" });
+        } else if (action === "异常处理") {
+          uni.navigateTo({ url: "/pages/teacher/exceptions/exceptions" });
+        } else if (action === "测试监控") {
+          uni.navigateTo({ url: "/pages/teacher/tests/tests" });
+        } else {
+          uni.showToast({ title: `${action}功能即将上线`, icon: "none" });
+        }
+      };
+      const openTaskModal = () => {
+        isEditing.value = false;
+        currentTask.value = { title: "", type: "日常", desc: "" };
+        showTaskModal.value = true;
+      };
+      const editTask = (task) => {
+        isEditing.value = true;
+        currentTask.value = { ...task, desc: "任务描述..." };
+        showTaskModal.value = true;
+      };
+      const saveTask = () => {
+        if (!currentTask.value.title)
+          return uni.showToast({ title: "请输入标题", icon: "none" });
+        uni.showToast({ title: isEditing.value ? "修改成功" : "发布成功", icon: "success" });
+        showTaskModal.value = false;
+      };
+      const remindTask = (task) => {
+        uni.showToast({ title: `已催办任务: ${task.title}`, icon: "none" });
+      };
+      const handleQuickTask = (task) => {
+        uni.navigateTo({
+          url: `/pages/teacher/tasks/detail?id=999&title=${task.title}`
+        });
+      };
+      const handleTodoClick = (todo) => {
+        if (todo.path) {
+          uni.navigateTo({ url: todo.path });
+        }
+      };
+      const handleResolveAlert = (index) => {
+        uni.showActionSheet({
+          itemList: ["联系学生", "标记已处理", "查看详情"],
+          success: (res) => {
+            if (res.tapIndex === 1) {
+              abnormalAlerts.value.splice(index, 1);
+              teacherStats.value.abnormalCount = Math.max(0, teacherStats.value.abnormalCount - 1);
+              uni.showToast({ title: "已处理", icon: "success" });
+            } else if (res.tapIndex === 0) {
+              uni.showToast({ title: "已发送通知", icon: "none" });
+            } else {
+              uni.navigateTo({ url: "/pages/teacher/exceptions/exceptions" });
+            }
+          }
+        });
+      };
+      const __returned__ = { userInfo, goToApprove, todoList, fetchTeacherStats, onPageShow, teacherStats, weeklyTrend, showTaskModal, isEditing, currentTask, quickTasks, abnormalAlerts, fetchTasks, fetchAbnormalAlerts, handleTeacherAction, openTaskModal, editTask, saveTask, remindTask, handleQuickTask, handleTodoClick, handleResolveAlert, ref: vue.ref, onMounted: vue.onMounted, get request() {
+        return request;
+      }, get getTeacherDashboardStats() {
+        return getTeacherDashboardStats;
+      } };
+      Object.defineProperty(__returned__, "__isScriptSetup", { enumerable: false, value: true });
+      return __returned__;
+    }
+  };
+  function _sfc_render$G(_ctx, _cache, $props, $setup, $data, $options) {
+    return vue.openBlock(), vue.createElementBlock("view", { class: "home-container" }, [
+      vue.createElementVNode("view", { class: "teacher-dashboard" }, [
+        vue.createElementVNode("view", { class: "custom-nav-bar" }, [
+          vue.createElementVNode("view", { class: "nav-status-bar" }),
+          vue.createElementVNode("view", { class: "nav-content" }, [
+            vue.createElementVNode("text", { class: "nav-title" }, "教师工作台")
+          ])
+        ]),
+        vue.createElementVNode("view", { class: "teacher-header" }, [
+          vue.createElementVNode("view", { class: "teacher-info" }, [
+            vue.createElementVNode(
+              "text",
+              { class: "teacher-name" },
+              vue.toDisplayString($setup.userInfo.name || "老师"),
+              1
+              /* TEXT */
+            ),
+            vue.createElementVNode("text", { class: "teacher-title" }, "体育教研室")
+          ]),
+          vue.createElementVNode("view", { class: "teacher-avatar" }, [
+            vue.createElementVNode("image", {
+              class: "avatar-img",
+              src: _imports_0$3,
+              mode: "aspectFill"
+            })
+          ])
+        ]),
+        vue.createElementVNode("view", { class: "dashboard-stats" }, [
+          vue.createElementVNode("view", { class: "stat-card" }, [
+            vue.createElementVNode(
+              "text",
+              { class: "stat-num" },
+              vue.toDisplayString($setup.teacherStats.todayCheckin),
+              1
+              /* TEXT */
+            ),
+            vue.createElementVNode("text", { class: "stat-label" }, "今日打卡")
+          ]),
+          vue.createElementVNode("view", { class: "stat-card" }, [
+            vue.createElementVNode(
+              "text",
+              { class: "stat-num" },
+              vue.toDisplayString($setup.teacherStats.abnormalCount),
+              1
+              /* TEXT */
+            ),
+            vue.createElementVNode("text", { class: "stat-label" }, "异常待处理")
+          ]),
+          vue.createElementVNode("view", {
+            class: "stat-card",
+            onClick: $setup.goToApprove
+          }, [
+            vue.createElementVNode(
+              "text",
+              { class: "stat-num" },
+              vue.toDisplayString($setup.teacherStats.pendingApprovals),
+              1
+              /* TEXT */
+            ),
+            vue.createElementVNode("text", { class: "stat-label" }, "待审批")
+          ])
+        ]),
+        vue.createElementVNode("view", { class: "section-card todo-section" }, [
+          vue.createElementVNode("view", { class: "section-header" }, [
+            vue.createElementVNode("text", { class: "section-title" }, "今日待办"),
+            vue.createElementVNode("text", { class: "section-more" }, "全部 >")
+          ]),
+          vue.createElementVNode("view", { class: "todo-list" }, [
+            (vue.openBlock(true), vue.createElementBlock(
+              vue.Fragment,
+              null,
+              vue.renderList($setup.todoList, (todo, idx) => {
+                return vue.openBlock(), vue.createElementBlock("view", {
+                  class: "todo-item",
+                  key: idx,
+                  onClick: ($event) => $setup.handleTodoClick(todo)
+                }, [
+                  vue.createElementVNode("view", { class: "todo-check" }),
+                  vue.createElementVNode("view", { class: "todo-content" }, [
+                    vue.createElementVNode(
+                      "text",
+                      { class: "todo-text" },
+                      vue.toDisplayString(todo.title) + ": " + vue.toDisplayString(todo.desc),
+                      1
+                      /* TEXT */
+                    ),
+                    vue.createElementVNode(
+                      "text",
+                      { class: "todo-time" },
+                      vue.toDisplayString(todo.time),
+                      1
+                      /* TEXT */
+                    )
+                  ])
+                ], 8, ["onClick"]);
+              }),
+              128
+              /* KEYED_FRAGMENT */
+            )),
+            $setup.todoList.length === 0 ? (vue.openBlock(), vue.createElementBlock("view", {
+              key: 0,
+              class: "todo-empty"
+            }, [
+              vue.createElementVNode("text", null, "🎉 暂无待办事项")
+            ])) : vue.createCommentVNode("v-if", true)
+          ])
+        ]),
+        vue.createElementVNode("view", { class: "section-card chart-section" }, [
+          vue.createElementVNode("view", { class: "section-header" }, [
+            vue.createElementVNode("text", { class: "section-title" }, "学员体能概览"),
+            vue.createElementVNode("text", { class: "section-more" }, "更多 >")
+          ]),
+          vue.createElementVNode("view", { class: "overview-chart" }, [
+            vue.createElementVNode("view", { class: "chart-col" }, [
+              vue.createElementVNode("view", { class: "chart-ring ring-green" }, [
+                vue.createElementVNode("text", { class: "ring-val" }, "92%"),
+                vue.createElementVNode("text", { class: "ring-label" }, "达标率")
+              ]),
+              vue.createElementVNode("text", { class: "chart-name" }, "体能达标")
+            ]),
+            vue.createElementVNode("view", { class: "chart-col" }, [
+              vue.createElementVNode("view", { class: "chart-ring ring-blue" }, [
+                vue.createElementVNode("text", { class: "ring-val" }, "85%"),
+                vue.createElementVNode("text", { class: "ring-label" }, "完成率")
+              ]),
+              vue.createElementVNode("text", { class: "chart-name" }, "本周任务")
+            ]),
+            vue.createElementVNode("view", { class: "chart-col" }, [
+              vue.createElementVNode("view", { class: "chart-ring ring-red" }, [
+                vue.createElementVNode("text", { class: "ring-val" }, `5'45"`),
+                vue.createElementVNode("text", { class: "ring-label" }, "平均配速")
+              ]),
+              vue.createElementVNode("text", { class: "chart-name" }, "跑步状态")
+            ])
+          ]),
+          vue.createElementVNode("view", { class: "trend-chart" }, [
+            vue.createElementVNode("text", { class: "trend-title" }, "本周运动趋势"),
+            vue.createElementVNode("view", { class: "trend-bars" }, [
+              (vue.openBlock(true), vue.createElementBlock(
+                vue.Fragment,
+                null,
+                vue.renderList($setup.weeklyTrend, (d, i) => {
+                  return vue.openBlock(), vue.createElementBlock("view", {
+                    class: "t-bar-group",
+                    key: i
+                  }, [
+                    vue.createElementVNode(
+                      "view",
+                      {
+                        class: "t-bar",
+                        style: vue.normalizeStyle({ height: d.val + "%", background: d.color })
+                      },
+                      null,
+                      4
+                      /* STYLE */
+                    ),
+                    vue.createElementVNode(
+                      "text",
+                      { class: "t-day" },
+                      vue.toDisplayString(d.day),
+                      1
+                      /* TEXT */
+                    )
+                  ]);
+                }),
+                128
+                /* KEYED_FRAGMENT */
+              ))
+            ])
+          ])
+        ]),
+        vue.createElementVNode("view", { class: "section-card task-widget" }, [
+          vue.createElementVNode("view", { class: "section-header" }, [
+            vue.createElementVNode("text", { class: "section-title" }, "快速任务管理"),
+            vue.createElementVNode("view", { class: "header-actions" }, [
+              vue.createElementVNode("text", {
+                class: "section-action",
+                onClick: $setup.openTaskModal
+              }, "+ 发布")
+            ])
+          ]),
+          vue.createElementVNode("scroll-view", {
+            "scroll-x": "",
+            class: "quick-task-scroll"
+          }, [
+            (vue.openBlock(true), vue.createElementBlock(
+              vue.Fragment,
+              null,
+              vue.renderList($setup.quickTasks, (task, idx) => {
+                return vue.openBlock(), vue.createElementBlock("view", {
+                  class: "quick-task-item",
+                  key: idx,
+                  onClick: ($event) => $setup.handleQuickTask(task)
+                }, [
+                  vue.createElementVNode("view", { class: "qt-header" }, [
+                    vue.createElementVNode(
+                      "text",
+                      {
+                        class: vue.normalizeClass(["qt-type", task.typeClass])
+                      },
+                      vue.toDisplayString(task.type),
+                      3
+                      /* TEXT, CLASS */
+                    ),
+                    vue.createElementVNode(
+                      "text",
+                      { class: "qt-status" },
+                      vue.toDisplayString(task.status),
+                      1
+                      /* TEXT */
+                    )
+                  ]),
+                  vue.createElementVNode(
+                    "text",
+                    { class: "qt-title" },
+                    vue.toDisplayString(task.title),
+                    1
+                    /* TEXT */
+                  ),
+                  vue.createElementVNode("view", { class: "qt-progress" }, [
+                    vue.createElementVNode("view", { class: "qt-bar-bg" }, [
+                      vue.createElementVNode(
+                        "view",
+                        {
+                          class: "qt-bar-fill",
+                          style: vue.normalizeStyle({ width: task.percent + "%" })
+                        },
+                        null,
+                        4
+                        /* STYLE */
+                      )
+                    ]),
+                    vue.createElementVNode(
+                      "text",
+                      { class: "qt-val" },
+                      vue.toDisplayString(task.percent) + "%",
+                      1
+                      /* TEXT */
+                    )
+                  ]),
+                  vue.createElementVNode("view", {
+                    class: "qt-actions",
+                    onClick: _cache[0] || (_cache[0] = vue.withModifiers(() => {
+                    }, ["stop"]))
+                  }, [
+                    vue.createElementVNode("text", {
+                      class: "qt-btn",
+                      onClick: ($event) => $setup.editTask(task)
+                    }, "编辑", 8, ["onClick"]),
+                    task.percent < 100 ? (vue.openBlock(), vue.createElementBlock("text", {
+                      key: 0,
+                      class: "qt-btn warn",
+                      onClick: ($event) => $setup.remindTask(task)
+                    }, "催办", 8, ["onClick"])) : vue.createCommentVNode("v-if", true)
+                  ])
+                ], 8, ["onClick"]);
+              }),
+              128
+              /* KEYED_FRAGMENT */
+            ))
+          ])
+        ]),
+        $setup.abnormalAlerts.length > 0 ? (vue.openBlock(), vue.createElementBlock("view", {
+          key: 0,
+          class: "section-card alert-widget"
+        }, [
+          vue.createElementVNode("view", { class: "section-header" }, [
+            vue.createElementVNode("text", { class: "section-title red-dot" }, "⚠️ 实时警报")
+          ]),
+          vue.createElementVNode("view", { class: "alert-feed" }, [
+            (vue.openBlock(true), vue.createElementBlock(
+              vue.Fragment,
+              null,
+              vue.renderList($setup.abnormalAlerts, (alert, idx) => {
+                return vue.openBlock(), vue.createElementBlock("view", {
+                  class: "feed-item",
+                  key: idx
+                }, [
+                  vue.createElementVNode("view", { class: "feed-content" }, [
+                    vue.createElementVNode("text", { class: "feed-msg" }, [
+                      vue.createElementVNode(
+                        "text",
+                        { class: "feed-name" },
+                        vue.toDisplayString(alert.student),
+                        1
+                        /* TEXT */
+                      ),
+                      vue.createTextVNode(
+                        " " + vue.toDisplayString(alert.type) + " (" + vue.toDisplayString(alert.value) + ")",
+                        1
+                        /* TEXT */
+                      )
+                    ]),
+                    vue.createElementVNode(
+                      "text",
+                      { class: "feed-time" },
+                      vue.toDisplayString(alert.time),
+                      1
+                      /* TEXT */
+                    )
+                  ]),
+                  vue.createElementVNode("button", {
+                    class: "feed-btn",
+                    size: "mini",
+                    onClick: ($event) => $setup.handleResolveAlert(idx)
+                  }, "干预", 8, ["onClick"])
+                ]);
+              }),
+              128
+              /* KEYED_FRAGMENT */
+            ))
+          ])
+        ])) : vue.createCommentVNode("v-if", true),
+        $setup.showTaskModal ? (vue.openBlock(), vue.createElementBlock("view", {
+          key: 1,
+          class: "modal-overlay",
+          onClick: _cache[8] || (_cache[8] = ($event) => $setup.showTaskModal = false)
+        }, [
+          vue.createElementVNode("view", {
+            class: "task-modal",
+            onClick: _cache[7] || (_cache[7] = vue.withModifiers(() => {
+            }, ["stop"]))
+          }, [
+            vue.createElementVNode("view", { class: "modal-header" }, [
+              vue.createElementVNode(
+                "text",
+                { class: "modal-title" },
+                vue.toDisplayString($setup.isEditing ? "编辑任务" : "快速发布任务"),
+                1
+                /* TEXT */
+              ),
+              vue.createElementVNode("text", {
+                class: "close-btn",
+                onClick: _cache[1] || (_cache[1] = ($event) => $setup.showTaskModal = false)
+              }, "×")
+            ]),
+            vue.createElementVNode("view", { class: "modal-body" }, [
+              vue.withDirectives(vue.createElementVNode(
+                "input",
+                {
+                  class: "modal-input",
+                  placeholder: "任务标题",
+                  "onUpdate:modelValue": _cache[2] || (_cache[2] = ($event) => $setup.currentTask.title = $event)
+                },
+                null,
+                512
+                /* NEED_PATCH */
+              ), [
+                [vue.vModelText, $setup.currentTask.title]
+              ]),
+              vue.createElementVNode("view", { class: "modal-types" }, [
+                vue.createElementVNode(
+                  "view",
+                  {
+                    class: vue.normalizeClass(["type-chip", { active: $setup.currentTask.type === "考核" }]),
+                    onClick: _cache[3] || (_cache[3] = ($event) => $setup.currentTask.type = "考核")
+                  },
+                  "考核",
+                  2
+                  /* CLASS */
+                ),
+                vue.createElementVNode(
+                  "view",
+                  {
+                    class: vue.normalizeClass(["type-chip", { active: $setup.currentTask.type === "日常" }]),
+                    onClick: _cache[4] || (_cache[4] = ($event) => $setup.currentTask.type = "日常")
+                  },
+                  "日常",
+                  2
+                  /* CLASS */
+                ),
+                vue.createElementVNode(
+                  "view",
+                  {
+                    class: vue.normalizeClass(["type-chip", { active: $setup.currentTask.type === "训练" }]),
+                    onClick: _cache[5] || (_cache[5] = ($event) => $setup.currentTask.type = "训练")
+                  },
+                  "训练",
+                  2
+                  /* CLASS */
+                )
+              ]),
+              vue.withDirectives(vue.createElementVNode(
+                "textarea",
+                {
+                  class: "modal-textarea",
+                  placeholder: "任务描述",
+                  "onUpdate:modelValue": _cache[6] || (_cache[6] = ($event) => $setup.currentTask.desc = $event)
+                },
+                null,
+                512
+                /* NEED_PATCH */
+              ), [
+                [vue.vModelText, $setup.currentTask.desc]
+              ])
+            ]),
+            vue.createElementVNode("button", {
+              class: "modal-submit-btn",
+              onClick: $setup.saveTask
+            }, "确认发布")
+          ])
+        ])) : vue.createCommentVNode("v-if", true),
+        vue.createElementVNode("view", { style: { "height": "20rpx" } })
+      ])
+    ]);
+  }
+  const TeacherHome = /* @__PURE__ */ _export_sfc(_sfc_main$H, [["render", _sfc_render$G], ["__scopeId", "data-v-6a068601"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/components/teacher-home/teacher-home.vue"]]);
+  const _sfc_main$G = {
+    __name: "home",
+    setup(__props, { expose: __expose }) {
+      __expose();
+      const role = vue.ref(uni.getStorageSync("userRole") || "student");
+      const studentHomeRef = vue.ref(null);
+      const teacherHomeRef = vue.ref(null);
+      onShow(() => {
+        role.value = uni.getStorageSync("userRole") || "student";
+        if (role.value === "teacher") {
+          uni.setTabBarItem({
+            index: 1,
+            text: "管理",
+            iconPath: "static/tab/function.png",
+            selectedIconPath: "static/tab/function-active.png"
+          });
+          uni.setTabBarItem({
+            index: 2,
+            text: "监控",
+            iconPath: "static/tab/stats.png",
+            selectedIconPath: "static/tab/stats-active.png"
+          });
+        } else {
+          uni.setTabBarItem({
+            index: 1,
+            text: "跑步",
+            iconPath: "static/tab/run.png",
+            selectedIconPath: "static/tab/run-active.png"
+          });
+          uni.setTabBarItem({
+            index: 2,
+            text: "体测",
+            iconPath: "static/tab/test.png",
+            selectedIconPath: "static/tab/test-active.png"
+          });
+        }
+        vue.nextTick(() => {
+          if (role.value === "student" && studentHomeRef.value && studentHomeRef.value.onPageShow) {
+            studentHomeRef.value.onPageShow();
+          } else if (role.value === "teacher" && teacherHomeRef.value && teacherHomeRef.value.onPageShow) {
+            teacherHomeRef.value.onPageShow();
+          }
+        });
+      });
+      onHide(() => {
+        if (role.value === "student" && studentHomeRef.value && studentHomeRef.value.onPageHide) {
+          studentHomeRef.value.onPageHide();
+        } else if (role.value === "teacher" && teacherHomeRef.value && teacherHomeRef.value.onPageHide) {
+          teacherHomeRef.value.onPageHide();
+        }
+      });
+      const __returned__ = { role, studentHomeRef, teacherHomeRef, ref: vue.ref, nextTick: vue.nextTick, get onShow() {
+        return onShow;
+      }, get onHide() {
+        return onHide;
+      }, StudentHome, TeacherHome };
+      Object.defineProperty(__returned__, "__isScriptSetup", { enumerable: false, value: true });
+      return __returned__;
+    }
+  };
+  function _sfc_render$F(_ctx, _cache, $props, $setup, $data, $options) {
+    return vue.openBlock(), vue.createElementBlock("view", { class: "container" }, [
+      $setup.role === "student" ? (vue.openBlock(), vue.createBlock(
+        $setup["StudentHome"],
+        {
+          key: 0,
+          ref: "studentHomeRef"
+        },
+        null,
+        512
+        /* NEED_PATCH */
+      )) : (vue.openBlock(), vue.createBlock(
+        $setup["TeacherHome"],
+        {
+          key: 1,
+          ref: "teacherHomeRef"
+        },
+        null,
+        512
+        /* NEED_PATCH */
+      ))
+    ]);
+  }
+  const PagesTabHome = /* @__PURE__ */ _export_sfc(_sfc_main$G, [["render", _sfc_render$F], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/tab/home.vue"]]);
+  const _sfc_main$F = {
     __name: "ai-chat-robot",
     props: {
       visible: Boolean,
@@ -1131,7 +1746,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$w(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$E(_ctx, _cache, $props, $setup, $data, $options) {
     return $props.visible ? (vue.openBlock(), vue.createElementBlock("view", {
       key: 0,
       class: "ai-robot-container"
@@ -1321,7 +1936,7 @@ if (uni.restoreGlobal) {
       ])
     ])) : vue.createCommentVNode("v-if", true);
   }
-  const AiChatRobot = /* @__PURE__ */ _export_sfc(_sfc_main$x, [["render", _sfc_render$w], ["__scopeId", "data-v-b77ff380"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/components/ai-chat-robot/ai-chat-robot.vue"]]);
+  const AiChatRobot = /* @__PURE__ */ _export_sfc(_sfc_main$F, [["render", _sfc_render$E], ["__scopeId", "data-v-b77ff380"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/components/ai-chat-robot/ai-chat-robot.vue"]]);
   const getCurrentLocation = (options = {}) => {
     return new Promise((resolve, reject) => {
       const config = {
@@ -1376,19 +1991,23 @@ if (uni.restoreGlobal) {
       });
     });
   };
-  const _imports_0$3 = "/static/location.png";
+  const _imports_0$2 = "/static/location.png";
   const STEP_THRESHOLD_UP = 1.25;
   const STEP_THRESHOLD_DOWN = 1.05;
   const MIN_STEP_INTERVAL = 300;
   const RESET_TIMEOUT = 1500;
-  const _sfc_main$w = {
-    __name: "run",
+  const _sfc_main$E = {
+    __name: "student-run",
     setup(__props, { expose: __expose }) {
-      __expose();
       const statusBarHeight = vue.ref(20);
-      onLoad(() => {
+      const isMapReady = vue.ref(false);
+      vue.onMounted(() => {
         const sys = uni.getSystemInfoSync();
         statusBarHeight.value = sys.statusBarHeight || 20;
+        setTimeout(() => {
+          isMapReady.value = true;
+        }, 500);
+        onPageShow();
       });
       const showAiRobot = vue.ref(false);
       const currentRunData = vue.computed(() => ({
@@ -1400,9 +2019,19 @@ if (uni.restoreGlobal) {
       const openAiRobot = () => {
         showAiRobot.value = true;
       };
-      onShow(() => {
+      let isPageActive = false;
+      let lastShowTime = 0;
+      const onPageShow = (options = {}) => {
+        const now = Date.now();
+        if (now - lastShowTime < 500) {
+          formatAppLog("log", "at components/student-run/student-run.vue:234", "Debounced onPageShow");
+          return;
+        }
+        lastShowTime = now;
         isPageActive = true;
-        formatAppLog("log", "at pages/run/run.vue:225", "run.vue onShow triggered");
+        formatAppLog("log", "at components/student-run/student-run.vue:240", "student-run onPageShow triggered");
+        const sys = uni.getSystemInfoSync();
+        statusBarHeight.value = sys.statusBarHeight || 20;
         uni.setNavigationBarTitle({
           title: "跑步"
         });
@@ -1414,9 +2043,30 @@ if (uni.restoreGlobal) {
         if (role === "teacher") {
           uni.showToast({ title: "该功能仅对学生开放", icon: "none" });
           setTimeout(() => {
-            uni.redirectTo({ url: "/pages/teacher/home/home" });
+            uni.switchTab({ url: "/pages/index/index" });
           }, 800);
           return;
+        }
+        if (options.mode) {
+          currentMode.value = options.mode;
+        }
+        if (options.target) {
+          policeTargetDistance.value = parseInt(options.target);
+        }
+        if (options.pace) {
+          policeTargetPace.value = parseFloat(options.pace);
+        }
+        if (options.taskId) {
+          taskId.value = options.taskId;
+          if (options.taskType) {
+            taskType.value = options.taskType;
+          }
+        }
+        if (options.taskTitle) {
+          teacherRunTask.value = decodeURIComponent(options.taskTitle);
+        }
+        if (options.course) {
+          uni.showToast({ title: `开始课程：${options.course}`, icon: "none" });
         }
         const targetMode = uni.getStorageSync("runMode");
         if (targetMode) {
@@ -1427,15 +2077,15 @@ if (uni.restoreGlobal) {
         getCheckpoints().then((data) => {
           availableCheckpoints.value = data;
         }).catch((err) => {
-          formatAppLog("error", "at pages/run/run.vue:257", "Failed to load checkpoints", err);
+          formatAppLog("error", "at components/student-run/student-run.vue:302", "Failed to load checkpoints", err);
         });
         checkpoint.value = uni.getStorageSync("checkpoint") || {};
         if (checkpoint.value.name) {
           addCheckpointMarker(checkpoint.value.lat, checkpoint.value.lng, checkpoint.value.name);
         }
         const records = uni.getStorageSync("runRecordsList") || [];
-        const now = /* @__PURE__ */ new Date();
-        const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const today = /* @__PURE__ */ new Date();
+        const dayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
         const dayEnd = dayStart + 24 * 60 * 60 * 1e3;
         let c = 0;
         let d = 0;
@@ -1461,7 +2111,7 @@ if (uni.restoreGlobal) {
             }
           }
         }
-      });
+      };
       const handleShareToTeacher = (card) => {
         var _a;
         const report = {
@@ -1613,7 +2263,7 @@ if (uni.restoreGlobal) {
             uni.onLocationChange(locationCallback);
           },
           fail: (err) => {
-            formatAppLog("log", "at pages/run/run.vue:525", "startLocationUpdate failed:", err);
+            formatAppLog("log", "at components/student-run/student-run.vue:575", "startLocationUpdate failed:", err);
             uni.showToast({ title: "定位服务兼容模式已启动", icon: "none" });
             if (h5LocationTimer)
               clearInterval(h5LocationTimer);
@@ -1622,7 +2272,7 @@ if (uni.restoreGlobal) {
               getCurrentLocation({ type: preferredType }).then((res) => {
                 updateLocationLogic(res.latitude, res.longitude, res.speed || 0, res.accuracy);
               }).catch((err2) => {
-                formatAppLog("error", "at pages/run/run.vue:538", `Polling fallback failed for ${preferredType}`, err2);
+                formatAppLog("error", "at components/student-run/student-run.vue:588", `Polling fallback failed for ${preferredType}`, err2);
                 if (preferredType === "gcj02") {
                   preferredType = "wgs84";
                   doPoll();
@@ -1655,7 +2305,6 @@ if (uni.restoreGlobal) {
       let accelerometerCallback = null;
       let locationCallback = null;
       let h5LocationTimer = null;
-      let isPageActive = true;
       const policeTargetDistance = vue.ref(2e3);
       const policeTargetPace = vue.ref(6.5);
       const taskId = vue.ref(null);
@@ -1674,29 +2323,6 @@ if (uni.restoreGlobal) {
           return 0;
         return (distance.value / 1e3 / (duration.value / 3600)).toFixed(1);
       });
-      onLoad((options) => {
-        if (options.mode) {
-          currentMode.value = options.mode;
-        }
-        if (options.target) {
-          policeTargetDistance.value = parseInt(options.target);
-        }
-        if (options.pace) {
-          policeTargetPace.value = parseFloat(options.pace);
-        }
-        if (options.taskId) {
-          taskId.value = options.taskId;
-          if (options.taskType) {
-            taskType.value = options.taskType;
-          }
-        }
-        if (options.taskTitle) {
-          teacherRunTask.value = decodeURIComponent(options.taskTitle);
-        }
-        if (options.course) {
-          uni.showToast({ title: `开始课程：${options.course}`, icon: "none" });
-        }
-      });
       uni.$on("onLocationChosen", (res) => {
         processSelectedLocation(res);
       });
@@ -1711,15 +2337,15 @@ if (uni.restoreGlobal) {
         if (uni.getSystemInfoSync().platform === "android") {
           if (locationRetryTimer)
             clearInterval(locationRetryTimer);
-          formatAppLog("log", "at pages/run/run.vue:654", "Starting Android location polling...");
+          formatAppLog("log", "at components/student-run/student-run.vue:677", "Starting Android location polling...");
           locationRetryTimer = setInterval(() => {
             if (!isPageActive)
               return;
             if (locationState.value !== "success") {
-              formatAppLog("log", "at pages/run/run.vue:658", "Retry locating (Android)...");
+              formatAppLog("log", "at components/student-run/student-run.vue:681", "Retry locating (Android)...");
               doGetLocation();
             } else {
-              formatAppLog("log", "at pages/run/run.vue:661", "Location success, stop polling.");
+              formatAppLog("log", "at components/student-run/student-run.vue:684", "Location success, stop polling.");
               clearInterval(locationRetryTimer);
               locationRetryTimer = null;
             }
@@ -1732,10 +2358,11 @@ if (uni.restoreGlobal) {
           locationRetryTimer = null;
         }
       };
-      onHide(() => {
+      const onPageHide = () => {
         isPageActive = false;
         stopLocationPolling();
-      });
+      };
+      __expose({ onPageShow, onPageHide });
       vue.onUnmounted(() => {
         stopLocationPolling();
         if (timer)
@@ -1768,7 +2395,7 @@ if (uni.restoreGlobal) {
         }
       };
       const handleLocationError = (err) => {
-        formatAppLog("error", "at pages/run/run.vue:743", "Location failed:", err);
+        formatAppLog("error", "at components/student-run/student-run.vue:768", "Location failed:", err);
         let msg = "定位失败";
         let showSettings = false;
         const errMsg = err.errMsg || "";
@@ -1881,7 +2508,7 @@ if (uni.restoreGlobal) {
               selectCheckpoint(target2);
             },
             fail: (res) => {
-              formatAppLog("log", "at pages/run/run.vue:878", res.errMsg);
+              formatAppLog("log", "at components/student-run/student-run.vue:903", res.errMsg);
             }
           });
           return;
@@ -1917,7 +2544,7 @@ if (uni.restoreGlobal) {
         uni.showToast({ title: `已锁定：${newCheckpoint.name}`, icon: "success" });
       };
       const processSelectedLocation = (res) => {
-        formatAppLog("log", "at pages/run/run.vue:925", "Selected location:", res);
+        formatAppLog("log", "at components/student-run/student-run.vue:950", "Selected location:", res);
         const selLat = res.latitude;
         const selLng = res.longitude;
         let nearest = null;
@@ -2019,12 +2646,12 @@ if (uni.restoreGlobal) {
           interval: "game",
           // 使用 game (20ms) 频率，采样更密集，捕捉波峰更准
           success: () => {
-            formatAppLog("log", "at pages/run/run.vue:1064", "Accelerometer started");
+            formatAppLog("log", "at components/student-run/student-run.vue:1089", "Accelerometer started");
             isStepActive = false;
             lastStepTime = Date.now();
           },
           fail: (err) => {
-            formatAppLog("error", "at pages/run/run.vue:1069", "Start Accelerometer failed:", err);
+            formatAppLog("error", "at components/student-run/student-run.vue:1094", "Start Accelerometer failed:", err);
           }
         });
         accelerometerCallback = (res) => {
@@ -2161,18 +2788,18 @@ if (uni.restoreGlobal) {
           uni.showLoading({ title: "提交中..." });
           const res = await submitActivity(runData);
           uni.hideLoading();
-          formatAppLog("log", "at pages/run/run.vue:1236", "Submit success:", res);
+          formatAppLog("log", "at components/student-run/student-run.vue:1261", "Submit success:", res);
           uni.setStorageSync("tempRunResult", runData);
           uni.redirectTo({
             url: "/pages/result/result?useStorage=true",
             fail: (err) => {
-              formatAppLog("error", "at pages/run/run.vue:1246", "Navigate failed:", err);
+              formatAppLog("error", "at components/student-run/student-run.vue:1271", "Navigate failed:", err);
               uni.showToast({ title: "页面跳转失败", icon: "none" });
             }
           });
         } catch (error) {
           uni.hideLoading();
-          formatAppLog("error", "at pages/run/run.vue:1252", "Submit failed:", error);
+          formatAppLog("error", "at components/student-run/student-run.vue:1277", "Submit failed:", error);
           uni.showModal({
             title: "提交失败",
             content: error && error.detail ? error.detail : "网络或服务器错误，请重试",
@@ -2184,7 +2811,7 @@ if (uni.restoreGlobal) {
               else if (modalRes.cancel) {
                 uni.showToast({ title: "已强制结束", icon: "none" });
                 setTimeout(() => {
-                  uni.reLaunch({ url: "/pages/home/home" });
+                  uni.reLaunch({ url: "/pages/tab/home" });
                 }, 800);
               }
             }
@@ -2210,7 +2837,15 @@ if (uni.restoreGlobal) {
         }
         return arr.reverse();
       };
-      const __returned__ = { statusBarHeight, showAiRobot, currentRunData, openAiRobot, handleShareToTeacher, todayRunCount, todayRunDistance, teacherRunTask, dailyTarget, normalProgress, policeProgress, historyList, achievements, showRoutes, recommendRoutes, toggleRoutes, availableCheckpoints, useRoute, locationState, get locationRetryTimer() {
+      const __returned__ = { statusBarHeight, isMapReady, showAiRobot, currentRunData, openAiRobot, get isPageActive() {
+        return isPageActive;
+      }, set isPageActive(v) {
+        isPageActive = v;
+      }, get lastShowTime() {
+        return lastShowTime;
+      }, set lastShowTime(v) {
+        lastShowTime = v;
+      }, onPageShow, handleShareToTeacher, todayRunCount, todayRunDistance, teacherRunTask, dailyTarget, normalProgress, policeProgress, historyList, achievements, showRoutes, recommendRoutes, toggleRoutes, availableCheckpoints, useRoute, locationState, get locationRetryTimer() {
         return locationRetryTimer;
       }, set locationRetryTimer(v) {
         locationRetryTimer = v;
@@ -2230,11 +2865,7 @@ if (uni.restoreGlobal) {
         return h5LocationTimer;
       }, set h5LocationTimer(v) {
         h5LocationTimer = v;
-      }, get isPageActive() {
-        return isPageActive;
-      }, set isPageActive(v) {
-        isPageActive = v;
-      }, policeTargetDistance, policeTargetPace, taskId, taskType, currentPace, currentSpeedKmh, avgSpeedKmh, startLocationService, stopLocationPolling, getLocation, handleLocationSuccess, handleLocationError, doGetLocation, handleRelocate, locationStatusText, searchCheckpoint, selectCheckpoint, processSelectedLocation, handleMapSelect, addCheckpointMarker, switchMode, get isStepActive() {
+      }, policeTargetDistance, policeTargetPace, taskId, taskType, currentPace, currentSpeedKmh, avgSpeedKmh, startLocationService, stopLocationPolling, onPageHide, getLocation, handleLocationSuccess, handleLocationError, doGetLocation, handleRelocate, locationStatusText, searchCheckpoint, selectCheckpoint, processSelectedLocation, handleMapSelect, addCheckpointMarker, switchMode, get isStepActive() {
         return isStepActive;
       }, set isStepActive(v) {
         isStepActive = v;
@@ -2242,13 +2873,7 @@ if (uni.restoreGlobal) {
         return lastStepTime;
       }, set lastStepTime(v) {
         lastStepTime = v;
-      }, STEP_THRESHOLD_UP, STEP_THRESHOLD_DOWN, MIN_STEP_INTERVAL, RESET_TIMEOUT, startStepCount, stopStepCount, updateHeartRate, initializeRunState, startNormalRun, startPoliceRun, startCampusRun, stopRun, buildHistory, ref: vue.ref, computed: vue.computed, onUnmounted: vue.onUnmounted, get onShow() {
-        return onShow;
-      }, get onLoad() {
-        return onLoad;
-      }, get onHide() {
-        return onHide;
-      }, AiChatRobot, CustomTabBar, get submitActivity() {
+      }, STEP_THRESHOLD_UP, STEP_THRESHOLD_DOWN, MIN_STEP_INTERVAL, RESET_TIMEOUT, startStepCount, stopStepCount, updateHeartRate, initializeRunState, startNormalRun, startPoliceRun, startCampusRun, stopRun, buildHistory, ref: vue.ref, computed: vue.computed, onUnmounted: vue.onUnmounted, onMounted: vue.onMounted, AiChatRobot, get submitActivity() {
         return submitActivity;
       }, get getCheckpoints() {
         return getCheckpoints;
@@ -2261,7 +2886,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$v(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$D(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "run" }, [
       vue.createElementVNode(
         "view",
@@ -2402,7 +3027,8 @@ if (uni.restoreGlobal) {
           /* TEXT */
         )) : vue.createCommentVNode("v-if", true)
       ]),
-      vue.createElementVNode("map", {
+      $setup.isMapReady ? (vue.openBlock(), vue.createElementBlock("map", {
+        key: 2,
         class: "map",
         latitude: $setup.lat,
         longitude: $setup.lng,
@@ -2438,14 +3064,14 @@ if (uni.restoreGlobal) {
             onClick: $setup.handleRelocate
           }, [
             vue.createElementVNode("cover-image", {
-              src: _imports_0$3,
+              src: _imports_0$2,
               class: "control-icon"
             })
           ])
         ])
-      ], 8, ["latitude", "longitude", "markers", "polyline"]),
+      ], 8, ["latitude", "longitude", "markers", "polyline"])) : vue.createCommentVNode("v-if", true),
       $setup.currentMode === "normal" ? (vue.openBlock(), vue.createElementBlock("view", {
-        key: 2,
+        key: 3,
         class: "routes-card"
       }, [
         vue.createElementVNode("view", {
@@ -2531,7 +3157,7 @@ if (uni.restoreGlobal) {
         )
       ]),
       $setup.currentMode === "police" ? (vue.openBlock(), vue.createElementBlock("view", {
-        key: 3,
+        key: 4,
         class: "police-plan"
       }, [
         vue.createElementVNode("text", { class: "plan-title" }, "🎯 2000米体能专项训练"),
@@ -2563,7 +3189,7 @@ if (uni.restoreGlobal) {
         ])
       ])) : vue.createCommentVNode("v-if", true),
       $setup.currentMode === "normal" ? (vue.openBlock(), vue.createElementBlock("view", {
-        key: 4,
+        key: 5,
         class: "run-mode-box"
       }, [
         !$setup.isRunning ? (vue.openBlock(), vue.createElementBlock("view", {
@@ -2621,7 +3247,7 @@ if (uni.restoreGlobal) {
         ]))
       ])) : vue.createCommentVNode("v-if", true),
       $setup.currentMode === "police" ? (vue.openBlock(), vue.createElementBlock("view", {
-        key: 5,
+        key: 6,
         class: "run-mode-box"
       }, [
         !$setup.isRunning ? (vue.openBlock(), vue.createElementBlock("view", {
@@ -2700,7 +3326,7 @@ if (uni.restoreGlobal) {
         ]))
       ])) : vue.createCommentVNode("v-if", true),
       $setup.currentMode === "campus" ? (vue.openBlock(), vue.createElementBlock("view", {
-        key: 6,
+        key: 7,
         class: "run-mode-box"
       }, [
         !$setup.checkpoint.name ? (vue.openBlock(), vue.createElementBlock("view", {
@@ -2751,16 +3377,196 @@ if (uni.restoreGlobal) {
             }, "结束打卡")
           ]))
         ]))
-      ])) : vue.createCommentVNode("v-if", true),
-      vue.createVNode($setup["CustomTabBar"], { current: "/pages/run/run" })
+      ])) : vue.createCommentVNode("v-if", true)
     ]);
   }
-  const PagesRunRun = /* @__PURE__ */ _export_sfc(_sfc_main$w, [["render", _sfc_render$v], ["__scopeId", "data-v-8ae35d30"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/run/run.vue"]]);
-  const _imports_0$2 = "/static/avatar.png";
-  const _sfc_main$v = {
-    __name: "mine",
+  const StudentRun = /* @__PURE__ */ _export_sfc(_sfc_main$E, [["render", _sfc_render$D], ["__scopeId", "data-v-21957965"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/components/student-run/student-run.vue"]]);
+  const _sfc_main$D = {
+    __name: "teacher-manage",
+    setup(__props, { expose: __expose }) {
+      const navTo = (url) => {
+        uni.navigateTo({ url });
+      };
+      const showToast = (title) => {
+        uni.showToast({
+          title: `${title} 功能开发中`,
+          icon: "none"
+        });
+      };
+      const onPageShow = () => {
+      };
+      const onPageHide = () => {
+      };
+      __expose({
+        onPageShow,
+        onPageHide
+      });
+      const __returned__ = { navTo, showToast, onPageShow, onPageHide, get onShow() {
+        return onShow;
+      } };
+      Object.defineProperty(__returned__, "__isScriptSetup", { enumerable: false, value: true });
+      return __returned__;
+    }
+  };
+  function _sfc_render$C(_ctx, _cache, $props, $setup, $data, $options) {
+    return vue.openBlock(), vue.createElementBlock("view", { class: "manage-container" }, [
+      vue.createElementVNode("view", { class: "custom-nav-bar" }, [
+        vue.createElementVNode("view", { class: "nav-status-bar" }),
+        vue.createElementVNode("view", { class: "nav-content" }, [
+          vue.createElementVNode("text", { class: "nav-title" }, "综合管理")
+        ])
+      ]),
+      vue.createElementVNode("view", { class: "content-wrapper" }, [
+        vue.createElementVNode("view", { class: "grid-container" }, [
+          vue.createElementVNode("view", {
+            class: "grid-item",
+            onClick: _cache[0] || (_cache[0] = ($event) => $setup.navTo("/pages/teacher/students/students"))
+          }, [
+            vue.createElementVNode("view", { class: "icon-box purple" }, "👥"),
+            vue.createElementVNode("text", { class: "grid-label" }, "学员管理"),
+            vue.createElementVNode("text", { class: "grid-desc" }, "分组、档案")
+          ]),
+          vue.createElementVNode("view", {
+            class: "grid-item",
+            onClick: _cache[1] || (_cache[1] = ($event) => $setup.navTo("/pages/teacher/class/class-list"))
+          }, [
+            vue.createElementVNode("view", { class: "icon-box cyan" }, "🏫"),
+            vue.createElementVNode("text", { class: "grid-label" }, "班级管理"),
+            vue.createElementVNode("text", { class: "grid-desc" }, "排课、考勤")
+          ]),
+          vue.createElementVNode("view", {
+            class: "grid-item",
+            onClick: _cache[2] || (_cache[2] = ($event) => $setup.navTo("/pages/teacher/tasks/tasks"))
+          }, [
+            vue.createElementVNode("view", { class: "icon-box green" }, "📢"),
+            vue.createElementVNode("text", { class: "grid-label" }, "任务管理"),
+            vue.createElementVNode("text", { class: "grid-desc" }, "发布、审批")
+          ]),
+          vue.createElementVNode("view", {
+            class: "grid-item",
+            onClick: _cache[3] || (_cache[3] = ($event) => $setup.showToast("教学资源"))
+          }, [
+            vue.createElementVNode("view", { class: "icon-box pink" }, "📚"),
+            vue.createElementVNode("text", { class: "grid-label" }, "教学资源"),
+            vue.createElementVNode("text", { class: "grid-desc" }, "课件、视频")
+          ]),
+          vue.createElementVNode("view", {
+            class: "grid-item",
+            onClick: _cache[4] || (_cache[4] = ($event) => $setup.navTo("/pages/teacher/tests/tests"))
+          }, [
+            vue.createElementVNode("view", { class: "icon-box blue" }, "📊"),
+            vue.createElementVNode("text", { class: "grid-label" }, "测试监控"),
+            vue.createElementVNode("text", { class: "grid-desc" }, "实时数据")
+          ]),
+          vue.createElementVNode("view", {
+            class: "grid-item",
+            onClick: _cache[5] || (_cache[5] = ($event) => $setup.showToast("数据导出"))
+          }, [
+            vue.createElementVNode("view", { class: "icon-box indigo" }, "📥"),
+            vue.createElementVNode("text", { class: "grid-label" }, "数据导出"),
+            vue.createElementVNode("text", { class: "grid-desc" }, "报表下载")
+          ]),
+          vue.createElementVNode("view", {
+            class: "grid-item",
+            onClick: _cache[6] || (_cache[6] = ($event) => $setup.navTo("/pages/teacher/exceptions/exceptions"))
+          }, [
+            vue.createElementVNode("view", { class: "icon-box orange" }, "⚠️"),
+            vue.createElementVNode("text", { class: "grid-label" }, "异常处理"),
+            vue.createElementVNode("text", { class: "grid-desc" }, "预警干预")
+          ]),
+          vue.createElementVNode("view", {
+            class: "grid-item",
+            onClick: _cache[7] || (_cache[7] = ($event) => $setup.showToast("通知公告"))
+          }, [
+            vue.createElementVNode("view", { class: "icon-box teal" }, "🔔"),
+            vue.createElementVNode("text", { class: "grid-label" }, "通知公告"),
+            vue.createElementVNode("text", { class: "grid-desc" }, "消息推送")
+          ])
+        ]),
+        vue.createElementVNode("view", { class: "stats-card" }, [
+          vue.createElementVNode("view", { class: "card-header" }, [
+            vue.createElementVNode("text", { class: "card-title" }, "数据概览")
+          ]),
+          vue.createElementVNode("view", { class: "stats-row" }, [
+            vue.createElementVNode("view", { class: "stat-item" }, [
+              vue.createElementVNode("text", { class: "stat-val" }, "128"),
+              vue.createElementVNode("text", { class: "stat-label" }, "总学员")
+            ]),
+            vue.createElementVNode("view", { class: "stat-item" }, [
+              vue.createElementVNode("text", { class: "stat-val" }, "92%"),
+              vue.createElementVNode("text", { class: "stat-label" }, "达标率")
+            ]),
+            vue.createElementVNode("view", { class: "stat-item" }, [
+              vue.createElementVNode("text", { class: "stat-val" }, "5"),
+              vue.createElementVNode("text", { class: "stat-label" }, "进行中任务")
+            ])
+          ])
+        ]),
+        vue.createElementVNode("view", { style: { "height": "120rpx" } })
+      ])
+    ]);
+  }
+  const TeacherManage = /* @__PURE__ */ _export_sfc(_sfc_main$D, [["render", _sfc_render$C], ["__scopeId", "data-v-2d583c59"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/components/teacher-manage/teacher-manage.vue"]]);
+  const _sfc_main$C = {
+    __name: "function",
     setup(__props, { expose: __expose }) {
       __expose();
+      const role = vue.ref(uni.getStorageSync("userRole") || "student");
+      const studentRunRef = vue.ref(null);
+      const teacherManageRef = vue.ref(null);
+      onShow(() => {
+        role.value = uni.getStorageSync("userRole") || "student";
+        vue.nextTick(() => {
+          if (role.value === "student" && studentRunRef.value && studentRunRef.value.onPageShow) {
+            studentRunRef.value.onPageShow();
+          } else if (role.value === "teacher" && teacherManageRef.value && teacherManageRef.value.onPageShow) {
+            teacherManageRef.value.onPageShow();
+          }
+        });
+      });
+      onHide(() => {
+        if (role.value === "student" && studentRunRef.value && studentRunRef.value.onPageHide) {
+          studentRunRef.value.onPageHide();
+        } else if (role.value === "teacher" && teacherManageRef.value && teacherManageRef.value.onPageHide) {
+          teacherManageRef.value.onPageHide();
+        }
+      });
+      const __returned__ = { role, studentRunRef, teacherManageRef, ref: vue.ref, nextTick: vue.nextTick, get onShow() {
+        return onShow;
+      }, get onHide() {
+        return onHide;
+      }, StudentRun, TeacherManage };
+      Object.defineProperty(__returned__, "__isScriptSetup", { enumerable: false, value: true });
+      return __returned__;
+    }
+  };
+  function _sfc_render$B(_ctx, _cache, $props, $setup, $data, $options) {
+    return vue.openBlock(), vue.createElementBlock("view", { class: "container" }, [
+      $setup.role === "student" ? (vue.openBlock(), vue.createBlock(
+        $setup["StudentRun"],
+        {
+          key: 0,
+          ref: "studentRunRef"
+        },
+        null,
+        512
+        /* NEED_PATCH */
+      )) : (vue.openBlock(), vue.createBlock(
+        $setup["TeacherManage"],
+        {
+          key: 1,
+          ref: "teacherManageRef"
+        },
+        null,
+        512
+        /* NEED_PATCH */
+      ))
+    ]);
+  }
+  const PagesTabFunction = /* @__PURE__ */ _export_sfc(_sfc_main$C, [["render", _sfc_render$B], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/tab/function.vue"]]);
+  const _sfc_main$B = {
+    __name: "student-mine",
+    setup(__props, { expose: __expose }) {
       const statusBarHeight = vue.ref(20);
       const userName = vue.ref("同学");
       const userType = vue.ref("学生");
@@ -2829,7 +3635,7 @@ if (uni.restoreGlobal) {
             progressPercent.value = Math.min(runs.length / weeklyTarget.value * 100, 100);
           }
         } catch (e) {
-          formatAppLog("error", "at pages/mine/mine.vue:232", "Fetch history failed", e);
+          formatAppLog("error", "at components/student-mine/student-mine.vue:228", "Fetch history failed", e);
         }
       };
       const fetchUserProfile = async () => {
@@ -2855,10 +3661,10 @@ if (uni.restoreGlobal) {
             uni.setStorageSync("userInfo", newUser);
           }
         } catch (e) {
-          formatAppLog("error", "at pages/mine/mine.vue:256", "Fetch profile failed", e);
+          formatAppLog("error", "at components/student-mine/student-mine.vue:252", "Fetch profile failed", e);
         }
       };
-      onShow(() => {
+      const onPageShow = () => {
         statusBarHeight.value = uni.getSystemInfoSync().statusBarHeight || 20;
         const user = uni.getStorageSync("userInfo");
         if (user) {
@@ -2878,6 +3684,12 @@ if (uni.restoreGlobal) {
         }
         fetchHistory();
         fetchUserProfile();
+      };
+      vue.onMounted(() => {
+        onPageShow();
+      });
+      __expose({
+        onPageShow
       });
       const gotoUserProfile = () => {
         uni.showToast({ title: "编辑资料功能待开发", icon: "none" });
@@ -2924,16 +3736,14 @@ if (uni.restoreGlobal) {
           }
         });
       };
-      const __returned__ = { statusBarHeight, userName, userType, className, totalRunCount, totalRunDistance, policeSuccessCount, weekDateRange, weeklyTarget, weekRunCount, weekRunDistance, weekPoliceSuccess, progressPercent, runRecords, showRecords, deviceId, formatDistance, formatDuration, fetchHistory, fetchUserProfile, gotoUserProfile, gotoHealthRequest, gotoHistoryTasks, viewAllRecords, gotoRecordDetail, gotoDeviceBind, clearCache, gotoAbout, logout, ref: vue.ref, computed: vue.computed, get onShow() {
-        return onShow;
-      }, CustomTabBar, get request() {
+      const __returned__ = { statusBarHeight, userName, userType, className, totalRunCount, totalRunDistance, policeSuccessCount, weekDateRange, weeklyTarget, weekRunCount, weekRunDistance, weekPoliceSuccess, progressPercent, runRecords, showRecords, deviceId, formatDistance, formatDuration, fetchHistory, fetchUserProfile, onPageShow, gotoUserProfile, gotoHealthRequest, gotoHistoryTasks, viewAllRecords, gotoRecordDetail, gotoDeviceBind, clearCache, gotoAbout, logout, ref: vue.ref, computed: vue.computed, onMounted: vue.onMounted, get request() {
         return request;
       } };
       Object.defineProperty(__returned__, "__isScriptSetup", { enumerable: false, value: true });
       return __returned__;
     }
   };
-  function _sfc_render$u(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$A(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "mine-page" }, [
       vue.createElementVNode(
         "view",
@@ -2960,7 +3770,7 @@ if (uni.restoreGlobal) {
             vue.createElementVNode("view", { class: "avatar-box" }, [
               vue.createElementVNode("image", {
                 class: "avatar",
-                src: _imports_0$2,
+                src: _imports_0$3,
                 mode: "aspectFill"
               }),
               vue.createElementVNode("button", {
@@ -3260,12 +4070,319 @@ if (uni.restoreGlobal) {
         ],
         4
         /* STYLE */
-      ),
-      vue.createVNode($setup["CustomTabBar"], { current: "/pages/mine/mine" })
+      )
     ]);
   }
-  const PagesMineMine = /* @__PURE__ */ _export_sfc(_sfc_main$v, [["render", _sfc_render$u], ["__scopeId", "data-v-7c2ebfa5"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/mine/mine.vue"]]);
-  const _sfc_main$u = {
+  const StudentMine = /* @__PURE__ */ _export_sfc(_sfc_main$B, [["render", _sfc_render$A], ["__scopeId", "data-v-17e5baac"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/components/student-mine/student-mine.vue"]]);
+  const _sfc_main$A = {
+    __name: "teacher-mine",
+    setup(__props, { expose: __expose }) {
+      const userInfo = vue.ref({});
+      const onPageShow = () => {
+        uni.hideHomeButton && uni.hideHomeButton();
+        const storedUser = uni.getStorageSync("userInfo");
+        if (storedUser) {
+          try {
+            userInfo.value = typeof storedUser === "string" ? JSON.parse(storedUser) : storedUser;
+          } catch (e) {
+            userInfo.value = {};
+          }
+        }
+      };
+      vue.onMounted(() => {
+        onPageShow();
+      });
+      __expose({
+        onPageShow
+      });
+      const handleLogout = () => {
+        uni.removeStorageSync("userInfo");
+        uni.removeStorageSync("userRole");
+        uni.reLaunch({
+          url: "/pages/login/login"
+        });
+      };
+      const __returned__ = { userInfo, onPageShow, handleLogout, ref: vue.ref, onMounted: vue.onMounted };
+      Object.defineProperty(__returned__, "__isScriptSetup", { enumerable: false, value: true });
+      return __returned__;
+    }
+  };
+  function _sfc_render$z(_ctx, _cache, $props, $setup, $data, $options) {
+    return vue.openBlock(), vue.createElementBlock("view", { class: "mine-container" }, [
+      vue.createElementVNode("view", { class: "custom-nav-bar" }, [
+        vue.createElementVNode("view", { class: "nav-status-bar" }),
+        vue.createElementVNode("view", { class: "nav-content" }, [
+          vue.createElementVNode("text", { class: "nav-title" }, "个人中心")
+        ])
+      ]),
+      vue.createElementVNode("view", { class: "content-wrapper" }, [
+        vue.createElementVNode("view", { class: "user-card" }, [
+          vue.createElementVNode("view", { class: "avatar" }, "👮‍♂️"),
+          vue.createElementVNode("view", { class: "info" }, [
+            vue.createElementVNode(
+              "text",
+              { class: "name" },
+              vue.toDisplayString($setup.userInfo.name || "教官"),
+              1
+              /* TEXT */
+            ),
+            vue.createElementVNode("text", { class: "role" }, "体能教研室")
+          ])
+        ]),
+        vue.createElementVNode("view", { class: "menu-list" }, [
+          vue.createElementVNode("view", {
+            class: "menu-item",
+            onClick: _cache[0] || (_cache[0] = ($event) => uni.showToast({ title: "设置功能开发中", icon: "none" }))
+          }, [
+            vue.createElementVNode("text", null, "个人信息设置"),
+            vue.createElementVNode("text", { class: "arrow" }, ">")
+          ]),
+          vue.createElementVNode("view", {
+            class: "menu-item",
+            onClick: _cache[1] || (_cache[1] = ($event) => uni.showToast({ title: "安全中心开发中", icon: "none" }))
+          }, [
+            vue.createElementVNode("text", null, "账号安全"),
+            vue.createElementVNode("text", { class: "arrow" }, ">")
+          ]),
+          vue.createElementVNode("view", {
+            class: "menu-item",
+            onClick: _cache[2] || (_cache[2] = ($event) => uni.showToast({ title: "暂无新通知", icon: "none" }))
+          }, [
+            vue.createElementVNode("text", null, "系统通知"),
+            vue.createElementVNode("text", { class: "arrow" }, ">")
+          ]),
+          vue.createElementVNode("view", {
+            class: "menu-item",
+            onClick: _cache[3] || (_cache[3] = ($event) => uni.showToast({ title: "请联系管理员", icon: "none" }))
+          }, [
+            vue.createElementVNode("text", null, "帮助与反馈"),
+            vue.createElementVNode("text", { class: "arrow" }, ">")
+          ])
+        ]),
+        vue.createElementVNode("button", {
+          class: "logout-btn",
+          onClick: $setup.handleLogout
+        }, "退出登录"),
+        vue.createElementVNode("view", { style: { "height": "120rpx" } })
+      ])
+    ]);
+  }
+  const TeacherMine = /* @__PURE__ */ _export_sfc(_sfc_main$A, [["render", _sfc_render$z], ["__scopeId", "data-v-4a341610"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/components/teacher-mine/teacher-mine.vue"]]);
+  const _sfc_main$z = {
+    __name: "mine",
+    setup(__props, { expose: __expose }) {
+      __expose();
+      const role = vue.ref(uni.getStorageSync("userRole") || "student");
+      const studentMineRef = vue.ref(null);
+      const teacherMineRef = vue.ref(null);
+      onShow(() => {
+        role.value = uni.getStorageSync("userRole") || "student";
+        vue.nextTick(() => {
+          if (role.value === "student" && studentMineRef.value && studentMineRef.value.onPageShow) {
+            studentMineRef.value.onPageShow();
+          } else if (role.value === "teacher" && teacherMineRef.value && teacherMineRef.value.onPageShow) {
+            teacherMineRef.value.onPageShow();
+          }
+        });
+      });
+      onHide(() => {
+        if (role.value === "student" && studentMineRef.value && studentMineRef.value.onPageHide) {
+          studentMineRef.value.onPageHide();
+        } else if (role.value === "teacher" && teacherMineRef.value && teacherMineRef.value.onPageHide) {
+          teacherMineRef.value.onPageHide();
+        }
+      });
+      const __returned__ = { role, studentMineRef, teacherMineRef, ref: vue.ref, nextTick: vue.nextTick, get onShow() {
+        return onShow;
+      }, get onHide() {
+        return onHide;
+      }, StudentMine, TeacherMine };
+      Object.defineProperty(__returned__, "__isScriptSetup", { enumerable: false, value: true });
+      return __returned__;
+    }
+  };
+  function _sfc_render$y(_ctx, _cache, $props, $setup, $data, $options) {
+    return vue.openBlock(), vue.createElementBlock("view", { class: "container" }, [
+      $setup.role === "student" ? (vue.openBlock(), vue.createBlock(
+        $setup["StudentMine"],
+        {
+          key: 0,
+          ref: "studentMineRef"
+        },
+        null,
+        512
+        /* NEED_PATCH */
+      )) : (vue.openBlock(), vue.createBlock(
+        $setup["TeacherMine"],
+        {
+          key: 1,
+          ref: "teacherMineRef"
+        },
+        null,
+        512
+        /* NEED_PATCH */
+      ))
+    ]);
+  }
+  const PagesTabMine = /* @__PURE__ */ _export_sfc(_sfc_main$z, [["render", _sfc_render$y], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/tab/mine.vue"]]);
+  const _sfc_main$y = {
+    __name: "home",
+    setup(__props, { expose: __expose }) {
+      __expose();
+      const role = vue.ref("");
+      const studentHomeRef = vue.ref(null);
+      const teacherHomeRef = vue.ref(null);
+      onShow(() => {
+        const token = uni.getStorageSync("token");
+        if (!token) {
+          uni.reLaunch({ url: "/pages/login/login" });
+          return;
+        }
+        const userRole = uni.getStorageSync("userRole") || uni.getStorageSync("role");
+        if (userRole) {
+          role.value = userRole;
+        } else {
+          role.value = "student";
+        }
+        setTimeout(() => {
+          if (role.value === "student" && studentHomeRef.value) {
+            studentHomeRef.value.onPageShow();
+          } else if (role.value === "teacher" && teacherHomeRef.value) {
+            teacherHomeRef.value.onPageShow();
+          }
+        }, 50);
+      });
+      const __returned__ = { role, studentHomeRef, teacherHomeRef, ref: vue.ref, get onShow() {
+        return onShow;
+      }, StudentHome, TeacherHome };
+      Object.defineProperty(__returned__, "__isScriptSetup", { enumerable: false, value: true });
+      return __returned__;
+    }
+  };
+  function _sfc_render$x(_ctx, _cache, $props, $setup, $data, $options) {
+    return vue.openBlock(), vue.createElementBlock("view", null, [
+      $setup.role === "student" ? (vue.openBlock(), vue.createBlock(
+        $setup["StudentHome"],
+        {
+          key: 0,
+          ref: "studentHomeRef"
+        },
+        null,
+        512
+        /* NEED_PATCH */
+      )) : $setup.role === "teacher" ? (vue.openBlock(), vue.createBlock(
+        $setup["TeacherHome"],
+        {
+          key: 1,
+          ref: "teacherHomeRef"
+        },
+        null,
+        512
+        /* NEED_PATCH */
+      )) : (vue.openBlock(), vue.createElementBlock("view", {
+        key: 2,
+        class: "loading-container"
+      }, [
+        vue.createElementVNode("text", null, "加载中...")
+      ]))
+    ]);
+  }
+  const PagesHomeHome = /* @__PURE__ */ _export_sfc(_sfc_main$y, [["render", _sfc_render$x], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/home/home.vue"]]);
+  const _sfc_main$x = {
+    __name: "run",
+    setup(__props, { expose: __expose }) {
+      __expose();
+      const role = vue.ref("student");
+      const studentRunRef = vue.ref(null);
+      onShow(() => {
+        const userRole = uni.getStorageSync("userRole") || uni.getStorageSync("role");
+        if (userRole)
+          role.value = userRole;
+        if (role.value === "student") {
+          setTimeout(() => {
+            if (studentRunRef.value)
+              studentRunRef.value.onPageShow();
+          }, 50);
+        }
+      });
+      const __returned__ = { role, studentRunRef, ref: vue.ref, get onShow() {
+        return onShow;
+      }, StudentRun };
+      Object.defineProperty(__returned__, "__isScriptSetup", { enumerable: false, value: true });
+      return __returned__;
+    }
+  };
+  function _sfc_render$w(_ctx, _cache, $props, $setup, $data, $options) {
+    return vue.openBlock(), vue.createElementBlock("view", null, [
+      $setup.role === "student" ? (vue.openBlock(), vue.createBlock(
+        $setup["StudentRun"],
+        {
+          key: 0,
+          ref: "studentRunRef"
+        },
+        null,
+        512
+        /* NEED_PATCH */
+      )) : $setup.role === "teacher" ? (vue.openBlock(), vue.createElementBlock("view", {
+        key: 1,
+        class: "teacher-placeholder"
+      }, [
+        vue.createElementVNode("text", null, "教师端无跑步功能，请使用管理端")
+      ])) : vue.createCommentVNode("v-if", true)
+    ]);
+  }
+  const PagesRunRun = /* @__PURE__ */ _export_sfc(_sfc_main$x, [["render", _sfc_render$w], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/run/run.vue"]]);
+  const _sfc_main$w = {
+    __name: "mine",
+    setup(__props, { expose: __expose }) {
+      __expose();
+      const role = vue.ref("student");
+      const studentMineRef = vue.ref(null);
+      const teacherMineRef = vue.ref(null);
+      onShow(() => {
+        const userRole = uni.getStorageSync("userRole") || uni.getStorageSync("role");
+        if (userRole)
+          role.value = userRole;
+        setTimeout(() => {
+          if (role.value === "student" && studentMineRef.value) {
+            studentMineRef.value.onPageShow();
+          } else if (role.value === "teacher" && teacherMineRef.value) {
+            teacherMineRef.value.onPageShow();
+          }
+        }, 50);
+      });
+      const __returned__ = { role, studentMineRef, teacherMineRef, ref: vue.ref, get onShow() {
+        return onShow;
+      }, StudentMine, TeacherMine };
+      Object.defineProperty(__returned__, "__isScriptSetup", { enumerable: false, value: true });
+      return __returned__;
+    }
+  };
+  function _sfc_render$v(_ctx, _cache, $props, $setup, $data, $options) {
+    return vue.openBlock(), vue.createElementBlock("view", null, [
+      $setup.role === "student" ? (vue.openBlock(), vue.createBlock(
+        $setup["StudentMine"],
+        {
+          key: 0,
+          ref: "studentMineRef"
+        },
+        null,
+        512
+        /* NEED_PATCH */
+      )) : $setup.role === "teacher" ? (vue.openBlock(), vue.createBlock(
+        $setup["TeacherMine"],
+        {
+          key: 1,
+          ref: "teacherMineRef"
+        },
+        null,
+        512
+        /* NEED_PATCH */
+      )) : vue.createCommentVNode("v-if", true)
+    ]);
+  }
+  const PagesMineMine = /* @__PURE__ */ _export_sfc(_sfc_main$w, [["render", _sfc_render$v], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/mine/mine.vue"]]);
+  const _sfc_main$v = {
     __name: "history-tasks",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -3320,7 +4437,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$t(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$u(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "history-tasks-page" }, [
       vue.createElementVNode(
         "view",
@@ -3422,8 +4539,8 @@ if (uni.restoreGlobal) {
       )
     ]);
   }
-  const PagesMineHistoryTasksHistoryTasks = /* @__PURE__ */ _export_sfc(_sfc_main$u, [["render", _sfc_render$t], ["__scopeId", "data-v-c55f1374"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/mine/history-tasks/history-tasks.vue"]]);
-  const _sfc_main$t = {
+  const PagesMineHistoryTasksHistoryTasks = /* @__PURE__ */ _export_sfc(_sfc_main$v, [["render", _sfc_render$u], ["__scopeId", "data-v-c55f1374"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/mine/history-tasks/history-tasks.vue"]]);
+  const _sfc_main$u = {
     __name: "result",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -3512,7 +4629,7 @@ if (uni.restoreGlobal) {
         return `${min.toString().padStart(2, "0")}:${sec.toString().padStart(2, "0")}`;
       };
       const backToHome = () => {
-        uni.reLaunch({ url: "/pages/home/home" });
+        uni.reLaunch({ url: "/pages/tab/home" });
       };
       const __returned__ = { currentMode, duration, distance, isReach, isPoliceFinish, policePace, testProject, testType, testCount, testQualified, standardReq, userScorePercent, standardScorePercent, suggestionText, modeTitle, modeBgColor, isPaceQualified, formatDuration, backToHome, ref: vue.ref, computed: vue.computed, get onShow() {
         return onShow;
@@ -3523,7 +4640,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$s(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$t(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "result-page" }, [
       vue.createElementVNode(
         "view",
@@ -3776,9 +4893,9 @@ if (uni.restoreGlobal) {
       ])
     ]);
   }
-  const PagesResultResult = /* @__PURE__ */ _export_sfc(_sfc_main$t, [["render", _sfc_render$s], ["__scopeId", "data-v-b615976f"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/result/result.vue"]]);
+  const PagesResultResult = /* @__PURE__ */ _export_sfc(_sfc_main$u, [["render", _sfc_render$t], ["__scopeId", "data-v-b615976f"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/result/result.vue"]]);
   const _imports_0$1 = "/static/lingxiLOGO.png";
-  const _sfc_main$s = {
+  const _sfc_main$t = {
     __name: "login",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -3837,14 +4954,12 @@ if (uni.restoreGlobal) {
           setTimeout(() => {
             if (res.role === "admin") {
               uni.reLaunch({ url: "/pages/admin/dashboard/index" });
-            } else if (currentRole.value === "student") {
-              uni.reLaunch({ url: "/pages/home/home" });
             } else {
-              uni.reLaunch({ url: "/pages/teacher/home/home" });
+              uni.reLaunch({ url: "/pages/tab/home" });
             }
           }, 1e3);
         } catch (error) {
-          formatAppLog("error", "at pages/login/login.vue:162", "Login failed:", error);
+          formatAppLog("error", "at pages/login/login.vue:161", "Login failed:", error);
         } finally {
           loading.value = false;
         }
@@ -3862,7 +4977,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$r(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$s(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "login-container" }, [
       vue.createElementVNode("view", { class: "header-section" }, [
         vue.createElementVNode("image", {
@@ -3959,13 +5074,15 @@ if (uni.restoreGlobal) {
       ])
     ]);
   }
-  const PagesLoginLogin = /* @__PURE__ */ _export_sfc(_sfc_main$s, [["render", _sfc_render$r], ["__scopeId", "data-v-e4e4508d"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/login/login.vue"]]);
-  const _sfc_main$r = {
+  const PagesLoginLogin = /* @__PURE__ */ _export_sfc(_sfc_main$t, [["render", _sfc_render$s], ["__scopeId", "data-v-e4e4508d"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/login/login.vue"]]);
+  const _sfc_main$s = {
     __name: "register",
     setup(__props, { expose: __expose }) {
       __expose();
       const step = vue.ref(1);
       const loading = vue.ref(false);
+      const captchaImage = vue.ref("");
+      const captchaKey = vue.ref("");
       const registerForm = vue.ref({
         role: "student",
         // student | teacher
@@ -3976,36 +5093,27 @@ if (uni.restoreGlobal) {
         confirmPwd: "",
         // 扩展
         school: "",
-        college: "",
-        major: "",
         class: "",
-        empId: "",
-        department: "",
-        isPoliceSchool: false
+        empId: ""
       });
       const selectRole = (role) => {
         registerForm.value.role = role;
       };
       const nextStep = () => {
         step.value = 2;
+        fetchCaptcha();
       };
-      const togglePolice = (e) => {
-        registerForm.value.isPoliceSchool = e.detail.value;
+      const fetchCaptcha = () => {
+        request({ url: "/common/captcha" }).then((res) => {
+          captchaImage.value = res.image;
+          captchaKey.value = res.key;
+        }).catch((err) => {
+          formatAppLog("error", "at pages/register/register.vue:129", "Fetch captcha failed", err);
+          uni.showToast({ title: "验证码加载失败", icon: "none" });
+        });
       };
       const goToLogin = () => {
         uni.navigateBack();
-      };
-      const getCode = () => {
-        if (!registerForm.value.phone) {
-          uni.showToast({ title: "请先输入手机号", icon: "none" });
-          return;
-        }
-        const phoneRegex = /^1[3-9]\d{9}$/;
-        if (!phoneRegex.test(registerForm.value.phone)) {
-          uni.showToast({ title: "手机号格式不正确", icon: "none" });
-          return;
-        }
-        uni.showToast({ title: "验证码已发送", icon: "success" });
       };
       const handleRegister = async () => {
         const form = registerForm.value;
@@ -4016,6 +5124,10 @@ if (uni.restoreGlobal) {
         const phoneRegex = /^1[3-9]\d{9}$/;
         if (!phoneRegex.test(form.phone)) {
           uni.showToast({ title: "请输入正确的手机号", icon: "none" });
+          return;
+        }
+        if (!form.code) {
+          uni.showToast({ title: "请输入验证码", icon: "none" });
           return;
         }
         if (form.password.length < 6) {
@@ -4030,7 +5142,7 @@ if (uni.restoreGlobal) {
           uni.showToast({ title: "请完善学生信息", icon: "none" });
           return;
         }
-        if (form.role === "teacher" && (!form.empId || !form.department)) {
+        if (form.role === "teacher" && (!form.empId || !form.school)) {
           uni.showToast({ title: "请完善教师信息", icon: "none" });
           return;
         }
@@ -4040,7 +5152,9 @@ if (uni.restoreGlobal) {
             phone: form.phone,
             name: form.name,
             role: form.role,
-            password: form.password
+            password: form.password,
+            captcha_code: form.code,
+            captcha_key: captchaKey.value
           });
           uni.showToast({
             title: "注册成功",
@@ -4050,19 +5164,23 @@ if (uni.restoreGlobal) {
             uni.navigateBack();
           }, 1500);
         } catch (error) {
-          formatAppLog("error", "at pages/register/register.vue:228", "Register failed:", error);
+          formatAppLog("error", "at pages/register/register.vue:206", "Register failed:", error);
+          fetchCaptcha();
+          form.code = "";
         } finally {
           loading.value = false;
         }
       };
-      const __returned__ = { step, loading, registerForm, selectRole, nextStep, togglePolice, goToLogin, getCode, handleRegister, ref: vue.ref, get register() {
+      const __returned__ = { step, loading, captchaImage, captchaKey, registerForm, selectRole, nextStep, fetchCaptcha, goToLogin, handleRegister, ref: vue.ref, onMounted: vue.onMounted, get register() {
         return register;
+      }, get request() {
+        return request;
       } };
       Object.defineProperty(__returned__, "__isScriptSetup", { enumerable: false, value: true });
       return __returned__;
     }
   };
-  function _sfc_render$q(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$r(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "register-container" }, [
       vue.createElementVNode("view", { class: "header-section" }, [
         vue.createElementVNode("text", { class: "title" }, "注册新账号"),
@@ -4161,8 +5279,7 @@ if (uni.restoreGlobal) {
               {
                 class: "input",
                 "onUpdate:modelValue": _cache[5] || (_cache[5] = ($event) => $setup.registerForm.code = $event),
-                type: "number",
-                placeholder: "验证码"
+                placeholder: "输入右侧验证码"
               },
               null,
               512
@@ -4170,10 +5287,12 @@ if (uni.restoreGlobal) {
             ), [
               [vue.vModelText, $setup.registerForm.code]
             ]),
-            vue.createElementVNode("text", {
-              class: "get-code",
-              onClick: $setup.getCode
-            }, "获取验证码")
+            vue.createElementVNode("image", {
+              src: $setup.captchaImage,
+              class: "captcha-img",
+              onClick: $setup.fetchCaptcha,
+              mode: "heightFix"
+            }, null, 8, ["src"])
           ]),
           vue.createElementVNode("view", { class: "input-item" }, [
             vue.withDirectives(vue.createElementVNode(
@@ -4232,37 +5351,7 @@ if (uni.restoreGlobal) {
                   "input",
                   {
                     class: "input",
-                    "onUpdate:modelValue": _cache[9] || (_cache[9] = ($event) => $setup.registerForm.college = $event),
-                    placeholder: "所属学院"
-                  },
-                  null,
-                  512
-                  /* NEED_PATCH */
-                ), [
-                  [vue.vModelText, $setup.registerForm.college]
-                ])
-              ]),
-              vue.createElementVNode("view", { class: "input-item" }, [
-                vue.withDirectives(vue.createElementVNode(
-                  "input",
-                  {
-                    class: "input",
-                    "onUpdate:modelValue": _cache[10] || (_cache[10] = ($event) => $setup.registerForm.major = $event),
-                    placeholder: "专业"
-                  },
-                  null,
-                  512
-                  /* NEED_PATCH */
-                ), [
-                  [vue.vModelText, $setup.registerForm.major]
-                ])
-              ]),
-              vue.createElementVNode("view", { class: "input-item" }, [
-                vue.withDirectives(vue.createElementVNode(
-                  "input",
-                  {
-                    class: "input",
-                    "onUpdate:modelValue": _cache[11] || (_cache[11] = ($event) => $setup.registerForm.class = $event),
+                    "onUpdate:modelValue": _cache[9] || (_cache[9] = ($event) => $setup.registerForm.class = $event),
                     placeholder: "班级 (如: 22级3班)"
                   },
                   null,
@@ -4285,7 +5374,7 @@ if (uni.restoreGlobal) {
                   "input",
                   {
                     class: "input",
-                    "onUpdate:modelValue": _cache[12] || (_cache[12] = ($event) => $setup.registerForm.school = $event),
+                    "onUpdate:modelValue": _cache[10] || (_cache[10] = ($event) => $setup.registerForm.school = $event),
                     placeholder: "学校名称"
                   },
                   null,
@@ -4300,7 +5389,7 @@ if (uni.restoreGlobal) {
                   "input",
                   {
                     class: "input",
-                    "onUpdate:modelValue": _cache[13] || (_cache[13] = ($event) => $setup.registerForm.empId = $event),
+                    "onUpdate:modelValue": _cache[11] || (_cache[11] = ($event) => $setup.registerForm.empId = $event),
                     placeholder: "教师工号"
                   },
                   null,
@@ -4309,41 +5398,11 @@ if (uni.restoreGlobal) {
                 ), [
                   [vue.vModelText, $setup.registerForm.empId]
                 ])
-              ]),
-              vue.createElementVNode("view", { class: "input-item" }, [
-                vue.withDirectives(vue.createElementVNode(
-                  "input",
-                  {
-                    class: "input",
-                    "onUpdate:modelValue": _cache[14] || (_cache[14] = ($event) => $setup.registerForm.department = $event),
-                    placeholder: "所属部门 (如: 警体教研室)"
-                  },
-                  null,
-                  512
-                  /* NEED_PATCH */
-                ), [
-                  [vue.vModelText, $setup.registerForm.department]
-                ])
               ])
             ],
             64
             /* STABLE_FRAGMENT */
           )) : vue.createCommentVNode("v-if", true),
-          vue.createElementVNode("view", { class: "police-switch-box" }, [
-            vue.createElementVNode("view", { class: "switch-header" }, [
-              vue.createElementVNode("text", { class: "switch-label" }, "警校/军校用户"),
-              vue.createElementVNode("switch", {
-                checked: $setup.registerForm.isPoliceSchool,
-                onChange: $setup.togglePolice,
-                color: "#20C997",
-                style: { "transform": "scale(0.8)" }
-              }, null, 40, ["checked"])
-            ]),
-            $setup.registerForm.isPoliceSchool ? (vue.openBlock(), vue.createElementBlock("text", {
-              key: 0,
-              class: "switch-tip"
-            }, " * 勾选后，系统将开启适配警校/军校体测标准的专项训练模块 ")) : vue.createCommentVNode("v-if", true)
-          ]),
           vue.createElementVNode("button", {
             class: "submit-btn",
             onClick: $setup.handleRegister,
@@ -4359,8 +5418,8 @@ if (uni.restoreGlobal) {
       ])
     ]);
   }
-  const PagesRegisterRegister = /* @__PURE__ */ _export_sfc(_sfc_main$r, [["render", _sfc_render$q], ["__scopeId", "data-v-bac4a35d"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/register/register.vue"]]);
-  const _sfc_main$q = {
+  const PagesRegisterRegister = /* @__PURE__ */ _export_sfc(_sfc_main$s, [["render", _sfc_render$r], ["__scopeId", "data-v-bac4a35d"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/register/register.vue"]]);
+  const _sfc_main$r = {
     __name: "list",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -4444,7 +5503,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$p(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$q(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "container" }, [
       vue.createElementVNode("view", { class: "tabs" }, [
         vue.createElementVNode(
@@ -4564,8 +5623,8 @@ if (uni.restoreGlobal) {
       )
     ]);
   }
-  const PagesStudentTasksList = /* @__PURE__ */ _export_sfc(_sfc_main$q, [["render", _sfc_render$p], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/student/tasks/list.vue"]]);
-  const _sfc_main$p = {
+  const PagesStudentTasksList = /* @__PURE__ */ _export_sfc(_sfc_main$r, [["render", _sfc_render$q], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/student/tasks/list.vue"]]);
+  const _sfc_main$q = {
     __name: "history",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -4651,7 +5710,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$o(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$p(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "container" }, [
       vue.createElementVNode(
         "view",
@@ -4775,8 +5834,8 @@ if (uni.restoreGlobal) {
       )
     ]);
   }
-  const PagesHistoryHistory = /* @__PURE__ */ _export_sfc(_sfc_main$p, [["render", _sfc_render$o], ["__scopeId", "data-v-b2d018fa"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/history/history.vue"]]);
-  const _sfc_main$o = {
+  const PagesHistoryHistory = /* @__PURE__ */ _export_sfc(_sfc_main$q, [["render", _sfc_render$p], ["__scopeId", "data-v-b2d018fa"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/history/history.vue"]]);
+  const _sfc_main$p = {
     __name: "detail",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -4850,7 +5909,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$n(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$o(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "container" }, [
       vue.createElementVNode("view", { class: "info-card" }, [
         vue.createElementVNode("view", { class: "header" }, [
@@ -4951,8 +6010,8 @@ if (uni.restoreGlobal) {
       ])) : vue.createCommentVNode("v-if", true)
     ]);
   }
-  const PagesHistoryDetail = /* @__PURE__ */ _export_sfc(_sfc_main$o, [["render", _sfc_render$n], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/history/detail.vue"]]);
-  const _sfc_main$n = {
+  const PagesHistoryDetail = /* @__PURE__ */ _export_sfc(_sfc_main$p, [["render", _sfc_render$o], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/history/detail.vue"]]);
+  const _sfc_main$o = {
     __name: "request",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -5019,7 +6078,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$m(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$n(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "container" }, [
       vue.createElementVNode("view", { class: "form-card" }, [
         vue.createElementVNode("view", { class: "form-header" }, [
@@ -5145,7 +6204,90 @@ if (uni.restoreGlobal) {
       ])
     ]);
   }
-  const PagesHealthRequest = /* @__PURE__ */ _export_sfc(_sfc_main$n, [["render", _sfc_render$m], ["__scopeId", "data-v-d1f05d00"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/health/request.vue"]]);
+  const PagesHealthRequest = /* @__PURE__ */ _export_sfc(_sfc_main$o, [["render", _sfc_render$n], ["__scopeId", "data-v-d1f05d00"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/health/request.vue"]]);
+  const color = "#666666";
+  const selectedColor = "#20C997";
+  const _sfc_main$n = {
+    __name: "CustomTabBar",
+    props: {
+      current: {
+        type: String,
+        default: ""
+      }
+    },
+    setup(__props, { expose: __expose }) {
+      __expose();
+      const props = __props;
+      const role = vue.ref("student");
+      const studentList = [
+        { pagePath: "/pages/home/home", text: "首页", iconPath: "/static/tab/home.png", selectedIconPath: "/static/tab/home-active.png" },
+        { pagePath: "/pages/run/run", text: "跑步", iconPath: "/static/tab/run.png", selectedIconPath: "/static/tab/run-active.png" },
+        { pagePath: "/pages/test/test", text: "体测", iconPath: "/static/tab/test.png", selectedIconPath: "/static/tab/test-active.png" },
+        { pagePath: "/pages/mine/mine", text: "我的", iconPath: "/static/tab/mine.png", selectedIconPath: "/static/tab/mine-active.png" }
+      ];
+      const teacherList = [
+        { pagePath: "/pages/teacher/home/home", text: "主页", iconPath: "/static/tab/home.png", selectedIconPath: "/static/tab/home-active.png" },
+        { pagePath: "/pages/teacher/manage/manage", text: "管理", iconPath: "/static/tab/run.png", selectedIconPath: "/static/tab/run-active.png" },
+        // 暂用 run 图标
+        { pagePath: "/pages/teacher/mine/mine", text: "我的", iconPath: "/static/tab/mine.png", selectedIconPath: "/static/tab/mine-active.png" }
+      ];
+      vue.onMounted(() => {
+        const userRole = uni.getStorageSync("userRole") || "student";
+        role.value = userRole;
+      });
+      const list = vue.computed(() => {
+        return role.value === "teacher" ? teacherList : studentList;
+      });
+      const selected = vue.computed(() => {
+        return list.value.findIndex((item) => item.pagePath === props.current || props.current.startsWith(item.pagePath));
+      });
+      const switchTab = (item) => {
+        const url = item.pagePath;
+        if (url === props.current)
+          return;
+        uni.redirectTo({
+          url
+        });
+      };
+      const __returned__ = { props, color, selectedColor, role, studentList, teacherList, list, selected, switchTab, ref: vue.ref, computed: vue.computed, onMounted: vue.onMounted };
+      Object.defineProperty(__returned__, "__isScriptSetup", { enumerable: false, value: true });
+      return __returned__;
+    }
+  };
+  function _sfc_render$m(_ctx, _cache, $props, $setup, $data, $options) {
+    return vue.openBlock(), vue.createElementBlock("cover-view", { class: "tab-bar" }, [
+      vue.createElementVNode("cover-view", { class: "tab-bar-border" }),
+      (vue.openBlock(true), vue.createElementBlock(
+        vue.Fragment,
+        null,
+        vue.renderList($setup.list, (item, index) => {
+          return vue.openBlock(), vue.createElementBlock("cover-view", {
+            key: index,
+            class: "tab-bar-item",
+            onClick: ($event) => $setup.switchTab(item)
+          }, [
+            vue.createElementVNode("cover-image", {
+              class: "tab-icon",
+              src: $setup.selected === index ? item.selectedIconPath : item.iconPath
+            }, null, 8, ["src"]),
+            vue.createElementVNode(
+              "cover-view",
+              {
+                class: "tab-text",
+                style: vue.normalizeStyle({ color: $setup.selected === index ? $setup.selectedColor : $setup.color })
+              },
+              vue.toDisplayString(item.text),
+              5
+              /* TEXT, STYLE */
+            )
+          ], 8, ["onClick"]);
+        }),
+        128
+        /* KEYED_FRAGMENT */
+      ))
+    ]);
+  }
+  const CustomTabBar = /* @__PURE__ */ _export_sfc(_sfc_main$n, [["render", _sfc_render$m], ["__scopeId", "data-v-208a9ade"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/components/CustomTabBar/CustomTabBar.vue"]]);
   const _sfc_main$m = {
     __name: "home",
     setup(__props, { expose: __expose }) {
@@ -5348,7 +6490,7 @@ if (uni.restoreGlobal) {
           vue.createElementVNode("view", { class: "teacher-avatar" }, [
             vue.createElementVNode("image", {
               class: "avatar-img",
-              src: _imports_0$2,
+              src: _imports_0$3,
               mode: "aspectFill"
             })
           ])
@@ -10681,7 +11823,7 @@ if (uni.restoreGlobal) {
       }, [
         vue.createElementVNode("cover-view", { class: "center-pin" }, [
           vue.createElementVNode("cover-image", {
-            src: _imports_0$3,
+            src: _imports_0$2,
             class: "pin-icon"
           })
         ]),
@@ -10725,6 +11867,9 @@ if (uni.restoreGlobal) {
     ]);
   }
   const PagesCommonChooseLocationChooseLocation = /* @__PURE__ */ _export_sfc(_sfc_main$1, [["render", _sfc_render], ["__scopeId", "data-v-5c23fc50"], ["__file", "D:/PC/Document/HBuilderProjects/campus-system/fronted/pages/common/choose-location/choose-location.vue"]]);
+  __definePage("pages/tab/home", PagesTabHome);
+  __definePage("pages/tab/function", PagesTabFunction);
+  __definePage("pages/tab/mine", PagesTabMine);
   __definePage("pages/home/home", PagesHomeHome);
   __definePage("pages/run/run", PagesRunRun);
   __definePage("pages/mine/mine", PagesMineMine);
@@ -10763,10 +11908,18 @@ if (uni.restoreGlobal) {
       try {
         const userInfo = uni.getStorageSync("userInfo");
         if (!userInfo) {
+          uni.reLaunch({
+            url: "/pages/login/login",
+            success: () => {
+            },
+            fail: (err) => {
+              formatAppLog("error", "at App.vue:19", "跳转登录页失败:", err);
+            }
+          });
         } else {
         }
       } catch (e) {
-        formatAppLog("error", "at App.vue:29", "读取缓存失败:", e);
+        formatAppLog("error", "at App.vue:26", "读取缓存失败:", e);
         uni.reLaunch({ url: "/pages/login/login" });
       }
     },

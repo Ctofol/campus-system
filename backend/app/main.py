@@ -4,10 +4,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 import shutil
 import os
 import uuid
+import random
+import string
+import base64
+import hashlib
+from captcha.image import ImageCaptcha
 from . import models, schemas, auth, database
 from .routers import admin
 
@@ -43,10 +48,40 @@ app.add_middleware(
 # Dependency
 get_db = database.get_db
 
+# --- Common Interfaces ---
+CAPTCHA_SECRET = "lingxi_sports_mvp_secret_salt_2026"
+
+@app.get("/common/captcha")
+def get_captcha():
+    # Generate 4 random chars
+    code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
+    
+    # Generate image
+    image = ImageCaptcha(width=120, height=50)
+    data = image.generate(code)
+    
+    # Encode to base64
+    base64_str = base64.b64encode(data.getvalue()).decode('utf-8')
+    image_data = f"data:image/png;base64,{base64_str}"
+    
+    # Generate key (simple stateless verification)
+    # Key = MD5(Upper(Code) + Secret)
+    key_src = code.upper() + CAPTCHA_SECRET
+    key = hashlib.md5(key_src.encode('utf-8')).hexdigest()
+    
+    return {"image": image_data, "key": key}
+
 # --- Auth Interfaces ---
 
 @app.post("/auth/register", response_model=schemas.Token)
 def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
+    # 1. Verify Captcha
+    verify_src = user.captcha_code.upper() + CAPTCHA_SECRET
+    expected_key = hashlib.md5(verify_src.encode('utf-8')).hexdigest()
+    
+    if expected_key != user.captcha_key:
+        raise HTTPException(status_code=400, detail="验证码错误")
+
     db_user = db.query(models.User).filter(models.User.phone == user.phone).first()
     if db_user:
         raise HTTPException(status_code=400, detail="Phone already registered")
@@ -386,6 +421,120 @@ def get_class_stats(
     }
 
 # --- Teacher Interfaces ---
+
+@app.get("/teacher/dashboard/stats", response_model=schemas.TeacherDashboardOut)
+def get_teacher_dashboard_stats(
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db)
+):
+    # --- 1. Stats Calculation ---
+    
+    # 1. Student Count
+    student_count = db.query(models.User).filter(models.User.role == "student").count()
+    
+    # 2. Pending Approvals (Health Requests + Pending Activities)
+    pending_health = db.query(models.HealthRequest).filter(models.HealthRequest.status == "pending").count()
+    pending_activities = db.query(models.Activity).filter(models.Activity.status == "pending_review").count()
+    pending_approvals = pending_health + pending_activities
+    
+    # 3. Abnormal Count
+    abnormal_count = db.query(models.User).filter(
+        models.User.role == "student",
+        models.User.health_status != "normal"
+    ).count()
+    
+    # 4. Today Check-in
+    today = datetime.utcnow().date()
+    today_start = datetime(today.year, today.month, today.day)
+    today_checkin = db.query(models.Activity).filter(
+        models.Activity.started_at >= today_start
+    ).count()
+    
+    # 5. Task Count
+    task_count = db.query(models.Task).count()
+    
+    # --- 2. Todos Generation ---
+    todos = []
+    
+    # A. Pending Health Requests
+    pending_reqs = db.query(models.HealthRequest).filter(
+        models.HealthRequest.status == "pending"
+    ).order_by(models.HealthRequest.created_at.desc()).limit(5).all()
+    
+    for req in pending_reqs:
+        student = db.query(models.User).filter(models.User.id == req.student_id).first()
+        student_name = student.name if student else "Unknown"
+        todos.append({
+            "id": f"health_{req.id}",
+            "title": "请假审批",
+            "type": "approval",
+            "desc": f"{student_name} 申请 {req.type} ({req.reason})",
+            "time": req.created_at.strftime("%H:%M"),
+            "path": "/pages/teacher/students/students?action=approval",
+            "priority": "high"
+        })
+
+    # A2. Pending Activities
+    pending_acts = db.query(models.Activity).filter(
+        models.Activity.status == "pending_review"
+    ).order_by(models.Activity.started_at.desc()).limit(5).all()
+    
+    for act in pending_acts:
+        student = db.query(models.User).filter(models.User.id == act.user_id).first()
+        student_name = student.name if student else "Unknown"
+        todos.append({
+            "id": f"activity_{act.id}",
+            "title": "运动审批",
+            "type": "approval",
+            "desc": f"{student_name} 提交 {act.type} 记录",
+            "time": act.started_at.strftime("%H:%M"),
+            "path": "/pages/teacher/approve/approve",
+            "priority": "high"
+        })
+        
+    # B. Tasks nearing deadline (< 24h)
+    tomorrow = datetime.utcnow() + timedelta(days=1)
+    near_deadline_tasks = db.query(models.Task).filter(
+        models.Task.deadline != None,
+        models.Task.deadline > datetime.utcnow(),
+        models.Task.deadline < tomorrow
+    ).all()
+    
+    for task in near_deadline_tasks:
+        todos.append({
+            "id": f"task_{task.id}",
+            "title": "任务即将截止",
+            "type": "task",
+            "desc": f"任务 '{task.title}' 将于24小时内截止",
+            "time": task.deadline.strftime("%m-%d %H:%M"),
+            "path": f"/pages/teacher/tasks/detail?id={task.id}",
+            "priority": "medium"
+        })
+    
+    # C. Abnormal Students (if any)
+    if abnormal_count > 0:
+        todos.append({
+            "id": "abnormal_alert",
+            "title": "异常状态关注",
+            "type": "task",
+            "desc": f"有 {abnormal_count} 名学生处于异常/请假状态，请关注",
+            "time": datetime.utcnow().strftime("%H:%M"),
+            "path": "/pages/teacher/students/students?filter=abnormal",
+            "priority": "high"
+        })
+
+    return {
+        "stats": {
+            "student_count": student_count,
+            "today_checkin": today_checkin,
+            "abnormal_count": abnormal_count,
+            "pending_approvals": pending_approvals,
+            "avg_pace": "5'45\"", # Mock
+            "task_count": task_count,
+            "compliance_rate": 92 # Mock
+        },
+        "todos": todos
+    }
 
 @app.get("/teacher/activities", response_model=schemas.TeacherActivityListResponse)
 def get_teacher_activities(

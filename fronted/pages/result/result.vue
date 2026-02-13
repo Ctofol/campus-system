@@ -220,7 +220,7 @@ const formatDuration = (seconds) => {
 
 // 7. 返回首页
 const backToHome = () => {
-  uni.reLaunch({ url: '/pages/home/home' });
+  uni.reLaunch({ url: '/pages/tab/home' });
 };
 </script>
 

@@ -46,8 +46,8 @@
           <input class="input" v-model="registerForm.phone" type="number" placeholder="手机号码" />
         </view>
         <view class="input-item code-box">
-          <input class="input" v-model="registerForm.code" type="number" placeholder="验证码" />
-          <text class="get-code" @click="getCode">获取验证码</text>
+          <input class="input" v-model="registerForm.code" placeholder="输入右侧验证码" />
+          <image :src="captchaImage" class="captcha-img" @click="fetchCaptcha" mode="heightFix" />
         </view>
         <view class="input-item">
           <input class="input" v-model="registerForm.password" type="password" placeholder="设置密码 (6-16位)" />
@@ -65,12 +65,6 @@
             <input class="input" v-model="registerForm.school" placeholder="学校名称" />
           </view>
           <view class="input-item">
-            <input class="input" v-model="registerForm.college" placeholder="所属学院" />
-          </view>
-          <view class="input-item">
-            <input class="input" v-model="registerForm.major" placeholder="专业" />
-          </view>
-          <view class="input-item">
             <input class="input" v-model="registerForm.class" placeholder="班级 (如: 22级3班)" />
           </view>
         </template>
@@ -83,21 +77,7 @@
           <view class="input-item">
             <input class="input" v-model="registerForm.empId" placeholder="教师工号" />
           </view>
-          <view class="input-item">
-            <input class="input" v-model="registerForm.department" placeholder="所属部门 (如: 警体教研室)" />
-          </view>
         </template>
-
-        <!-- 学校类型适配 -->
-        <view class="police-switch-box">
-          <view class="switch-header">
-            <text class="switch-label">警校/军校用户</text>
-            <switch :checked="registerForm.isPoliceSchool" @change="togglePolice" color="#20C997" style="transform:scale(0.8)" />
-          </view>
-          <text class="switch-tip" v-if="registerForm.isPoliceSchool">
-            * 勾选后，系统将开启适配警校/军校体测标准的专项训练模块
-          </text>
-        </view>
 
         <!-- 注册按钮 -->
         <button class="submit-btn" @click="handleRegister" :loading="loading">立即注册</button>
@@ -111,11 +91,13 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
-import { register } from '@/utils/request.js';
+import { ref, onMounted } from 'vue';
+import { register, request } from '@/utils/request.js';
 
 const step = ref(1);
 const loading = ref(false);
+const captchaImage = ref('');
+const captchaKey = ref('');
 
 const registerForm = ref({
   role: 'student', // student | teacher
@@ -126,12 +108,8 @@ const registerForm = ref({
   confirmPwd: '',
   // 扩展
   school: '',
-  college: '',
-  major: '',
   class: '',
-  empId: '',
-  department: '',
-  isPoliceSchool: false
+  empId: ''
 });
 
 const selectRole = (role) => {
@@ -140,28 +118,21 @@ const selectRole = (role) => {
 
 const nextStep = () => {
   step.value = 2;
+  fetchCaptcha();
 };
 
-const togglePolice = (e) => {
-  registerForm.value.isPoliceSchool = e.detail.value;
+const fetchCaptcha = () => {
+  request({ url: '/common/captcha' }).then(res => {
+    captchaImage.value = res.image;
+    captchaKey.value = res.key;
+  }).catch(err => {
+    console.error('Fetch captcha failed', err);
+    uni.showToast({ title: '验证码加载失败', icon: 'none' });
+  });
 };
 
 const goToLogin = () => {
   uni.navigateBack();
-};
-
-const getCode = () => {
-  if (!registerForm.value.phone) {
-    uni.showToast({ title: '请先输入手机号', icon: 'none' });
-    return;
-  }
-  const phoneRegex = /^1[3-9]\d{9}$/;
-  if (!phoneRegex.test(registerForm.value.phone)) {
-    uni.showToast({ title: '手机号格式不正确', icon: 'none' });
-    return;
-  }
-  
-  uni.showToast({ title: '验证码已发送', icon: 'success' });
 };
 
 const handleRegister = async () => {
@@ -177,6 +148,12 @@ const handleRegister = async () => {
   const phoneRegex = /^1[3-9]\d{9}$/;
   if (!phoneRegex.test(form.phone)) {
     uni.showToast({ title: '请输入正确的手机号', icon: 'none' });
+    return;
+  }
+  
+  // 验证码校验
+  if (!form.code) {
+    uni.showToast({ title: '请输入验证码', icon: 'none' });
     return;
   }
 
@@ -197,7 +174,7 @@ const handleRegister = async () => {
     uni.showToast({ title: '请完善学生信息', icon: 'none' });
     return;
   }
-  if (form.role === 'teacher' && (!form.empId || !form.department)) {
+  if (form.role === 'teacher' && (!form.empId || !form.school)) {
     uni.showToast({ title: '请完善教师信息', icon: 'none' });
     return;
   }
@@ -206,12 +183,13 @@ const handleRegister = async () => {
   
   try {
     // 调用后端注册接口
-    // 注意：后端目前MVP版本只接收基础字段，扩展字段（school, college等）暂未存储
     await register({
         phone: form.phone,
         name: form.name,
         role: form.role,
-        password: form.password
+        password: form.password,
+        captcha_code: form.code,
+        captcha_key: captchaKey.value
     });
 
     uni.showToast({
@@ -226,7 +204,9 @@ const handleRegister = async () => {
 
   } catch (error) {
     console.error('Register failed:', error);
-    // 错误处理已在 request.js 中包含
+    // 刷新验证码
+    fetchCaptcha();
+    form.code = '';
   } finally {
     loading.value = false;
   }
@@ -375,31 +355,10 @@ const handleRegister = async () => {
   border-left: 1rpx solid #ddd;
 }
 
-.police-switch-box {
-  background: #F0F7FF;
-  padding: 20rpx;
-  border-radius: 12rpx;
-  margin: 40rpx 0;
-}
-
-.switch-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10rpx;
-}
-
-.switch-label {
-  font-size: 28rpx;
-  font-weight: bold;
-  color: #333;
-}
-
-.switch-tip {
-  font-size: 22rpx;
-  color: #666;
-  display: block;
-  line-height: 1.4;
+.captcha-img {
+  height: 60rpx;
+  width: 160rpx;
+  margin-left: 20rpx;
 }
 
 .submit-btn {

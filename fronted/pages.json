@@ -1,6 +1,34 @@
 {
   "pages": [
     {
+      "path": "pages/tab/home",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "首页"
+      }
+    },
+    {
+      "path": "pages/tab/function",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "功能"
+      }
+    },
+    {
+      "path": "pages/tab/stats",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "统计"
+      }
+    },
+    {
+      "path": "pages/tab/mine",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "我的"
+      }
+    },
+    {
       "path": "pages/home/home",
       "style": {
         "navigationStyle": "custom",
@@ -12,7 +40,7 @@
       "path": "pages/run/run",
       "style": {
         "navigationStyle": "custom",
-        "navigationBarTitleText": "跑步",
+        "navigationBarTitleText": "运动",
         "enablePullDownRefresh": false
       }
     },
@@ -228,5 +256,37 @@
     "navigationBarTitleText": "灵析运动",
     "navigationBarBackgroundColor": "#F8F8F8",
     "backgroundColor": "#F8F8F8"
+  },
+  "tabBar": {
+    "color": "#999999",
+    "selectedColor": "#20C997",
+    "borderStyle": "black",
+    "backgroundColor": "#ffffff",
+    "list": [
+      {
+        "pagePath": "pages/tab/home",
+        "iconPath": "static/tab/home.png",
+        "selectedIconPath": "static/tab/home-active.png",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/tab/function",
+        "iconPath": "static/tab/run.png",
+        "selectedIconPath": "static/tab/run-active.png",
+        "text": "运动"
+      },
+      {
+        "pagePath": "pages/tab/stats",
+        "iconPath": "static/tab/test.png",
+        "selectedIconPath": "static/tab/test-active.png",
+        "text": "体测"
+      },
+      {
+        "pagePath": "pages/tab/mine",
+        "iconPath": "static/tab/mine.png",
+        "selectedIconPath": "static/tab/mine-active.png",
+        "text": "我的"
+      }
+    ]
   }
 }
