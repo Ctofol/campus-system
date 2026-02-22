@@ -1,4 +1,4 @@
-Promise.resolve("./pages/test/camera-min.js").then((res) => {
+Promise.resolve("./pages/tab/stats.js").then((res) => {
   res();
 });
 Promise.resolve("./pages/test/test.js").then((res) => {

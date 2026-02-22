@@ -36,26 +36,13 @@
           <text class="grid-desc">课件、视频</text>
         </view>
         
-        <!-- 监控与数据 -->
-        <view class="grid-item" @click="navTo('/pages/teacher/tests/tests')">
-          <view class="icon-box blue">📊</view>
-          <text class="grid-label">测试监控</text>
-          <text class="grid-desc">实时数据</text>
-        </view>
-        
+
         <view class="grid-item" @click="showToast('数据导出')">
           <view class="icon-box indigo">📥</view>
           <text class="grid-label">数据导出</text>
           <text class="grid-desc">报表下载</text>
         </view>
         
-        <!-- 异常与通知 -->
-        <view class="grid-item" @click="navTo('/pages/teacher/exceptions/exceptions')">
-          <view class="icon-box orange">⚠️</view>
-          <text class="grid-label">异常处理</text>
-          <text class="grid-desc">预警干预</text>
-        </view>
-
         <view class="grid-item" @click="showToast('通知公告')">
           <view class="icon-box teal">🔔</view>
           <text class="grid-label">通知公告</text>
