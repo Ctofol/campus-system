@@ -3,7 +3,11 @@
     <!-- Custom Navigation Bar -->
     <view class="custom-navbar" :style="{paddingTop: statusBarHeight + 'px'}">
       <view class="navbar-content">
+        <view class="navbar-left" @click="goBack">
+          <text class="back-icon">←</text>
+        </view>
         <text class="navbar-title">跑步</text>
+        <view class="navbar-right"></view>
       </view>
     </view>
     <view class="content-spacer" :style="{height: (statusBarHeight + 44) + 'px'}"></view>
@@ -195,6 +199,13 @@ import { getCurrentLocation } from '@/utils/location.js';
 const statusBarHeight = ref(20);
 
 const isMapReady = ref(false);
+
+// 返回按钮
+const goBack = () => {
+  uni.navigateBack({
+    delta: 1
+  });
+};
 
 // 组件挂载时获取状态栏高度
 onMounted(() => {
@@ -1080,18 +1091,30 @@ const switchMode = (mode) => {
     const RESET_TIMEOUT = 1500; // 强制复位超时 (ms)
 
     const startStepCount = () => {
+      console.log('=== 开始启动步数统计 ===');
+      
       // 先停止之前的监听，防止重复
       uni.stopAccelerometer();
       
       uni.startAccelerometer({
         interval: 'game', // 使用 game (20ms) 频率，采样更密集，捕捉波峰更准
         success: () => {
-          console.log('Accelerometer started');
+          console.log('✅ 加速度传感器启动成功');
+          uni.showToast({
+            title: '步数统计已启动',
+            icon: 'none',
+            duration: 1500
+          });
           isStepActive = false;
           lastStepTime = Date.now();
         },
         fail: (err) => {
-          console.error('Start Accelerometer failed:', err);
+          console.error('❌ 加速度传感器启动失败:', err);
+          uni.showModal({
+            title: '步数统计启动失败',
+            content: '无法启动加速度传感器，步数将无法统计。错误：' + JSON.stringify(err),
+            showCancel: false
+          });
         }
       });
       
@@ -1113,6 +1136,7 @@ const switchMode = (mode) => {
         if (!isStepActive && acceleration > STEP_THRESHOLD_UP) {
            if (now - lastStepTime > MIN_STEP_INTERVAL) {
              stepCount.value += 1;
+             console.log('👣 步数+1，当前步数:', stepCount.value, '加速度:', acceleration.toFixed(2));
              lastStepTime = now;
              isStepActive = true; 
            }
@@ -1121,12 +1145,15 @@ const switchMode = (mode) => {
         }
       };
       uni.onAccelerometerChange(accelerometerCallback);
+      console.log('=== 步数统计监听已设置 ===');
     };
 const stopStepCount = () => {
+  console.log('=== 停止步数统计 ===');
   if (accelerometerCallback) {
     uni.stopAccelerometer(); // 停止监听
     uni.offAccelerometerChange(accelerometerCallback);
     accelerometerCallback = null;
+    console.log('✅ 步数统计已停止');
   }
 };
 
@@ -1357,13 +1384,36 @@ const buildHistory = (records) => {
   height: 44px;
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  position: relative;
+  padding: 0 15px;
+}
+
+.navbar-left {
+  width: 60rpx;
+  height: 60rpx;
+  display: flex;
+  align-items: center;
   justify-content: center;
+}
+
+.back-icon {
+  color: #ffffff;
+  font-size: 40rpx;
+  font-weight: bold;
 }
 
 .navbar-title {
   color: #ffffff;
   font-size: 16px;
   font-weight: bold;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.navbar-right {
+  width: 60rpx;
 }
 
 .content-spacer {

@@ -38,8 +38,7 @@
     
     <button class="logout-btn" @click="handleLogout">退出登录</button>
     
-    <view style="height: 120rpx;"></view>
-    <CustomTabBar current="/pages/teacher/mine/mine" />
+    <view style="height: 20rpx;"></view>
     </view>
   </view>
 </template>
@@ -47,7 +46,6 @@
 <script setup>
 import { ref } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
-import CustomTabBar from '@/components/CustomTabBar/CustomTabBar.vue';
 
 const userInfo = ref({});
 

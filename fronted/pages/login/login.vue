@@ -166,7 +166,40 @@ const handleLogin = async () => {
 
   } catch (error) {
     console.error('Login failed:', error);
-    // 错误提示已在 request.js 中处理，或者是网络层面的 reject
+    
+    // 根据错误类型显示不同的提示
+    if (error.type === 'network') {
+      uni.showToast({
+        title: '网络连接失败，请检查网络设置',
+        icon: 'none',
+        duration: 2000
+      });
+    } else if (error.type === 'server') {
+      // 服务器返回的错误信息
+      let errorMsg = error.message;
+      
+      // 针对常见错误提供更友好的提示
+      if (error.statusCode === 400) {
+        errorMsg = '用户名或密码错误';
+      } else if (error.statusCode === 404) {
+        errorMsg = '用户不存在';
+      } else if (error.statusCode === 403) {
+        errorMsg = '账号已被禁用';
+      }
+      
+      uni.showToast({
+        title: errorMsg,
+        icon: 'none',
+        duration: 2000
+      });
+    } else {
+      // 其他未知错误
+      uni.showToast({
+        title: error.message || '登录失败，请重试',
+        icon: 'none',
+        duration: 2000
+      });
+    }
   } finally {
     loading.value = false;
   }

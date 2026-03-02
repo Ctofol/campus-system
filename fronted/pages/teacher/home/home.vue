@@ -29,9 +29,52 @@
           <text class="stat-num">{{ teacherStats.abnormalCount }}</text>
           <text class="stat-label">异常待处理</text>
         </view>
-        <view class="stat-card" @click="goToApprove">
+        <view class="stat-card" @click="goToApproval">
           <text class="stat-num">{{ teacherStats.pendingApprovals }}</text>
           <text class="stat-label">待审批</text>
+        </view>
+      </view>
+
+      <!-- 2.5 快捷操作卡片 (新增) -->
+      <view class="quick-action-card">
+        <!-- 顶部统计数据 -->
+        <view class="card-stats">
+          <view class="stat-item">
+            <text class="stat-value">{{ teacherStats.todayCheckin }}</text>
+            <text class="stat-desc">今日打卡(人)</text>
+          </view>
+          <view class="stat-item">
+            <text class="stat-value">{{ teacherStats.taskCount }}</text>
+            <text class="stat-desc">进行中任务</text>
+          </view>
+          <view class="stat-item">
+            <text class="stat-value">{{ teacherStats.complianceRate }}%</text>
+            <text class="stat-desc">达标率</text>
+          </view>
+        </view>
+
+        <!-- 中间大按钮 -->
+        <view class="center-action" @click="handleQuickAction('manage')">
+          <view class="center-btn">
+            <text class="center-text">GO</text>
+            <text class="center-label">综合管理</text>
+          </view>
+        </view>
+
+        <!-- 底部操作按钮 -->
+        <view class="bottom-actions">
+          <view class="action-btn" @click="handleQuickAction('task')">
+            <text class="action-icon">📝</text>
+            <text class="action-text">发布任务</text>
+          </view>
+          <view class="action-btn" @click="handleQuickAction('course')">
+            <text class="action-icon">📚</text>
+            <text class="action-text">课程管理</text>
+          </view>
+          <view class="action-btn" @click="handleQuickAction('export')">
+            <text class="action-icon">📊</text>
+            <text class="action-text">数据导出</text>
+          </view>
         </view>
       </view>
 
@@ -68,21 +111,21 @@
         <view class="overview-chart">
           <view class="chart-col">
             <view class="chart-ring ring-green">
-              <text class="ring-val">92%</text>
+              <text class="ring-val">{{ teacherStats.qualifiedRate }}%</text>
               <text class="ring-label">达标率</text>
             </view>
             <text class="chart-name">体能达标</text>
           </view>
           <view class="chart-col">
             <view class="chart-ring ring-blue">
-              <text class="ring-val">85%</text>
+              <text class="ring-val">{{ teacherStats.completionRate }}%</text>
               <text class="ring-label">完成率</text>
             </view>
             <text class="chart-name">本周任务</text>
           </view>
           <view class="chart-col">
             <view class="chart-ring ring-red">
-              <text class="ring-val">5'45"</text>
+              <text class="ring-val">{{ teacherStats.avgPace }}</text>
               <text class="ring-label">平均配速</text>
             </view>
             <text class="chart-name">跑步状态</text>
@@ -167,8 +210,7 @@
         </view>
       </view>
 
-     <view style="height: 120rpx;"></view> <!-- Spacer for TabBar -->
-      <CustomTabBar current="/pages/teacher/home/home" />
+     <view style="height: 20rpx;"></view>
     </view>
     
     <!-- 快速发布任务弹窗 -->
@@ -178,13 +220,31 @@
 <script setup>
 import { ref } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
-import CustomTabBar from '@/components/CustomTabBar/CustomTabBar.vue';
 import { request } from '@/utils/request.js';
 
 const userInfo = ref({});
 
-const goToApprove = () => {
-  uni.navigateTo({ url: '/pages/teacher/approve/approve' });
+const goToApproval = () => {
+  uni.navigateTo({ url: '/pages/teacher/approval/index' });
+};
+
+const handleQuickAction = (action) => {
+  switch (action) {
+    case 'task':
+      uni.navigateTo({ url: '/pages/teacher/tasks/create' });
+      break;
+    case 'course':
+      uni.switchTab({ url: '/pages/tab/learn' });
+      break;
+    case 'manage':
+      uni.navigateTo({ url: '/pages/teacher/manage/manage' });
+      break;
+    case 'export':
+      uni.showToast({ title: '数据导出功能即将上线', icon: 'none' });
+      break;
+    default:
+      break;
+  }
 };
 
 const fetchTeacherStats = async () => {
@@ -193,19 +253,48 @@ const fetchTeacherStats = async () => {
       url: '/teacher/stats',
       method: 'GET'
     });
-    // Map backend response to frontend state
+    // Map backend response to frontend state with fallback values
     teacherStats.value = {
-      studentCount: res.student_count,
-      todayCheckin: res.today_checkin,
-      abnormalCount: res.abnormal_count,
-      pendingApprovals: res.pending_approvals,
-      avgPace: res.avg_pace,
-      taskCount: res.task_count,
-      complianceRate: res.compliance_rate
+      studentCount: res.student_count || 0,
+      todayCheckin: res.today_checkin || 0,
+      abnormalCount: res.abnormal_count || 0,
+      pendingApprovals: res.pending_approvals || 0,
+      avgPace: res.avg_pace || '--',
+      taskCount: res.task_count || 0,
+      complianceRate: res.compliance_rate || 0,
+      qualifiedRate: res.qualified_rate !== undefined ? res.qualified_rate : 0,
+      completionRate: res.completion_rate !== undefined ? res.completion_rate : 0
     };
   } catch (e) {
     if (!uni.getStorageSync('token')) return;
     console.error('Failed to fetch teacher stats:', e);
+    // Set default values on error
+    teacherStats.value = {
+      studentCount: 0,
+      todayCheckin: 0,
+      abnormalCount: 0,
+      pendingApprovals: 0,
+      avgPace: '--',
+      taskCount: 0,
+      complianceRate: 0,
+      qualifiedRate: 0,
+      completionRate: 0
+    };
+  }
+};
+
+const fetchWeeklyTrend = async () => {
+  try {
+    const res = await request({
+      url: '/teacher/weekly-trend',
+      method: 'GET'
+    });
+    if (Array.isArray(res)) {
+      weeklyTrend.value = res;
+    }
+  } catch (e) {
+    if (!uni.getStorageSync('token')) return;
+    console.error('Failed to fetch weekly trend:', e);
   }
 };
 
@@ -231,8 +320,9 @@ onShow(() => {
   
   // Fetch real stats
   fetchTeacherStats();
-    fetchTasks();
-    fetchAbnormalAlerts();
+  fetchWeeklyTrend();
+  fetchTasks();
+  fetchAbnormalAlerts();
   });
 
   // --- 教师端数据 ---
@@ -243,7 +333,9 @@ onShow(() => {
     pendingApprovals: 0,
     avgPace: "--",
     taskCount: 0,
-    complianceRate: 0
+    complianceRate: 0,
+    qualifiedRate: 0,
+    completionRate: 0
   });
 
   const weeklyTrend = ref([
@@ -273,6 +365,7 @@ onShow(() => {
       });
       if (res && res.items) {
         quickTasks.value = res.items.map(task => ({
+          id: task.id, // 保存真实的任务 ID
           title: task.title,
           type: task.type === 'run' ? '跑步' : '其他',
           typeClass: task.type === 'run' ? 'tag-green' : 'tag-blue',
@@ -348,7 +441,7 @@ const remindTask = (task) => {
 
 const handleQuickTask = (task) => {
   uni.navigateTo({
-    url: `/pages/teacher/tasks/detail?id=999&title=${task.title}`
+    url: `/pages/teacher/tasks/detail?id=${task.id}`
   });
 };
 
@@ -485,6 +578,145 @@ const handleResolveAlert = (index) => {
 .stat-label {
   font-size: 24rpx;
   color: #888;
+}
+
+/* Quick Action Card */
+.quick-action-card {
+  background: linear-gradient(135deg, #20C997 0%, #17a2b8 100%);
+  border-radius: 40rpx;
+  margin: 0 30rpx 40rpx;
+  padding: 50rpx 40rpx;
+  box-shadow: 0 10rpx 40rpx rgba(32, 201, 151, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+
+.quick-action-card::before {
+  content: '';
+  position: absolute;
+  top: -100rpx;
+  right: -100rpx;
+  width: 300rpx;
+  height: 300rpx;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+}
+
+.quick-action-card::after {
+  content: '';
+  position: absolute;
+  bottom: -80rpx;
+  left: -80rpx;
+  width: 250rpx;
+  height: 250rpx;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 50%;
+}
+
+/* Card Stats */
+.card-stats {
+  display: flex;
+  justify-content: space-around;
+  margin-bottom: 50rpx;
+  position: relative;
+  z-index: 1;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.stat-value {
+  font-size: 48rpx;
+  font-weight: bold;
+  color: #fff;
+  margin-bottom: 8rpx;
+  font-family: DINAlternate-Bold, sans-serif;
+  text-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.1);
+}
+
+.stat-desc {
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* Center Action Button */
+.center-action {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 50rpx;
+  position: relative;
+  z-index: 1;
+}
+
+.center-btn {
+  width: 200rpx;
+  height: 200rpx;
+  background: #fff;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10rpx 30rpx rgba(0, 0, 0, 0.15);
+  transition: transform 0.2s ease;
+}
+
+.center-btn:active {
+  transform: scale(0.95);
+}
+
+.center-text {
+  font-size: 56rpx;
+  font-weight: bold;
+  color: #20C997;
+  font-family: Arial, sans-serif;
+  letter-spacing: 2rpx;
+}
+
+.center-label {
+  font-size: 26rpx;
+  color: #666;
+  margin-top: 8rpx;
+}
+
+/* Bottom Actions */
+.bottom-actions {
+  display: flex;
+  justify-content: space-around;
+  position: relative;
+  z-index: 1;
+}
+
+.action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(10px);
+  border-radius: 30rpx;
+  padding: 24rpx 32rpx;
+  min-width: 160rpx;
+  transition: all 0.2s ease;
+}
+
+.action-btn:active {
+  background: rgba(255, 255, 255, 0.35);
+  transform: translateY(2rpx);
+}
+
+.action-icon {
+  font-size: 40rpx;
+  margin-bottom: 8rpx;
+}
+
+.action-text {
+  font-size: 24rpx;
+  color: #fff;
+  font-weight: 500;
 }
 
 /* Todo List */

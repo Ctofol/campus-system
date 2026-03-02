@@ -11,14 +11,14 @@
       "path": "pages/tab/function",
       "style": {
         "navigationStyle": "custom",
-        "navigationBarTitleText": "功能"
+        "navigationBarTitleText": "运动"
       }
     },
     {
-      "path": "pages/tab/stats",
+      "path": "pages/tab/learn",
       "style": {
         "navigationStyle": "custom",
-        "navigationBarTitleText": "统计"
+        "navigationBarTitleText": "课程"
       }
     },
     {
@@ -29,41 +29,25 @@
       }
     },
     {
-      "path": "pages/home/home",
-      "style": {
-        "navigationStyle": "custom",
-        "navigationBarTitleText": "首页",
-        "enablePullDownRefresh": false
-      }
-    },
-    {
       "path": "pages/run/run",
       "style": {
         "navigationStyle": "custom",
-        "navigationBarTitleText": "运动",
+        "navigationBarTitleText": "跑步",
         "enablePullDownRefresh": false
       }
     },
     {
-      "path": "pages/mine/mine",
+      "path": "pages/test/test",
       "style": {
         "navigationStyle": "custom",
-        "navigationBarTitleText": "个人中心",
+        "navigationBarTitleText": "体能测试",
         "enablePullDownRefresh": false
       }
     },
     {
-      "path": "pages/mine/history-tasks/history-tasks",
+      "path": "pages/test-connection/test-connection",
       "style": {
-        "navigationStyle": "custom",
-        "navigationBarTitleText": "历史任务"
-      }
-    },
-    {
-      "path": "pages/result/result",
-      "style": {
-        "navigationBarTitleText": "结算",
-        "enablePullDownRefresh": false
+        "navigationBarTitleText": "网络连接测试"
       }
     },
     {
@@ -79,10 +63,9 @@
       }
     },
     {
-      "path": "pages/test/test",
+      "path": "pages/result/result",
       "style": {
-        "navigationStyle": "custom",
-        "navigationBarTitleText": "体能测试",
+        "navigationBarTitleText": "结算",
         "enablePullDownRefresh": false
       }
     },
@@ -90,6 +73,13 @@
       "path": "pages/student/tasks/list",
       "style": {
         "navigationBarTitleText": "我的任务"
+      }
+    },
+    {
+      "path": "pages/sport/free-practice",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "自由练习"
       }
     },
     {
@@ -182,6 +172,13 @@
       }
     },
     {
+      "path": "pages/teacher/approval/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "待审批"
+      }
+    },
+    {
       "path": "pages/teacher/approve/student-detail",
       "style": {
         "navigationBarTitleText": "学生运动详情"
@@ -200,6 +197,12 @@
       }
     },
     {
+      "path": "pages/teacher/resources/resources",
+      "style": {
+        "navigationBarTitleText": "教学资源"
+      }
+    },
+    {
       "path": "pages/activity/list",
       "style": {
         "navigationBarTitleText": "跑团活动"
@@ -209,14 +212,6 @@
       "path": "pages/activity/detail",
       "style": {
         "navigationBarTitleText": "活动详情"
-      }
-    },
-    {
-      "path": "pages/ai-police/ai-police",
-      "style": {
-        "navigationBarTitleText": "AI体能训练",
-        "navigationBarBackgroundColor": "#1a1a1a",
-        "navigationBarTextStyle": "white"
       }
     },
     {
@@ -249,6 +244,78 @@
         "navigationStyle": "custom",
         "navigationBarTitleText": "选择位置"
       }
+    },
+    {
+      "path": "pages/courses/list",
+      "style": {
+        "navigationBarTitleText": "课程列表"
+      }
+    },
+    {
+      "path": "pages/courses/detail",
+      "style": {
+        "navigationBarTitleText": "课程详情"
+      }
+    },
+    {
+      "path": "pages/courses/create",
+      "style": {
+        "navigationBarTitleText": "创建课程"
+      }
+    },
+    {
+      "path": "pages/courses/edit",
+      "style": {
+        "navigationBarTitleText": "编辑课程"
+      }
+    },
+    {
+      "path": "pages/courses/content-manage",
+      "style": {
+        "navigationBarTitleText": "课程内容管理"
+      }
+    },
+    {
+      "path": "pages/run-group/discover",
+      "style": {
+        "navigationBarTitleText": "跑团发现"
+      }
+    },
+    {
+      "path": "pages/run-group/my",
+      "style": {
+        "navigationBarTitleText": "我的跑团"
+      }
+    },
+    {
+      "path": "pages/run-group/detail",
+      "style": {
+        "navigationBarTitleText": "跑团详情"
+      }
+    },
+    {
+      "path": "pages/run-group/activity-list",
+      "style": {
+        "navigationBarTitleText": "活动列表"
+      }
+    },
+    {
+      "path": "pages/run-group/activity-detail",
+      "style": {
+        "navigationBarTitleText": "活动详情"
+      }
+    },
+    {
+      "path": "pages/run-group/activity-create",
+      "style": {
+        "navigationBarTitleText": "发起活动"
+      }
+    },
+    {
+      "path": "pages/run-group/rank",
+      "style": {
+        "navigationBarTitleText": "跑团排行榜"
+      }
     }
   ],
   "globalStyle": {
@@ -271,15 +338,15 @@
       },
       {
         "pagePath": "pages/tab/function",
-        "iconPath": "static/tab/run.png",
-        "selectedIconPath": "static/tab/run-active.png",
+        "iconPath": "static/tab/function.png",
+        "selectedIconPath": "static/tab/function-active.png",
         "text": "运动"
       },
       {
-        "pagePath": "pages/tab/stats",
-        "iconPath": "static/tab/test.png",
-        "selectedIconPath": "static/tab/test-active.png",
-        "text": "体测"
+        "pagePath": "pages/tab/learn",
+        "iconPath": "static/tab/stats.png",
+        "selectedIconPath": "static/tab/stats-active.png",
+        "text": "课程"
       },
       {
         "pagePath": "pages/tab/mine",

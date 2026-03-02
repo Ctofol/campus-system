@@ -7,26 +7,31 @@ export const getCurrentLocation = (options = {}) => {
     const config = {
       type: 'gcj02', // 默认 gcj02，兼容性好
       isHighAccuracy: true, // 开启高精度
-      timeout: 10000, // 超时 10秒
+      timeout: 15000, // 超时 15秒（增加超时时间）
+      altitude: true, // 传入 true 会返回高度信息，由于获取高度需要较高精确度，会减慢接口返回速度
       ...options
     };
 
     uni.getLocation({
       type: config.type,
       isHighAccuracy: config.isHighAccuracy,
-      highAccuracyExpireTime: 4000, // 高精度定位超时时间(ms)，指定时间内返回最高精度，该值3000ms以上高精度定位才有效果
+      highAccuracyExpireTime: 5000, // 高精度定位超时时间(ms)，增加到5秒
+      altitude: config.altitude,
       timeout: config.timeout,
       success: (res) => {
+        console.log('定位成功:', res);
         resolve({
           success: true,
           latitude: res.latitude,
           longitude: res.longitude,
           speed: res.speed,
           accuracy: res.accuracy,
+          altitude: res.altitude,
           originalRes: res
         });
       },
       fail: (err) => {
+        console.error('定位失败:', err);
         // 错误分析
         let errorType = 'system'; // system, permission, timeout
         let errorMsg = '定位失败';
@@ -68,3 +73,4 @@ export const getCurrentLocation = (options = {}) => {
     });
   });
 };
+

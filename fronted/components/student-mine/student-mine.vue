@@ -217,12 +217,29 @@ const fetchHistory = async () => {
                 .toFixed(2);
             policeSuccessCount.value = runRecords.value.filter(r => r.type === 'test' && r.result === '达标').length;
             
-            // 更新本周数据 (简单Mock，真实逻辑需要判断日期)
-            // 暂时假设所有记录都是本周的，以便演示
-            weekRunCount.value = runs.length;
-            weekRunDistance.value = totalRunDistance.value;
-            weekPoliceSuccess.value = policeSuccessCount.value;
-            progressPercent.value = Math.min((runs.length / weeklyTarget.value) * 100, 100);
+            // 计算本周数据（只统计本周的记录）
+            const now = new Date();
+            const startOfWeek = new Date(now);
+            startOfWeek.setDate(now.getDate() - now.getDay()); // 本周日
+            startOfWeek.setHours(0, 0, 0, 0);
+            
+            const weekRuns = res.items.filter(item => {
+                const itemDate = new Date(item.started_at);
+                return item.type === 'run' && itemDate >= startOfWeek;
+            });
+            
+            weekRunCount.value = weekRuns.length;
+            weekRunDistance.value = weekRuns
+                .reduce((acc, cur) => acc + Number(cur.metrics?.distance || 0), 0)
+                .toFixed(2);
+            weekPoliceSuccess.value = res.items.filter(item => {
+                const itemDate = new Date(item.started_at);
+                return item.type === 'test' && 
+                       item.metrics?.qualified && 
+                       itemDate >= startOfWeek;
+            }).length;
+            
+            progressPercent.value = Math.min((weekRunCount.value / weeklyTarget.value) * 100, 100);
         }
     } catch (e) {
         console.error('Fetch history failed', e);

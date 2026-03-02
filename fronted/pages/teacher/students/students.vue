@@ -220,13 +220,18 @@ const pageSize = 20;
 const hasMore = ref(true);
 const isLoading = ref(false);
 
+// Total counts from server
+const totalCount = ref(0);
+const abnormalCount = ref(0);
+const normalCount = ref(0);
+
 // Filters
 const classList = ref([]);
 const classNames = computed(() => ['全部班级', ...classList.value.map(c => c.name)]);
 const currentClassName = ref('');
 const currentClassId = ref(null);
 
-const statusOptions = ['全部状态', '正常', '请假', '受伤'];
+const statusOptions = ['全部状态', '正常', '请假', '受伤', '异常'];
 const currentStatusLabel = ref('');
 const currentStatusValue = ref(null);
 
@@ -241,9 +246,9 @@ const filteredStudents = computed(() => {
   return students.value;
 });
 
-const total = computed(() => students.value.length);
-const abnormal = computed(() => students.value.filter(s => s.health_status !== 'normal').length);
-const normal = computed(() => students.value.filter(s => s.health_status === 'normal').length);
+const total = computed(() => totalCount.value);
+const abnormal = computed(() => abnormalCount.value);
+const normal = computed(() => normalCount.value);
 
 const isAllSelected = computed(() => {
   return filteredStudents.value.length > 0 && selectedIds.value.length === filteredStudents.value.length;
@@ -254,6 +259,17 @@ const loadClasses = async () => {
   try {
     const res = await request('/teacher/classes', { method: 'GET' });
     classList.value = res;
+  } catch (e) {
+    console.error(e);
+  }
+};
+
+const loadStats = async () => {
+  try {
+    const res = await request('/teacher/stats', { method: 'GET' });
+    totalCount.value = res.student_count;
+    abnormalCount.value = res.abnormal_count;
+    normalCount.value = res.student_count - res.abnormal_count;
   } catch (e) {
     console.error(e);
   }
@@ -295,6 +311,7 @@ const loadStudents = async (reset = false) => {
       let statusClass = 'ok';
       if (s.health_status === 'leave') { statusLabel = '请假'; statusClass = 'warn'; }
       if (s.health_status === 'injured') { statusLabel = '受伤'; statusClass = 'warn'; }
+      if (s.health_status === 'abnormal') { statusLabel = '异常'; statusClass = 'warn'; }
       
       return {
         ...s,
@@ -341,6 +358,7 @@ onShow(() => {
     return;
   }
   
+  loadStats(); // Load statistics first
   loadClasses().then(() => {
     loadStudents(true);
   });
@@ -378,7 +396,8 @@ const onStatusChange = (e) => {
   if (idx == 0) currentStatusValue.value = null;
   else if (idx == 1) currentStatusValue.value = 'normal';
   else if (idx == 2) currentStatusValue.value = 'leave';
-  else if (idx == 3) currentStatusValue.value = 'injured'; 
+  else if (idx == 3) currentStatusValue.value = 'injured';
+  else if (idx == 4) currentStatusValue.value = 'abnormal';
   loadStudents(true);
 };
 
@@ -442,8 +461,8 @@ const batchGroup = () => {
 
 const batchStatus = () => {
   if (selectedIds.value.length === 0) return uni.showToast({ title: '请先选择学员', icon: 'none' });
-  const statusItems = ['恢复正常', '标记请假', '标记受伤'];
-  const statusMap = ['normal', 'leave', 'injured'];
+  const statusItems = ['恢复正常', '标记请假', '标记受伤', '标记异常'];
+  const statusMap = ['normal', 'leave', 'injured', 'abnormal'];
   
   uni.showActionSheet({
     itemList: statusItems,
@@ -526,10 +545,10 @@ const doExport = (data) => {
 
 const editStudent = (stu) => {
   uni.showActionSheet({
-    itemList: ['修改状态: 正常', '修改状态: 请假', '修改状态: 受伤', '修改分组'],
+    itemList: ['修改状态: 正常', '修改状态: 请假', '修改状态: 受伤', '修改状态: 异常', '修改分组'],
     success: async (res) => {
-      if (res.tapIndex < 3) {
-        const statuses = ['normal', 'leave', 'injured'];
+      if (res.tapIndex < 4) {
+        const statuses = ['normal', 'leave', 'injured', 'abnormal'];
         const newStatus = statuses[res.tapIndex];
         
         if (newStatus !== 'normal') {
@@ -841,25 +860,50 @@ const replyStudent = (report) => {
   bottom: 0;
   left: 0;
   width: 100%;
-  height: 100rpx; /* Content height */
+  min-height: 100rpx; /* 改为最小高度 */
   background: #fff;
   border-top: 1px solid #eee;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 30rpx;
+  padding: 20rpx 30rpx; /* 增加上下内边距 */
   /* Safe Area Support */
-  padding-bottom: constant(safe-area-inset-bottom);
-  padding-bottom: env(safe-area-inset-bottom);
-  box-sizing: border-box; /* 修复高度计算问题 */
+  padding-bottom: calc(20rpx + constant(safe-area-inset-bottom));
+  padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
+  box-sizing: border-box;
   box-shadow: 0 -2rpx 10rpx rgba(0,0,0,0.05);
   z-index: 99;
 }
-.batch-info { display: flex; align-items: center; gap: 10rpx; font-size: 28rpx; color: #333; }
-.batch-actions { display: flex; gap: 20rpx; }
-.action-btn { background: #20C997; color: #fff; margin: 0; }
-.action-btn.warn { background: #ff9f43; }
-.action-btn.outline {
+.batch-info { 
+  display: flex; 
+  align-items: center; 
+  gap: 10rpx; 
+  font-size: 28rpx; 
+  color: #333;
+  flex-shrink: 0; /* 防止被压缩 */
+}
+.batch-actions { 
+  display: flex; 
+  gap: 16rpx; /* 减小间距 */
+  flex-wrap: nowrap; /* 防止换行 */
+  align-items: center;
+}
+.batch-actions .action-btn { 
+  background: #20C997; 
+  color: #fff; 
+  margin: 0;
+  padding: 0 20rpx; /* 添加内边距 */
+  height: 60rpx; /* 固定高度 */
+  line-height: 60rpx; /* 垂直居中 */
+  font-size: 26rpx; /* 稍微减小字体 */
+  border-radius: 30rpx;
+  white-space: nowrap; /* 防止文字换行 */
+  flex-shrink: 0; /* 防止被压缩 */
+}
+.batch-actions .action-btn.warn { 
+  background: #ff9f43; 
+}
+.batch-actions .action-btn.outline {
   background: #fff;
   color: #20C997;
   border: 1px solid #20C997;

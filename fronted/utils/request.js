@@ -1,27 +1,29 @@
 // 基础配置
 // 开发环境地址
-let baseUrl = 'http://127.0.0.1:8000';
+let baseUrl = 'http://127.0.0.1:8000';  // H5浏览器测试使用本地地址
 
 // #ifdef H5
 try {
-  const proto = location && location.protocol ? location.protocol : 'http:';
-  const host = location && location.hostname ? location.hostname : 'localhost';
-  baseUrl = `${proto}//${host}:8000`;
+  // H5环境使用127.0.0.1，适合浏览器测试
+  baseUrl = 'http://127.0.0.1:8000';
 } catch (e) {
   baseUrl = 'http://127.0.0.1:8000';
 }
 // #endif
 
 // #ifndef H5
-// 真机调试地址（请修改为你电脑/服务器的真实IP）
-baseUrl = 'http://192.168.0.210:8000'; 
+// 真机调试地址（需要配置防火墙允许访问）
+baseUrl = 'http://192.168.0.216:8000'; 
 // 改为远程服务器地址，以便在不启动本地后端时也能使用
 // baseUrl = 'http://120.26.17.147:8000';
 // #endif
 
 // --- 服务器生产环境配置 ---
-baseUrl = 'http://120.26.17.147:8000';
+// baseUrl = 'http://120.26.17.147:8000';  // 生产环境（已注释，用于本地测试）
 // --------------------------------------------------------
+
+// 本地测试配置 - 注释掉，让条件编译生效
+// baseUrl = 'http://127.0.0.1:8000';
 
 export const BASE_URL = baseUrl;
 
@@ -69,24 +71,16 @@ export const request = (...args) => {
               url: '/pages/login/login'
             });
           }, 1500);
-          reject(res.data);
+          reject({ type: 'auth', message: '登录已过期', data: res.data });
         } else {
-          // 其他错误
-          uni.showToast({
-            title: res.data.detail || '请求失败',
-            icon: 'none'
-          });
-          reject(res.data);
+          // 其他错误 - 不在这里显示toast，让调用方处理
+          const errorMessage = res.data.detail || res.data.message || '请求失败';
+          reject({ type: 'server', statusCode: res.statusCode, message: errorMessage, data: res.data });
         }
       },
       fail: (err) => {
         console.error('Request fail:', err);
-        uni.showModal({
-            title: '网络请求失败',
-            content: err.errMsg || JSON.stringify(err),
-            showCancel: false
-        });
-        reject(err);
+        reject({ type: 'network', message: '网络连接失败', error: err });
       }
     });
   });
@@ -226,9 +220,86 @@ export const checkIn = (data) => {
   });
 };
 
+// 文件上传
+export const uploadFile = (filePath, fileType = 'image') => {
+  return new Promise((resolve, reject) => {
+    const token = uni.getStorageSync('token');
+    
+    uni.uploadFile({
+      url: `${BASE_URL}/upload/file`,
+      filePath: filePath,
+      name: 'file',
+      header: {
+        'Authorization': token ? `Bearer ${token}` : ''
+      },
+      success: (res) => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          try {
+            const data = JSON.parse(res.data);
+            resolve(data);
+          } catch (e) {
+            resolve(res.data);
+          }
+        } else if (res.statusCode === 401) {
+          // Token 失效，跳转登录
+          uni.removeStorageSync('token');
+          uni.removeStorageSync('userInfo');
+          uni.showToast({
+            title: '登录已过期，请重新登录',
+            icon: 'none'
+          });
+          setTimeout(() => {
+            uni.reLaunch({
+              url: '/pages/login/login'
+            });
+          }, 1500);
+          reject(res);
+        } else {
+          let errorMsg = '上传失败';
+          try {
+            const errorData = JSON.parse(res.data);
+            errorMsg = errorData.detail || errorMsg;
+          } catch (e) {
+            // 解析失败，使用默认错误信息
+          }
+          uni.showToast({
+            title: errorMsg,
+            icon: 'none'
+          });
+          reject(res);
+        }
+      },
+      fail: (err) => {
+        console.error('Upload fail:', err);
+        uni.showToast({
+          title: '上传失败',
+          icon: 'none'
+        });
+        reject(err);
+      }
+    });
+  });
+};
+
+// 重新计算活动评分
+export const recalculateScore = (data) => {
+  return request({
+    url: '/activity/score/recalc',
+    method: 'POST',
+    data
+  });
+};
+
 export const getTeacherDashboardStats = () => {
   return request({
     url: '/teacher/dashboard/stats',
+    method: 'GET'
+  });
+};
+
+export const getTeacherWeeklyTrend = () => {
+  return request({
+    url: '/teacher/weekly-trend',
     method: 'GET'
   });
 };
@@ -240,6 +311,7 @@ export default {
   getActivityHistory,
   getTeacherActivities,
   getTeacherDashboardStats,
+  getTeacherWeeklyTrend,
   approveActivity,
   createTeacherTask,
   getTeacherTasks,
@@ -247,4 +319,182 @@ export default {
   getTeacherTaskDetail,
   getCheckpoints,
   checkIn
+};
+
+
+// Courses (Phase 4.2)
+export const getCourses = (params) => {
+  let queryString = '';
+  if (params) {
+    const queryParts = [];
+    if (params.page) queryParts.push(`page=${params.page}`);
+    if (params.size) queryParts.push(`size=${params.size}`);
+    if (params.category) queryParts.push(`category=${params.category}`);
+    if (queryParts.length > 0) queryString = `?${queryParts.join('&')}`;
+  }
+  return request({
+    url: `/courses/${queryString}`,
+    method: 'GET'
+  });
+};
+
+export const getCourseDetail = (courseId) => {
+  return request({
+    url: `/courses/${courseId}`,
+    method: 'GET'
+  });
+};
+
+export const enrollCourse = (courseId) => {
+  return request({
+    url: `/courses/${courseId}/enroll`,
+    method: 'POST'
+  });
+};
+
+export const getMyCourses = () => {
+  return request({
+    url: '/courses/my/enrollments',
+    method: 'GET'
+  });
+};
+
+export const createCourse = (data) => {
+  return request({
+    url: '/courses/',
+    method: 'POST',
+    data
+  });
+};
+
+export const updateCourse = (id, data) => {
+  return request({
+    url: `/courses/${id}`,
+    method: 'PUT',
+    data
+  });
+};
+
+// Run Group APIs (跑团联盟)
+export const createRunGroup = (data) => {
+  return request({
+    url: '/run-group/create',
+    method: 'POST',
+    data
+  });
+};
+
+export const joinRunGroup = (groupId) => {
+  return request({
+    url: `/run-group/join?group_id=${groupId}`,
+    method: 'POST'
+  });
+};
+
+export const leaveRunGroup = () => {
+  return request({
+    url: '/run-group/leave',
+    method: 'POST'
+  });
+};
+
+export const getMyRunGroup = () => {
+  return request({
+    url: '/run-group/my',
+    method: 'GET'
+  });
+};
+
+export const getRunGroups = (params) => {
+  let queryString = '';
+  if (params) {
+    const queryParts = [];
+    if (params.page) queryParts.push(`page=${params.page}`);
+    if (params.size) queryParts.push(`size=${params.size}`);
+    if (queryParts.length > 0) queryString = `?${queryParts.join('&')}`;
+  }
+  return request({
+    url: `/run-group/list${queryString}`,
+    method: 'GET'
+  });
+};
+
+export const getGroupMembers = (groupId, params) => {
+  let queryString = '';
+  if (params) {
+    const queryParts = [];
+    if (params.page) queryParts.push(`page=${params.page}`);
+    if (params.size) queryParts.push(`size=${params.size}`);
+    if (queryParts.length > 0) queryString = `?${queryParts.join('&')}`;
+  }
+  return request({
+    url: `/run-group/members/${groupId}${queryString}`,
+    method: 'GET'
+  });
+};
+
+export const getGroupActivities = (groupId, params) => {
+  let queryString = '';
+  if (params) {
+    const queryParts = [];
+    if (params.page) queryParts.push(`page=${params.page}`);
+    if (params.size) queryParts.push(`size=${params.size}`);
+    if (params.status) queryParts.push(`status=${params.status}`);
+    if (queryParts.length > 0) queryString = `?${queryParts.join('&')}`;
+  }
+  return request({
+    url: `/run-group/activities/${groupId}${queryString}`,
+    method: 'GET'
+  });
+};
+
+export const createGroupActivity = (data) => {
+  return request({
+    url: '/run-group/activity/create',
+    method: 'POST',
+    data
+  });
+};
+
+export const applyActivity = (activityId) => {
+  return request({
+    url: `/run-group/activity/apply?activity_id=${activityId}`,
+    method: 'POST'
+  });
+};
+
+export const cancelActivity = (activityId) => {
+  return request({
+    url: `/run-group/activity/cancel?activity_id=${activityId}`,
+    method: 'POST'
+  });
+};
+
+export const getActivityDetail = (activityId) => {
+  return request({
+    url: `/run-group/activity/${activityId}`,
+    method: 'GET'
+  });
+};
+
+export const getRunGroupRank = () => {
+  return request({
+    url: '/run-group/rank',
+    method: 'GET'
+  });
+};
+
+export const getRunGroupActivities = (params) => {
+  let queryString = '';
+  if (params) {
+    const queryParts = [];
+    if (params.page) queryParts.push(`page=${params.page}`);
+    if (params.size) queryParts.push(`size=${params.size}`);
+    if (params.status) queryParts.push(`status=${params.status}`);
+    if (queryParts.length > 0) queryString = `?${queryParts.join('&')}`;
+  }
+  return request({
+    url: `/run-group/activity/list${queryString}`,
+    method: 'GET'
+  });
 };

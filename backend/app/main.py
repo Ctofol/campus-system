@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, status, File, UploadFile, Body
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from typing import List, Optional
@@ -14,36 +15,40 @@ import base64
 import hashlib
 from captcha.image import ImageCaptcha
 from . import models, schemas, auth, database
-from .routers import admin
+from .routers import admin, teacher, courses, approvals, student, upload
+from .services.video_score import get_video_score
 
 # 初始化数据库表
 models.Base.metadata.create_all(bind=database.engine)
 
 app = FastAPI(title="Campus Sports Health MVP")
 
+# CORS配置 - 必须在路由注册之前添加
+# 开发环境允许所有来源
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # 允许所有来源（开发环境）
+    allow_credentials=False,  # 使用 * 时必须设为 False
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["*"]
+)
+
 app.include_router(admin.router)
+app.include_router(teacher.router)
+app.include_router(courses.router)
+app.include_router(approvals.router)
+app.include_router(student.router)
+app.include_router(upload.router)
+
+# Import run_groups router
+from .routers import run_groups
+app.include_router(run_groups.router)
 
 # Mount uploads directory
 if not os.path.exists("uploads"):
     os.makedirs("uploads")
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
-
-# CORS配置
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:8080",
-        "http://127.0.0.1:8080",
-        "*"
-    ],
-    allow_origin_regex=r"http://localhost:\d+|http://127\.0\.0\.1:\d+|http://192\.168\.\d+\.\d+:\d+",
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["Content-Disposition", "content-disposition"]
-)
 
 # Dependency
 get_db = database.get_db
@@ -176,9 +181,21 @@ def finish_activity(
     db.refresh(db_activity)
 
     # 2. Create Metrics
+    metrics_data = activity_in.metrics.dict()
+    
+    # 如果有视频URL且活动类型为test或run，进行AI评分
+    if metrics_data.get('video_url') and activity_in.type in ["test", "run"]:
+        try:
+            score, score_detail = get_video_score(metrics_data['video_url'])
+            metrics_data['score'] = score
+            metrics_data['score_detail'] = score_detail
+        except Exception as e:
+            # 评分失败不影响活动提交，记录错误但继续处理
+            print(f"视频评分失败: {str(e)}")
+    
     db_metrics = models.ActivityMetrics(
         activity_id=db_activity.id,
-        **activity_in.metrics.dict()
+        **metrics_data
     )
     db.add(db_metrics)
 
@@ -429,72 +446,190 @@ def get_teacher_dashboard_stats(
 ):
     # --- 1. Stats Calculation ---
     
-    # 1. Student Count
-    student_count = db.query(models.User).filter(models.User.role == "student").count()
+    # Get teacher's class IDs for data isolation
+    teacher_classes = db.query(models.Class).filter(
+        models.Class.teacher_id == current_user.id
+    ).all()
+    teacher_class_ids = [c.id for c in teacher_classes]
     
-    # 2. Pending Approvals (Health Requests + Pending Activities)
-    pending_health = db.query(models.HealthRequest).filter(models.HealthRequest.status == "pending").count()
-    pending_activities = db.query(models.Activity).filter(models.Activity.status == "pending_review").count()
+    # 1. Student Count (only in teacher's classes)
+    if teacher_class_ids:
+        student_count = db.query(models.User).filter(
+            models.User.role == "student",
+            models.User.class_id.in_(teacher_class_ids)
+        ).count()
+    else:
+        student_count = 0
+    
+    # 2. Pending Approvals (Health Requests from teacher's students + Pending Activities)
+    if teacher_class_ids:
+        pending_health = db.query(models.HealthRequest).join(
+            models.User, models.HealthRequest.student_id == models.User.id
+        ).filter(
+            models.HealthRequest.status == "pending",
+            models.User.class_id.in_(teacher_class_ids)
+        ).count()
+        
+        pending_activities = db.query(models.Activity).join(
+            models.User, models.Activity.user_id == models.User.id
+        ).filter(
+            models.Activity.status == "pending_review",
+            models.User.class_id.in_(teacher_class_ids)
+        ).count()
+    else:
+        pending_health = 0
+        pending_activities = 0
+    
     pending_approvals = pending_health + pending_activities
     
-    # 3. Abnormal Count
-    abnormal_count = db.query(models.User).filter(
-        models.User.role == "student",
-        models.User.health_status != "normal"
-    ).count()
+    # 3. Abnormal Count (students with non-normal health status in teacher's classes)
+    if teacher_class_ids:
+        abnormal_count = db.query(models.User).filter(
+            models.User.role == "student",
+            models.User.class_id.in_(teacher_class_ids),
+            models.User.health_status != "normal"
+        ).count()
+    else:
+        abnormal_count = 0
     
-    # 4. Today Check-in
+    # 4. Today Check-in (Activities today from teacher's students)
     today = datetime.utcnow().date()
     today_start = datetime(today.year, today.month, today.day)
-    today_checkin = db.query(models.Activity).filter(
-        models.Activity.started_at >= today_start
+    
+    if teacher_class_ids:
+        today_checkin = db.query(models.Activity).join(
+            models.User, models.Activity.user_id == models.User.id
+        ).filter(
+            models.Activity.started_at >= today_start,
+            models.User.class_id.in_(teacher_class_ids)
+        ).count()
+    else:
+        today_checkin = 0
+    
+    # 5. Task Count (tasks created by this teacher)
+    task_count = db.query(models.Task).filter(
+        models.Task.created_by == current_user.id
     ).count()
     
-    # 5. Task Count
-    task_count = db.query(models.Task).count()
+    # 6. Calculate qualified_rate and completion_rate
+    qualified_rate = 0
+    completion_rate = 0
+    avg_pace = "--"
+    
+    if teacher_class_ids and student_count > 0:
+        # Get all activities from teacher's students
+        activities = db.query(models.Activity).join(
+            models.User, models.Activity.user_id == models.User.id
+        ).filter(
+            models.User.class_id.in_(teacher_class_ids)
+        ).all()
+        
+        # Calculate average pace from running activities
+        total_pace_seconds = 0
+        pace_count = 0
+        
+        for activity in activities:
+            if activity.metrics and activity.metrics.distance and activity.metrics.duration:
+                if activity.metrics.distance > 0:
+                    # Calculate pace (seconds per km)
+                    pace = activity.metrics.duration / activity.metrics.distance
+                    total_pace_seconds += pace
+                    pace_count += 1
+        
+        if pace_count > 0:
+            avg_pace_seconds = total_pace_seconds / pace_count
+            minutes = int(avg_pace_seconds // 60)
+            seconds = int(avg_pace_seconds % 60)
+            avg_pace = f"{minutes}'{seconds:02d}\""
+        
+        # Calculate completion rate (students who have activities this week)
+        week_start = today_start - timedelta(days=today.weekday())
+        active_students = db.query(models.Activity.user_id).join(
+            models.User, models.Activity.user_id == models.User.id
+        ).filter(
+            models.User.class_id.in_(teacher_class_ids),
+            models.Activity.started_at >= week_start
+        ).distinct().count()
+        
+        completion_rate = round((active_students / student_count) * 100) if student_count > 0 else 0
+        
+        # Calculate qualified rate (students meeting minimum standards)
+        # Standard: at least 3km running per week
+        qualified_students = 0
+        for class_id in teacher_class_ids:
+            students = db.query(models.User).filter(
+                models.User.class_id == class_id,
+                models.User.role == "student"
+            ).all()
+            
+            for student in students:
+                week_activities = db.query(models.Activity).filter(
+                    models.Activity.user_id == student.id,
+                    models.Activity.started_at >= week_start,
+                    models.Activity.type == "run"
+                ).all()
+                
+                total_distance = sum(
+                    act.metrics.distance for act in week_activities 
+                    if act.metrics and act.metrics.distance
+                )
+                
+                if total_distance >= 3.0:  # 3km minimum
+                    qualified_students += 1
+        
+        qualified_rate = round((qualified_students / student_count) * 100) if student_count > 0 else 0
     
     # --- 2. Todos Generation ---
     todos = []
     
-    # A. Pending Health Requests
-    pending_reqs = db.query(models.HealthRequest).filter(
-        models.HealthRequest.status == "pending"
-    ).order_by(models.HealthRequest.created_at.desc()).limit(5).all()
-    
-    for req in pending_reqs:
-        student = db.query(models.User).filter(models.User.id == req.student_id).first()
-        student_name = student.name if student else "Unknown"
-        todos.append({
-            "id": f"health_{req.id}",
-            "title": "请假审批",
-            "type": "approval",
-            "desc": f"{student_name} 申请 {req.type} ({req.reason})",
-            "time": req.created_at.strftime("%H:%M"),
-            "path": "/pages/teacher/students/students?action=approval",
-            "priority": "high"
-        })
-
-    # A2. Pending Activities
-    pending_acts = db.query(models.Activity).filter(
-        models.Activity.status == "pending_review"
-    ).order_by(models.Activity.started_at.desc()).limit(5).all()
-    
-    for act in pending_acts:
-        student = db.query(models.User).filter(models.User.id == act.user_id).first()
-        student_name = student.name if student else "Unknown"
-        todos.append({
-            "id": f"activity_{act.id}",
-            "title": "运动审批",
-            "type": "approval",
-            "desc": f"{student_name} 提交 {act.type} 记录",
-            "time": act.started_at.strftime("%H:%M"),
-            "path": "/pages/teacher/approve/approve",
-            "priority": "high"
-        })
+    # A. Pending Health Requests (only from teacher's students)
+    if teacher_class_ids:
+        pending_reqs = db.query(models.HealthRequest).join(
+            models.User, models.HealthRequest.student_id == models.User.id
+        ).filter(
+            models.HealthRequest.status == "pending",
+            models.User.class_id.in_(teacher_class_ids)
+        ).order_by(models.HealthRequest.created_at.desc()).limit(5).all()
         
-    # B. Tasks nearing deadline (< 24h)
+        for req in pending_reqs:
+            student = db.query(models.User).filter(models.User.id == req.student_id).first()
+            student_name = student.name if student else "Unknown"
+            todos.append({
+                "id": f"health_{req.id}",
+                "title": "请假审批",
+                "type": "approval",
+                "desc": f"{student_name} 申请 {req.type} ({req.reason})",
+                "time": req.created_at.strftime("%H:%M"),
+                "path": "/pages/teacher/students/students?action=approval",
+                "priority": "high"
+            })
+
+    # A2. Pending Activities (only from teacher's students)
+    if teacher_class_ids:
+        pending_acts = db.query(models.Activity).join(
+            models.User, models.Activity.user_id == models.User.id
+        ).filter(
+            models.Activity.status == "pending_review",
+            models.User.class_id.in_(teacher_class_ids)
+        ).order_by(models.Activity.started_at.desc()).limit(5).all()
+        
+        for act in pending_acts:
+            student = db.query(models.User).filter(models.User.id == act.user_id).first()
+            student_name = student.name if student else "Unknown"
+            todos.append({
+                "id": f"activity_{act.id}",
+                "title": "运动审批",
+                "type": "approval",
+                "desc": f"{student_name} 提交 {act.type} 记录",
+                "time": act.started_at.strftime("%H:%M"),
+                "path": "/pages/teacher/approve/approve",
+                "priority": "high"
+            })
+        
+    # B. Tasks nearing deadline (< 24h) - only for tasks created by this teacher
     tomorrow = datetime.utcnow() + timedelta(days=1)
     near_deadline_tasks = db.query(models.Task).filter(
+        models.Task.created_by == current_user.id,  # 只显示该教师创建的任务
         models.Task.deadline != None,
         models.Task.deadline > datetime.utcnow(),
         models.Task.deadline < tomorrow
@@ -529,44 +664,219 @@ def get_teacher_dashboard_stats(
             "today_checkin": today_checkin,
             "abnormal_count": abnormal_count,
             "pending_approvals": pending_approvals,
-            "avg_pace": "5'45\"", # Mock
+            "avg_pace": avg_pace,
             "task_count": task_count,
-            "compliance_rate": 92 # Mock
+            "compliance_rate": 92,  # Mock - can be calculated if needed
+            "qualified_rate": qualified_rate,
+            "completion_rate": completion_rate
         },
         "todos": todos
     }
 
-@app.get("/teacher/activities", response_model=schemas.TeacherActivityListResponse)
 def get_teacher_activities(
     page: int = 1,
     size: int = 20,
     current_user: models.User = Depends(auth.get_current_teacher),
     db: Session = Depends(get_db)
 ):
-    # 获取所有未审核或已审核的记录，按时间倒序
-    # 对于同一个学生，如果有多条待审核记录，我们这里应该怎么处理？
-    # 按照需求：同一个学生提交了三次数据不应该并行在同一条里面吗 -> 这句话意味着用户希望看到分组后的数据，
-    # 但实际上审批流通常是针对单次活动的。如果用户希望“合并”，可能是指UI上的折叠，或者是逻辑上的最新一条覆盖？
-    # “而且怎么查看学生跑了多少” -> 这暗示用户想看累计数据或者历史记录。
-    
-    # 目前的实现是平铺所有 Activity。如果用户觉得乱，可能是因为同一个学生刷屏了。
-    # 改进方案：
-    # 1. 保持 /teacher/activities 为平铺流（适合审批流）。
-    # 2. 前端可以做 UI 分组。
-    # 3. 提供 /teacher/students/{student_id}/activities 接口来查看特定学生的记录（已计划）。
-    
-    # 暂时保持平铺，但确保包含 metrics 详细信息。
-    
-    query = db.query(models.Activity)
+    # Get teacher's class IDs for data isolation
+    teacher_classes = db.query(models.Class).filter(
+        models.Class.teacher_id == current_user.id
+    ).all()
+    teacher_class_ids = [c.id for c in teacher_classes]
+
+    if not teacher_class_ids:
+        return {
+            "items": [],
+            "total": 0,
+            "page": page,
+            "size": size
+        }
+
+    # Only show activities from students in teacher's classes
+    query = db.query(models.Activity).join(
+        models.User, models.Activity.user_id == models.User.id
+    ).filter(
+        models.User.class_id.in_(teacher_class_ids)
+    )
+
     total = query.count()
     activities = query.order_by(models.Activity.started_at.desc()).offset((page - 1) * size).limit(size).all()
-    
+
     return {
         "items": activities,
         "total": total,
         "page": page,
         "size": size
     }
+
+
+@app.get("/teacher/tests/live")
+def get_live_tests(
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db)
+):
+    """Get currently ongoing tests with video uploads"""
+    
+    # Get teacher's class IDs
+    teacher_classes = db.query(models.Class).filter(
+        models.Class.teacher_id == current_user.id
+    ).all()
+    teacher_class_ids = [c.id for c in teacher_classes]
+    
+    if not teacher_class_ids:
+        return {"items": []}
+    
+    # Get recent test activities (last 2 hours) from teacher's students
+    two_hours_ago = datetime.utcnow() - timedelta(hours=2)
+    
+    activities = db.query(models.Activity).join(
+        models.User, models.Activity.user_id == models.User.id
+    ).filter(
+        models.User.class_id.in_(teacher_class_ids),
+        models.Activity.type == "test",
+        models.Activity.started_at >= two_hours_ago
+    ).order_by(models.Activity.started_at.desc()).limit(20).all()
+    
+    result = []
+    for activity in activities:
+        student = db.query(models.User).filter(models.User.id == activity.user_id).first()
+        metrics = activity.metrics
+        
+        if metrics:
+            result.append({
+                "id": activity.id,
+                "student_name": student.name if student else "Unknown",
+                "student_id": student.student_id if student else "",
+                "action": "体能测试",
+                "video_url": metrics.video_url,
+                "score": metrics.score or 0,
+                "score_detail": metrics.score_detail,
+                "is_abnormal": (metrics.score or 0) < 60,
+                "confidence": metrics.score or 0,
+                "started_at": activity.started_at.isoformat()
+            })
+    
+    return {"items": result}
+
+
+@app.get("/teacher/tests/stats")
+def get_test_stats(
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db)
+):
+    """Get test statistics for data analysis"""
+    
+    # Get teacher's class IDs
+    teacher_classes = db.query(models.Class).filter(
+        models.Class.teacher_id == current_user.id
+    ).all()
+    teacher_class_ids = [c.id for c in teacher_classes]
+    
+    if not teacher_class_ids:
+        return {
+            "class_skills": [],
+            "class_comparison": [],
+            "pass_rates": []
+        }
+    
+    # Get all test activities from teacher's students
+    activities = db.query(models.Activity).join(
+        models.User, models.Activity.user_id == models.User.id
+    ).filter(
+        models.User.class_id.in_(teacher_class_ids),
+        models.Activity.type == "test"
+    ).all()
+    
+    if not activities:
+        return {
+            "class_skills": [],
+            "class_comparison": [],
+            "pass_rates": []
+        }
+    
+    # Calculate score distribution
+    scores = [act.metrics.score for act in activities if act.metrics and act.metrics.score]
+    
+    excellent = len([s for s in scores if s >= 90])
+    good = len([s for s in scores if 80 <= s < 90])
+    pass_score = len([s for s in scores if 60 <= s < 80])
+    fail = len([s for s in scores if s < 60])
+    
+    total = len(scores) if scores else 1
+    
+    # Calculate average scores by test type (mock data for now, can be enhanced)
+    avg_score = sum(scores) / len(scores) if scores else 0
+    
+    return {
+        "class_skills": [
+            {"name": "爆发力", "val": min(100, int(avg_score * 0.95)), "color": "#ff6b6b"},
+            {"name": "耐力", "val": min(100, int(avg_score * 0.85)), "color": "#4dabf7"},
+            {"name": "柔韧性", "val": min(100, int(avg_score * 0.80)), "color": "#ffd43b"},
+            {"name": "协调性", "val": min(100, int(avg_score * 1.05)), "color": "#20C997"},
+            {"name": "核心力量", "val": min(100, int(avg_score * 0.90)), "color": "#a55eea"}
+        ],
+        "class_comparison": [
+            {"label": "优秀", "value": excellent, "percent": int(excellent / total * 100), "color": "#20C997"},
+            {"label": "良好", "value": good, "percent": int(good / total * 100), "color": "#4dabf7"},
+            {"label": "及格", "value": pass_score, "percent": int(pass_score / total * 100), "color": "#ffd43b"},
+            {"label": "不及格", "value": fail, "percent": int(fail / total * 100), "color": "#ff6b6b"}
+        ],
+        "pass_rates": [
+            {"name": "综合体能", "rate": int((total - fail) / total * 100) if total > 0 else 0}
+        ]
+    }
+
+
+@app.get("/teacher/tests/history")
+def get_test_history(
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db)
+):
+    """Get historical test records grouped by date"""
+    
+    # Get teacher's class IDs
+    teacher_classes = db.query(models.Class).filter(
+        models.Class.teacher_id == current_user.id
+    ).all()
+    teacher_class_ids = [c.id for c in teacher_classes]
+    
+    if not teacher_class_ids:
+        return {"items": []}
+    
+    # Get all test activities from teacher's students
+    activities = db.query(models.Activity).join(
+        models.User, models.Activity.user_id == models.User.id
+    ).filter(
+        models.User.class_id.in_(teacher_class_ids),
+        models.Activity.type == "test"
+    ).order_by(models.Activity.started_at.desc()).all()
+    
+    # Group by date
+    from collections import defaultdict
+    grouped = defaultdict(list)
+    
+    for activity in activities:
+        date_key = activity.started_at.date().isoformat()
+        if activity.metrics and activity.metrics.score:
+            grouped[date_key].append(activity.metrics.score)
+    
+    # Calculate stats for each date
+    result = []
+    for date_str, scores in sorted(grouped.items(), reverse=True)[:10]:  # Last 10 test dates
+        total_count = len(scores)
+        pass_count = len([s for s in scores if s >= 60])
+        pass_rate = int(pass_count / total_count * 100) if total_count > 0 else 0
+        
+        result.append({
+            "date": date_str,
+            "test_name": "体能测试",
+            "count": total_count,
+            "pass_rate": pass_rate
+        })
+    
+    return {"items": result}
+
 
 @app.get("/teacher/stats", response_model=schemas.TeacherStatsOut)
 def get_teacher_stats(
@@ -840,8 +1150,21 @@ def get_pending_health_requests(
     current_user: models.User = Depends(auth.get_current_teacher),
     db: Session = Depends(get_db)
 ):
-    requests = db.query(models.HealthRequest).filter(
-        models.HealthRequest.status == "pending"
+    # Get teacher's class IDs for data isolation
+    teacher_classes = db.query(models.Class).filter(
+        models.Class.teacher_id == current_user.id
+    ).all()
+    teacher_class_ids = [c.id for c in teacher_classes]
+    
+    if not teacher_class_ids:
+        return []
+    
+    # Only show health requests from students in teacher's classes
+    requests = db.query(models.HealthRequest).join(
+        models.User, models.HealthRequest.student_id == models.User.id
+    ).filter(
+        models.HealthRequest.status == "pending",
+        models.User.class_id.in_(teacher_class_ids)
     ).all()
     return requests
 
@@ -1134,12 +1457,22 @@ def get_student_tasks(
     if current_user.class_id:
         cls = db.query(models.Class).filter(models.Class.id == current_user.class_id).first()
         teacher_id = cls.teacher_id if cls else None
+        
+        # 显示本班任务或全局任务
         query = query.filter(or_(models.Task.class_id == current_user.class_id, models.Task.class_id == None))
+        
+        # 如果有班主任，只显示班主任创建的本班任务，但保留所有全局任务
         if teacher_id:
-            query = query.filter(models.Task.created_by == teacher_id)
+            query = query.filter(
+                or_(
+                    models.Task.created_by == teacher_id,  # 本班老师创建的任务
+                    models.Task.class_id == None  # 或全局任务
+                )
+            )
     else:
-        # 没有班级的学生仅显示全局任务
-        query = query.filter(models.Task.class_id == None)
+        # 没有班级的学生不显示任何任务（避免新注册学生看到全局任务）
+        # 如果需要显示全局任务，改为: query = query.filter(models.Task.class_id == None)
+        query = query.filter(models.Task.id == -1)  # 返回空结果
 
     total = query.count()
     tasks = query.order_by(models.Task.id.desc()).offset((page - 1) * size).limit(size).all()
@@ -1299,6 +1632,68 @@ async def upload_file(file: UploadFile = File(...)):
         "filename": unique_filename,
         "original_filename": file.filename
     }
+
+@app.post("/activity/score/recalc")
+def recalculate_activity_score(
+    request: dict = Body(...),
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    重新计算活动评分
+    
+    Args:
+        request: 包含activity_id或metrics_id的请求体
+        current_user: 当前登录用户
+        db: 数据库会话
+        
+    Returns:
+        dict: 更新后的评分信息
+    """
+    activity_id = request.get('activity_id')
+    metrics_id = request.get('metrics_id')
+    
+    if not activity_id and not metrics_id:
+        raise HTTPException(status_code=400, detail="必须提供activity_id或metrics_id")
+    
+    # 查找活动指标
+    if metrics_id:
+        metrics = db.query(models.ActivityMetrics).filter(
+            models.ActivityMetrics.id == metrics_id
+        ).first()
+    else:
+        activity = db.query(models.Activity).filter(
+            models.Activity.id == activity_id,
+            models.Activity.user_id == current_user.id
+        ).first()
+        if not activity:
+            raise HTTPException(status_code=404, detail="活动不存在")
+        metrics = activity.metrics
+    
+    if not metrics:
+        raise HTTPException(status_code=404, detail="活动指标不存在")
+    
+    if not metrics.video_url:
+        raise HTTPException(status_code=400, detail="该活动没有关联的视频文件")
+    
+    try:
+        # 重新计算评分
+        score, score_detail = get_video_score(metrics.video_url)
+        
+        # 更新数据库
+        metrics.score = score
+        metrics.score_detail = score_detail
+        db.commit()
+        
+        return {
+            "message": "评分更新成功",
+            "score": score,
+            "score_detail": score_detail,
+            "video_url": metrics.video_url
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"评分计算失败: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn

@@ -30,7 +30,7 @@
           <text class="grid-desc">发布、审批</text>
         </view>
 
-        <view class="grid-item" @click="showToast('教学资源')">
+        <view class="grid-item" @click="navTo('/pages/teacher/resources/resources')">
           <view class="icon-box pink">📚</view>
           <text class="grid-label">教学资源</text>
           <text class="grid-desc">课件、视频</text>
@@ -69,15 +69,15 @@
       </view>
       <view class="stats-row">
         <view class="stat-item">
-          <text class="stat-val">128</text>
+          <text class="stat-val">{{ stats.studentCount }}</text>
           <text class="stat-label">总学员</text>
         </view>
         <view class="stat-item">
-          <text class="stat-val">92%</text>
+          <text class="stat-val">{{ stats.complianceRate }}%</text>
           <text class="stat-label">达标率</text>
         </view>
         <view class="stat-item">
-          <text class="stat-val">5</text>
+          <text class="stat-val">{{ stats.taskCount }}</text>
           <text class="stat-label">进行中任务</text>
         </view>
       </view>
@@ -89,7 +89,15 @@
 </template>
 
 <script setup>
+import { ref } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
+import { request } from '@/utils/request.js';
+
+const stats = ref({
+  studentCount: 0,
+  complianceRate: 0,
+  taskCount: 0
+});
 
 const navTo = (url) => {
   uni.navigateTo({ url });
@@ -102,8 +110,31 @@ const showToast = (title) => {
   });
 };
 
-const onPageShow = () => {};
+const loadStats = async () => {
+  try {
+    const res = await request({
+      url: '/teacher/stats',
+      method: 'GET'
+    });
+    stats.value = {
+      studentCount: res.student_count,
+      complianceRate: res.compliance_rate,
+      taskCount: res.task_count
+    };
+  } catch (e) {
+    console.error('Failed to load stats:', e);
+  }
+};
+
+const onPageShow = () => {
+  loadStats();
+};
+
 const onPageHide = () => {};
+
+onShow(() => {
+  loadStats();
+});
 
 defineExpose({
   onPageShow,

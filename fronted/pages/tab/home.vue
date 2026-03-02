@@ -33,7 +33,7 @@ onShow(() => {
     });
     uni.setTabBarItem({
       index: 2,
-      text: '监控',
+      text: '课程',
       iconPath: '/static/tab/stats.png',
       selectedIconPath: '/static/tab/stats-active.png'
     });
@@ -45,15 +45,15 @@ onShow(() => {
   } else {
     uni.setTabBarItem({
       index: 1,
-      text: '跑步',
-      iconPath: '/static/tab/run.png',
-      selectedIconPath: '/static/tab/run-active.png'
+      text: '运动',
+      iconPath: '/static/tab/function.png',
+      selectedIconPath: '/static/tab/function-active.png'
     });
     uni.setTabBarItem({
       index: 2,
-      text: '体测',
-      iconPath: '/static/tab/test.png',
-      selectedIconPath: '/static/tab/test-active.png'
+      text: '课程',
+      iconPath: '/static/tab/stats.png',
+      selectedIconPath: '/static/tab/stats-active.png'
     });
   }
 

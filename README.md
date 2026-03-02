@@ -1,95 +1,258 @@
-# 校园运动管理系统 (Campus Sports System)
+# 校园运动健康管理系统 (Campus Sports Health System)
 
-这是一个基于 **Uni-app** 和 **FastAPI** 开发的校园运动管理系统，旨在帮助学校管理学生的日常跑步打卡和体能测试。系统包含学生端（APP/小程序）和教师端（管理后台）。
+一个基于 **Uni-app** 和 **FastAPI** 开发的校园运动健康管理系统，支持跑步打卡、体能测试、课程学习、跑团活动等功能。
+
+## 🎯 项目特色
+
+- 🏃 **智能跑步**: GPS轨迹记录、实时配速分析、步数统计
+- 📹 **AI体测**: 视频上传、AI评分、姿态分析
+- 📚 **在线课程**: 体育理论课程、视频学习、进度跟踪
+- 👥 **跑团联盟**: 创建跑团、组织活动、排行榜
+- 📊 **数据分析**: 运动数据可视化、健康报告
 
 ## 🛠 技术栈
 
-- **前端**: Uni-app (Vue 3)
-- **后端**: Python FastAPI
-- **数据库**: PostgreSQL
-- **开发工具**: HBuilderX, PyCharm/VS Code
+### 前端
+- **框架**: Uni-app (Vue 3 + Composition API)
+- **UI**: 自定义组件库
+- **地图**: 腾讯地图 API
+- **平台**: 微信小程序、H5、App
+
+### 后端
+- **框架**: Python FastAPI
+- **数据库**: PostgreSQL / SQLite
+- **ORM**: SQLAlchemy
+- **认证**: JWT Token
 
 ## ✨ 主要功能
 
 ### 👨‍🎓 学生端
-- **跑步打卡**: 基于 GPS 的实时跑步轨迹记录、配速分析、校园定点打卡。
-- **体能测试 (AI Police)**: 专项体能测试（如 2000米），支持视频录制与上传证据。
-- **AI 助手**: 智能问答助手，提供运动建议和数据分析。
-- **个人中心**: 查看历史运动记录、成就徽章。
+- **跑步打卡**: 
+  - 普通跑步模式（自由跑步）
+  - 校园打卡模式（定点打卡）
+  - 实时轨迹记录、配速分析
+  - 步数统计（加速度传感器）
+  
+- **体能测试**: 
+  - 多种测试类型（仰卧起坐、俯卧撑、跳绳等）
+  - 视频/图片上传
+  - AI智能评分
+  
+- **课程学习**:
+  - 浏览体育课程
+  - 在线学习视频
+  - 学习进度跟踪
+  
+- **跑团活动**:
+  - 加入跑团
+  - 参与活动
+  - 查看排行榜
 
 ### 👩‍🏫 教师端
-- **数据看板**: 查看班级整体运动数据、异常预警。
-- **审批管理**: 审核学生提交的体测视频和成绩，支持视频在线预览。
-- **任务管理**: 发布跑步或体测任务。
-- **学生管理**: 管理学生档案和班级信息。
+- **数据看板**: 
+  - 班级运动数据统计
+  - 学生体能概览
+  - 数据可视化图表
+  
+- **任务管理**: 
+  - 发布跑步/体测任务
+  - 设置任务要求
+  - 查看完成情况
+  
+- **审批管理**: 
+  - 审核学生活动
+  - 查看体测视频
+  - 成绩评定
+  
+- **课程管理**:
+  - 创建课程
+  - 上传课程内容
+  - 管理学员
+
+### 🔧 管理员端
+- **用户管理**: 批量导入学生、教师信息
+- **班级管理**: 创建班级、分配班主任
+- **系统配置**: 打卡点设置、系统参数
 
 ## 🚀 快速开始
 
-### 1. 后端环境配置 (Backend)
+### 环境要求
+- Python 3.8+
+- PostgreSQL 12+ (或 SQLite)
+- Node.js 14+ (可选)
+- HBuilderX (前端开发)
 
-确保已安装 **Python 3.8+** 和 **PostgreSQL**。
+### 1. 后端配置
 
-1. 进入后端目录：
-   ```bash
-   cd backend
-   ```
+```bash
+# 进入后端目录
+cd backend
 
-2. 安装依赖：
-   ```bash
-   pip install -r requirements.txt
-   ```
+# 安装依赖
+pip install -r requirements.txt
 
-3. 配置数据库：
-   - 确保本地 PostgreSQL 服务已启动。
-   - 检查/修改 `app/database.py` 中的数据库连接配置。
+# 初始化数据库（可选）
+python seed.py
 
-4. 启动服务：
-   ```bash
-   # 在 backend 目录下运行
-   uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-   ```
-   启动成功后，API 文档地址: `http://localhost:8000/docs`
+# 启动服务
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
 
-### 2. 前端环境配置 (Frontend)
+API文档: http://localhost:8000/docs
 
-需使用 **HBuilderX** 打开 `fronted` 目录。
+### 2. 前端配置
 
-#### ⚠️ 真机调试关键步骤 (重要)
+1. 使用 HBuilderX 打开 `fronted` 目录
 
-如果你需要使用手机连接电脑进行真机调试（App 或 小程序），**必须修改 API 请求地址**：
-
-1. 打开文件: `fronted/utils/request.js`
-2. 找到以下代码段：
+2. 修改API地址（真机调试时）:
+   - 打开 `fronted/utils/request.js`
+   - 修改 `baseUrl` 为你的电脑IP地址
    ```javascript
-   // #ifndef H5
-   baseUrl = 'http://10.48.100.174:8000'; // 修改为你电脑当前的局域网 IP
-   // #endif
+   // 真机调试地址
+   baseUrl = 'http://192.168.0.216:8000'; // 改为你的IP
    ```
-3. 将 IP 地址修改为你电脑当前的 WiFi IP 地址（可通过 cmd 输入 `ipconfig` 查看）。
-   > **注意**: 手机和电脑必须连接同一个 WiFi。
 
-#### 运行项目
+3. 配置小程序AppID（可选）:
+   - 打开 `fronted/manifest.json`
+   - 修改 `mp-weixin.appid`
 
-- **浏览器运行**: 菜单栏 -> 运行 -> 运行到浏览器 -> Chrome。
-- **真机/模拟器运行**: 连接手机 -> 菜单栏 -> 运行 -> 运行到手机或模拟器。
+4. 运行项目:
+   - 浏览器: 运行 → 运行到浏览器 → Chrome
+   - 小程序: 运行 → 运行到小程序模拟器 → 微信开发者工具
+   - 真机: 连接手机 → 运行 → 运行到手机
 
-## 📂 目录结构
+### 3. 测试账号
+
+```
+学生账号: 13800138000 / 123456
+教师账号: 13800138001 / 123456
+```
+
+## 📂 项目结构
 
 ```
 campus-system/
-├── backend/                # 后端代码
-│   ├── app/                # 核心逻辑 (API, Models, Schemas)
-│   ├── uploads/            # 上传的媒体文件 (视频/图片)
-│   └── requirements.txt    # Python 依赖
-├── fronted/                # 前端代码 (Uni-app)
-│   ├── pages/              # 页面文件 (学生端/教师端)
-│   ├── utils/              # 工具函数 (request.js 等)
-│   └── static/             # 静态资源
-└── README.md               # 项目文档
+├── backend/                    # 后端代码
+│   ├── app/
+│   │   ├── main.py            # 主应用入口
+│   │   ├── models.py          # 数据模型
+│   │   ├── schemas.py         # Pydantic模型
+│   │   ├── auth.py            # 认证逻辑
+│   │   ├── database.py        # 数据库配置
+│   │   ├── routers/           # 路由模块
+│   │   │   ├── admin.py       # 管理员接口
+│   │   │   ├── teacher.py     # 教师接口
+│   │   │   ├── student.py     # 学生接口
+│   │   │   ├── courses.py     # 课程接口
+│   │   │   └── run_groups.py  # 跑团接口
+│   │   └── services/          # 业务逻辑
+│   ├── uploads/               # 上传文件
+│   ├── requirements.txt       # Python依赖
+│   └── seed.py               # 数据初始化
+│
+├── fronted/                   # 前端代码
+│   ├── pages/                # 页面
+│   │   ├── tab/             # 底部导航页
+│   │   ├── login/           # 登录注册
+│   │   ├── run/             # 跑步页面
+│   │   ├── test/            # 体测页面
+│   │   ├── courses/         # 课程页面
+│   │   ├── run-group/       # 跑团页面
+│   │   ├── admin/           # 管理员页面
+│   │   └── teacher/         # 教师页面
+│   ├── components/          # 组件
+│   │   ├── student-home/    # 学生首页
+│   │   ├── student-run/     # 跑步组件
+│   │   ├── teacher-home/    # 教师首页
+│   │   └── ...
+│   ├── utils/               # 工具函数
+│   │   ├── request.js       # 网络请求
+│   │   └── location.js      # 定位工具
+│   ├── static/              # 静态资源
+│   ├── manifest.json        # 应用配置
+│   └── pages.json          # 页面配置
+│
+├── .gitignore
+├── docker-compose.yml       # Docker配置
+└── README.md
 ```
 
-## 📝 注意事项
+## 📱 功能截图
 
-1. **视频上传**: 体测视频文件较大，请确保网络环境良好，真机调试时尽量靠近路由器。
-2. **地图服务**: 跑步功能依赖地图组件，需确保 manifest.json 中配置了有效的地图 API Key (如高德/腾讯地图)。
-3. **权限**: 手机端运行时需授权 **定位** 和 **相机/麦克风** 权限。
+（待添加）
+
+## 🔧 配置说明
+
+### 地图配置
+在 `fronted/manifest.json` 中配置腾讯地图Key:
+```json
+"sdkConfigs": {
+  "maps": {
+    "tencent": {
+      "key": "YOUR_TENCENT_MAP_KEY"
+    }
+  }
+}
+```
+
+### 数据库配置
+在 `backend/app/database.py` 中配置数据库连接:
+```python
+DATABASE_URL = "postgresql://user:password@localhost:5432/campus_db"
+# 或使用SQLite
+DATABASE_URL = "sqlite:///./campus_sports.db"
+```
+
+## 📝 开发文档
+
+- [API文档](backend/API_DOCUMENTATION.md)
+- [课程功能说明](fronted/COURSE_DETAIL_API.md)
+- [部署指南](fronted/DEPLOY.md)
+- [更新历史](COMPLETE_UPDATE_HISTORY.md)
+
+## ⚠️ 注意事项
+
+### 真机测试
+1. **定位功能**: 模拟器定位不准确，必须真机测试
+2. **步数统计**: 需要加速度传感器，模拟器不支持
+3. **视频上传**: 建议在真机上测试，模拟器可能不支持
+
+### 权限配置
+小程序需要以下权限:
+- 位置信息（跑步轨迹）
+- 相机（拍摄体测视频）
+- 相册（选择照片/视频）
+- 加速度传感器（步数统计）
+
+### 网络配置
+- 开发环境: 在微信开发者工具中勾选"不校验合法域名"
+- 生产环境: 需要配置服务器域名白名单
+
+## 🐛 常见问题
+
+### 1. 登录502错误
+- 检查后端服务是否启动
+- 检查IP地址配置是否正确
+- 确保手机和电脑在同一WiFi
+
+### 2. 步数不增加
+- 必须在真机上测试
+- 检查是否授予加速度传感器权限
+- 查看Console日志确认传感器启动
+
+### 3. 视频上传失败
+- 检查文件大小（限制100MB）
+- 确保授予相机和相册权限
+- 查看网络连接状态
+
+## 📄 License
+
+MIT License
+
+## 👥 贡献者
+
+- Ctofol - 项目开发
+
+## 📮 联系方式
+
+如有问题或建议，欢迎提Issue或PR。

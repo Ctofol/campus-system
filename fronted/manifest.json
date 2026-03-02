@@ -53,7 +53,21 @@
             },
             /* ios打包配置 */
             "ios" : {
-                "dSYMs" : false
+                "dSYMs" : false,
+                "allowsArbitraryLoads" : true,
+                "NSAppTransportSecurity" : {
+                    "NSAllowsArbitraryLoads" : true,
+                    "NSExceptionDomains" : {
+                        "192.168.0.216" : {
+                            "NSExceptionAllowsInsecureHTTPLoads" : true,
+                            "NSExceptionMinimumTLSVersion" : "TLSv1.0"
+                        },
+                        "127.0.0.1" : {
+                            "NSExceptionAllowsInsecureHTTPLoads" : true,
+                            "NSExceptionMinimumTLSVersion" : "TLSv1.0"
+                        }
+                    }
+                }
             },
             /* SDK配置 */
             "sdkConfigs" : {
@@ -131,6 +145,15 @@
         "permission" : {
             "scope.userLocation" : {
                 "desc" : "您的位置信息将用于记录跑步轨迹和判断校园打卡点范围"
+            },
+            "scope.camera" : {
+                "desc" : "需要使用您的摄像头进行拍摄体测视频"
+            },
+            "scope.album" : {
+                "desc" : "需要访问您的相册以选择照片或视频"
+            },
+            "scope.writePhotosAlbum" : {
+                "desc" : "需要保存运动数据截图到相册"
             }
         },
         "requiredPrivateInfos" : [
@@ -138,7 +161,11 @@
             "onLocationChange",
             "startLocationUpdate",
             "startLocationUpdateBackground",
-            "chooseLocation"
+            "chooseLocation",
+            "chooseImage",
+            "chooseVideo",
+            "chooseMedia",
+            "startAccelerometer"
         ]
     },
     "mp-alipay" : {

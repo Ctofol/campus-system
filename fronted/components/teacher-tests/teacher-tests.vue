@@ -55,19 +55,17 @@
         <view class="student-live-grid">
           <view class="student-monitor-card" v-for="(stu, idx) in liveStudents" :key="idx">
             <view class="monitor-video-placeholder">
-              <text class="ai-overlay">AI Analyzing...</text>
-              <!-- Simulated AI Bounding Box -->
-              <view class="ai-bbox" :style="{borderColor: stu.isAbnormal ? '#ff6b6b' : '#0f0'}">
-                 <text class="bbox-label" :style="{background: stu.isAbnormal ? '#ff6b6b' : '#0f0'}">{{ stu.confidence }}%</text>
+              <video 
+                v-if="stu.videoUrl" 
+                :src="stu.videoUrl" 
+                class="monitor-video"
+                controls
+                :show-center-play-btn="true"
+              ></video>
+              <view v-else class="no-video">
+                <text class="no-video-text">暂无视频</text>
               </view>
-              <view class="pose-skeleton">
-                 <view class="bone head"></view>
-                 <view class="bone body"></view>
-                 <view class="bone arm-l"></view>
-                 <view class="bone arm-r"></view>
-                 <view class="bone leg-l"></view>
-                 <view class="bone leg-r"></view>
-              </view>
+              <text class="ai-overlay">AI 评分: {{ stu.confidence }}%</text>
               <text class="live-score">{{ stu.currentScore }}</text>
             </view>
             <view class="monitor-info">
@@ -76,6 +74,9 @@
               <text class="s-status warning" v-if="stu.isAbnormal">动作不标准</text>
               <text class="s-status good" v-else>动作标准</text>
             </view>
+          </view>
+          <view v-if="liveStudents.length === 0" class="empty-state">
+            <text class="empty-text">暂无正在进行的测试</text>
           </view>
         </view>
       </view>
@@ -206,6 +207,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { request } from '@/utils/request.js';
 
 const currentTab = ref('live'); // 'live' | 'analysis' | 'history' | 'exception'
 const timer = ref(null);
@@ -214,45 +216,84 @@ const statusBarHeight = ref(20);
 onMounted(() => {
   const info = uni.getSystemInfoSync();
   statusBarHeight.value = info.statusBarHeight || 20;
+  
+  // Load initial data
+  fetchLiveTests();
+  fetchTestStats();
+  fetchTestHistory();
 });
 
 // --- Live Data ---
-const liveStudents = ref([
-  { name: '张伟', action: '引体向上', currentScore: 8, isAbnormal: false, confidence: 98 },
-  { name: '李强', action: '仰卧起坐', currentScore: 24, isAbnormal: true, confidence: 85 },
-  { name: '王芳', action: '深蹲', currentScore: 15, isAbnormal: false, confidence: 96 },
-  { name: '赵杰', action: '俯卧撑', currentScore: 12, isAbnormal: false, confidence: 99 }
-]);
+const liveStudents = ref([]);
+
+const fetchLiveTests = async () => {
+  try {
+    const res = await request({
+      url: '/teacher/tests/live',
+      method: 'GET'
+    });
+    
+    console.log('Live tests response:', res);
+    
+    liveStudents.value = res.items.map(item => ({
+      id: item.id,
+      name: item.student_name,
+      action: item.action,
+      currentScore: item.score,
+      isAbnormal: item.is_abnormal,
+      confidence: item.confidence,
+      videoUrl: item.video_url,
+      startedAt: item.started_at
+    }));
+    
+    console.log('Mapped live students:', liveStudents.value);
+  } catch (e) {
+    console.error('Failed to fetch live tests:', e);
+    liveStudents.value = [];
+  }
+};
 
 // --- Analysis Data ---
-const classSkills = ref([
-  { name: '爆发力', val: 85, color: '#ff6b6b' },
-  { name: '耐力', val: 72, color: '#4dabf7' },
-  { name: '柔韧性', val: 68, color: '#ffd43b' },
-  { name: '协调性', val: 90, color: '#20C997' },
-  { name: '核心力量', val: 78, color: '#a55eea' }
-]);
+const classSkills = ref([]);
+const classComparison = ref([]);
+const passRates = ref([]);
 
-const classComparison = ref([
-  { label: '优秀', value: 15, percent: 30, color: '#20C997' },
-  { label: '良好', value: 45, percent: 60, color: '#4dabf7' },
-  { label: '及格', value: 30, percent: 45, color: '#ffd43b' },
-  { label: '不及格', value: 10, percent: 20, color: '#ff6b6b' }
-]);
-
-const passRates = ref([
-  { name: '1000米跑', rate: 85 },
-  { name: '引体向上', rate: 62 },
-  { name: '立定跳远', rate: 94 },
-  { name: '坐位体前屈', rate: 78 }
-]);
+const fetchTestStats = async () => {
+  try {
+    const res = await request({
+      url: '/teacher/tests/stats',
+      method: 'GET'
+    });
+    
+    classSkills.value = res.class_skills || [];
+    classComparison.value = res.class_comparison || [];
+    passRates.value = res.pass_rates || [];
+  } catch (e) {
+    console.error('Failed to fetch test stats:', e);
+  }
+};
 
 // --- History Data ---
-const historyList = ref([
-  { date: '2026-05-18', testName: '全员体能摸底测试', count: 128, passRate: 92 },
-  { date: '2026-05-10', testName: '力量专项考核', count: 45, passRate: 88 },
-  { date: '2026-04-28', testName: '耐力跑测试', count: 128, passRate: 76 }
-]);
+const historyList = ref([]);
+
+const fetchTestHistory = async () => {
+  try {
+    const res = await request({
+      url: '/teacher/tests/history',
+      method: 'GET'
+    });
+    
+    historyList.value = res.items.map(item => ({
+      date: item.date,
+      testName: item.test_name,
+      count: item.count,
+      passRate: item.pass_rate
+    }));
+  } catch (e) {
+    console.error('Failed to fetch test history:', e);
+    historyList.value = [];
+  }
+};
 
 // --- Exception Data ---
 const currentFilter = ref('all');
@@ -313,18 +354,23 @@ const handleAlert = (alert) => {
   });
 };
 
-// --- Live Simulation ---
-const simulateLiveUpdate = () => {
-  liveStudents.value.forEach(stu => {
-    if (Math.random() > 0.7) stu.currentScore += 1;
-    const change = Math.floor(Math.random() * 5) - 2;
-    stu.confidence = Math.min(100, Math.max(80, stu.confidence + change));
-  });
+// --- Live Simulation (removed, using real data) ---
+const refreshData = () => {
+  if (currentTab.value === 'live') {
+    fetchLiveTests();
+  } else if (currentTab.value === 'analysis') {
+    fetchTestStats();
+  } else if (currentTab.value === 'history') {
+    fetchTestHistory();
+  }
 };
 
 const startLiveUpdate = () => {
   if (timer.value) clearInterval(timer.value);
-  timer.value = setInterval(simulateLiveUpdate, 2000);
+  // Refresh every 30 seconds
+  timer.value = setInterval(() => {
+    fetchLiveTests();
+  }, 30000);
 };
 
 const stopLiveUpdate = () => {
@@ -335,6 +381,7 @@ const stopLiveUpdate = () => {
 };
 
 const onPageShow = () => {
+  refreshData();
   if (currentTab.value === 'live') {
     startLiveUpdate();
   }
@@ -343,10 +390,6 @@ const onPageShow = () => {
 const onPageHide = () => {
   stopLiveUpdate();
 };
-
-onMounted(() => {
-  // Initial fetch if needed
-});
 
 onUnmounted(() => {
   stopLiveUpdate();
@@ -476,17 +519,39 @@ defineExpose({
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
+}
+
+.monitor-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.no-video {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #2a2a2a;
+}
+
+.no-video-text {
+  color: #666;
+  font-size: 24rpx;
 }
 
 .ai-overlay {
   position: absolute;
   top: 10rpx;
   left: 10rpx;
-  color: #0f0;
+  color: #fff;
   font-size: 20rpx;
-  background: rgba(0,0,0,0.5);
-  padding: 2rpx 6rpx;
+  background: rgba(0,0,0,0.7);
+  padding: 4rpx 8rpx;
   border-radius: 4rpx;
+  z-index: 10;
 }
 
 .live-score {
@@ -496,33 +561,12 @@ defineExpose({
   color: #fff;
   font-weight: bold;
   font-size: 36rpx;
-}
-
-.pose-skeleton {
-  width: 60rpx;
-  height: 100rpx;
-  position: relative;
-  opacity: 0.8;
-}
-.bone { background: #0f0; position: absolute; }
-.bone.head { width: 16rpx; height: 16rpx; border-radius: 50%; top: 0; left: 22rpx; }
-.bone.body { width: 4rpx; height: 40rpx; top: 16rpx; left: 28rpx; }
-.bone.arm-l { width: 20rpx; height: 4rpx; top: 24rpx; left: 8rpx; transform: rotate(20deg); }
-.bone.arm-r { width: 20rpx; height: 4rpx; top: 24rpx; right: 8rpx; transform: rotate(-20deg); }
-.bone.leg-l { width: 4rpx; height: 30rpx; top: 56rpx; left: 24rpx; transform: rotate(10deg); }
-.bone.leg-r { width: 4rpx; height: 30rpx; top: 56rpx; left: 34rpx; transform: rotate(-10deg); }
-
-.ai-bbox {
-  position: absolute;
-  top: 20rpx; left: 20%; width: 60%; height: 80%;
-  border-width: 2rpx; border-style: dashed;
+  background: rgba(0,0,0,0.5);
+  padding: 4rpx 12rpx;
   border-radius: 8rpx;
+  z-index: 10;
 }
-.bbox-label {
-  position: absolute; top: -24rpx; left: -2rpx;
-  color: #000; font-size: 18rpx;
-  padding: 2rpx 6rpx; border-radius: 4rpx; font-weight: bold;
-}
+
 
 .monitor-info { padding: 16rpx; }
 .s-name { font-size: 28rpx; font-weight: bold; color: #333; }

@@ -1,0 +1,319 @@
+/* 跑团联盟样式 */
+
+.section-header-enhanced {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24rpx;
+}
+
+.section-title-main {
+  font-size: 36rpx;
+  font-weight: bold;
+  color: #333;
+}
+
+.section-actions {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.action-link {
+  font-size: 28rpx;
+  color: #00BFA5;
+  padding: 8rpx 16rpx;
+}
+
+.action-link:active {
+  text-decoration: underline;
+}
+
+.action-divider {
+  color: #ddd;
+  font-size: 24rpx;
+}
+
+/* 跑团核心数据卡片 */
+.run-group-card {
+  position: relative;
+  border-radius: 24rpx;
+  overflow: hidden;
+  margin-bottom: 32rpx;
+  box-shadow: 0 8rpx 24rpx rgba(0, 191, 165, 0.15);
+}
+
+.card-gradient-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, #121212 0%, #1E1E1E 100%);
+  border: 2rpx solid rgba(0, 191, 165, 0.3);
+}
+
+.card-content {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 32rpx;
+}
+
+.group-info {
+  flex: 1;
+}
+
+.group-header {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-bottom: 24rpx;
+}
+
+.group-name {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #fff;
+}
+
+.rank-badge {
+  background: linear-gradient(135deg, #FF6B35 0%, #FF8C42 100%);
+  padding: 6rpx 16rpx;
+  border-radius: 20rpx;
+}
+
+.rank-text {
+  font-size: 24rpx;
+  color: #fff;
+  font-weight: bold;
+}
+
+.group-stats {
+  display: flex;
+  gap: 48rpx;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.stat-value {
+  font-size: 36rpx;
+  font-weight: bold;
+  color: #00E676;
+  margin-bottom: 8rpx;
+}
+
+.stat-label {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.rank-action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8rpx;
+  padding: 16rpx;
+  background: rgba(255, 107, 53, 0.1);
+  border-radius: 16rpx;
+}
+
+.rank-action:active {
+  background: rgba(255, 107, 53, 0.2);
+}
+
+.rank-icon {
+  font-size: 48rpx;
+}
+
+.rank-label {
+  font-size: 24rpx;
+  color: #FF6B35;
+  font-weight: bold;
+}
+
+/* 未加入跑团提示 */
+.no-group-tip {
+  background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);
+  border-radius: 24rpx;
+  padding: 48rpx 32rpx;
+  text-align: center;
+  margin-bottom: 32rpx;
+}
+
+.tip-text {
+  font-size: 28rpx;
+  color: #666;
+  display: block;
+  margin-bottom: 32rpx;
+}
+
+.tip-actions {
+  display: flex;
+  gap: 24rpx;
+  justify-content: center;
+}
+
+.tip-btn {
+  flex: 1;
+  max-width: 240rpx;
+  height: 72rpx;
+  line-height: 72rpx;
+  border-radius: 36rpx;
+  font-size: 28rpx;
+  background: #fff;
+  color: #00BFA5;
+  border: 2rpx solid #00BFA5;
+}
+
+.tip-btn.primary {
+  background: #00BFA5;
+  color: #fff;
+  border: none;
+}
+
+.tip-btn:active {
+  opacity: 0.8;
+}
+
+/* 最新动态 */
+.activity-section {
+  margin-top: 32rpx;
+}
+
+.activity-header {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-bottom: 24rpx;
+}
+
+.header-decorator {
+  width: 8rpx;
+  height: 32rpx;
+  background: #00BFA5;
+  border-radius: 4rpx;
+}
+
+.activity-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333;
+}
+
+.activity-scroll {
+  white-space: nowrap;
+  padding-bottom: 16rpx;
+}
+
+.activity-card {
+  display: inline-block;
+  width: 440rpx;
+  background: #fff;
+  border: 2rpx solid #f0f0f0;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-right: 24rpx;
+  vertical-align: top;
+  transition: all 0.3s;
+}
+
+.activity-card:active {
+  transform: translateY(-4rpx);
+  box-shadow: 0 8rpx 16rpx rgba(0, 0, 0, 0.08);
+}
+
+.activity-status-badge {
+  display: inline-block;
+  padding: 8rpx 20rpx;
+  border-radius: 8rpx;
+  font-size: 24rpx;
+  margin-bottom: 16rpx;
+}
+
+.activity-status-badge.status-upcoming {
+  background: #00BFA5;
+  color: #fff;
+}
+
+.activity-status-badge.status-ongoing {
+  background: #FF9800;
+  color: #fff;
+}
+
+.activity-status-badge.status-finished {
+  background: #9E9E9E;
+  color: #fff;
+}
+
+.badge-text {
+  font-weight: bold;
+}
+
+.activity-name {
+  font-size: 28rpx;
+  font-weight: bold;
+  color: #333;
+  display: block;
+  margin-bottom: 16rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activity-time {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  margin-bottom: 16rpx;
+}
+
+.time-icon {
+  font-size: 24rpx;
+}
+
+.time-text {
+  font-size: 24rpx;
+  color: #666;
+}
+
+.activity-apply {
+  margin-top: 16rpx;
+}
+
+.apply-text {
+  font-size: 24rpx;
+  color: #999;
+  display: block;
+  margin-bottom: 12rpx;
+}
+
+.apply-progress {
+  width: 100%;
+  height: 8rpx;
+  background: #f0f0f0;
+  border-radius: 4rpx;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #00BFA5 0%, #00E676 100%);
+  border-radius: 4rpx;
+  transition: width 0.3s;
+}
+
+.no-activity {
+  text-align: center;
+  padding: 80rpx 0;
+}
+
+.no-activity-text {
+  font-size: 28rpx;
+  color: #999;
+}

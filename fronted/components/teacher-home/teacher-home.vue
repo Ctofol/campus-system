@@ -39,10 +39,15 @@
       <view class="section-card todo-section">
         <view class="section-header">
           <text class="section-title">今日待办</text>
-          <text class="section-more">全部 ></text>
+          <text class="section-more" @tap="goToTodoList">全部 ></text>
         </view>
         <view class="todo-list">
-          <view class="todo-item" v-for="(todo, idx) in todoList" :key="idx" @click="handleTodoClick(todo)">
+          <view 
+            class="todo-item" 
+            v-for="(todo, idx) in todoList" 
+            :key="idx" 
+            @tap="handleTodoClick(todo)"
+          >
             <view class="todo-check"></view>
             <view class="todo-content">
               <text class="todo-text">{{ todo.title }}: {{ todo.desc }}</text>
@@ -59,26 +64,26 @@
       <view class="section-card chart-section">
         <view class="section-header">
           <text class="section-title">学员体能概览</text>
-          <text class="section-more">更多 ></text>
+          <text class="section-more" @tap="goToStudentStats">更多 ></text>
         </view>
         <view class="overview-chart">
           <view class="chart-col">
             <view class="chart-ring ring-green">
-              <text class="ring-val">92%</text>
+              <text class="ring-val">{{ studentOverview.qualifiedRate }}%</text>
               <text class="ring-label">达标率</text>
             </view>
             <text class="chart-name">体能达标</text>
           </view>
           <view class="chart-col">
             <view class="chart-ring ring-blue">
-              <text class="ring-val">85%</text>
+              <text class="ring-val">{{ studentOverview.completionRate }}%</text>
               <text class="ring-label">完成率</text>
             </view>
             <text class="chart-name">本周任务</text>
           </view>
           <view class="chart-col">
             <view class="chart-ring ring-red">
-              <text class="ring-val">5'45"</text>
+              <text class="ring-val">{{ studentOverview.avgPace }}</text>
               <text class="ring-label">平均配速</text>
             </view>
             <text class="chart-name">跑步状态</text>
@@ -106,7 +111,12 @@
           </view>
         </view>
         <scroll-view scroll-x class="quick-task-scroll">
-          <view class="quick-task-item" v-for="(task, idx) in quickTasks" :key="idx" @click="handleQuickTask(task)">
+          <view 
+            class="quick-task-item" 
+            v-for="(task, idx) in quickTasks" 
+            :key="idx" 
+            @tap="handleQuickTask(task)"
+          >
             <view class="qt-header">
               <text class="qt-type" :class="task.typeClass">{{ task.type }}</text>
               <text class="qt-status">{{ task.status }}</text>
@@ -180,7 +190,29 @@ const goToApprove = () => {
   uni.navigateTo({ url: '/pages/teacher/approve/approve' });
 };
 
+// 跳转到待办事项列表
+const goToTodoList = () => {
+  uni.showToast({ 
+    title: '待办事项列表功能开发中', 
+    icon: 'none' 
+  });
+  // TODO: 创建待办事项列表页面后取消注释
+  // uni.navigateTo({ url: '/pages/teacher/todos/list' });
+};
+
+// 跳转到学员统计页面
+const goToStudentStats = () => {
+  uni.navigateTo({ url: '/pages/teacher/students/students' });
+};
+
 const todoList = ref([]);
+
+// 学员体能概览数据
+const studentOverview = ref({
+  qualifiedRate: 0,
+  completionRate: 0,
+  avgPace: '--'
+});
 
 const fetchTeacherStats = async () => {
   try {
@@ -195,6 +227,14 @@ const fetchTeacherStats = async () => {
       taskCount: res.stats.task_count,
       complianceRate: res.stats.compliance_rate
     };
+    
+    // 更新学员体能概览数据
+    studentOverview.value = {
+      qualifiedRate: res.stats.qualified_rate || 0,
+      completionRate: res.stats.completion_rate || 0,
+      avgPace: res.stats.avg_pace || '--'
+    };
+    
     todoList.value = res.todos || [];
   } catch (e) {
     if (!uni.getStorageSync('token')) return;
@@ -273,6 +313,7 @@ defineExpose({
       });
       if (res && res.items) {
         quickTasks.value = res.items.map(task => ({
+          id: task.id, // 添加任务ID
           title: task.title,
           type: task.type === 'run' ? '跑步' : '其他',
           typeClass: task.type === 'run' ? 'tag-green' : 'tag-blue',
@@ -330,9 +371,14 @@ const openTaskModal = () => {
 };
 
 const editTask = (task) => {
-  isEditing.value = true;
-  currentTask.value = { ...task, desc: '任务描述...' };
-  showTaskModal.value = true;
+  if (!task.id) {
+    uni.showToast({ title: '任务ID不存在', icon: 'none' });
+    return;
+  }
+  // 跳转到任务详情页面进行编辑
+  uni.navigateTo({
+    url: `/pages/teacher/tasks/detail?id=${task.id}`
+  });
 };
 
 const saveTask = () => {
@@ -347,14 +393,41 @@ const remindTask = (task) => {
 };
 
 const handleQuickTask = (task) => {
+  console.log('Quick task clicked:', task);
+  if (!task.id) {
+    uni.showToast({ title: '任务ID不存在', icon: 'none' });
+    return;
+  }
   uni.navigateTo({
-    url: `/pages/teacher/tasks/detail?id=999&title=${task.title}`
+    url: `/pages/teacher/tasks/detail?id=${task.id}`,
+    fail: (err) => {
+      console.error('Navigation failed:', err);
+      uni.showToast({ 
+        title: '页面跳转失败', 
+        icon: 'none' 
+      });
+    }
   });
 };
 
 const handleTodoClick = (todo) => {
+  console.log('Todo clicked:', todo);
   if (todo.path) {
-    uni.navigateTo({ url: todo.path });
+    uni.navigateTo({ 
+      url: todo.path,
+      fail: (err) => {
+        console.error('Navigation failed:', err);
+        uni.showToast({ 
+          title: '页面跳转失败', 
+          icon: 'none' 
+        });
+      }
+    });
+  } else {
+    uni.showToast({ 
+      title: '暂无详情页面', 
+      icon: 'none' 
+    });
   }
 };
 

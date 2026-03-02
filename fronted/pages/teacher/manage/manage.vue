@@ -56,33 +56,56 @@
       </view>
       <view class="stats-row">
         <view class="stat-item">
-          <text class="stat-val">128</text>
+          <text class="stat-val">{{ stats.studentCount }}</text>
           <text class="stat-label">总学员</text>
         </view>
         <view class="stat-item">
-          <text class="stat-val">92%</text>
+          <text class="stat-val">{{ stats.complianceRate }}%</text>
           <text class="stat-label">达标率</text>
         </view>
         <view class="stat-item">
-          <text class="stat-val">5</text>
+          <text class="stat-val">{{ stats.taskCount }}</text>
           <text class="stat-label">进行中任务</text>
         </view>
       </view>
     </view>
     
-    <view style="height: 120rpx;"></view>
-    <CustomTabBar current="/pages/teacher/manage/manage" />
+    <view style="height: 20rpx;"></view>
     </view>
   </view>
 </template>
 
 <script setup>
+import { ref } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
-import CustomTabBar from '@/components/CustomTabBar/CustomTabBar.vue';
+import { request } from '@/utils/request.js';
+
+const stats = ref({
+  studentCount: 0,
+  complianceRate: 0,
+  taskCount: 0
+});
+
+const loadStats = async () => {
+  try {
+    const res = await request({
+      url: '/teacher/stats',
+      method: 'GET'
+    });
+    stats.value = {
+      studentCount: res.student_count,
+      complianceRate: res.qualified_rate,  // 使用 qualified_rate 作为达标率
+      taskCount: res.task_count
+    };
+  } catch (e) {
+    console.error('Failed to load stats:', e);
+  }
+};
 
 onShow(() => {
   // 隐藏左上角 Home 按钮
   uni.hideHomeButton && uni.hideHomeButton();
+  loadStats();
 });
 
 const navTo = (url) => {

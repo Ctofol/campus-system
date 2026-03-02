@@ -81,6 +81,9 @@ class ActivityMetricsCreate(BaseModel):
     checkpoints: Optional[str] = None # JSON string of check-in data
     count: Optional[int] = None
     qualified: bool = False
+    video_url: Optional[str] = None  # 视频文件URL
+    score: Optional[int] = None  # AI评分（0-100）
+    score_detail: Optional[str] = None  # 评分详情（JSON字符串）
 
 class ActivityEvidenceCreate(BaseModel):
     evidence_type: str
@@ -268,6 +271,8 @@ class TeacherStatsOut(BaseModel):
     avg_pace: str
     task_count: int
     compliance_rate: int
+    qualified_rate: int  # 达标率（百分整数）
+    completion_rate: int  # 完成率（百分整数）
 
 class TodoItem(BaseModel):
     id: str
@@ -278,7 +283,191 @@ class TodoItem(BaseModel):
     path: str
     priority: str = 'normal'
 
+class WeeklyTrendItem(BaseModel):
+    day: str
+    value: int
+    
 class TeacherDashboardOut(BaseModel):
     stats: TeacherStatsOut
     todos: List[TodoItem]
 
+class ClassAnalysisOut(BaseModel):
+    class_id: int
+    class_name: str
+    student_count: int
+    avg_distance: float
+    avg_duration: int
+    completion_rate: float
+
+
+# Course Schemas (Phase 4.2 Enhanced)
+class CourseBase(BaseModel):
+    title: str
+    description: Optional[str] = None
+    cover_url: Optional[str] = None  # 修改为 cover_url
+    category: Optional[str] = None
+    is_public: bool = True
+
+class CourseCreate(CourseBase):
+    pass
+
+class CourseOut(CourseBase):
+    id: int
+    teacher_id: int
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+class CourseContentBase(BaseModel):
+    title: str
+    content_type: str
+    content_url: Optional[str] = None
+    duration: Optional[int] = None
+    order: int = 0
+
+class CourseContentCreate(CourseContentBase):
+    pass
+
+class CourseContentOut(CourseContentBase):
+    id: int
+    course_id: int
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+class EnrollmentCreate(BaseModel):
+    course_id: int
+
+class EnrollmentOut(BaseModel):
+    id: int
+    student_id: int
+    course_id: int
+    joined_at: datetime  # 修改为 joined_at 以匹配数据库
+    status: str
+    
+    class Config:
+        from_attributes = True
+
+class CourseProgressUpdate(BaseModel):
+    content_id: int
+    progress: float
+    last_position: Optional[int] = None
+
+class CourseProgressOut(BaseModel):
+    id: int
+    student_id: int
+    content_id: int
+    progress: float
+    completed: bool
+    last_position: int
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+class CourseDetailOut(CourseOut):
+    contents: List[CourseContentOut] = []
+    enrolled: bool = False  # 当前用户是否已选课
+    enrollment_count: int = 0  # 选课人数
+
+class CourseListResponse(BaseModel):
+    items: List[CourseOut]
+    total: int
+    page: int
+    size: int
+
+# Approval Schemas
+class ApprovalItemOut(BaseModel):
+    id: int
+    student_name: str
+    type: str
+    reason: str
+    created_at: str
+
+class ApprovalActionOut(BaseModel):
+    success: bool
+    message: str
+
+
+
+# Run Group Schemas
+class RunGroupBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    avatar: Optional[str] = None
+
+
+class RunGroupCreate(RunGroupBase):
+    pass
+
+
+class RunGroupOut(RunGroupBase):
+    id: int
+    creator_id: int
+    total_mileage: float
+    member_count: int
+    rank: Optional[int] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class RunGroupDetailOut(RunGroupOut):
+    month_activity_count: int = 0  # 本月活动数（动态计算）
+
+
+class RunGroupMemberOut(BaseModel):
+    id: int
+    user_id: int
+    user_name: str
+    role: str
+    total_mileage: float
+    joined_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class RunGroupActivityBase(BaseModel):
+    title: str
+    description: Optional[str] = None
+    activity_time: datetime
+    location: Optional[str] = None
+    distance: Optional[float] = None
+    total_quota: int = 100
+
+
+class RunGroupActivityCreate(RunGroupActivityBase):
+    group_id: int
+
+
+class RunGroupActivityOut(RunGroupActivityBase):
+    id: int
+    group_id: int
+    apply_count: int
+    status: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class RunGroupActivityListResponse(BaseModel):
+    items: List[RunGroupActivityOut]
+    total: int
+    page: int
+    size: int
+
+
+class RunGroupRankOut(BaseModel):
+    group_id: int
+    group_name: str
+    total_mileage: float
+    rank: int
+    member_count: int
+
+    class Config:
+        from_attributes = True
