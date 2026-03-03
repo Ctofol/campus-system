@@ -207,7 +207,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { request } from '@/utils/request.js';
+import { request, BASE_URL } from '@/utils/request.js';
 
 const currentTab = ref('live'); // 'live' | 'analysis' | 'history' | 'exception'
 const timer = ref(null);
@@ -242,7 +242,7 @@ const fetchLiveTests = async () => {
       currentScore: item.score,
       isAbnormal: item.is_abnormal,
       confidence: item.confidence,
-      videoUrl: item.video_url,
+      videoUrl: item.video_url ? `${BASE_URL}${item.video_url}` : null,
       startedAt: item.started_at
     }));
     

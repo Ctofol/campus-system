@@ -139,18 +139,24 @@ const loadMore = () => {
 
 const handleJoin = async (groupId) => {
   try {
+    console.log('尝试加入跑团:', groupId);
     const res = await joinRunGroup(groupId);
-    if (res.joinStatus) {
+    console.log('加入跑团响应:', res);
+    
+    if (res && res.joinStatus) {
       uni.showToast({ title: '加入成功', icon: 'success' });
       // 刷新页面或跳转到我的跑团
       setTimeout(() => {
         uni.navigateTo({ url: '/pages/run-group/my' });
       }, 1500);
     } else {
-      uni.showToast({ title: res.message, icon: 'none' });
+      const message = res?.message || '加入失败';
+      uni.showToast({ title: message, icon: 'none' });
     }
   } catch (e) {
-    uni.showToast({ title: '加入失败', icon: 'none' });
+    console.error('加入跑团失败:', e);
+    const errorMsg = e.message || e.detail || '加入失败，请重试';
+    uni.showToast({ title: errorMsg, icon: 'none' });
   }
 };
 

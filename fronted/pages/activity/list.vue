@@ -24,19 +24,74 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
+import { getRunGroupActivities } from '@/utils/request.js';
 
-const activities = ref([
-  { id: 1, name: '五四青年节环校跑', time: '5月4日 07:00', location: '南操场', status: '报名中', statusClass: 'status-active', joined: 128, image: '' },
-  { id: 2, name: '周末夜跑打卡赛', time: '本周六 19:00', location: '北田径场', status: '进行中', statusClass: 'status-ing', joined: 56, image: '' },
-  { id: 3, name: '警务技能交流会', time: '下周三 14:00', location: '体育馆', status: '预告', statusClass: 'status-future', joined: 30, image: '' }
-]);
+const activities = ref([]);
+const loading = ref(false);
+
+const loadActivities = async () => {
+  if (loading.value) return;
+  
+  loading.value = true;
+  
+  try {
+    const res = await getRunGroupActivities({
+      page: 1,
+      size: 50
+    });
+    
+    // 转换数据格式以适配模板
+    activities.value = res.items.map(item => ({
+      id: item.id,
+      name: item.title,
+      time: formatTime(item.activity_time),
+      location: item.location || '待定',
+      status: getStatusText(item.status),
+      statusClass: getStatusClass(item.status),
+      joined: item.apply_count,
+      image: item.cover_image || '/static/activity-placeholder.png'
+    }));
+  } catch (e) {
+    console.error('加载活动失败:', e);
+    uni.showToast({ title: '加载失败', icon: 'none' });
+  } finally {
+    loading.value = false;
+  }
+};
+
+const formatTime = (timeStr) => {
+  const date = new Date(timeStr);
+  return `${date.getMonth() + 1}月${date.getDate()}日 ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+};
+
+const getStatusText = (status) => {
+  const statusMap = {
+    'upcoming': '报名中',
+    'ongoing': '进行中',
+    'finished': '已结束'
+  };
+  return statusMap[status] || '报名中';
+};
+
+const getStatusClass = (status) => {
+  const classMap = {
+    'upcoming': 'status-active',
+    'ongoing': 'status-ing',
+    'finished': 'status-future'
+  };
+  return classMap[status] || 'status-active';
+};
 
 const goDetail = (item) => {
   uni.navigateTo({
-    url: `/pages/activity/detail?id=${item.id}&name=${item.name}`
+    url: `/pages/run-group/activity-detail?activityId=${item.id}`
   });
 };
+
+onMounted(() => {
+  loadActivities();
+});
 </script>
 
 <style scoped>

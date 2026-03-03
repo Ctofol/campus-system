@@ -8,22 +8,24 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - SQLALCHEMY_DATABASE_URL=postgresql://postgres:Chen20070509@db:5432/campus_db
+      - SQLALCHEMY_DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-your_password}@db:5432/${POSTGRES_DB:-campus_db}
       - TZ=Asia/Shanghai
     depends_on:
       - db
     restart: always
     networks:
       - campus-network
+    volumes:
+      - ./backend/uploads:/app/uploads
 
   # 数据库服务
   db:
     image: postgres:13
     container_name: campus-db
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=Chen20070509
-      - POSTGRES_DB=campus_db
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-your_password}
+      - POSTGRES_DB=${POSTGRES_DB:-campus_db}
       - TZ=Asia/Shanghai
     volumes:
       - postgres_data:/var/lib/postgresql/data

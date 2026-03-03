@@ -95,7 +95,7 @@
 <script setup>
 import { ref } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
-import { request } from '@/utils/request.js';
+import { request, BASE_URL } from '@/utils/request.js';
 
 const courseId = ref(null);
 const course = ref({
@@ -113,12 +113,11 @@ const userRole = ref('student');
 const userId = ref(0);
 const loading = ref(true);
 const enrolling = ref(false);
-const baseURL = 'http://127.0.0.1:8000';
 
 const getFullImageUrl = (url) => {
   if (!url) return '/static/course_default.jpg';
   if (url.startsWith('http')) return url;
-  return `${baseURL}${url}`;
+  return `${BASE_URL}${url}`;
 };
 
 const handleImageError = (e) => {
@@ -215,24 +214,25 @@ const handleEnroll = async () => {
     
     if (e.statusCode !== 400) {
       uni.showModal({
-      title: '加入失败',
-      content: errorMsg,
-      showCancel: false
-    });
+        title: '加入失败',
+        content: errorMsg,
+        showCancel: false
+      });
+    }
   } finally {
     enrolling.value = false;
   }
 };
 
 const playContent = (content) => {
-  uni.showToast({ 
-    title: '视频播放功能开发中', 
-    icon: 'none' 
+  if (!content.content_url) {
+    uni.showToast({ title: '暂无视频内容', icon: 'none' });
+    return;
+  }
+  
+  uni.navigateTo({
+    url: `/pages/courses/player?contentId=${content.id}&courseId=${courseId.value}`
   });
-  // TODO: 跳转到视频播放页面
-  // uni.navigateTo({
-  //   url: `/pages/courses/player?contentId=${content.id}`
-  // });
 };
 
 const manageContent = () => {

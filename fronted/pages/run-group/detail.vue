@@ -75,13 +75,15 @@
     
     <view class="bottom-bar" v-if="groupDetail">
       <button class="action-btn" @click="handleJoin" v-if="!isMember">加入跑团</button>
-      <button class="action-btn leave" @click="handleLeave" v-else-if="!isCreator">退出跑团</button>
+      <button class="action-btn primary" @click="goToCreateActivity" v-else-if="isCreator">发布活动</button>
+      <button class="action-btn leave" @click="handleLeave" v-else>退出跑团</button>
     </view>
   </view>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref } from 'vue';
+import { onLoad } from '@dcloudio/uni-app';
 import { getRunGroups, joinRunGroup, leaveRunGroup, getGroupMembers, getGroupActivities } from '@/utils/request.js';
 
 const groupId = ref(0);
@@ -92,34 +94,91 @@ const activities = ref([]);
 const isMember = ref(false);
 const isCreator = ref(false);
 
+// 获取URL参数
+onLoad((options) => {
+  if (options.groupId) {
+    groupId.value = parseInt(options.groupId);
+    loadDetail();
+    // 立即加载成员信息以判断用户身份
+    checkMemberStatus();
+  } else {
+    uni.showToast({ title: '参数错误', icon: 'none' });
+    setTimeout(() => {
+      uni.navigateBack();
+    }, 1500);
+  }
+});
+
+// 检查用户在跑团中的身份
+const checkMemberStatus = async () => {
+  try {
+    const userInfo = uni.getStorageSync('userInfo');
+    console.log('当前用户信息:', userInfo);
+    
+    if (!userInfo || !userInfo.userId) {
+      console.log('未找到用户信息或userId');
+      return;
+    }
+    
+    const res = await getGroupMembers(groupId.value, { page: 1, size: 100 });
+    console.log('成员列表响应:', res);
+    
+    // 后端返回的是数组，不是分页对象
+    if (Array.isArray(res)) {
+      members.value = res;
+      const currentMember = res.find(m => m.user_id === userInfo.userId);
+      console.log('找到的当前成员:', currentMember);
+      
+      if (currentMember) {
+        isMember.value = true;
+        isCreator.value = currentMember.role === 'creator';
+        console.log('用户身份:', { isMember: isMember.value, isCreator: isCreator.value, role: currentMember.role });
+      } else {
+        console.log('用户不是该跑团成员');
+      }
+    } else {
+      console.log('成员列表格式错误:', res);
+    }
+  } catch (e) {
+    console.error('检查成员身份失败:', e);
+  }
+};
+
 const loadDetail = async () => {
   try {
+    console.log('加载跑团详情, groupId:', groupId.value);
     const res = await getRunGroups({ page: 1, size: 100 });
-    groupDetail.value = res.find(g => g.id === groupId.value);
+    console.log('跑团列表:', res);
+    
+    if (res && res.items) {
+      // 如果返回的是分页数据
+      groupDetail.value = res.items.find(g => g.id === groupId.value);
+    } else if (Array.isArray(res)) {
+      // 如果返回的是数组
+      groupDetail.value = res.find(g => g.id === groupId.value);
+    }
+    
+    console.log('找到的跑团详情:', groupDetail.value);
+    
+    if (!groupDetail.value) {
+      uni.showToast({ title: '跑团不存在', icon: 'none' });
+      setTimeout(() => {
+        uni.navigateBack();
+      }, 1500);
+    }
   } catch (e) {
+    console.error('加载跑团详情失败:', e);
     uni.showToast({ title: '加载失败', icon: 'none' });
   }
 };
 
 const loadMembers = async () => {
   currentTab.value = 'members';
+  // 如果已经加载过成员列表，直接返回
   if (members.value.length > 0) return;
   
-  try {
-    const res = await getGroupMembers(groupId.value, { page: 1, size: 50 });
-    members.value = res;
-    
-    const userId = uni.getStorageSync('userInfo')?.id;
-    if (userId) {
-      const currentMember = res.find(m => m.user_id === userId);
-      if (currentMember) {
-        isMember.value = true;
-        isCreator.value = currentMember.role === 'creator';
-      }
-    }
-  } catch (e) {
-    uni.showToast({ title: '加载失败', icon: 'none' });
-  }
+  // 否则调用检查函数
+  await checkMemberStatus();
 };
 
 const loadActivities = async () => {
@@ -162,10 +221,16 @@ const handleLeave = async () => {
             uni.navigateBack();
           }, 1500);
         } catch (e) {
-          uni.showToast({ title: e.detail || '退出失败', icon: 'none' });
+          uni.showToast({ title: '退出失败', icon: 'none' });
         }
       }
     }
+  });
+};
+
+const goToCreateActivity = () => {
+  uni.navigateTo({ 
+    url: `/pages/run-group/create-activity?groupId=${groupId.value}` 
   });
 };
 
@@ -186,14 +251,6 @@ const formatTime = (timeStr) => {
 const goToActivity = (activityId) => {
   uni.navigateTo({ url: `/pages/run-group/activity-detail?activityId=${activityId}` });
 };
-
-onMounted(() => {
-  const pages = getCurrentPages();
-  const currentPage = pages[pages.length - 1];
-  groupId.value = parseInt(currentPage.options.groupId);
-  loadDetail();
-  loadMembers();
-});
 </script>
 
 <style scoped>
@@ -366,6 +423,10 @@ onMounted(() => {
   font-size: 30rpx;
   font-weight: bold;
   border: none;
+}
+
+.action-btn.primary {
+  background: linear-gradient(135deg, #4dabf7, #339af0);
 }
 
 .action-btn.leave {

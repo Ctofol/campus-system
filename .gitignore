@@ -46,6 +46,7 @@ yarn-error.log*
 .env
 .env.local
 .env.*.local
+!.env.production
 
 # Temporary files
 *.tmp
@@ -58,3 +59,14 @@ build/
 
 # Kiro AI assistant
 .kiro/
+
+# Duplicate project directory
+campus-system/
+
+# Test scripts (keep in repo for reference)
+# test_video_api.sh
+# test_video_api.bat
+# quick_deploy.sh
+
+# Login response temp file
+login_response.txt

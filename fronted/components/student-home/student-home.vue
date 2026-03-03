@@ -322,6 +322,7 @@ const onPageShow = () => {
   
   fetchTasks();
   fetchTodayStats();
+  loadRunGroupData(); // 每次显示页面时重新加载跑团数据
 };
 
 // Initial load
@@ -370,6 +371,10 @@ const startOutdoorRun = () => {
 };
 
 const startPhysicalTest = () => {
+  uni.navigateTo({ url: '/pages/test/test' });
+};
+
+const startAiTest = () => {
   uni.navigateTo({ url: '/pages/test/test' });
 };
 

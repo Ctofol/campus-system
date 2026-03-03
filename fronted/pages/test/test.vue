@@ -31,6 +31,7 @@
           <text class="upload-icon">📹</text>
           <text class="upload-text">点击上传测试视频</text>
           <text class="upload-hint">支持MP4格式，最大100MB</text>
+          <text class="upload-hint">AI将自动识别动作并计数</text>
         </view>
         
         <view v-else class="upload-preview">
@@ -53,25 +54,21 @@
         </view>
       </view>
       
-      <!-- 测试控制 -->
-      <view class="test-controls">
-        <view class="timer-display">
-          <text class="timer-label">测试用时</text>
-          <text class="timer-value">{{ formatTime(testDuration) }}</text>
-        </view>
-        
+      <!-- 提交按钮 -->
+      <view class="submit-section" v-if="uploadedFile">
         <button 
-          class="test-btn" 
-          :class="{ active: isTesting }"
-          @click="toggleTest"
+          class="submit-btn" 
+          @click="submitTest"
+          :disabled="isSubmitting"
         >
-          {{ isTesting ? '结束测试' : '开始测试' }}
+          {{ isSubmitting ? '提交中...' : '提交测试' }}
         </button>
+        <text class="submit-hint">提交后AI将分析视频并给出评分</text>
       </view>
       
       <!-- 测试结果 -->
       <view class="test-result" v-if="testResult">
-        <text class="result-title">测试结果</text>
+        <text class="result-title">AI评测结果</text>
         <view class="result-data">
           <text class="result-count">完成次数：{{ testResult.count }}</text>
           <text class="result-status" :class="{ qualified: testResult.qualified }">
@@ -108,12 +105,9 @@ const testTypes = [
   { name: '俯卧撑', type: 'push-up', desc: '动作标准：身体平直，胸部触地' }
 ];
 
-const isTesting = ref(false);
-const testDuration = ref(0);
 const testResult = ref(null);
 const uploadedFile = ref(null);
-
-let timer = null;
+const isSubmitting = ref(false);
 
 const goBack = () => {
   uni.navigateBack();
@@ -293,12 +287,16 @@ const validateAndUpload = async (filePath, fileType) => {
     // 上传文件
     const uploadResult = await uploadFile(filePath, fileType);
     
+    console.log('上传结果:', uploadResult);
+    
     uploadedFile.value = {
       url: uploadResult.url,
-      type: uploadResult.type,
+      type: fileType, // 使用传入的fileType而不是uploadResult.type
       size: uploadResult.size,
       originalName: uploadResult.original_filename
     };
+    
+    console.log('uploadedFile设置为:', uploadedFile.value);
     
     uni.hideLoading();
     uni.showToast({
@@ -316,77 +314,54 @@ const validateAndUpload = async (filePath, fileType) => {
   }
 };
 
-const toggleTest = () => {
-  if (isTesting.value) {
-    stopTest();
-  } else {
-    startTest();
+const submitTest = async () => {
+  if (!uploadedFile.value) {
+    uni.showToast({ title: '请先上传视频', icon: 'none' });
+    return;
   }
-};
-
-const startTest = () => {
-  isTesting.value = true;
-  testDuration.value = 0;
-  testResult.value = null;
   
-  timer = setInterval(() => {
-    testDuration.value++;
-  }, 1000);
-  
-  uni.showToast({ title: '测试开始', icon: 'none' });
-};
-
-const stopTest = async () => {
-  isTesting.value = false;
-  clearInterval(timer);
-  
-  // 模拟测试结果
-  const count = Math.floor(Math.random() * 20) + 5;
-  const qualified = count >= 10;
+  isSubmitting.value = true;
   
   // 准备活动数据
   const activityData = {
     type: 'test',
-    source: 'manual',
-    started_at: new Date(Date.now() - testDuration.value * 1000).toISOString(),
+    source: 'free',
+    started_at: new Date().toISOString(),
     ended_at: new Date().toISOString(),
     metrics: {
-      duration: testDuration.value,
-      count: count,
-      qualified: qualified,
-      video_url: uploadedFile.value ? uploadedFile.value.url : null
+      duration: 0, // 体测不需要时长，设为0
+      video_url: uploadedFile.value.url,
+      qualified: false, // 默认未达标，等AI评分
+      count: 0 // 默认0次，等AI评分
     },
     evidence: []
   };
   
   try {
-    // 提交活动数据
-    uni.showLoading({ title: '提交中...' });
+    console.log('提交数据:', JSON.stringify(activityData, null, 2));
+    uni.showLoading({ title: 'AI分析中...' });
     const result = await submitActivity(activityData);
     
+    console.log('提交结果:', result);
+    
+    // 显示AI评测结果
     testResult.value = {
-      count,
-      qualified,
-      duration: testDuration.value,
+      count: result.metrics?.count || 0,
+      qualified: result.metrics?.qualified || false,
       score: result.metrics?.score,
-      score_detail: result.metrics?.score_detail ? JSON.parse(result.metrics.score_detail) : null
+      score_detail: result.metrics?.score_detail
     };
     
     uni.hideLoading();
-    uni.showToast({ title: '测试结束，数据已提交', icon: 'success' });
+    uni.showToast({ title: 'AI评测完成', icon: 'success' });
     
   } catch (error) {
     uni.hideLoading();
     console.error('Submit error:', error);
-    
-    // 即使提交失败，也显示本地结果
-    testResult.value = {
-      count,
-      qualified,
-      duration: testDuration.value
-    };
-    
-    uni.showToast({ title: '测试结束，提交失败', icon: 'none' });
+    const errorMsg = error.message || error.detail || '提交失败，请重试';
+    uni.showToast({ title: errorMsg, icon: 'none' });
+  } finally {
+    isSubmitting.value = false;
   }
 };
 
@@ -535,6 +510,7 @@ onLoad(() => {
 .upload-hint {
   color: #999;
   font-size: 24rpx;
+  margin-top: 10rpx;
 }
 
 .upload-preview {
@@ -570,6 +546,34 @@ onLoad(() => {
   font-size: 24rpx;
 }
 
+.submit-section {
+  text-align: center;
+  margin-bottom: 40rpx;
+}
+
+.submit-btn {
+  width: 80%;
+  height: 100rpx;
+  background: #20C997;
+  color: #fff;
+  border-radius: 50rpx;
+  font-size: 32rpx;
+  font-weight: bold;
+  border: none;
+  margin-bottom: 20rpx;
+  
+  &:disabled {
+    background: #666;
+    opacity: 0.6;
+  }
+}
+
+.submit-hint {
+  display: block;
+  color: #999;
+  font-size: 24rpx;
+}
+
 .h5-placeholder {
   width: 100%;
   height: 100%;
@@ -594,45 +598,6 @@ onLoad(() => {
 .camera {
   width: 100%;
   height: 100%;
-}
-
-.test-controls {
-  text-align: center;
-  margin-bottom: 40rpx;
-}
-
-.timer-display {
-  margin-bottom: 30rpx;
-}
-
-.timer-label {
-  display: block;
-  color: #999;
-  font-size: 24rpx;
-  margin-bottom: 10rpx;
-}
-
-.timer-value {
-  display: block;
-  color: #fff;
-  font-size: 64rpx;
-  font-weight: bold;
-  font-family: 'Courier New', monospace;
-}
-
-.test-btn {
-  width: 80%;
-  height: 100rpx;
-  background: #20C997;
-  color: #fff;
-  border-radius: 50rpx;
-  font-size: 32rpx;
-  font-weight: bold;
-  border: none;
-  
-  &.active {
-    background: #ff6b6b;
-  }
 }
 
 .test-result {

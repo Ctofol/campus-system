@@ -64,7 +64,7 @@ class ActivityMetrics(Base):
     checkpoints = Column(String, nullable=True)  # 打卡记录 (JSON String)
     count = Column(Integer, nullable=True)  # 体测次数
     qualified = Column(Boolean, default=False)  # 是否达标
-    video_url = Column(String, nullable=True)  # 视频文件URL
+    video_url = Column(String, nullable=True, default=None)  # 视频文件URL
     score = Column(Integer, nullable=True)  # AI评分（0-100）
     score_detail = Column(String, nullable=True)  # 评分详情（JSON字符串）
 
@@ -235,6 +235,7 @@ class RunGroupActivity(Base):
     group_id = Column(Integer, ForeignKey("run_groups.id"))
     title = Column(String, nullable=False)
     description = Column(String, nullable=True)
+    cover_image = Column(String, nullable=True)  # 活动封面图片
     activity_time = Column(DateTime, nullable=False)
     location = Column(String, nullable=True)
     distance = Column(Float, nullable=True)  # 目标距离

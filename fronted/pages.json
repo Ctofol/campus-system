@@ -258,6 +258,12 @@
       }
     },
     {
+      "path": "pages/courses/player",
+      "style": {
+        "navigationBarTitleText": "视频播放"
+      }
+    },
+    {
       "path": "pages/courses/create",
       "style": {
         "navigationBarTitleText": "创建课程"
@@ -309,6 +315,12 @@
       "path": "pages/run-group/activity-create",
       "style": {
         "navigationBarTitleText": "发起活动"
+      }
+    },
+    {
+      "path": "pages/run-group/create-activity",
+      "style": {
+        "navigationBarTitleText": "发布活动"
       }
     },
     {
