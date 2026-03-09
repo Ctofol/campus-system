@@ -1,7 +1,9 @@
 # HBuilderX / Uni-app
 fronted/unpackage/*
 !fronted/unpackage/dist/
+fronted/unpackage/dist/*
 !fronted/unpackage/dist/build/
+fronted/unpackage/dist/build/*
 !fronted/unpackage/dist/build/web/
 .hbuilderx/
 fronted/.hbuilderx/
