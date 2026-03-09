@@ -302,7 +302,7 @@ defineExpose({
 });
 
 const gotoUserProfile = () => {
-  uni.showToast({ title: '编辑资料功能待开发', icon: 'none' });
+  uni.navigateTo({ url: '/pages/mine/edit-profile/edit-profile' });
 };
 
 const gotoHealthRequest = () => {

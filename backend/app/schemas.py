@@ -35,9 +35,16 @@ class UserProfile(BaseModel):
     student_id: Optional[str] = None
     group_name: Optional[str] = None
     health_status: str
+    signature: Optional[str] = None
+    avatar_url: Optional[str] = None
     
     class Config:
         from_attributes = True
+
+class UserProfileUpdate(BaseModel):
+    name: Optional[str] = None
+    signature: Optional[str] = None
+    avatar_url: Optional[str] = None
 
 class TokenData(BaseModel):
     phone: str | None = None
@@ -166,6 +173,7 @@ class TaskCreate(BaseModel):
     description: Optional[str] = None
     target_group: Optional[str] = "all"
     class_id: Optional[int] = None
+    video_url: Optional[str] = None  # 体测任务视频URL（第二阶段新增）
 
 class TaskOut(TaskCreate):
     id: int
@@ -200,6 +208,45 @@ class StudentCompletionStatus(BaseModel):
     status: str # 'completed', 'pending'
     completed_at: Optional[datetime] = None
     metric_value: Optional[str] = None # e.g. "2.5km" or "15 mins"
+    activity_id: Optional[int] = None  # 第三阶段新增：活动ID，用于打分
+    teacher_score: Optional[float] = None  # 第三阶段新增：教师打分
+
+# 第三阶段新增：教师打分相关schemas
+class TeacherScoreCreate(BaseModel):
+    activity_id: int
+    score: float  # 0-100
+    comment: Optional[str] = None
+
+class TeacherScoreUpdate(BaseModel):
+    score: float  # 0-100
+    comment: Optional[str] = None
+
+class TeacherScoreOut(BaseModel):
+    id: int
+    activity_id: int
+    student_id: int
+    student_name: str
+    teacher_score: Optional[float] = None
+    teacher_comment: Optional[str] = None
+    scored_at: Optional[datetime] = None
+    scored_by: Optional[int] = None
+    
+    class Config:
+        from_attributes = True
+
+class StudentScoreRecord(BaseModel):
+    task_id: int
+    task_title: str
+    activity_id: int
+    score: Optional[float] = None
+    comment: Optional[str] = None
+    scored_at: Optional[datetime] = None
+    
+class StudentScoreHistory(BaseModel):
+    student_id: int
+    student_name: str
+    regular_score: float  # 平时分
+    score_records: List[StudentScoreRecord]
 
 class TaskDetailStats(TaskOut):
     total_students: int
@@ -226,6 +273,7 @@ class CheckpointOut(CheckpointBase):
 class HealthRequestCreate(BaseModel):
     type: str  # 'leave' | 'injury'
     reason: str
+    attachments: Optional[List[str]] = []  # List of file URLs
 
 class HealthRequestOut(HealthRequestCreate):
     id: int

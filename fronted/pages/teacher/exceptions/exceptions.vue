@@ -71,89 +71,157 @@
 
 <script setup>
 import { ref, computed } from 'vue';
+import { onLoad, onShow } from '@dcloudio/uni-app';
+import { request } from '@/utils/request.js';
 
 const currentFilter = ref('all');
-
-const alerts = ref([
-  {
-    id: 1,
-    type: 'heart_rate',
-    typeText: '心率过高',
-    typeClass: 'tag-red',
-    studentName: '张三',
-    studentId: '2023001',
-    time: '10:30',
-    value: '195 bpm',
-    standard: '60-180 bpm',
-    description: '跑步过程中持续3分钟心率超过安全阈值，建议暂停训练并检查身体状况。',
-    level: 'urgent'
-  },
-  {
-    id: 2,
-    type: 'pace',
-    typeText: '配速异常',
-    typeClass: 'tag-orange',
-    studentName: '李四',
-    studentId: '2023002',
-    time: '10:45',
-    value: '2\'30"/km',
-    standard: '4\'00"-8\'00"/km',
-    description: '短时间内配速极快，疑似骑车或数据漂移。',
-    level: 'normal'
-  },
-  {
-    id: 3,
-    type: 'location',
-    typeText: '轨迹异常',
-    typeClass: 'tag-blue',
-    studentName: '王五',
-    studentId: '2023003',
-    time: '09:15',
-    value: '直线穿越',
-    standard: '连续轨迹',
-    description: '轨迹点之间距离过大，且无中间路径，疑似GPS信号丢失或作弊。',
-    level: 'normal'
-  }
-]);
+const alerts = ref([]);
+const loading = ref(false);
 
 const pendingCount = computed(() => alerts.value.length);
-const todayCount = ref(5); // Mock data
+const todayCount = ref(0);
 
 const filteredAlerts = computed(() => {
   if (currentFilter.value === 'all') return alerts.value;
   return alerts.value.filter(a => a.level === currentFilter.value);
 });
 
+// 从后端获取异常数据
+const fetchAbnormalData = async () => {
+  loading.value = true;
+  try {
+    const res = await request({
+      url: '/teacher/activities/abnormal',
+      method: 'GET'
+    });
+    
+    if (Array.isArray(res)) {
+      alerts.value = res.map(item => {
+        // 判断异常类型和级别
+        let typeText = '数据异常';
+        let typeClass = 'tag-orange';
+        let level = 'normal';
+        let description = item.reason || '运动数据存在异常';
+        
+        // 根据异常原因判断类型
+        if (item.reason && item.reason.includes('心率')) {
+          typeText = '心率异常';
+          typeClass = 'tag-red';
+          level = 'urgent';
+        } else if (item.reason && item.reason.includes('配速')) {
+          typeText = '配速异常';
+          typeClass = 'tag-orange';
+        } else if (item.reason && (item.reason.includes('轨迹') || item.reason.includes('GPS'))) {
+          typeText = '轨迹异常';
+          typeClass = 'tag-blue';
+        } else if (item.reason && item.reason.includes('距离')) {
+          typeText = '距离异常';
+          typeClass = 'tag-orange';
+        }
+        
+        return {
+          id: item.activity_id || item.id,
+          type: item.type || 'unknown',
+          typeText: typeText,
+          typeClass: typeClass,
+          studentName: item.student_name || '未知学生',
+          studentId: item.student_id || '--',
+          time: item.created_at ? new Date(item.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '--',
+          value: item.abnormal_value || '异常',
+          standard: item.standard_range || '--',
+          description: description,
+          level: level
+        };
+      });
+      
+      // 统计今日新增
+      const today = new Date().toDateString();
+      todayCount.value = alerts.value.filter(a => {
+        if (!a.time) return false;
+        const alertDate = new Date(a.time).toDateString();
+        return alertDate === today;
+      }).length;
+    }
+  } catch (e) {
+    console.error('Failed to fetch abnormal data:', e);
+    uni.showToast({ title: '加载失败', icon: 'none' });
+  } finally {
+    loading.value = false;
+  }
+};
+
+onShow(() => {
+  fetchAbnormalData();
+});
+
 const ignoreAlert = (id) => {
   uni.showModal({
     title: '确认忽略',
     content: '忽略后该异常将不再提醒，确认操作？',
-    success: (res) => {
+    success: async (res) => {
       if (res.confirm) {
-        alerts.value = alerts.value.filter(a => a.id !== id);
-        uni.showToast({ title: '已忽略', icon: 'none' });
+        try {
+          await request({
+            url: `/teacher/activities/${id}/ignore`,
+            method: 'POST'
+          });
+          alerts.value = alerts.value.filter(a => a.id !== id);
+          uni.showToast({ title: '已忽略', icon: 'success' });
+        } catch (e) {
+          console.error('Failed to ignore alert:', e);
+          uni.showToast({ title: '操作失败', icon: 'none' });
+        }
       }
     }
   });
 };
 
-const notifyStudent = (alert) => {
-  uni.showToast({
-    title: `已发送通知给 ${alert.studentName}`,
-    icon: 'success'
-  });
+const notifyStudent = async (alert) => {
+  try {
+    await request({
+      url: `/teacher/students/${alert.studentId}/notify`,
+      method: 'POST',
+      data: {
+        message: `您的运动数据存在异常：${alert.typeText}，请注意查看。`
+      }
+    });
+    uni.showToast({
+      title: `已发送通知给 ${alert.studentName}`,
+      icon: 'success'
+    });
+  } catch (e) {
+    console.error('Failed to notify student:', e);
+    uni.showToast({ title: '通知发送失败', icon: 'none' });
+  }
 };
 
 const handleAlert = (alert) => {
   uni.showActionSheet({
     itemList: ['标记为无效成绩', '标记为设备故障', '要求重测'],
-    success: (res) => {
-      const actions = ['无效成绩', '设备故障', '重测'];
-      uni.showToast({
-        title: `已标记为：${actions[res.tapIndex]}`,
-        icon: 'success'
-      });
-      alerts.value = alerts.value.filter(a => a.id !== alert.id);
+    success: async (res) => {
+      const actions = ['invalid', 'device_error', 'retest'];
+      const actionTexts = ['无效成绩', '设备故障', '重测'];
+      
+      try {
+        await request({
+          url: `/teacher/activities/${alert.id}/handle`,
+          method: 'POST',
+          data: {
+            action: actions[res.tapIndex],
+            reason: alert.description
+          }
+        });
+        
+        uni.showToast({
+          title: `已标记为：${actionTexts[res.tapIndex]}`,
+          icon: 'success'
+        });
+        
+        alerts.value = alerts.value.filter(a => a.id !== alert.id);
+      } catch (e) {
+        console.error('Failed to handle alert:', e);
+        uni.showToast({ title: '处理失败', icon: 'none' });
+      }
     }
   });
 };

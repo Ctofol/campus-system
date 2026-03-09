@@ -12,101 +12,60 @@
       <!-- 1. 教师头部信息 -->
       <view class="teacher-header">
         <view class="teacher-info">
-          <text class="teacher-name">{{ userInfo.name || '老师' }}</text>
-          <text class="teacher-title">体育教研室</text>
+          <text class="teacher-name">{{ userInfo.name || '拉克丝' }}</text>
+          <text class="teacher-title">体能教研室</text>
         </view>
         <view class="teacher-avatar">
-                <image class="avatar-img" src="/static/avatar.png" mode="aspectFill"></image>
-              </view>
-            </view>
-            <!-- 2. 核心数据概览 (替代原有功能卡片) -->
+          <image class="avatar-img" src="/static/avatar.png" mode="aspectFill"></image>
+        </view>
+      </view>
+      
+      <!-- 2. 核心数据概览 - 功能打通：重命名 + 跳转 -->
       <view class="dashboard-stats">
         <view class="stat-card">
           <text class="stat-num">{{ teacherStats.todayCheckin }}</text>
           <text class="stat-label">今日打卡</text>
         </view>
-        <view class="stat-card">
-          <text class="stat-num">{{ teacherStats.abnormalCount }}</text>
-          <text class="stat-label">异常待处理</text>
+        <view class="stat-card" @click="goToLeaveApproval">
+          <view class="badge-wrapper">
+            <text class="stat-num">{{ teacherStats.abnormalCount }}</text>
+            <view class="badge" v-if="teacherStats.abnormalCount > 0">{{ teacherStats.abnormalCount }}</view>
+          </view>
+          <text class="stat-label">请假待处理</text>
         </view>
-        <view class="stat-card" @click="goToApproval">
-          <text class="stat-num">{{ teacherStats.pendingApprovals }}</text>
-          <text class="stat-label">待审批</text>
-        </view>
-      </view>
-
-      <!-- 2.5 快捷操作卡片 (新增) -->
-      <view class="quick-action-card">
-        <!-- 顶部统计数据 -->
-        <view class="card-stats">
-          <view class="stat-item">
-            <text class="stat-value">{{ teacherStats.todayCheckin }}</text>
-            <text class="stat-desc">今日打卡(人)</text>
+        <view class="stat-card" @click="goToActivityApproval">
+          <view class="badge-wrapper">
+            <text class="stat-num">{{ teacherStats.pendingApprovals }}</text>
+            <view class="badge" v-if="teacherStats.pendingApprovals > 0">{{ teacherStats.pendingApprovals }}</view>
           </view>
-          <view class="stat-item">
-            <text class="stat-value">{{ teacherStats.taskCount }}</text>
-            <text class="stat-desc">进行中任务</text>
-          </view>
-          <view class="stat-item">
-            <text class="stat-value">{{ teacherStats.complianceRate }}%</text>
-            <text class="stat-desc">达标率</text>
-          </view>
-        </view>
-
-        <!-- 中间大按钮 -->
-        <view class="center-action" @click="handleQuickAction('manage')">
-          <view class="center-btn">
-            <text class="center-text">GO</text>
-            <text class="center-label">综合管理</text>
-          </view>
-        </view>
-
-        <!-- 底部操作按钮 -->
-        <view class="bottom-actions">
-          <view class="action-btn" @click="handleQuickAction('task')">
-            <text class="action-icon">📝</text>
-            <text class="action-text">发布任务</text>
-          </view>
-          <view class="action-btn" @click="handleQuickAction('course')">
-            <text class="action-icon">📚</text>
-            <text class="action-text">课程管理</text>
-          </view>
-          <view class="action-btn" @click="handleQuickAction('export')">
-            <text class="action-icon">📊</text>
-            <text class="action-text">数据导出</text>
-          </view>
+          <text class="stat-label">运动待审批</text>
         </view>
       </view>
 
-      <!-- 3. 待办事项 (新增) -->
+      <!-- 3. 待办事项 - 功能打通：全部按钮跳转 -->
       <view class="section-card todo-section">
         <view class="section-header">
           <text class="section-title">今日待办</text>
-          <text class="section-more">全部 ></text>
+          <text class="section-more" @click="goToTodos">全部 ></text>
         </view>
-        <view class="todo-list">
-          <view class="todo-item">
+        <view class="todo-list" v-if="todos.length > 0">
+          <view class="todo-item" v-for="(todo, index) in todos.slice(0, 3)" :key="index" @click="handleTodoClick(todo)">
             <view class="todo-check"></view>
             <view class="todo-content">
-              <text class="todo-text">审批 2023级体测成绩</text>
-              <text class="todo-time">截止: 17:00</text>
+              <text class="todo-text">{{ todo.title }}</text>
+              <text class="todo-time">{{ todo.desc }}</text>
             </view>
           </view>
-          <view class="todo-item">
-            <view class="todo-check"></view>
-            <view class="todo-content">
-              <text class="todo-text">发布本周训练计划</text>
-              <text class="todo-time">待处理</text>
-            </view>
-          </view>
+        </view>
+        <view class="empty-todo" v-else>
+          <text class="empty-text">暂无待办事项</text>
         </view>
       </view>
 
-      <!-- 3. 学员整体数据概览 (新增图表) -->
+      <!-- 4. 学员体能概览 -->
       <view class="section-card chart-section">
         <view class="section-header">
           <text class="section-title">学员体能概览</text>
-          <text class="section-more">更多 ></text>
         </view>
         <view class="overview-chart">
           <view class="chart-col">
@@ -132,7 +91,7 @@
           </view>
         </view>
         
-        <!-- 新增：本周运动趋势 -->
+        <!-- 本周运动趋势 -->
         <view class="trend-chart">
           <text class="trend-title">本周运动趋势</text>
           <view class="trend-bars">
@@ -144,37 +103,7 @@
         </view>
       </view>
 
-      <!-- 4. 任务管理快捷交互 (新增) -->
-      <view class="section-card task-widget">
-        <view class="section-header">
-          <text class="section-title">快速任务管理</text>
-          <view class="header-actions">
-             <text class="section-action" @click="openTaskModal">+ 发布</text>
-          </view>
-        </view>
-        <scroll-view scroll-x class="quick-task-scroll">
-          <view class="quick-task-item" v-for="(task, idx) in quickTasks" :key="idx" @click="handleQuickTask(task)">
-            <view class="qt-header">
-              <text class="qt-type" :class="task.typeClass">{{ task.type }}</text>
-              <text class="qt-status">{{ task.status }}</text>
-            </view>
-            <text class="qt-title">{{ task.title }}</text>
-            <view class="qt-progress">
-              <view class="qt-bar-bg">
-                <view class="qt-bar-fill" :style="{ width: task.percent + '%' }"></view>
-              </view>
-              <text class="qt-val">{{ task.percent }}%</text>
-            </view>
-            <!-- 快捷操作按钮 -->
-            <view class="qt-actions" @click.stop>
-               <text class="qt-btn" @click="editTask(task)">编辑</text>
-               <text class="qt-btn warn" v-if="task.percent < 100" @click="remindTask(task)">催办</text>
-            </view>
-          </view>
-        </scroll-view>
-      </view>
-
-      <!-- 5. 实时异常警报 (优化样式) -->
+      <!-- 5. 实时异常警报 -->
       <view class="section-card alert-widget" v-if="abnormalAlerts.length > 0">
         <view class="section-header">
           <text class="section-title red-dot">⚠️ 实时警报</text>
@@ -190,30 +119,8 @@
         </view>
       </view>
       
-      <!-- 快速发布任务弹窗 -->
-      <view class="modal-overlay" v-if="showTaskModal" @click="showTaskModal = false">
-        <view class="task-modal" @click.stop>
-          <view class="modal-header">
-            <text class="modal-title">{{ isEditing ? '编辑任务' : '快速发布任务' }}</text>
-            <text class="close-btn" @click="showTaskModal = false">×</text>
-          </view>
-          <view class="modal-body">
-            <input class="modal-input" placeholder="任务标题" v-model="currentTask.title" />
-            <view class="modal-types">
-              <view class="type-chip" :class="{active: currentTask.type === '考核'}" @click="currentTask.type = '考核'">考核</view>
-              <view class="type-chip" :class="{active: currentTask.type === '日常'}" @click="currentTask.type = '日常'">日常</view>
-              <view class="type-chip" :class="{active: currentTask.type === '训练'}" @click="currentTask.type = '训练'">训练</view>
-            </view>
-            <textarea class="modal-textarea" placeholder="任务描述" v-model="currentTask.desc" />
-          </view>
-          <button class="modal-submit-btn" @click="saveTask">确认发布</button>
-        </view>
-      </view>
-
-     <view style="height: 20rpx;"></view>
+      <view style="height: 20rpx;"></view>
     </view>
-    
-    <!-- 快速发布任务弹窗 -->
   </view>
 </template>
 
@@ -223,52 +130,54 @@ import { onShow } from '@dcloudio/uni-app';
 import { request } from '@/utils/request.js';
 
 const userInfo = ref({});
+const todos = ref([]);
 
-const goToApproval = () => {
-  uni.navigateTo({ url: '/pages/teacher/approval/index' });
+// 功能打通：跳转到请假审批列表
+const goToLeaveApproval = () => {
+  uni.navigateTo({ url: '/pages/teacher/approval/index?type=leave' });
 };
 
-const handleQuickAction = (action) => {
-  switch (action) {
-    case 'task':
-      uni.navigateTo({ url: '/pages/teacher/tasks/create' });
-      break;
-    case 'course':
-      uni.switchTab({ url: '/pages/tab/learn' });
-      break;
-    case 'manage':
-      uni.navigateTo({ url: '/pages/teacher/manage/manage' });
-      break;
-    case 'export':
-      uni.showToast({ title: '数据导出功能即将上线', icon: 'none' });
-      break;
-    default:
-      break;
+// 功能打通：跳转到运动审批列表
+const goToActivityApproval = () => {
+  uni.navigateTo({ url: '/pages/teacher/approval/index?type=activity' });
+};
+
+// 功能打通：跳转到待办事项列表
+const goToTodos = () => {
+  uni.navigateTo({ url: '/pages/teacher/todos/index' });
+};
+
+const handleTodoClick = (todo) => {
+  if (todo.path) {
+    uni.navigateTo({ url: todo.path });
   }
 };
 
 const fetchTeacherStats = async () => {
   try {
     const res = await request({
-      url: '/teacher/stats',
+      url: '/teacher/dashboard/stats',
       method: 'GET'
     });
-    // Map backend response to frontend state with fallback values
+    
     teacherStats.value = {
-      studentCount: res.student_count || 0,
-      todayCheckin: res.today_checkin || 0,
-      abnormalCount: res.abnormal_count || 0,
-      pendingApprovals: res.pending_approvals || 0,
-      avgPace: res.avg_pace || '--',
-      taskCount: res.task_count || 0,
-      complianceRate: res.compliance_rate || 0,
-      qualifiedRate: res.qualified_rate !== undefined ? res.qualified_rate : 0,
-      completionRate: res.completion_rate !== undefined ? res.completion_rate : 0
+      studentCount: res.stats?.student_count || 0,
+      todayCheckin: res.stats?.today_checkin || 0,
+      abnormalCount: res.stats?.abnormal_count || 0,
+      pendingApprovals: res.stats?.pending_approvals || 0,
+      avgPace: res.stats?.avg_pace || '--',
+      taskCount: res.stats?.task_count || 0,
+      complianceRate: res.stats?.compliance_rate || 0,
+      qualifiedRate: res.stats?.qualified_rate !== undefined ? res.stats.qualified_rate : 0,
+      completionRate: res.stats?.completion_rate !== undefined ? res.stats.completion_rate : 0
     };
+    
+    if (res.todos && Array.isArray(res.todos)) {
+      todos.value = res.todos;
+    }
   } catch (e) {
     if (!uni.getStorageSync('token')) return;
     console.error('Failed to fetch teacher stats:', e);
-    // Set default values on error
     teacherStats.value = {
       studentCount: 0,
       todayCheckin: 0,
@@ -280,6 +189,7 @@ const fetchTeacherStats = async () => {
       qualifiedRate: 0,
       completionRate: 0
     };
+    todos.value = [];
   }
 };
 
@@ -298,152 +208,73 @@ const fetchWeeklyTrend = async () => {
   }
 };
 
+const fetchAbnormalAlerts = async () => {
+  try {
+    const res = await request({
+      url: '/teacher/students/abnormal',
+      method: 'GET'
+    });
+    if (Array.isArray(res)) {
+      abnormalAlerts.value = res.map((s, index) => ({
+        id: s.id || index,
+        student: s.name,
+        type: s.health_status === 'injured' ? '受伤' : (s.health_status === 'leave' ? '请假' : '异常'),
+        value: s.abnormal_reason || '未说明',
+        time: s.updated_at ? new Date(s.updated_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '--:--'
+      })).slice(0, 5);
+    }
+  } catch (e) {
+    if (!uni.getStorageSync('token')) return;
+    console.error('Failed to fetch abnormal alerts:', e);
+  }
+};
+
 onShow(() => {
-  // 隐藏左上角 Home 按钮
   uni.hideHomeButton && uni.hideHomeButton();
 
   const storedUser = uni.getStorageSync('userInfo');
   if (storedUser) {
     try {
-        userInfo.value = typeof storedUser === 'string' ? JSON.parse(storedUser) : storedUser;
+      userInfo.value = typeof storedUser === 'string' ? JSON.parse(storedUser) : storedUser;
     } catch (e) {
-        console.error('JSON parse error', e);
-        userInfo.value = {};
+      console.error('JSON parse error', e);
+      userInfo.value = {};
     }
   }
   
-  // Check token before fetching
   if (!uni.getStorageSync('token')) {
-      uni.reLaunch({ url: '/pages/login/login' });
-      return;
+    uni.reLaunch({ url: '/pages/login/login' });
+    return;
   }
   
-  // Fetch real stats
   fetchTeacherStats();
   fetchWeeklyTrend();
-  fetchTasks();
   fetchAbnormalAlerts();
-  });
+});
 
-  // --- 教师端数据 ---
-  const teacherStats = ref({
-    studentCount: 0,
-    todayCheckin: 0,
-    abnormalCount: 0,
-    pendingApprovals: 0,
-    avgPace: "--",
-    taskCount: 0,
-    complianceRate: 0,
-    qualifiedRate: 0,
-    completionRate: 0
-  });
+const teacherStats = ref({
+  studentCount: 0,
+  todayCheckin: 0,
+  abnormalCount: 0,
+  pendingApprovals: 0,
+  avgPace: "--",
+  taskCount: 0,
+  complianceRate: 0,
+  qualifiedRate: 0,
+  completionRate: 0
+});
 
-  const weeklyTrend = ref([
-    { day: '周一', val: 0, color: 'linear-gradient(180deg, #e0e0e0 0%, #f5f5f5 100%)' },
-    { day: '周二', val: 0, color: 'linear-gradient(180deg, #e0e0e0 0%, #f5f5f5 100%)' },
-    { day: '周三', val: 0, color: 'linear-gradient(180deg, #e0e0e0 0%, #f5f5f5 100%)' },
-    { day: '周四', val: 0, color: 'linear-gradient(180deg, #20C997 0%, #63e6be 100%)' },
-    { day: '周五', val: 0, color: 'linear-gradient(180deg, #e0e0e0 0%, #f5f5f5 100%)' },
-    { day: '周六', val: 0, color: 'linear-gradient(180deg, #e0e0e0 0%, #f5f5f5 100%)' },
-    { day: '周日', val: 0, color: 'linear-gradient(180deg, #e0e0e0 0%, #f5f5f5 100%)' }
-  ]);
+const weeklyTrend = ref([
+  { day: '周一', val: 0, color: 'linear-gradient(180deg, #e0e0e0 0%, #f5f5f5 100%)' },
+  { day: '周二', val: 0, color: 'linear-gradient(180deg, #e0e0e0 0%, #f5f5f5 100%)' },
+  { day: '周三', val: 0, color: 'linear-gradient(180deg, #e0e0e0 0%, #f5f5f5 100%)' },
+  { day: '周四', val: 0, color: 'linear-gradient(180deg, #20C997 0%, #63e6be 100%)' },
+  { day: '周五', val: 0, color: 'linear-gradient(180deg, #e0e0e0 0%, #f5f5f5 100%)' },
+  { day: '周六', val: 0, color: 'linear-gradient(180deg, #e0e0e0 0%, #f5f5f5 100%)' },
+  { day: '周日', val: 0, color: 'linear-gradient(180deg, #e0e0e0 0%, #f5f5f5 100%)' }
+]);
 
-  const showTaskModal = ref(false);
-  const isEditing = ref(false);
-  const currentTask = ref({ title: '', type: '日常', desc: '' });
-
-  const quickTasks = ref([]);
-
-  const abnormalAlerts = ref([]);
-
-  const fetchTasks = async () => {
-    try {
-      const res = await request({
-        url: '/teacher/tasks',
-        method: 'GET',
-        data: { page: 1, size: 5 }
-      });
-      if (res && res.items) {
-        quickTasks.value = res.items.map(task => ({
-          id: task.id, // 保存真实的任务 ID
-          title: task.title,
-          type: task.type === 'run' ? '跑步' : '其他',
-          typeClass: task.type === 'run' ? 'tag-green' : 'tag-blue',
-          status: '进行中', // 简化处理
-          percent: task.total_students > 0 ? Math.round((task.completed_count / task.total_students) * 100) : 0
-        }));
-      }
-    } catch (e) {
-      if (!uni.getStorageSync('token')) return;
-      console.error('Failed to fetch tasks:', e);
-    }
-  };
-
-  const fetchAbnormalAlerts = async () => {
-    try {
-      const res = await request({
-        url: '/teacher/students/abnormal',
-        method: 'GET'
-      });
-      if (Array.isArray(res)) {
-        abnormalAlerts.value = res.map((s, index) => ({
-          id: s.id || index,
-          student: s.name,
-          type: s.health_status === 'injured' ? '受伤' : (s.health_status === 'leave' ? '请假' : '异常'),
-          value: s.abnormal_reason || '未说明',
-          time: s.updated_at ? new Date(s.updated_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '--:--'
-        })).slice(0, 5); // 只显示前5条
-      }
-    } catch (e) {
-      if (!uni.getStorageSync('token')) return;
-      console.error('Failed to fetch abnormal alerts:', e);
-    }
-  };
-
-const handleTeacherAction = (action) => {
-  if (action === '学员管理') {
-    uni.navigateTo({ url: '/pages/teacher/students/students' });
-  } else if (action === '任务管理') {
-    uni.navigateTo({ url: '/pages/teacher/tasks/tasks' });
-  } else if (action === '发布任务') {
-    uni.navigateTo({ url: '/pages/teacher/tasks/create' });
-  } else if (action === '异常处理') {
-    uni.navigateTo({ url: '/pages/teacher/exceptions/exceptions' });
-  } else if (action === '测试监控') {
-    uni.navigateTo({ url: '/pages/teacher/tests/tests' });
-  } else {
-    uni.showToast({ title: `${action}功能即将上线`, icon: 'none' });
-  }
-};
-
-const openTaskModal = () => {
-  isEditing.value = false;
-  currentTask.value = { title: '', type: '日常', desc: '' };
-  showTaskModal.value = true;
-};
-
-const editTask = (task) => {
-  isEditing.value = true;
-  currentTask.value = { ...task, desc: '任务描述...' };
-  showTaskModal.value = true;
-};
-
-const saveTask = () => {
-  if (!currentTask.value.title) return uni.showToast({ title: '请输入标题', icon: 'none' });
-  uni.showToast({ title: isEditing.value ? '修改成功' : '发布成功', icon: 'success' });
-  showTaskModal.value = false;
-  // In real app, update list
-};
-
-const remindTask = (task) => {
-  uni.showToast({ title: `已催办任务: ${task.title}`, icon: 'none' });
-};
-
-const handleQuickTask = (task) => {
-  uni.navigateTo({
-    url: `/pages/teacher/tasks/detail?id=${task.id}`
-  });
-};
+const abnormalAlerts = ref([]);
 
 const handleResolveAlert = (index) => {
   uni.showActionSheet({
@@ -484,7 +315,7 @@ const handleResolveAlert = (index) => {
   width: 100%;
 }
 .nav-content {
-  height: 44px; /* 标准导航栏高度 */
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -543,7 +374,7 @@ const handleResolveAlert = (index) => {
 }
 .avatar-img { width: 100%; height: 100%; border-radius: 50%; }
 
-/* Dashboard Stats */
+/* Dashboard Stats - 功能打通：可点击 */
 .dashboard-stats {
   display: flex;
   justify-content: space-between;
@@ -568,6 +399,25 @@ const handleResolveAlert = (index) => {
 .stat-card:active {
   transform: translateY(4rpx);
 }
+.badge-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.badge {
+  position: absolute;
+  top: -10rpx;
+  right: -20rpx;
+  background: #ff4d4f;
+  color: #fff;
+  font-size: 20rpx;
+  padding: 4rpx 10rpx;
+  border-radius: 20rpx;
+  min-width: 32rpx;
+  text-align: center;
+  font-weight: bold;
+}
 .stat-num {
   font-size: 44rpx;
   font-weight: bold;
@@ -578,145 +428,6 @@ const handleResolveAlert = (index) => {
 .stat-label {
   font-size: 24rpx;
   color: #888;
-}
-
-/* Quick Action Card */
-.quick-action-card {
-  background: linear-gradient(135deg, #20C997 0%, #17a2b8 100%);
-  border-radius: 40rpx;
-  margin: 0 30rpx 40rpx;
-  padding: 50rpx 40rpx;
-  box-shadow: 0 10rpx 40rpx rgba(32, 201, 151, 0.3);
-  position: relative;
-  overflow: hidden;
-}
-
-.quick-action-card::before {
-  content: '';
-  position: absolute;
-  top: -100rpx;
-  right: -100rpx;
-  width: 300rpx;
-  height: 300rpx;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 50%;
-}
-
-.quick-action-card::after {
-  content: '';
-  position: absolute;
-  bottom: -80rpx;
-  left: -80rpx;
-  width: 250rpx;
-  height: 250rpx;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 50%;
-}
-
-/* Card Stats */
-.card-stats {
-  display: flex;
-  justify-content: space-around;
-  margin-bottom: 50rpx;
-  position: relative;
-  z-index: 1;
-}
-
-.stat-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.stat-value {
-  font-size: 48rpx;
-  font-weight: bold;
-  color: #fff;
-  margin-bottom: 8rpx;
-  font-family: DINAlternate-Bold, sans-serif;
-  text-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.1);
-}
-
-.stat-desc {
-  font-size: 24rpx;
-  color: rgba(255, 255, 255, 0.9);
-}
-
-/* Center Action Button */
-.center-action {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 50rpx;
-  position: relative;
-  z-index: 1;
-}
-
-.center-btn {
-  width: 200rpx;
-  height: 200rpx;
-  background: #fff;
-  border-radius: 50%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 10rpx 30rpx rgba(0, 0, 0, 0.15);
-  transition: transform 0.2s ease;
-}
-
-.center-btn:active {
-  transform: scale(0.95);
-}
-
-.center-text {
-  font-size: 56rpx;
-  font-weight: bold;
-  color: #20C997;
-  font-family: Arial, sans-serif;
-  letter-spacing: 2rpx;
-}
-
-.center-label {
-  font-size: 26rpx;
-  color: #666;
-  margin-top: 8rpx;
-}
-
-/* Bottom Actions */
-.bottom-actions {
-  display: flex;
-  justify-content: space-around;
-  position: relative;
-  z-index: 1;
-}
-
-.action-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.25);
-  backdrop-filter: blur(10px);
-  border-radius: 30rpx;
-  padding: 24rpx 32rpx;
-  min-width: 160rpx;
-  transition: all 0.2s ease;
-}
-
-.action-btn:active {
-  background: rgba(255, 255, 255, 0.35);
-  transform: translateY(2rpx);
-}
-
-.action-icon {
-  font-size: 40rpx;
-  margin-bottom: 8rpx;
-}
-
-.action-text {
-  font-size: 24rpx;
-  color: #fff;
-  font-weight: 500;
 }
 
 /* Todo List */
@@ -746,18 +457,6 @@ const handleResolveAlert = (index) => {
   box-sizing: border-box;
   position: relative;
 }
-/* Optional: Add a checkmark if needed in future */
-/* .todo-check::after {
-  content: '';
-  position: absolute;
-  top: 6rpx;
-  left: 6rpx;
-  width: 18rpx;
-  height: 18rpx;
-  background: #20C997;
-  border-radius: 50%;
-} */
-
 .todo-content {
   display: flex;
   flex-direction: column;
@@ -773,6 +472,16 @@ const handleResolveAlert = (index) => {
   color: #999;
 }
 
+.empty-todo {
+  text-align: center;
+  padding: 60rpx 0;
+}
+
+.empty-text {
+  font-size: 26rpx;
+  color: #999;
+}
+
 .section-card {
   background: #fff;
   border-radius: 24rpx;
@@ -783,7 +492,7 @@ const handleResolveAlert = (index) => {
 
 .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30rpx; }
 .section-title { font-size: 34rpx; font-weight: bold; color: #333; }
-.section-more, .section-action { font-size: 26rpx; color: #20C997; padding: 10rpx 0; }
+.section-more { font-size: 26rpx; color: #20C997; padding: 10rpx 0; }
 .red-dot { color: #ff6b6b; }
 
 .overview-chart { display: flex; justify-content: space-around; }
@@ -806,54 +515,6 @@ const handleResolveAlert = (index) => {
 .ring-val { font-size: 32rpx; font-weight: bold; color: #333; font-family: DINAlternate-Bold, sans-serif; }
 .ring-label { font-size: 20rpx; color: #999; margin-top: 4rpx; }
 .chart-name { font-size: 26rpx; color: #666; font-weight: 500; }
-
-.quick-task-scroll { white-space: nowrap; width: 100%; }
-.quick-task-item { 
-  display: inline-block; 
-  width: 280rpx; 
-  background: #f8f9fa; 
-  border-radius: 16rpx; 
-  padding: 24rpx; 
-  margin-right: 20rpx; 
-  vertical-align: top; 
-  border: 1px solid #f0f0f0;
-  box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.02);
-}
-.qt-header { display: flex; justify-content: space-between; margin-bottom: 16rpx; }
-
-.qt-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 16rpx;
-  margin-top: 20rpx;
-  border-top: 1px solid #eee;
-  padding-top: 16rpx;
-}
-
-.qt-btn {
-  font-size: 22rpx;
-  color: #666;
-  padding: 8rpx 20rpx;
-  border: 1px solid #e0e0e0;
-  border-radius: 24rpx;
-  background: #fff;
-}
-
-.qt-btn.warn {
-  color: #ff6b6b;
-  border-color: #ff6b6b;
-}
-
-.qt-type { font-size: 20rpx; padding: 2rpx 8rpx; border-radius: 6rpx; color: #fff; }
-.tag-red { background: #ff6b6b; }
-.tag-green { background: #20C997; }
-.tag-blue { background: #4dabf7; }
-.qt-status { font-size: 20rpx; color: #999; }
-.qt-title { font-size: 26rpx; font-weight: bold; color: #333; display: block; margin-bottom: 16rpx; white-space: normal; height: 72rpx; line-height: 36rpx; overflow: hidden; }
-.qt-progress { display: flex; align-items: center; }
-.qt-bar-bg { flex: 1; height: 8rpx; background: #eee; border-radius: 4rpx; overflow: hidden; margin-right: 10rpx; }
-.qt-bar-fill { height: 100%; background: #20C997; }
-.qt-val { font-size: 20rpx; color: #666; }
 
 /* Trend Chart */
 .trend-chart {
@@ -952,17 +613,4 @@ const handleResolveAlert = (index) => {
   box-shadow: 0 4rpx 10rpx rgba(255, 107, 107, 0.3);
 }
 .feed-btn:active { opacity: 0.9; transform: translateY(2rpx); }
-
-/* Modal */
-.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; justify-content: center; align-items: center; }
-.task-modal { width: 600rpx; background: #fff; border-radius: 20rpx; padding: 30rpx; }
-.modal-header { display: flex; justify-content: space-between; margin-bottom: 30rpx; }
-.modal-title { font-size: 32rpx; font-weight: bold; }
-.close-btn { font-size: 40rpx; color: #999; line-height: 1; }
-.modal-input { background: #f5f7fa; height: 80rpx; padding: 0 20rpx; border-radius: 10rpx; margin-bottom: 20rpx; font-size: 28rpx; }
-.modal-types { display: flex; gap: 20rpx; margin-bottom: 20rpx; }
-.type-chip { padding: 10rpx 30rpx; background: #f5f7fa; border-radius: 30rpx; font-size: 24rpx; color: #666; }
-.type-chip.active { background: #20C997; color: #fff; }
-.modal-textarea { width: 100%; height: 160rpx; background: #f5f7fa; padding: 20rpx; border-radius: 10rpx; font-size: 28rpx; box-sizing: border-box; margin-bottom: 30rpx; }
-.modal-submit-btn { background: #20C997; color: #fff; border-radius: 40rpx; font-size: 30rpx; }
 </style>

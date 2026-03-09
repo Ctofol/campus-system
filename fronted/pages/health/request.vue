@@ -39,6 +39,24 @@
         <text class="word-count">{{formData.reason.length}}/200</text>
       </view>
       
+      <view class="form-item">
+        <text class="label">附件上传（选填）</text>
+        <text class="label-tip">可上传请假证明、病历单等图片</text>
+        <view class="upload-area">
+          <view class="image-list">
+            <view class="image-item" v-for="(img, index) in uploadedImages" :key="index">
+              <image :src="img" mode="aspectFill" class="preview-image" @click="previewImage(index)" />
+              <view class="delete-btn" @click="deleteImage(index)">×</view>
+            </view>
+            <view class="upload-btn" @click="chooseImage" v-if="uploadedImages.length < 3">
+              <text class="upload-icon">+</text>
+              <text class="upload-text">上传图片</text>
+            </view>
+          </view>
+          <text class="upload-tip">最多上传3张图片</text>
+        </view>
+      </view>
+      
       <button 
         class="submit-btn" 
         :disabled="submitting" 
@@ -62,6 +80,16 @@
             </text>
           </view>
           <text class="item-reason">{{ item.reason }}</text>
+          <view class="item-attachments" v-if="item.attachments && item.attachments.length > 0">
+            <image 
+              v-for="(img, idx) in item.attachments" 
+              :key="idx" 
+              :src="img" 
+              mode="aspectFill" 
+              class="attachment-thumb"
+              @click="previewHistoryImage(item.attachments, idx)"
+            />
+          </view>
           <text class="item-time">{{ formatDate(item.created_at) }}</text>
         </view>
         <view class="empty-tip" v-if="history.length === 0">
@@ -75,23 +103,96 @@
 <script setup>
 import { ref } from 'vue';
 import { onLoad, onShow } from '@dcloudio/uni-app';
-import { request } from '@/utils/request.js';
+import { request, BASE_URL } from '@/utils/request.js';
 
 const submitting = ref(false);
 const formData = ref({
   type: 'leave',
   reason: ''
 });
+const uploadedImages = ref([]);
 const history = ref([]);
 
 const loadHistory = async () => {
   try {
     const res = await request('/student/health/requests');
-    history.value = res;
+    // API now returns attachments as array directly
+    history.value = res.map(item => ({
+      ...item,
+      attachments: item.attachments || []
+    }));
   } catch (e) {
     console.error(e);
-    // uni.showToast({ title: '加载记录失败', icon: 'none' });
   }
+};
+
+const chooseImage = () => {
+  uni.chooseImage({
+    count: 3 - uploadedImages.value.length,
+    sizeType: ['compressed'],
+    sourceType: ['album', 'camera'],
+    success: async (res) => {
+      const tempFilePaths = res.tempFilePaths;
+      
+      // Show loading
+      uni.showLoading({ title: '上传中...' });
+      
+      try {
+        for (const filePath of tempFilePaths) {
+          const uploadRes = await uploadImage(filePath);
+          if (uploadRes) {
+            uploadedImages.value.push(uploadRes);
+          }
+        }
+      } catch (e) {
+        uni.showToast({ title: '上传失败', icon: 'none' });
+      } finally {
+        uni.hideLoading();
+      }
+    }
+  });
+};
+
+const uploadImage = (filePath) => {
+  return new Promise((resolve, reject) => {
+    const token = uni.getStorageSync('token');
+    
+    uni.uploadFile({
+      url: `${BASE_URL}/upload`,
+      filePath: filePath,
+      name: 'file',
+      header: {
+        'Authorization': `Bearer ${token}`
+      },
+      success: (res) => {
+        if (res.statusCode === 200) {
+          const data = JSON.parse(res.data);
+          resolve(data.url);
+        } else {
+          reject(new Error('Upload failed'));
+        }
+      },
+      fail: reject
+    });
+  });
+};
+
+const deleteImage = (index) => {
+  uploadedImages.value.splice(index, 1);
+};
+
+const previewImage = (index) => {
+  uni.previewImage({
+    urls: uploadedImages.value,
+    current: index
+  });
+};
+
+const previewHistoryImage = (images, index) => {
+  uni.previewImage({
+    urls: images,
+    current: index
+  });
 };
 
 const submitRequest = async () => {
@@ -105,12 +206,14 @@ const submitRequest = async () => {
       method: 'POST',
       data: {
         type: formData.value.type,
-        reason: formData.value.reason
+        reason: formData.value.reason,
+        attachments: uploadedImages.value
       }
     });
     
     uni.showToast({ title: '提交成功', icon: 'success' });
     formData.value.reason = '';
+    uploadedImages.value = [];
     
     // 刷新列表
     await loadHistory();
@@ -183,6 +286,13 @@ onShow(() => {
     margin-bottom: 16rpx;
     display: block;
     font-weight: 500;
+  }
+  
+  .label-tip {
+    font-size: 24rpx;
+    color: #999;
+    margin-bottom: 12rpx;
+    display: block;
   }
 }
 
@@ -306,5 +416,83 @@ onShow(() => {
   color: #999;
   padding: 40rpx;
   font-size: 26rpx;
+}
+
+.upload-area {
+  .image-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20rpx;
+  }
+  
+  .image-item {
+    position: relative;
+    width: 200rpx;
+    height: 200rpx;
+    border-radius: 12rpx;
+    overflow: hidden;
+    
+    .preview-image {
+      width: 100%;
+      height: 100%;
+    }
+    
+    .delete-btn {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 50rpx;
+      height: 50rpx;
+      background: rgba(0, 0, 0, 0.6);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 40rpx;
+      line-height: 1;
+    }
+  }
+  
+  .upload-btn {
+    width: 200rpx;
+    height: 200rpx;
+    border: 2rpx dashed #ddd;
+    border-radius: 12rpx;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #fafafa;
+    
+    .upload-icon {
+      font-size: 60rpx;
+      color: #999;
+      margin-bottom: 10rpx;
+    }
+    
+    .upload-text {
+      font-size: 24rpx;
+      color: #999;
+    }
+  }
+  
+  .upload-tip {
+    font-size: 22rpx;
+    color: #999;
+    margin-top: 12rpx;
+    display: block;
+  }
+}
+
+.item-attachments {
+  display: flex;
+  gap: 10rpx;
+  margin: 12rpx 0;
+  
+  .attachment-thumb {
+    width: 120rpx;
+    height: 120rpx;
+    border-radius: 8rpx;
+  }
 }
 </style>

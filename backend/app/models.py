@@ -17,6 +17,9 @@ class User(Base):
     health_status = Column(String, default="normal") # normal, leave, injured
     abnormal_reason = Column(String, nullable=True)
     group_name = Column(String, nullable=True)
+    signature = Column(String, nullable=True)  # 个性签名
+    avatar_url = Column(String, nullable=True)  # 头像URL
+    regular_score = Column(Float, default=0.0)  # 平时分（第三阶段新增）
 
     student_class = relationship("Class", back_populates="students", foreign_keys=[class_id])
     health_requests = relationship("HealthRequest", back_populates="student")
@@ -67,8 +70,13 @@ class ActivityMetrics(Base):
     video_url = Column(String, nullable=True, default=None)  # 视频文件URL
     score = Column(Integer, nullable=True)  # AI评分（0-100）
     score_detail = Column(String, nullable=True)  # 评分详情（JSON字符串）
+    teacher_score = Column(Float, nullable=True)  # 教师打分（第三阶段新增）
+    teacher_comment = Column(String, nullable=True)  # 教师评语（第三阶段新增）
+    scored_at = Column(DateTime, nullable=True)  # 打分时间（第三阶段新增）
+    scored_by = Column(Integer, ForeignKey("users.id"), nullable=True)  # 打分教师ID（第三阶段新增）
 
     activity = relationship("Activity", back_populates="metrics")
+    scorer = relationship("User", foreign_keys=[scored_by])  # 打分教师
 
 class Checkpoint(Base):
     __tablename__ = "checkpoints"
@@ -105,6 +113,7 @@ class Task(Base):
     class_id = Column(Integer, ForeignKey("classes.id"), nullable=True)
     created_by = Column(Integer, ForeignKey("users.id"))  # teacher_id
     created_at = Column(DateTime, default=datetime.utcnow)
+    video_url = Column(String, nullable=True)  # 体测任务视频URL（第二阶段新增）
 
     creator = relationship("User")
     target_class = relationship("Class")
@@ -128,6 +137,7 @@ class HealthRequest(Base):
     student_id = Column(Integer, ForeignKey("users.id"))
     type = Column(String, nullable=False)  # 'leave' | 'injury'
     reason = Column(String, nullable=True)
+    attachments = Column(String, nullable=True)  # JSON array of file URLs
     status = Column(String, default="pending")  # 'pending' | 'approved' | 'rejected'
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

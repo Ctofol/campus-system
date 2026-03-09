@@ -154,9 +154,39 @@
       }
     },
     {
+      "path": "pages/teacher/tasks/score",
+      "style": {
+        "navigationBarTitleText": "任务打分"
+      }
+    },
+    {
       "path": "pages/teacher/exceptions/exceptions",
       "style": {
         "navigationBarTitleText": "异常处理"
+      }
+    },
+    {
+      "path": "pages/teacher/profile/edit",
+      "style": {
+        "navigationBarTitleText": "个人信息设置"
+      }
+    },
+    {
+      "path": "pages/teacher/security/security",
+      "style": {
+        "navigationBarTitleText": "账号安全"
+      }
+    },
+    {
+      "path": "pages/teacher/security/change-password",
+      "style": {
+        "navigationBarTitleText": "修改密码"
+      }
+    },
+    {
+      "path": "pages/teacher/notifications/list",
+      "style": {
+        "navigationBarTitleText": "系统通知"
       }
     },
     {
@@ -176,6 +206,12 @@
       "style": {
         "navigationStyle": "custom",
         "navigationBarTitleText": "待审批"
+      }
+    },
+    {
+      "path": "pages/teacher/todos/index",
+      "style": {
+        "navigationBarTitleText": "今日待办"
       }
     },
     {
@@ -212,6 +248,12 @@
       "path": "pages/activity/detail",
       "style": {
         "navigationBarTitleText": "活动详情"
+      }
+    },
+    {
+      "path": "pages/mine/edit-profile/edit-profile",
+      "style": {
+        "navigationBarTitleText": "编辑资料"
       }
     },
     {

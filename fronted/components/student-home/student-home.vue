@@ -1,35 +1,10 @@
 <template>
   <view class="home-container">
-    <!-- Custom Navigation Bar -->
-    <view class="custom-navbar" :style="{paddingTop: statusBarHeight + 'px'}">
-      <view class="navbar-content">
-        <text class="navbar-title">首页</text>
-      </view>
-    </view>
-    
-    <view class="content-wrapper" :style="{paddingTop: (statusBarHeight + 44) + 'px'}">
+    <view class="content-wrapper">
       <view class="student-dashboard">
       
       <!-- Hero Section: 开始运动 -->
       <view class="hero-card">
-        <text class="hero-title">首页</text>
-        
-        <!-- 顶部统计数据 -->
-        <view class="stats-row">
-          <view class="stat-col">
-            <text class="stat-big">{{ todayStats.distance }}</text>
-            <text class="stat-small">今日里程(km)</text>
-          </view>
-          <view class="stat-col">
-            <text class="stat-big">{{ todayStats.calories }}</text>
-            <text class="stat-small">消耗(kcal)</text>
-          </view>
-          <view class="stat-col">
-            <text class="stat-big">{{ todayStats.duration }}</text>
-            <text class="stat-small">时长(min)</text>
-          </view>
-        </view>
-        
         <!-- 中间大圆形按钮 -->
         <view class="center-button" @click="showExerciseActionSheet">
           <view class="go-circle">
@@ -212,13 +187,6 @@ const statusBarHeight = ref(20);
 const role = ref('student');
 const userInfo = ref({});
 
-// 今日运动数据
-const todayStats = ref({
-  calories: 0,
-  duration: 0,
-  distance: 0
-});
-
 // 任务数据
 const teacherTasks = ref([]);
 const showTaskModal = ref(false);
@@ -269,34 +237,6 @@ const fetchTasks = async () => {
   }
 };
 
-// 获取今日运动数据
-const fetchTodayStats = async () => {
-  try {
-    const res = await request({
-      url: '/student/summary',
-      method: 'GET'
-    });
-    
-    console.log('Today stats response:', res); // 添加日志
-    
-    todayStats.value = {
-      calories: res.calories || 0,
-      duration: res.today_minutes || 0,
-      distance: res.distance || 0
-    };
-    
-    console.log('Updated todayStats:', todayStats.value); // 添加日志
-  } catch (e) {
-    console.error('Failed to fetch today stats:', e);
-    // 优雅降级：使用占位数据
-    todayStats.value = {
-      calories: 0,
-      duration: 0,
-      distance: 0
-    };
-  }
-};
-
 // Exposed method for parent to call onShow
 const onPageShow = () => {
   statusBarHeight.value = uni.getSystemInfoSync().statusBarHeight || 20;
@@ -321,12 +261,12 @@ const onPageShow = () => {
   }
   
   fetchTasks();
-  fetchTodayStats();
   loadRunGroupData(); // 每次显示页面时重新加载跑团数据
 };
 
 // Initial load
 onMounted(() => {
+  statusBarHeight.value = uni.getSystemInfoSync().statusBarHeight || 20;
   onPageShow();
   loadRunGroupData(); // 加载跑团数据
 });
@@ -514,25 +454,6 @@ const loadRunGroupData = async () => {
 <style scoped>
 @import './run-group-styles.scss';
 
-.custom-navbar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  background-color: #20C997;
-  z-index: 999;
-}
-.navbar-content {
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.navbar-title {
-  color: #fff;
-  font-size: 16px;
-  font-weight: bold;
-}
 .home-container {
   min-height: 100vh;
   background: #f5f7fa;
@@ -564,44 +485,6 @@ const loadRunGroupData = async () => {
   height: 300rpx;
   background: rgba(255, 255, 255, 0.08);
   border-radius: 50%;
-}
-
-.hero-title {
-  text-align: center;
-  font-size: 30rpx;
-  font-weight: bold;
-  color: #fff;
-  display: block;
-  margin-bottom: 35rpx;
-}
-
-.stats-row {
-  display: flex;
-  justify-content: space-around;
-  margin-bottom: 45rpx;
-  position: relative;
-  z-index: 1;
-}
-
-.stat-col {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.stat-big {
-  font-size: 64rpx;
-  font-weight: bold;
-  color: #fff;
-  margin-bottom: 6rpx;
-  font-family: DINAlternate-Bold, Arial, sans-serif;
-  text-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.1);
-  line-height: 1;
-}
-
-.stat-small {
-  font-size: 22rpx;
-  color: rgba(255, 255, 255, 0.95);
 }
 
 .center-button {

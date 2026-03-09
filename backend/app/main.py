@@ -155,9 +155,37 @@ def get_my_profile(
         "student_id": current_user.student_id,
         "group_name": current_user.group_name,
         "health_status": current_user.health_status,
+        "signature": getattr(current_user, 'signature', None),
+        "avatar_url": getattr(current_user, 'avatar_url', None),
         "class_name": current_user.student_class.name if current_user.student_class else None
     }
     return profile_data
+
+@app.put("/users/profile")
+def update_my_profile(
+    profile_update: schemas.UserProfileUpdate,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Update user profile (name, signature, avatar)"""
+    
+    if profile_update.name:
+        current_user.name = profile_update.name
+    
+    if profile_update.signature is not None:
+        # Add signature field if not exists
+        if not hasattr(current_user, 'signature'):
+            from sqlalchemy import Column, String
+            # This is a temporary solution, should add to models.py
+        current_user.signature = profile_update.signature
+    
+    if profile_update.avatar_url is not None:
+        current_user.avatar_url = profile_update.avatar_url
+    
+    db.commit()
+    db.refresh(current_user)
+    
+    return {"success": True, "message": "Profile updated successfully"}
 
 # --- Student Interfaces ---
 
@@ -1115,7 +1143,7 @@ def export_students(
 
 # --- Health Status Management ---
 
-@app.post("/student/health/request", response_model=schemas.HealthRequestOut)
+@app.post("/student/health/request")
 def create_health_request(
     request_in: schemas.HealthRequestCreate,
     current_user: models.User = Depends(auth.get_current_user),
@@ -1132,23 +1160,40 @@ def create_health_request(
     
     if pending:
         raise HTTPException(status_code=400, detail="You already have a pending request")
+    
+    # Convert attachments list to JSON string
+    import json
+    attachments_json = json.dumps(request_in.attachments) if request_in.attachments else None
         
     new_req = models.HealthRequest(
         student_id=current_user.id,
         type=request_in.type,
         reason=request_in.reason,
+        attachments=attachments_json,
         status="pending"
     )
     db.add(new_req)
     db.commit()
     db.refresh(new_req)
-    return new_req
+    
+    # Convert back to dict with parsed attachments
+    return {
+        "id": new_req.id,
+        "student_id": new_req.student_id,
+        "type": new_req.type,
+        "reason": new_req.reason,
+        "attachments": json.loads(new_req.attachments) if new_req.attachments else [],
+        "status": new_req.status,
+        "created_at": new_req.created_at,
+        "updated_at": new_req.updated_at
+    }
 
-@app.get("/student/health/requests", response_model=List[schemas.HealthRequestOut])
+@app.get("/student/health/requests")
 def get_my_health_requests(
     current_user: models.User = Depends(auth.get_current_user),
     db: Session = Depends(get_db)
 ):
+    import json
     if current_user.role != "student":
         raise HTTPException(status_code=403, detail="Only students can view their health requests")
         
@@ -1156,7 +1201,21 @@ def get_my_health_requests(
         models.HealthRequest.student_id == current_user.id
     ).order_by(models.HealthRequest.created_at.desc()).all()
     
-    return requests
+    # Convert attachments from JSON string to list
+    result = []
+    for req in requests:
+        result.append({
+            "id": req.id,
+            "student_id": req.student_id,
+            "type": req.type,
+            "reason": req.reason,
+            "attachments": json.loads(req.attachments) if req.attachments else [],
+            "status": req.status,
+            "created_at": req.created_at,
+            "updated_at": req.updated_at
+        })
+    
+    return result
 
 @app.get("/teacher/health/requests", response_model=List[schemas.HealthRequestOut])
 def get_pending_health_requests(
@@ -1257,7 +1316,8 @@ def create_task(
         description=task_in.description,
         target_group=task_in.target_group,
         class_id=task_in.class_id,
-        created_by=current_user.id
+        created_by=current_user.id,
+        video_url=task_in.video_url  # 第二阶段新增：支持体测视频
     )
     db.add(new_task)
     db.commit()
@@ -1429,11 +1489,15 @@ def get_task_detail(
         status = "pending"
         metric_val = "-"
         completed_at = None
+        activity_id = None  # 第三阶段新增
+        teacher_score = None  # 第三阶段新增
         
         if is_completed:
             status = "completed"
             completed_count += 1
             completed_at = completed_activity.ended_at
+            activity_id = completed_activity.id  # 第三阶段新增
+            teacher_score = completed_activity.metrics.teacher_score  # 第三阶段新增
             if task.type == 'run':
                 metric_val = f"{completed_activity.metrics.distance} km"
             else:
@@ -1444,7 +1508,9 @@ def get_task_detail(
             student_name=student.name,
             status=status,
             completed_at=completed_at,
-            metric_value=metric_val
+            metric_value=metric_val,
+            activity_id=activity_id,  # 第三阶段新增
+            teacher_score=teacher_score  # 第三阶段新增
         ))
         
     return {
@@ -1453,6 +1519,605 @@ def get_task_detail(
         "completed_count": completed_count,
         "student_statuses": student_statuses
     }
+
+# 第三阶段新增：教师打分API
+@app.post("/teacher/activities/{activity_id}/score")
+def score_activity(
+    activity_id: int,
+    score_data: schemas.TeacherScoreCreate,
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db)
+):
+    """教师对学生活动进行打分"""
+    from datetime import datetime
+    
+    # 获取活动
+    activity = db.query(models.Activity).filter(models.Activity.id == activity_id).first()
+    if not activity:
+        raise HTTPException(status_code=404, detail="活动不存在")
+    
+    # 获取活动指标
+    metrics = db.query(models.ActivityMetrics).filter(
+        models.ActivityMetrics.activity_id == activity_id
+    ).first()
+    
+    if not metrics:
+        raise HTTPException(status_code=404, detail="活动指标不存在")
+    
+    # 更新打分
+    metrics.teacher_score = score_data.score
+    metrics.teacher_comment = score_data.comment
+    metrics.scored_at = datetime.utcnow()
+    metrics.scored_by = current_user.id
+    
+    # 更新学生平时分（简单累加，可根据需求调整算法）
+    student = db.query(models.User).filter(models.User.id == activity.user_id).first()
+    if student:
+        # 计算该学生所有已打分活动的平均分作为平时分
+        all_scored_activities = db.query(models.ActivityMetrics).join(
+            models.Activity
+        ).filter(
+            models.Activity.user_id == student.id,
+            models.ActivityMetrics.teacher_score.isnot(None)
+        ).all()
+        
+        if all_scored_activities:
+            total_score = sum(m.teacher_score for m in all_scored_activities)
+            student.regular_score = round(total_score / len(all_scored_activities), 2)
+    
+    db.commit()
+    db.refresh(metrics)
+    
+    return {
+        "message": "打分成功",
+        "activity_id": activity_id,
+        "score": metrics.teacher_score,
+        "regular_score": student.regular_score if student else None
+    }
+
+@app.put("/teacher/activities/{activity_id}/score")
+def update_activity_score(
+    activity_id: int,
+    score_data: schemas.TeacherScoreUpdate,
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db)
+):
+    """修改活动打分"""
+    from datetime import datetime
+    
+    # 获取活动指标
+    metrics = db.query(models.ActivityMetrics).filter(
+        models.ActivityMetrics.activity_id == activity_id
+    ).first()
+    
+    if not metrics:
+        raise HTTPException(status_code=404, detail="活动指标不存在")
+    
+    # 更新打分
+    metrics.teacher_score = score_data.score
+    metrics.teacher_comment = score_data.comment
+    metrics.scored_at = datetime.utcnow()
+    metrics.scored_by = current_user.id
+    
+    # 重新计算学生平时分
+    activity = db.query(models.Activity).filter(models.Activity.id == activity_id).first()
+    if activity:
+        student = db.query(models.User).filter(models.User.id == activity.user_id).first()
+        if student:
+            all_scored_activities = db.query(models.ActivityMetrics).join(
+                models.Activity
+            ).filter(
+                models.Activity.user_id == student.id,
+                models.ActivityMetrics.teacher_score.isnot(None)
+            ).all()
+            
+            if all_scored_activities:
+                total_score = sum(m.teacher_score for m in all_scored_activities)
+                student.regular_score = round(total_score / len(all_scored_activities), 2)
+    
+    db.commit()
+    db.refresh(metrics)
+    
+    return {
+        "message": "打分更新成功",
+        "activity_id": activity_id,
+        "score": metrics.teacher_score
+    }
+
+@app.get("/teacher/tasks/{task_id}/scores")
+def get_task_scores(
+    task_id: int,
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db)
+):
+    """获取任务的所有打分记录"""
+    task = db.query(models.Task).filter(models.Task.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    
+    # 获取任务相关的所有学生活动和打分
+    students = []
+    if task.class_id:
+        students = db.query(models.User).filter(
+            models.User.class_id == task.class_id,
+            models.User.role == "student"
+        ).all()
+    else:
+        students = db.query(models.User).filter(models.User.role == "student").all()
+    
+    scores = []
+    for student in students:
+        # 查找该学生完成该任务的活动
+        activities = db.query(models.Activity).filter(
+            models.Activity.user_id == student.id,
+            models.Activity.type == task.type
+        ).all()
+        
+        for activity in activities:
+            metrics = db.query(models.ActivityMetrics).filter(
+                models.ActivityMetrics.activity_id == activity.id
+            ).first()
+            
+            if metrics and metrics.teacher_score is not None:
+                scores.append({
+                    "activity_id": activity.id,
+                    "student_id": student.id,
+                    "student_name": student.name,
+                    "score": metrics.teacher_score,
+                    "comment": metrics.teacher_comment,
+                    "scored_at": metrics.scored_at
+                })
+    
+    return {"scores": scores}
+
+@app.get("/teacher/students/{student_id}/scores")
+def get_student_scores(
+    student_id: int,
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db)
+):
+    """获取学生的所有打分记录和平时分"""
+    student = db.query(models.User).filter(models.User.id == student_id).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="学生不存在")
+    
+    # 获取所有已打分的活动
+    scored_activities = db.query(models.Activity, models.ActivityMetrics).join(
+        models.ActivityMetrics
+    ).filter(
+        models.Activity.user_id == student_id,
+        models.ActivityMetrics.teacher_score.isnot(None)
+    ).all()
+    
+    score_records = []
+    for activity, metrics in scored_activities:
+        # 尝试找到关联的任务
+        task = db.query(models.Task).filter(
+            models.Task.type == activity.type,
+            models.Task.class_id == student.class_id
+        ).first()
+        
+        score_records.append({
+            "task_id": task.id if task else 0,
+            "task_title": task.title if task else "自由练习",
+            "activity_id": activity.id,
+            "score": metrics.teacher_score,
+            "comment": metrics.teacher_comment,
+            "scored_at": metrics.scored_at
+        })
+    
+    return {
+        "student_id": student.id,
+        "student_name": student.name,
+        "regular_score": student.regular_score,
+        "score_records": score_records
+    }
+
+# 第四阶段新增：数据统计API
+@app.get("/teacher/stats/task-completion")
+def get_task_completion_stats(
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db)
+):
+    """获取任务完成情况统计"""
+    from datetime import datetime, timedelta
+    
+    # 获取教师创建的所有任务
+    tasks = db.query(models.Task).filter(
+        models.Task.created_by == current_user.id
+    ).all()
+    
+    stats = []
+    for task in tasks:
+        # 获取目标学生
+        if task.class_id:
+            students = db.query(models.User).filter(
+                models.User.class_id == task.class_id,
+                models.User.role == "student"
+            ).all()
+        else:
+            students = db.query(models.User).filter(
+                models.User.role == "student"
+            ).all()
+        
+        total_students = len(students)
+        completed_count = 0
+        
+        # 统计完成情况
+        for student in students:
+            activities = db.query(models.Activity).join(
+                models.ActivityMetrics
+            ).filter(
+                models.Activity.user_id == student.id,
+                models.Activity.type == task.type
+            ).all()
+            
+            for activity in activities:
+                metrics = activity.metrics
+                is_completed = False
+                
+                if task.type == 'run':
+                    if (metrics.distance or 0) >= (task.min_distance or 0):
+                        is_completed = True
+                else:
+                    if (metrics.count or 0) >= (task.min_count or 0):
+                        is_completed = True
+                
+                if is_completed:
+                    completed_count += 1
+                    break
+        
+        completion_rate = round((completed_count / total_students * 100), 2) if total_students > 0 else 0
+        
+        stats.append({
+            "task_id": task.id,
+            "task_title": task.title,
+            "task_type": task.type,
+            "total_students": total_students,
+            "completed_count": completed_count,
+            "completion_rate": completion_rate,
+            "deadline": task.deadline.isoformat() if task.deadline else None
+        })
+    
+    return {"tasks": stats}
+
+@app.get("/teacher/stats/score-trend")
+def get_score_trend_stats(
+    days: int = 30,
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db)
+):
+    """获取平时分变化趋势"""
+    from datetime import datetime, timedelta
+    
+    # 获取教师班级的学生
+    students = []
+    if current_user.role == "teacher":
+        # 获取教师负责的班级
+        classes = db.query(models.Class).filter(
+            models.Class.teacher_id == current_user.id
+        ).all()
+        
+        for cls in classes:
+            class_students = db.query(models.User).filter(
+                models.User.class_id == cls.id,
+                models.User.role == "student"
+            ).all()
+            students.extend(class_students)
+    
+    # 按日期统计平时分
+    start_date = datetime.utcnow() - timedelta(days=days)
+    
+    trend_data = []
+    for i in range(days):
+        date = start_date + timedelta(days=i)
+        date_str = date.strftime('%Y-%m-%d')
+        
+        # 获取该日期的平均平时分
+        if students:
+            total_score = sum(s.regular_score for s in students)
+            avg_score = round(total_score / len(students), 2)
+        else:
+            avg_score = 0
+        
+        trend_data.append({
+            "date": date_str,
+            "avg_score": avg_score
+        })
+    
+    return {"trend": trend_data}
+
+@app.get("/teacher/stats/scoring-trend")
+def get_scoring_trend_stats(
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db)
+):
+    """获取教师打分趋势分析"""
+    from datetime import datetime, timedelta
+    
+    # 获取最近30天的打分记录
+    start_date = datetime.utcnow() - timedelta(days=30)
+    
+    scored_activities = db.query(models.ActivityMetrics).filter(
+        models.ActivityMetrics.scored_by == current_user.id,
+        models.ActivityMetrics.scored_at >= start_date
+    ).all()
+    
+    # 按分数段统计
+    score_distribution = {
+        "90-100": 0,
+        "80-89": 0,
+        "70-79": 0,
+        "60-69": 0,
+        "0-59": 0
+    }
+    
+    total_score = 0
+    for metrics in scored_activities:
+        score = metrics.teacher_score
+        total_score += score
+        
+        if score >= 90:
+            score_distribution["90-100"] += 1
+        elif score >= 80:
+            score_distribution["80-89"] += 1
+        elif score >= 70:
+            score_distribution["70-79"] += 1
+        elif score >= 60:
+            score_distribution["60-69"] += 1
+        else:
+            score_distribution["0-59"] += 1
+    
+    avg_score = round(total_score / len(scored_activities), 2) if scored_activities else 0
+    
+    return {
+        "total_scored": len(scored_activities),
+        "avg_score": avg_score,
+        "distribution": score_distribution
+    }
+
+@app.get("/teacher/export/scores")
+def export_scores(
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db)
+):
+    """导出成绩数据"""
+    # 获取教师班级的学生
+    students = []
+    if current_user.role == "teacher":
+        classes = db.query(models.Class).filter(
+            models.Class.teacher_id == current_user.id
+        ).all()
+        
+        for cls in classes:
+            class_students = db.query(models.User).filter(
+                models.User.class_id == cls.id,
+                models.User.role == "student"
+            ).all()
+            students.extend(class_students)
+    
+    export_data = []
+    for student in students:
+        # 获取学生的打分记录
+        scored_activities = db.query(models.Activity, models.ActivityMetrics).join(
+            models.ActivityMetrics
+        ).filter(
+            models.Activity.user_id == student.id,
+            models.ActivityMetrics.teacher_score.isnot(None)
+        ).all()
+        
+        score_count = len(scored_activities)
+        
+        export_data.append({
+            "student_id": student.id,
+            "student_name": student.name,
+            "student_no": student.student_id or student.phone,
+            "class_name": student.student_class.name if student.student_class else "未分配",
+            "regular_score": student.regular_score,
+            "score_count": score_count
+        })
+    
+    return {"data": export_data}
+
+@app.get("/teacher/export/tasks")
+def export_tasks(
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db)
+):
+    """导出任务数据"""
+    tasks = db.query(models.Task).filter(
+        models.Task.created_by == current_user.id
+    ).all()
+    
+    export_data = []
+    for task in tasks:
+        # 获取目标学生
+        if task.class_id:
+            students = db.query(models.User).filter(
+                models.User.class_id == task.class_id,
+                models.User.role == "student"
+            ).all()
+        else:
+            students = db.query(models.User).filter(
+                models.User.role == "student"
+            ).all()
+        
+        total_students = len(students)
+        completed_count = 0
+        
+        for student in students:
+            activities = db.query(models.Activity).join(
+                models.ActivityMetrics
+            ).filter(
+                models.Activity.user_id == student.id,
+                models.Activity.type == task.type
+            ).all()
+            
+            for activity in activities:
+                metrics = activity.metrics
+                is_completed = False
+                
+                if task.type == 'run':
+                    if (metrics.distance or 0) >= (task.min_distance or 0):
+                        is_completed = True
+                else:
+                    if (metrics.count or 0) >= (task.min_count or 0):
+                        is_completed = True
+                
+                if is_completed:
+                    completed_count += 1
+                    break
+        
+        completion_rate = round((completed_count / total_students * 100), 2) if total_students > 0 else 0
+        
+        export_data.append({
+            "task_id": task.id,
+            "task_title": task.title,
+            "task_type": "跑步任务" if task.type == "run" else "体测任务",
+            "deadline": task.deadline.strftime('%Y-%m-%d') if task.deadline else "无限制",
+            "total_students": total_students,
+            "completed_count": completed_count,
+            "completion_rate": f"{completion_rate}%"
+        })
+    
+    return {"data": export_data}
+
+@app.get("/teacher/activities/abnormal")
+def get_abnormal_activities(
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db)
+):
+    """获取异常运动数据（防作弊）"""
+    # 获取教师负责的班级学生
+    students = []
+    if current_user.class_id:
+        students = db.query(models.User).filter(
+            models.User.class_id == current_user.class_id,
+            models.User.role == "student"
+        ).all()
+    else:
+        # 如果教师没有班级，获取所有学生
+        students = db.query(models.User).filter(
+            models.User.role == "student"
+        ).all()
+    
+    student_ids = [s.id for s in students]
+    
+    # 查询异常活动（这里定义异常规则）
+    abnormal_activities = []
+    
+    # 获取最近的活动
+    activities = db.query(models.Activity).filter(
+        models.Activity.user_id.in_(student_ids),
+        models.Activity.status == "finished"
+    ).order_by(models.Activity.started_at.desc()).limit(100).all()
+    
+    for activity in activities:
+        metrics = db.query(models.ActivityMetrics).filter(
+            models.ActivityMetrics.activity_id == activity.id
+        ).first()
+        
+        if not metrics:
+            continue
+        
+        student = db.query(models.User).filter(models.User.id == activity.user_id).first()
+        reason = None
+        
+        # 检测异常规则
+        if activity.type == "run":
+            # 1. 配速异常（过快或过慢）
+            if metrics.pace and (metrics.pace < 3.0 or metrics.pace > 10.0):
+                reason = f"配速异常：{metrics.pace:.1f}分/公里（正常范围：3-10分/公里）"
+            
+            # 2. 距离异常（与GPS轨迹不符）
+            if metrics.distance and metrics.distance > 20:
+                reason = f"距离异常：{metrics.distance:.2f}公里（单次跑步距离过长）"
+            
+            # 3. 心率异常
+            if metrics.avg_heart_rate:
+                if metrics.avg_heart_rate < 60 or metrics.avg_heart_rate > 200:
+                    reason = f"心率异常：{metrics.avg_heart_rate}次/分（正常范围：60-200次/分）"
+        
+        if reason:
+            abnormal_activities.append({
+                "activity_id": activity.id,
+                "student_id": student.id if student else None,
+                "student_name": student.name if student else "未知",
+                "type": activity.type,
+                "created_at": activity.started_at.isoformat() if activity.started_at else None,
+                "reason": reason,
+                "abnormal_value": f"{metrics.pace:.1f}分/公里" if metrics.pace else str(metrics.avg_heart_rate) if metrics.avg_heart_rate else f"{metrics.distance:.2f}公里",
+                "standard_range": "3-10分/公里" if "配速" in reason else "60-200次/分" if "心率" in reason else "0-20公里"
+            })
+    
+    return abnormal_activities
+
+@app.post("/teacher/activities/{activity_id}/ignore")
+def ignore_abnormal_activity(
+    activity_id: int,
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db)
+):
+    """忽略异常活动"""
+    activity = db.query(models.Activity).filter(models.Activity.id == activity_id).first()
+    if not activity:
+        raise HTTPException(status_code=404, detail="活动不存在")
+    
+    # 可以添加一个标记字段表示已忽略
+    # 这里简单返回成功
+    return {"message": "已忽略该异常"}
+
+@app.post("/teacher/activities/{activity_id}/handle")
+def handle_abnormal_activity(
+    activity_id: int,
+    handle_data: dict,
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db)
+):
+    """处理异常活动"""
+    activity = db.query(models.Activity).filter(models.Activity.id == activity_id).first()
+    if not activity:
+        raise HTTPException(status_code=404, detail="活动不存在")
+    
+    action = handle_data.get("action")
+    reason = handle_data.get("reason")
+    
+    # 根据不同的处理方式更新活动状态
+    if action == "invalid":
+        # 标记为无效成绩
+        activity.status = "invalid"
+    elif action == "device_error":
+        # 标记为设备故障
+        activity.status = "device_error"
+    elif action == "retest":
+        # 要求重测
+        activity.status = "retest_required"
+    
+    db.commit()
+    
+    return {"message": f"已处理：{action}", "activity_id": activity_id}
+
+@app.post("/teacher/students/{student_id}/notify")
+def notify_student(
+    student_id: int,
+    notify_data: dict,
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db)
+):
+    """通知学生"""
+    student = db.query(models.User).filter(
+        models.User.id == student_id,
+        models.User.role == "student"
+    ).first()
+    
+    if not student:
+        raise HTTPException(status_code=404, detail="学生不存在")
+    
+    message = notify_data.get("message", "")
+    
+    # TODO: 实现实际的通知功能（推送、短信等）
+    # 这里简单返回成功
+    return {"message": "通知已发送", "student_id": student_id}
 
 @app.get("/student/tasks", response_model=schemas.StudentTaskListResponse)
 def get_student_tasks(

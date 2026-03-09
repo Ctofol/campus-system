@@ -60,6 +60,43 @@ async def get_student_summary(
         "activity_count": len(activities)  # 添加活动数量用于调试
     }
 
+@router.get("/total-stats")
+async def get_total_stats(
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get student's total exercise statistics"""
+    
+    if current_user.role != "student":
+        raise HTTPException(status_code=403, detail="Only students can access this endpoint")
+    
+    # Query all activities for current user
+    activities = db.query(models.Activity).filter(
+        models.Activity.user_id == current_user.id,
+        models.Activity.type == "run"
+    ).all()
+    
+    total_distance = 0.0  # in meters
+    total_duration = 0  # in seconds
+    total_calories = 0
+    
+    for activity in activities:
+        if activity.metrics:
+            if activity.metrics.distance:
+                total_distance += activity.metrics.distance
+            if activity.metrics.duration:
+                total_duration += activity.metrics.duration
+    
+    # Calculate calories (rough estimation: 1km = 60 kcal)
+    total_calories = int((total_distance / 1000) * 60)
+    
+    return {
+        "total_distance": round(total_distance / 1000, 1),  # Convert to km
+        "total_duration": round(total_duration / 60),  # Convert to minutes
+        "total_calories": total_calories,
+        "total_count": len(activities)
+    }
+
 @router.get("/tasks")
 async def get_student_tasks(
     page: int = 1,

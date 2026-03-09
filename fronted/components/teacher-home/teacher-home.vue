@@ -19,27 +19,33 @@
                 <image class="avatar-img" src="/static/avatar.png" mode="aspectFill"></image>
               </view>
             </view>
-            <!-- 2. 核心数据概览 (替代原有功能卡片) -->
+            <!-- 2. 核心数据概览 - 功能打通：重命名 + 跳转 -->
       <view class="dashboard-stats">
         <view class="stat-card">
           <text class="stat-num">{{ teacherStats.todayCheckin }}</text>
           <text class="stat-label">今日打卡</text>
         </view>
-        <view class="stat-card">
-          <text class="stat-num">{{ teacherStats.abnormalCount }}</text>
-          <text class="stat-label">异常待处理</text>
+        <view class="stat-card" @click="goToLeaveApproval">
+          <view class="badge-wrapper">
+            <text class="stat-num">{{ teacherStats.abnormalCount }}</text>
+            <view class="badge" v-if="teacherStats.abnormalCount > 0">{{ teacherStats.abnormalCount }}</view>
+          </view>
+          <text class="stat-label">请假待处理</text>
         </view>
-        <view class="stat-card" @click="goToApprove">
-          <text class="stat-num">{{ teacherStats.pendingApprovals }}</text>
-          <text class="stat-label">待审批</text>
+        <view class="stat-card" @click="goToActivityApproval">
+          <view class="badge-wrapper">
+            <text class="stat-num">{{ teacherStats.pendingApprovals }}</text>
+            <view class="badge" v-if="teacherStats.pendingApprovals > 0">{{ teacherStats.pendingApprovals }}</view>
+          </view>
+          <text class="stat-label">运动待审批</text>
         </view>
       </view>
 
-      <!-- 3. 待办事项 (新增) -->
+      <!-- 3. 待办事项 - 功能打通：全部按钮跳转 -->
       <view class="section-card todo-section">
         <view class="section-header">
           <text class="section-title">今日待办</text>
-          <text class="section-more" @tap="goToTodoList">全部 ></text>
+          <text class="section-more" @tap="goToTodos">全部 ></text>
         </view>
         <view class="todo-list">
           <view 
@@ -102,41 +108,6 @@
         </view>
       </view>
 
-      <!-- 4. 任务管理快捷交互 (新增) -->
-      <view class="section-card task-widget">
-        <view class="section-header">
-          <text class="section-title">快速任务管理</text>
-          <view class="header-actions">
-             <text class="section-action" @click="openTaskModal">+ 发布</text>
-          </view>
-        </view>
-        <scroll-view scroll-x class="quick-task-scroll">
-          <view 
-            class="quick-task-item" 
-            v-for="(task, idx) in quickTasks" 
-            :key="idx" 
-            @tap="handleQuickTask(task)"
-          >
-            <view class="qt-header">
-              <text class="qt-type" :class="task.typeClass">{{ task.type }}</text>
-              <text class="qt-status">{{ task.status }}</text>
-            </view>
-            <text class="qt-title">{{ task.title }}</text>
-            <view class="qt-progress">
-              <view class="qt-bar-bg">
-                <view class="qt-bar-fill" :style="{ width: task.percent + '%' }"></view>
-              </view>
-              <text class="qt-val">{{ task.percent }}%</text>
-            </view>
-            <!-- 快捷操作按钮 -->
-            <view class="qt-actions" @click.stop>
-               <text class="qt-btn" @click="editTask(task)">编辑</text>
-               <text class="qt-btn warn" v-if="task.percent < 100" @click="remindTask(task)">催办</text>
-            </view>
-          </view>
-        </scroll-view>
-      </view>
-
       <!-- 5. 实时异常警报 (优化样式) -->
       <view class="section-card alert-widget" v-if="abnormalAlerts.length > 0">
         <view class="section-header">
@@ -153,30 +124,8 @@
         </view>
       </view>
       
-      <!-- 快速发布任务弹窗 -->
-      <view class="modal-overlay" v-if="showTaskModal" @click="showTaskModal = false">
-        <view class="task-modal" @click.stop>
-          <view class="modal-header">
-            <text class="modal-title">{{ isEditing ? '编辑任务' : '快速发布任务' }}</text>
-            <text class="close-btn" @click="showTaskModal = false">×</text>
-          </view>
-          <view class="modal-body">
-            <input class="modal-input" placeholder="任务标题" v-model="currentTask.title" />
-            <view class="modal-types">
-              <view class="type-chip" :class="{active: currentTask.type === '考核'}" @click="currentTask.type = '考核'">考核</view>
-              <view class="type-chip" :class="{active: currentTask.type === '日常'}" @click="currentTask.type = '日常'">日常</view>
-              <view class="type-chip" :class="{active: currentTask.type === '训练'}" @click="currentTask.type = '训练'">训练</view>
-            </view>
-            <textarea class="modal-textarea" placeholder="任务描述" v-model="currentTask.desc" />
-          </view>
-          <button class="modal-submit-btn" @click="saveTask">确认发布</button>
-        </view>
-      </view>
-
-     <view style="height: 20rpx;"></view> <!-- Spacer for TabBar -->
+      <view style="height: 20rpx;"></view> <!-- Spacer for TabBar -->
     </view>
-    
-    <!-- 快速发布任务弹窗 -->
   </view>
 </template>
 
@@ -186,18 +135,19 @@ import { request, getTeacherDashboardStats } from '@/utils/request.js';
 
 const userInfo = ref({});
 
-const goToApprove = () => {
-  uni.navigateTo({ url: '/pages/teacher/approve/approve' });
+// 功能打通：跳转到请假审批列表
+const goToLeaveApproval = () => {
+  uni.navigateTo({ url: '/pages/teacher/approval/index?type=leave' });
 };
 
-// 跳转到待办事项列表
-const goToTodoList = () => {
-  uni.showToast({ 
-    title: '待办事项列表功能开发中', 
-    icon: 'none' 
-  });
-  // TODO: 创建待办事项列表页面后取消注释
-  // uni.navigateTo({ url: '/pages/teacher/todos/list' });
+// 功能打通：跳转到运动审批列表
+const goToActivityApproval = () => {
+  uni.navigateTo({ url: '/pages/teacher/approval/index?type=activity' });
+};
+
+// 功能打通：跳转到待办事项列表
+const goToTodos = () => {
+  uni.navigateTo({ url: '/pages/teacher/todos/index' });
 };
 
 // 跳转到学员统计页面
@@ -263,7 +213,6 @@ const onPageShow = () => {
   
   // Fetch real stats
   fetchTeacherStats();
-  fetchTasks();
   fetchAbnormalAlerts();
 };
 
@@ -296,36 +245,7 @@ defineExpose({
     { day: '周日', val: 0, color: 'linear-gradient(180deg, #e0e0e0 0%, #f5f5f5 100%)' }
   ]);
 
-  const showTaskModal = ref(false);
-  const isEditing = ref(false);
-  const currentTask = ref({ title: '', type: '日常', desc: '' });
-
-  const quickTasks = ref([]);
-
   const abnormalAlerts = ref([]);
-
-  const fetchTasks = async () => {
-    try {
-      const res = await request({
-        url: '/teacher/tasks',
-        method: 'GET',
-        data: { page: 1, size: 5 }
-      });
-      if (res && res.items) {
-        quickTasks.value = res.items.map(task => ({
-          id: task.id, // 添加任务ID
-          title: task.title,
-          type: task.type === 'run' ? '跑步' : '其他',
-          typeClass: task.type === 'run' ? 'tag-green' : 'tag-blue',
-          status: '进行中', // 简化处理
-          percent: task.total_students > 0 ? Math.round((task.completed_count / task.total_students) * 100) : 0
-        }));
-      }
-    } catch (e) {
-      if (!uni.getStorageSync('token')) return;
-      console.error('Failed to fetch tasks:', e);
-    }
-  };
 
   const fetchAbnormalAlerts = async () => {
     try {
@@ -362,52 +282,6 @@ const handleTeacherAction = (action) => {
   } else {
     uni.showToast({ title: `${action}功能即将上线`, icon: 'none' });
   }
-};
-
-const openTaskModal = () => {
-  isEditing.value = false;
-  currentTask.value = { title: '', type: '日常', desc: '' };
-  showTaskModal.value = true;
-};
-
-const editTask = (task) => {
-  if (!task.id) {
-    uni.showToast({ title: '任务ID不存在', icon: 'none' });
-    return;
-  }
-  // 跳转到任务详情页面进行编辑
-  uni.navigateTo({
-    url: `/pages/teacher/tasks/detail?id=${task.id}`
-  });
-};
-
-const saveTask = () => {
-  if (!currentTask.value.title) return uni.showToast({ title: '请输入标题', icon: 'none' });
-  uni.showToast({ title: isEditing.value ? '修改成功' : '发布成功', icon: 'success' });
-  showTaskModal.value = false;
-  // In real app, update list
-};
-
-const remindTask = (task) => {
-  uni.showToast({ title: `已催办任务: ${task.title}`, icon: 'none' });
-};
-
-const handleQuickTask = (task) => {
-  console.log('Quick task clicked:', task);
-  if (!task.id) {
-    uni.showToast({ title: '任务ID不存在', icon: 'none' });
-    return;
-  }
-  uni.navigateTo({
-    url: `/pages/teacher/tasks/detail?id=${task.id}`,
-    fail: (err) => {
-      console.error('Navigation failed:', err);
-      uni.showToast({ 
-        title: '页面跳转失败', 
-        icon: 'none' 
-      });
-    }
-  });
 };
 
 const handleTodoClick = (todo) => {
@@ -554,6 +428,25 @@ const handleResolveAlert = (index) => {
 .stat-card:active {
   transform: translateY(4rpx);
 }
+.badge-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.badge {
+  position: absolute;
+  top: -10rpx;
+  right: -20rpx;
+  background: #ff4d4f;
+  color: #fff;
+  font-size: 20rpx;
+  padding: 4rpx 10rpx;
+  border-radius: 20rpx;
+  min-width: 32rpx;
+  text-align: center;
+  font-weight: bold;
+}
 .stat-num {
   font-size: 44rpx;
   font-weight: bold;
@@ -668,54 +561,6 @@ const handleResolveAlert = (index) => {
 .ring-label { font-size: 20rpx; color: #999; margin-top: 4rpx; }
 .chart-name { font-size: 26rpx; color: #666; font-weight: 500; }
 
-.quick-task-scroll { white-space: nowrap; width: 100%; }
-.quick-task-item { 
-  display: inline-block; 
-  width: 280rpx; 
-  background: #f8f9fa; 
-  border-radius: 16rpx; 
-  padding: 24rpx; 
-  margin-right: 20rpx; 
-  vertical-align: top; 
-  border: 1px solid #f0f0f0;
-  box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.02);
-}
-.qt-header { display: flex; justify-content: space-between; margin-bottom: 16rpx; }
-
-.qt-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 16rpx;
-  margin-top: 20rpx;
-  border-top: 1px solid #eee;
-  padding-top: 16rpx;
-}
-
-.qt-btn {
-  font-size: 22rpx;
-  color: #666;
-  padding: 8rpx 20rpx;
-  border: 1px solid #e0e0e0;
-  border-radius: 24rpx;
-  background: #fff;
-}
-
-.qt-btn.warn {
-  color: #ff6b6b;
-  border-color: #ff6b6b;
-}
-
-.qt-type { font-size: 20rpx; padding: 2rpx 8rpx; border-radius: 6rpx; color: #fff; }
-.tag-red { background: #ff6b6b; }
-.tag-green { background: #20C997; }
-.tag-blue { background: #4dabf7; }
-.qt-status { font-size: 20rpx; color: #999; }
-.qt-title { font-size: 26rpx; font-weight: bold; color: #333; display: block; margin-bottom: 16rpx; white-space: normal; height: 72rpx; line-height: 36rpx; overflow: hidden; }
-.qt-progress { display: flex; align-items: center; }
-.qt-bar-bg { flex: 1; height: 8rpx; background: #eee; border-radius: 4rpx; overflow: hidden; margin-right: 10rpx; }
-.qt-bar-fill { height: 100%; background: #20C997; }
-.qt-val { font-size: 20rpx; color: #666; }
-
 /* Trend Chart */
 .trend-chart {
   margin-top: 30rpx;
@@ -813,17 +658,4 @@ const handleResolveAlert = (index) => {
   box-shadow: 0 4rpx 10rpx rgba(255, 107, 107, 0.3);
 }
 .feed-btn:active { opacity: 0.9; transform: translateY(2rpx); }
-
-/* Modal */
-.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; justify-content: center; align-items: center; }
-.task-modal { width: 600rpx; background: #fff; border-radius: 20rpx; padding: 30rpx; }
-.modal-header { display: flex; justify-content: space-between; margin-bottom: 30rpx; }
-.modal-title { font-size: 32rpx; font-weight: bold; }
-.close-btn { font-size: 40rpx; color: #999; line-height: 1; }
-.modal-input { background: #f5f7fa; height: 80rpx; padding: 0 20rpx; border-radius: 10rpx; margin-bottom: 20rpx; font-size: 28rpx; }
-.modal-types { display: flex; gap: 20rpx; margin-bottom: 20rpx; }
-.type-chip { padding: 10rpx 30rpx; background: #f5f7fa; border-radius: 30rpx; font-size: 24rpx; color: #666; }
-.type-chip.active { background: #20C997; color: #fff; }
-.modal-textarea { width: 100%; height: 160rpx; background: #f5f7fa; padding: 20rpx; border-radius: 10rpx; font-size: 28rpx; box-sizing: border-box; margin-bottom: 30rpx; }
-.modal-submit-btn { background: #20C997; color: #fff; border-radius: 40rpx; font-size: 30rpx; }
 </style>

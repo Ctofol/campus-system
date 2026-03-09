@@ -8,7 +8,7 @@
       </view>
     </view>
 
-    <!-- Tab Switcher - 模块删除：删除实时监控和异常处理 -->
+    <!-- Header / Tab Switcher - 删除实时监控和异常处理 -->
     <view class="header-tabs">
       <view 
         class="tab-item" 
@@ -28,7 +28,7 @@
       </view>
     </view>
 
-    <!-- Content: Data Analysis - 数据分析逻辑限定：仅统计任务完成、平时分、打分趋势 -->
+    <!-- Content: Data Analysis - 数据分析逻辑限定 -->
     <scroll-view scroll-y class="content-area" v-if="currentTab === 'analysis'">
       <!-- 学生任务完成情况 -->
       <view class="chart-card">
@@ -39,7 +39,7 @@
           <view class="task-item" v-for="(task, idx) in taskCompletionData" :key="idx">
             <view class="task-header">
               <text class="task-name">{{ task.task_title }}</text>
-              <text class="completion-rate" :class="{ high: task.completion_rate >= 80 }">
+              <text ccompletion-rate" :class="{ high: task.completion_rate >= 80 }">
                 {{ task.completion_rate }}%
               </text>
             </view>
@@ -53,7 +53,7 @@
         </view>
         <view v-else class="empty-placeholder">
           <text class="placeholder-icon">📊</text>
-          <text class="placeholder-text">暂无统计数据</text>
+          <text class="placeholder-text">暂无任务数据</text>
         </view>
       </view>
 
@@ -86,12 +86,12 @@
         </view>
         <view v-else class="empty-placeholder">
           <text class="placeholder-icon">📈</text>
-          <text class="placeholder-text">暂无统计数据</text>
+          <text class="placeholder-text">暂无趋势数据</text>
         </view>
       </view>
 
       <!-- 教师打分趋势 -->
-      <view class="chart-card">
+"chart-card">
         <view class="card-title">
           <text class="card-title-text">教师打分趋势</text>
         </view>
@@ -103,7 +103,7 @@
             </view>
             <view class="stat-item">
               <text class="stat-label">平均分</text>
-              <text class="stat-value highlight">{{ scoringTrendData.avg_score }}</text>
+              <text class="stat-value highligre }}</text>
             </view>
           </view>
           <view class="distribution-chart">
@@ -121,7 +121,7 @@
         </view>
         <view v-else class="empty-placeholder">
           <text class="placeholder-icon">📝</text>
-          <text class="placeholder-text">暂无统计数据</text>
+          <text class="placeholder-text">暂无打分数据</text>
         </view>
       </view>
     </scroll-view>
@@ -132,10 +132,10 @@
         <view class="history-item" v-for="(h, idx) in historyList" :key="idx">
           <view class="h-left">
             <text class="h-date">{{ h.date }}</text>
-            <text class="h-name">{{ h.testName }}</text>
+            <text class="h-name">{{ h.testName }}/text>
           </view>
           <view class="h-right">
-            <text class="h-stat">参与: {{ h.count }}人</text>
+            <text参与: {{ h.count }}人</text>
             <text class="h-stat" :class="{ 'high-pass': h.passRate >= 90 }">合格: {{ h.passRate }}%</text>
             <text class="arrow">></text>
           </view>
@@ -154,7 +154,7 @@
 import { ref, onMounted, onUnmounted } from 'vue';
 import { request } from '@/utils/request.js';
 
-const currentTab = ref('analysis');
+sis');
 const statusBarHeight = ref(20);
 
 // 数据分析相关数据
@@ -185,7 +185,7 @@ const fetchAnalysisData = async () => {
     taskCompletionData.value = taskRes.tasks || [];
     
     // 获取平时分趋势
-    const trendRes = await request({
+    const trendRest request({
       url: '/teacher/stats/score-trend',
       method: 'GET',
       data: { days: 30 }
@@ -209,7 +209,7 @@ const historyList = ref([]);
 
 const fetchTestHistory = async () => {
   try {
-    const res = await request({
+    const res = awa request({
       url: '/teacher/tests/history',
       method: 'GET'
     });
@@ -253,14 +253,12 @@ defineExpose({
 </script>
 
 <style scoped>
-/* CSS样式修复：确保所有样式统一、无错位、无横向滚动 */
+/* CSS样式修复：确保所有样式统一、无错位 */
 .teacher-test-page {
   min-height: 100vh;
   background-color: #f5f7fa;
   display: flex;
   flex-direction: column;
-  width: 100%;
-  overflow-x: hidden;
 }
 
 /* Custom Navigation Bar */
@@ -327,8 +325,6 @@ defineExpose({
 .content-area {
   flex: 1;
   padding: 30rpx;
-  width: 100%;
-  box-sizing: border-box;
 }
 
 /* Analysis Chart Styles */
@@ -338,8 +334,6 @@ defineExpose({
   padding: 36rpx;
   margin-bottom: 30rpx;
   box-shadow: 0 4rpx 20rpx rgba(0,0,0,0.03);
-  width: 100%;
-  box-sizing: border-box;
 }
 
 .card-title {
@@ -373,14 +367,11 @@ defineExpose({
   margin-bottom: 16rpx;
 }
 
-.task-name {
+
   font-size: 28rpx;
   color: #333;
   font-weight: 500;
   flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .completion-rate {
@@ -388,7 +379,6 @@ defineExpose({
   font-weight: bold;
   color: #ff9f43;
   margin-left: 20rpx;
-  flex-shrink: 0;
 }
 
 .completion-rate.high {
@@ -421,7 +411,6 @@ defineExpose({
   color: #666;
   min-width: 120rpx;
   text-align: right;
-  flex-shrink: 0;
 }
 
 /* 趋势图 */
@@ -453,7 +442,7 @@ defineExpose({
   position: absolute;
   top: -30rpx;
   left: 50%;
-  transform: translateX(-50%);
+nslateX(-50%);
   font-size: 22rpx;
   color: #666;
   white-space: nowrap;
@@ -500,7 +489,7 @@ defineExpose({
 }
 
 .stat-value.highlight {
-  color: #20C997;
+  color: #20C997
 }
 
 .distribution-chart {
@@ -566,7 +555,7 @@ defineExpose({
 }
 
 /* History Styles */
-.history-list {
+.st {
   background: #fff;
   border-radius: 24rpx;
   box-shadow: 0 4rpx 20rpx rgba(0,0,0,0.03);
@@ -578,7 +567,7 @@ defineExpose({
   justify-content: space-between;
   align-items: center;
   padding: 36rpx;
-  border-bottom: 1px solid #f5f5f5;
+  border-bottom: 1polid #f5f5f5;
 }
 
 .history-item:last-child {
@@ -588,7 +577,6 @@ defineExpose({
 .h-left { 
   display: flex; 
   flex-direction: column; 
-  flex: 1;
 }
 .h-date { 
   font-size: 24rpx; 
@@ -605,7 +593,6 @@ defineExpose({
   display: flex; 
   align-items: center; 
   gap: 20rpx;
-  flex-shrink: 0;
 }
 .h-stat { 
   font-size: 26rpx; 
@@ -617,8 +604,7 @@ defineExpose({
 }
 .arrow { 
   color: #ccc; 
-  font-size: 28rpx; 
-  margin-left: 10rpx;
+  font-seft: 10rpx;
 }
 
 .empty-state { 
@@ -638,3 +624,5 @@ defineExpose({
   color: #999; 
 }
 </style>
+ize: 28rpx; 
+  margin-l

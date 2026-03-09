@@ -16,6 +16,30 @@
         </picker>
       </view>
 
+      <!-- 体测任务视频上传（第二阶段新增） -->
+      <view class="form-item vertical" v-if="form.type === 'test'">
+        <text class="label required">体测示范视频</text>
+        <view class="video-upload-area">
+          <view v-if="!form.videoUrl" class="upload-placeholder" @click="chooseVideo">
+            <text class="upload-icon">📹</text>
+            <text class="upload-text">点击上传体测示范视频</text>
+            <text class="upload-hint">支持mp4/webm格式，最大50MB</text>
+          </view>
+          <view v-else class="video-preview">
+            <video 
+              :src="form.videoUrl" 
+              class="preview-video"
+              controls
+              :show-center-play-btn="true"
+            ></video>
+            <view class="video-actions">
+              <button class="action-btn" size="mini" @click="chooseVideo">重新上传</button>
+              <button class="action-btn delete" size="mini" @click="deleteVideo">删除</button>
+            </view>
+          </view>
+        </view>
+      </view>
+
       <view class="form-item">
         <text class="label">目标距离 (km)</text>
         <input class="input" type="digit" v-model="form.distance" placeholder="0.0" />
@@ -54,8 +78,8 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
-import { createTeacherTask, request } from '@/utils/request.js';
+import { ref, onMounted, watch } from 'vue';
+import { createTeacherTask, request, BASE_URL } from '@/utils/request.js';
 
 const taskTypes = ['run', 'test']; // Simplified to match backend enum/string
 const taskTypeLabels = ['跑步任务', '体能测试']; // Display labels
@@ -71,7 +95,9 @@ const form = ref({
   deadline: '',
   target: 'all',
   targetLabel: '全员',
-  description: ''
+  description: '',
+  videoUrl: '',  // 第二阶段新增：视频URL
+  videoFile: null  // 临时存储视频文件
 });
 
 onMounted(() => {
@@ -94,6 +120,12 @@ const onTypeChange = (e) => {
   const index = e.detail.value;
   form.value.type = taskTypes[index];
   form.value.typeLabel = taskTypeLabels[index];
+  
+  // 如果切换到非体测任务，清空视频
+  if (form.value.type !== 'test') {
+    form.value.videoUrl = '';
+    form.value.videoFile = null;
+  }
 };
 
 const onDateChange = (e) => {
@@ -106,9 +138,88 @@ const onGroupChange = (e) => {
   form.value.targetLabel = groupLabels.value[index];
 };
 
+// 第二阶段新增：视频上传功能
+const chooseVideo = () => {
+  uni.chooseVideo({
+    sourceType: ['camera', 'album'],
+    maxDuration: 300, // 最长5分钟
+    camera: 'back',
+    success: async (res) => {
+      const tempFilePath = res.tempFilePath;
+      const fileSize = res.size;
+      
+      // 检查文件大小（50MB限制）
+      if (fileSize > 50 * 1024 * 1024) {
+        return uni.showToast({ title: '视频文件不能超过50MB', icon: 'none' });
+      }
+      
+      // 显示上传中
+      uni.showLoading({ title: '上传中...' });
+      
+      try {
+        // 上传视频
+        const uploadRes = await uploadVideo(tempFilePath);
+        form.value.videoUrl = uploadRes.url;
+        uni.hideLoading();
+        uni.showToast({ title: '视频上传成功', icon: 'success' });
+      } catch (e) {
+        uni.hideLoading();
+        console.error('Upload failed:', e);
+        uni.showToast({ title: '视频上传失败', icon: 'none' });
+      }
+    }
+  });
+};
+
+const uploadVideo = (filePath) => {
+  return new Promise((resolve, reject) => {
+    const token = uni.getStorageSync('token');
+    
+    uni.uploadFile({
+      url: `${BASE_URL}/upload`,
+      filePath: filePath,
+      name: 'file',
+      header: {
+        'Authorization': `Bearer ${token}`
+      },
+      success: (res) => {
+        if (res.statusCode === 200) {
+          const data = JSON.parse(res.data);
+          resolve(data);
+        } else {
+          reject(new Error('Upload failed'));
+        }
+      },
+      fail: (err) => {
+        reject(err);
+      }
+    });
+  });
+};
+
+const deleteVideo = () => {
+  uni.showModal({
+    title: '确认删除',
+    content: '确定要删除已上传的视频吗？',
+    success: (res) => {
+      if (res.confirm) {
+        form.value.videoUrl = '';
+        form.value.videoFile = null;
+        uni.showToast({ title: '已删除', icon: 'success' });
+      }
+    }
+  });
+};
+
 const submitTask = async () => {
+  // 验证必填项
   if (!form.value.title || !form.value.type || !form.value.deadline) {
     return uni.showToast({ title: '请完善任务信息', icon: 'none' });
+  }
+  
+  // 体测任务必须上传视频
+  if (form.value.type === 'test' && !form.value.videoUrl) {
+    return uni.showToast({ title: '体测任务必须上传示范视频', icon: 'none' });
   }
   
   uni.showLoading({ title: '发布中...' });
@@ -123,7 +234,8 @@ const submitTask = async () => {
       deadline: new Date(form.value.deadline).toISOString(),
       description: form.value.description,
       target_group: form.value.target === 'all' ? 'all' : null,
-      class_id: typeof form.value.target === 'number' ? form.value.target : null
+      class_id: typeof form.value.target === 'number' ? form.value.target : null,
+      video_url: form.value.videoUrl || null  // 第二阶段新增：视频URL
     };
     
     await createTeacherTask(payload);
@@ -137,6 +249,7 @@ const submitTask = async () => {
   } catch (e) {
     uni.hideLoading();
     console.error(e);
+    uni.showToast({ title: '发布失败', icon: 'none' });
   }
 };
 </script>
@@ -209,6 +322,76 @@ const submitTask = async () => {
   border-radius: 8rpx;
   font-size: 28rpx;
   box-sizing: border-box;
+}
+
+/* 第二阶段新增：视频上传样式 */
+.label.required::after {
+  content: '*';
+  color: #ff4d4f;
+  margin-left: 4rpx;
+}
+
+.video-upload-area {
+  width: 100%;
+}
+
+.upload-placeholder {
+  width: 100%;
+  height: 300rpx;
+  background: #f9f9f9;
+  border: 2rpx dashed #ddd;
+  border-radius: 12rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16rpx;
+}
+
+.upload-icon {
+  font-size: 60rpx;
+}
+
+.upload-text {
+  font-size: 28rpx;
+  color: #666;
+}
+
+.upload-hint {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.video-preview {
+  width: 100%;
+}
+
+.preview-video {
+  width: 100%;
+  height: 400rpx;
+  background: #000;
+  border-radius: 12rpx;
+  margin-bottom: 20rpx;
+}
+
+.video-actions {
+  display: flex;
+  gap: 20rpx;
+  justify-content: center;
+}
+
+.action-btn {
+  margin: 0;
+  font-size: 26rpx;
+  padding: 0 30rpx;
+  background: #fff;
+  color: #20C997;
+  border: 1px solid #20C997;
+}
+
+.action-btn.delete {
+  color: #ff4d4f;
+  border-color: #ff4d4f;
 }
 
 .footer-btn {

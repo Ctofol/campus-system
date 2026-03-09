@@ -14,6 +14,18 @@
       <view class="section-header">
         <text class="section-title">任务要求</text>
       </view>
+      
+      <!-- 第二阶段新增：体测视频展示 -->
+      <view v-if="task.videoUrl" class="video-section">
+        <text class="video-label">📹 示范视频</text>
+        <video 
+          :src="task.videoUrl" 
+          class="task-video"
+          controls
+          :show-center-play-btn="true"
+        ></video>
+      </view>
+      
       <view class="requirements-list">
         <view class="req-item" v-for="(req, index) in task.requirements" :key="index">
           <text class="dot">•</text>
@@ -62,10 +74,18 @@
               <text class="name">{{ student.name }}</text>
               <text class="id">{{ student.studentId }}</text>
               <text v-if="student.metricValue && student.metricValue !== '-'" class="metric-val">成绩: {{ student.metricValue }}</text>
+              <text v-if="student.teacherScore" class="teacher-score">教师打分: {{ student.teacherScore }}分</text>
             </view>
           </view>
           <view class="status-col">
             <text class="status-text" :class="student.status">{{ student.statusText }}</text>
+            <!-- 第三阶段新增：打分按钮 -->
+            <button 
+              v-if="student.status === 'completed' && student.activityId" 
+              class="score-btn" 
+              size="mini"
+              @click.stop="goToScore(student)"
+            >{{ student.teacherScore ? '修改打分' : '打分' }}</button>
             <button 
               v-if="student.status === 'uncompleted'" 
               class="remind-btn" 
@@ -82,7 +102,7 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
-import { getTeacherTaskDetail } from '@/utils/request.js';
+import { getTeacherTaskDetail, BASE_URL } from '@/utils/request.js';
 
 const taskId = ref(null);
 const loading = ref(true);
@@ -95,7 +115,8 @@ const task = ref({
   dueDate: '',
   requirements: [],
   completedCount: 0,
-  totalCount: 0
+  totalCount: 0,
+  videoUrl: ''  // 第二阶段新增：视频URL
 });
 
 const students = ref([]);
@@ -121,6 +142,17 @@ const remindStudent = (student) => {
 const goToStudentDetail = (student) => {
     uni.navigateTo({
         url: `/pages/teacher/approve/student-detail?studentId=${student.id}&studentName=${student.name}`
+    });
+};
+
+// 第三阶段新增：跳转到打分页面
+const goToScore = (student) => {
+    if (!student.activityId) {
+        return uni.showToast({ title: '无法找到活动记录', icon: 'none' });
+    }
+    
+    uni.navigateTo({
+        url: `/pages/teacher/tasks/score?activityId=${student.activityId}&taskTitle=${task.value.title}`
     });
 };
 
@@ -152,6 +184,14 @@ const fetchTaskDetail = async () => {
             statusText = '已结束';
         }
 
+        // 第二阶段新增：处理视频URL
+        let videoUrl = '';
+        if (res.video_url) {
+            videoUrl = res.video_url.startsWith('http') 
+                ? res.video_url 
+                : `${BASE_URL}${res.video_url}`;
+        }
+
         task.value = {
             id: res.id,
             title: res.title,
@@ -160,7 +200,8 @@ const fetchTaskDetail = async () => {
             dueDate: res.deadline ? res.deadline.replace('T', ' ') : '无限制',
             requirements: reqs,
             completedCount: res.completed_count,
-            totalCount: res.total_students
+            totalCount: res.total_students,
+            videoUrl: videoUrl  // 第二阶段新增
         };
 
         // Map Students
@@ -172,7 +213,9 @@ const fetchTaskDetail = async () => {
             status: s.status === 'completed' ? 'completed' : 'uncompleted',
             statusText: s.status === 'completed' ? '已完成' : '未完成',
             metricValue: s.metric_value,
-            avatar: ''
+            avatar: '',
+            activityId: s.activity_id || null,  // 第三阶段新增
+            teacherScore: s.teacher_score || null  // 第三阶段新增
         }));
 
     } catch (e) {
@@ -297,6 +340,25 @@ onLoad((options) => {
   }
 }
 
+/* 第二阶段新增：视频展示样式 */
+.video-section {
+  margin-bottom: 24rpx;
+  
+  .video-label {
+    font-size: 28rpx;
+    color: #666;
+    display: block;
+    margin-bottom: 16rpx;
+  }
+  
+  .task-video {
+    width: 100%;
+    height: 400rpx;
+    background: #000;
+    border-radius: 12rpx;
+  }
+}
+
 .progress-box {
   .progress-bar {
     height: 16rpx;
@@ -388,6 +450,13 @@ onLoad((options) => {
           color: #20C997;
           margin-top: 4rpx;
         }
+        
+        .teacher-score {
+          font-size: 24rpx;
+          color: #ff9f43;
+          margin-top: 4rpx;
+          font-weight: 500;
+        }
       }
     }
     
@@ -395,16 +464,31 @@ onLoad((options) => {
       display: flex;
       flex-direction: column;
       align-items: flex-end;
+      gap: 8rpx;
       
       .status-text {
         font-size: 26rpx;
-        margin-bottom: 8rpx;
         
         &.completed {
           color: #20C997;
         }
         &.uncompleted {
           color: #ff4d4f;
+        }
+      }
+      
+      .score-btn {
+        margin: 0;
+        padding: 0 20rpx;
+        height: 48rpx;
+        line-height: 48rpx;
+        font-size: 24rpx;
+        background: #20C997;
+        color: #fff;
+        border: none;
+        
+        &:active {
+          background: #1ab386;
         }
       }
       

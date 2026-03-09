@@ -36,22 +36,22 @@
 
         <!-- 运动记录统计 -->
         <view class="stats-section">
-          <view class="section-title">本周运动统计</view>
+          <view class="section-title">运动数据统计</view>
           <view class="stats-grid">
             <view class="stat-item">
-              <text class="stat-value">{{ weekStats.distance }}</text>
+              <text class="stat-value">{{ totalStats.distance }}</text>
               <text class="stat-label">总里程(km)</text>
             </view>
             <view class="stat-item">
-              <text class="stat-value">{{ weekStats.duration }}</text>
+              <text class="stat-value">{{ totalStats.duration }}</text>
               <text class="stat-label">总时长(min)</text>
             </view>
             <view class="stat-item">
-              <text class="stat-value">{{ weekStats.calories }}</text>
+              <text class="stat-value">{{ totalStats.calories }}</text>
               <text class="stat-label">总消耗(kcal)</text>
             </view>
             <view class="stat-item">
-              <text class="stat-value">{{ weekStats.count }}</text>
+              <text class="stat-value">{{ totalStats.count }}</text>
               <text class="stat-label">运动次数</text>
             </view>
           </view>
@@ -73,7 +73,7 @@ import { request } from '@/utils/request.js';
 const role = ref('student');
 const teacherManageRef = ref(null);
 
-const weekStats = ref({
+const totalStats = ref({
   distance: 0,
   duration: 0,
   calories: 0,
@@ -88,24 +88,28 @@ const goToPhysicalTest = () => {
   uni.navigateTo({ url: '/pages/test/test' });
 };
 
-const fetchWeekStats = async () => {
+const fetchTotalStats = async () => {
   try {
-    // TODO: 对接真实API获取本周统计
-    // const res = await request({
-    //   url: '/student/week-stats',
-    //   method: 'GET'
-    // });
-    // weekStats.value = res;
+    const res = await request({
+      url: '/student/total-stats',
+      method: 'GET'
+    });
     
-    // 暂时使用占位数据
-    weekStats.value = {
+    totalStats.value = {
+      distance: res.total_distance ? res.total_distance.toFixed(1) : 0,
+      duration: res.total_duration || 0,
+      calories: res.total_calories || 0,
+      count: res.total_count || 0
+    };
+  } catch (e) {
+    console.error('Failed to fetch total stats:', e);
+    // 优雅降级：使用占位数据
+    totalStats.value = {
       distance: 0,
       duration: 0,
       calories: 0,
       count: 0
     };
-  } catch (e) {
-    console.error('Failed to fetch week stats:', e);
   }
 };
 
@@ -113,7 +117,7 @@ onShow(() => {
   role.value = uni.getStorageSync('userRole') || 'student';
   
   if (role.value === 'student') {
-    fetchWeekStats();
+    fetchTotalStats();
   } else if (teacherManageRef.value && teacherManageRef.value.onPageShow) {
     teacherManageRef.value.onPageShow();
   }

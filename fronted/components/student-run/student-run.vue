@@ -25,25 +25,6 @@
       <text class="ai-btn-text">AI助手</text>
     </view>
 
-    <!-- 0. 顶部天气与成就（新增） -->
-    <view class="top-widgets">
-      <view class="weather-widget">
-        <view class="weather-left">
-          <text class="weather-temp">24°C</text>
-          <text class="weather-status">☀️ 晴朗</text>
-        </view>
-        <view class="weather-right">
-          <text class="weather-tips">空气优 · 适宜跑步</text>
-        </view>
-      </view>
-      <scroll-view scroll-x class="achievements-scroll" :show-scrollbar="false">
-        <view class="badge-item" v-for="(badge, idx) in achievements" :key="idx">
-          <text class="badge-icon">{{ badge.icon }}</text>
-          <text class="badge-name">{{ badge.name }}</text>
-        </view>
-      </scroll-view>
-    </view>
-
     <!-- 1. 搜索打卡点（仅校园打卡用） -->
     <view class="search-bar" v-if="currentMode === 'campus'">
       <input 
@@ -378,12 +359,6 @@ const policeProgress = ref(0);
 const historyList = ref([]);
 
 // 新增数据
-const achievements = ref([
-  { name: '初次开跑', icon: '🏅' },
-  { name: '五公里达人', icon: '🏃‍♂️' },
-  { name: '全勤周', icon: '🔥' },
-  { name: '早起鸟', icon: '🐦' }
-]);
 const showRoutes = ref(false);
 const recommendRoutes = ref([
   { name: '环校外圈跑', distance: 5.2, difficulty: '中等' },
