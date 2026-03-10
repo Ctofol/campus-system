@@ -113,6 +113,14 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
         "name": new_user.name
     }
 
+
+@app.post("/auth/refresh")
+def refresh_token(current_user: models.User = Depends(auth.get_current_user)):
+    access_token = auth.create_access_token(
+        data={"sub": current_user.phone, "role": current_user.role}
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
+
 @app.post("/auth/login", response_model=schemas.Token)
 def login(user_data: schemas.UserLogin, db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.phone == user_data.phone).first()

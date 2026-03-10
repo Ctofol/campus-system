@@ -47,6 +47,31 @@ services:
     networks:
       - campus-network
 
+  admin-backend:
+    build: ./admin/backend
+    container_name: campus-admin-backend
+    ports:
+      - "8001:8001"
+    environment:
+      - SQLALCHEMY_DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-campus123456}@db:5432/${POSTGRES_DB:-campus_db}
+      - TZ=Asia/Shanghai
+    depends_on:
+      - db
+    restart: always
+    networks:
+      - campus-network
+
+  admin-frontend:
+    build: ./admin/frontend
+    container_name: campus-admin-frontend
+    ports:
+      - "8090:80"
+    depends_on:
+      - admin-backend
+    restart: always
+    networks:
+      - campus-network
+
 volumes:
   postgres_data:
 
