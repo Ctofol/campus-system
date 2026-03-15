@@ -1,7 +1,8 @@
 import axios from 'axios'
 
-// 管理端独立后端，与学生/教师端分离。本地开发默认 8001
-const BASE_URL = import.meta.env.VITE_ADMIN_API_URL || 'http://127.0.0.1:8001'
+// 管理端独立后端，与学生/教师端分离。
+// 线上统一指向服务器 8090，如需本地开发可改回 http://127.0.0.1:8001
+const BASE_URL = import.meta.env.VITE_ADMIN_API_URL || 'http://101.37.24.171:8090'
 
 const api = axios.create({ baseURL: BASE_URL })
 
