@@ -10,24 +10,29 @@
     </view>
     
     <view class="content-wrapper" :style="{paddingTop: (statusBarHeight + 44) + 'px'}">
-        <scroll-view scroll-y class="record-list" @scrolltolower="loadMore">
-        <view class="record-item" v-for="(item, index) in filteredRecords" :key="index">
-            <view class="record-type" :style="{backgroundColor: item.modeBg}">
+      <scroll-view scroll-y class="record-list" @scrolltolower="loadMore">
+        <view 
+          class="record-item" 
+          v-for="(item, index) in filteredRecords" 
+          :key="index"
+          @click="goDetail(item)"
+        >
+          <view class="record-type" :style="{backgroundColor: item.modeBg}">
             <text class="type-text">{{item.modeText}}</text>
-            </view>
-            <view class="record-info">
+          </view>
+          <view class="record-info">
             <text class="record-date">{{item.createTime}}</text>
             <text class="record-data" v-if="item.type === 'run'">
-                {{item.distance}}km | {{item.duration}}<text v-if="item.pace"> | {{Number(item.pace).toFixed(1)}}'</text>
+              {{item.distance}}km | {{item.duration}}<text v-if="item.pace"> | {{Number(item.pace).toFixed(1)}}'</text>
             </text>
-            </view>
-            <view class="record-status">
+          </view>
+          <view class="record-status">
             <text class="status-text" :style="{color: item.statusColor}">{{item.statusText}}</text>
-            </view>
+          </view>
         </view>
         <view class="loading-more" v-if="loading">加载中...</view>
         <view class="no-more" v-if="!loading && filteredRecords.length === 0">暂无自主运动记录</view>
-        </scroll-view>
+      </scroll-view>
     </view>
   </view>
 </template>
@@ -79,6 +84,7 @@ const loadHistory = async () => {
                 const dateStr = `${date.getMonth()+1}-${date.getDate()} ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
                 
                 return {
+                    raw: item,
                     type: item.type,
                     modeBg: isRun ? '#20C997' : '#FF9F43',
                     modeText: isRun ? '跑步' : '体测',
@@ -112,6 +118,19 @@ const loadHistory = async () => {
 const loadMore = () => {
     page.value++;
     loadHistory();
+};
+
+// 跳转到详情页，查看本次运动数据和轨迹
+const goDetail = (item) => {
+    const payload = item.raw || item;
+    try {
+        const dataStr = encodeURIComponent(JSON.stringify(payload));
+        uni.navigateTo({
+            url: `/pages/history/detail?data=${dataStr}`
+        });
+    } catch (e) {
+        console.error('Go detail failed', e);
+    }
 };
 
 const formatDuration = (seconds) => {

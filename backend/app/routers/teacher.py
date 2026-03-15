@@ -1,9 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func, or_
 from typing import List
+import io
+import csv
 from datetime import datetime, timedelta
 from .. import models, schemas, auth
+from ..services.score_service import calculate_total_score
 from ..database import get_db
 
 router = APIRouter(prefix="/teacher", tags=["teacher"])
@@ -13,14 +17,23 @@ async def get_teacher_stats(
     current_user: models.User = Depends(auth.get_current_teacher),
     db: Session = Depends(get_db)
 ):
-    """Get teacher dashboard statistics - only for students in teacher's classes"""
-    
-    # Get teacher's class IDs
-    teacher_classes = db.query(models.Class).filter(
-        models.Class.teacher_id == current_user.id
+    """Get teacher dashboard statistics - only for students in teacher's bound classes"""
+    # 基于 TeacherClass 绑定关系获取教师可管理的班级名称
+    tc_rows = db.query(models.TeacherClass).filter(
+        models.TeacherClass.teacher_id == current_user.id
     ).all()
-    teacher_class_ids = [c.id for c in teacher_classes]
-    
+    class_names = [r.class_name for r in tc_rows]
+
+    if class_names:
+        teacher_class_ids = [
+            c.id
+            for c in db.query(models.Class)
+            .filter(models.Class.name.in_(class_names))
+            .all()
+        ]
+    else:
+        teacher_class_ids = []
+
     # 1. Student Count (only in teacher's classes)
     if teacher_class_ids:
         student_count = db.query(models.User).filter(
@@ -199,6 +212,8 @@ async def get_teacher_stats(
         "today_checkin": today_checkin,
         "abnormal_count": abnormal_count,
         "pending_approvals": pending_approvals,
+        "pending_health": pending_approvals,
+        "pending_activities": 0,
         "avg_pace": avg_pace,
         "task_count": task_count,
         "compliance_rate": compliance_rate,
@@ -211,15 +226,24 @@ async def get_weekly_trend(
     current_user: models.User = Depends(auth.get_current_teacher),
     db: Session = Depends(get_db)
 ):
-    """Get weekly activity trend data - only for students in teacher's classes"""
+    """Get weekly activity trend data - only for students in teacher's bound classes"""
     days = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
     trend_data = []
     
-    # Get teacher's class IDs
-    teacher_classes = db.query(models.Class).filter(
-        models.Class.teacher_id == current_user.id
+    # Get teacher's bound class IDs via TeacherClass
+    tc_rows = db.query(models.TeacherClass).filter(
+        models.TeacherClass.teacher_id == current_user.id
     ).all()
-    teacher_class_ids = [c.id for c in teacher_classes]
+    class_names = [r.class_name for r in tc_rows]
+    if class_names:
+        teacher_class_ids = [
+            c.id
+            for c in db.query(models.Class)
+            .filter(models.Class.name.in_(class_names))
+            .all()
+        ]
+    else:
+        teacher_class_ids = []
     
     if not teacher_class_ids:
         # No classes, return empty trend
@@ -274,13 +298,17 @@ async def get_class_analysis(
     current_user: models.User = Depends(auth.get_current_teacher),
     db: Session = Depends(get_db)
 ):
-    """Get class analysis data"""
-    # Verify teacher owns this class
-    cls = db.query(models.Class).filter(
-        models.Class.id == class_id,
-        models.Class.teacher_id == current_user.id
-    ).first()
-    
+    """Get class analysis data（权限：TeacherClass 绑定班级）"""
+    tc_rows = db.query(models.TeacherClass).filter(
+        models.TeacherClass.teacher_id == current_user.id
+    ).all()
+    class_names = [r.class_name for r in tc_rows]
+    cls = None
+    if class_names:
+        cls = db.query(models.Class).filter(
+            models.Class.id == class_id,
+            models.Class.name.in_(class_names)
+        ).first()
     if not cls:
         raise HTTPException(status_code=404, detail="Class not found or not authorized")
     
@@ -349,13 +377,21 @@ async def get_teacher_students(
     current_user: models.User = Depends(auth.get_current_teacher),
     db: Session = Depends(get_db)
 ):
-    """Get all students managed by the teacher"""
-    # Only show students in classes managed by the current teacher
+    """Get all students managed by the teacher (based on TeacherClass bindings)."""
+    # Only show students in classes bound to the current teacher via TeacherClass
+    tc_rows = db.query(models.TeacherClass).filter(
+        models.TeacherClass.teacher_id == current_user.id
+    ).all()
+    class_names = [r.class_name for r in tc_rows]
+
+    if not class_names:
+        return []
+
     query = db.query(models.User).join(
         models.Class, models.User.class_id == models.Class.id
     ).filter(
         models.User.role == "student",
-        models.Class.teacher_id == current_user.id
+        models.Class.name.in_(class_names)
     )
     
     if class_id:
@@ -369,3 +405,213 @@ async def get_teacher_students(
     
     students = query.offset((page - 1) * size).limit(size).all()
     return students
+
+
+@router.get("/activities/invalid", response_model=List[schemas.InvalidActivityOut])
+async def get_invalid_activities(
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db)
+):
+    """
+    获取阳光跑异常记录：
+    - is_valid = False 且 fail_reason 非空（人脸比对失败、配速异常、配速过快、里程不足等）
+    仅返回当前教师所带班级内学生的数据。
+    """
+    # 1. 获取教师绑定的班级（通过 TeacherClass）
+    tc_rows = db.query(models.TeacherClass).filter(
+        models.TeacherClass.teacher_id == current_user.id
+    ).all()
+    class_names = [r.class_name for r in tc_rows]
+
+    if not class_names:
+        return []
+
+    # 2. 查询异常活动（仅跑步，任意无效原因都展示）
+    activities = (
+        db.query(models.Activity)
+        .join(models.User, models.Activity.user_id == models.User.id)
+        .join(models.Class, models.User.class_id == models.Class.id)
+        .outerjoin(models.ActivityMetrics, models.Activity.id == models.ActivityMetrics.activity_id)
+        .filter(
+            models.Activity.type == "run",
+            models.Activity.is_valid.is_(False),
+            models.Activity.fail_reason.isnot(None),
+            models.Activity.fail_reason != "",
+            models.Class.name.in_(class_names),
+        )
+        .order_by(models.Activity.started_at.desc())
+        .all()
+    )
+
+    results: List[schemas.InvalidActivityOut] = []
+
+    for activity in activities:
+        user = activity.user
+        cls = getattr(user, "student_class", None)
+        metrics = activity.metrics
+
+        # 提取起跑 / 终点照片（按 evidence.id 顺序取前两个 camera 证据）
+        start_photo_url = None
+        end_photo_url = None
+        sorted_evidence = sorted(activity.evidence, key=lambda e: e.id or 0)
+        for ev in sorted_evidence:
+            if ev.evidence_type == "camera":
+                if not start_photo_url:
+                    start_photo_url = ev.data_ref
+                elif not end_photo_url:
+                    end_photo_url = ev.data_ref
+                    break
+
+        results.append(
+            schemas.InvalidActivityOut(
+                id=activity.id,
+                student_name=user.name if user else "未知学生",
+                student_id=user.student_id if user else None,
+                class_name=cls.name if cls else None,
+                fail_reason=activity.fail_reason,
+                distance=metrics.distance if metrics else None,
+                duration=metrics.duration if metrics else None,
+                pace=metrics.pace if metrics else None,
+                started_at=activity.started_at,
+                start_photo_url=start_photo_url,
+                end_photo_url=end_photo_url,
+            )
+        )
+
+    return results
+
+
+@router.post("/activities/{activity_id}/resolve")
+async def resolve_activity_exception(
+    activity_id: int,
+    payload: schemas.ResolveActivityExceptionRequest,
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db),
+):
+    """
+    教师人工处理阳光跑异常：
+    - confirm_cheat：确认作弊，保留无效状态
+    - restore_valid：恢复为有效记录
+    权限：仅能处理 TeacherClass 绑定班级内学生的活动。
+    """
+    # 通过 TeacherClass 获取当前教师管理的班级 ID
+    tc_rows = db.query(models.TeacherClass).filter(
+        models.TeacherClass.teacher_id == current_user.id
+    ).all()
+    class_names = [r.class_name for r in tc_rows]
+    if not class_names:
+        raise HTTPException(status_code=403, detail="当前教师没有管理的班级")
+    teacher_class_ids = [
+        c.id for c in db.query(models.Class).filter(models.Class.name.in_(class_names)).all()
+    ]
+    if not teacher_class_ids:
+        raise HTTPException(status_code=403, detail="当前教师没有管理的班级")
+
+    activity = (
+        db.query(models.Activity)
+        .join(models.User, models.Activity.user_id == models.User.id)
+        .filter(
+            models.Activity.id == activity_id,
+            models.User.class_id.in_(teacher_class_ids),
+        )
+        .first()
+    )
+
+    if not activity:
+        raise HTTPException(status_code=404, detail="活动不存在或无权限访问")
+
+    action = payload.action
+    if action not in ("confirm_cheat", "restore_valid"):
+        raise HTTPException(status_code=400, detail="不支持的操作类型")
+
+    if action == "confirm_cheat":
+        # 确认作弊：保持无效状态，并标记原因
+        activity.is_valid = False
+        if not activity.fail_reason:
+            activity.fail_reason = "教师确认作弊"
+    else:
+        # 恢复有效：标记为有效，并清空失败原因
+        activity.is_valid = True
+        activity.fail_reason = None
+        # 人脸校验通过（人工确认）
+        activity.face_verified = True
+
+    db.commit()
+    db.refresh(activity)
+
+    # 累计有效次数依赖 get_sunshine_stats 的动态统计，
+    # 这里不单独存储计数，只需保持 activities 表中的 is_valid 状态正确。
+    return {"message": "处理成功", "activity_id": activity.id, "action": action}
+
+
+@router.get("/export/running-grades")
+async def export_running_grades(
+    class_id: int,
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db),
+):
+    """
+    导出指定班级的阳光跑成绩汇总（CSV，可用 Excel 打开）。
+    计分规则与学生端 sunshine-detail.vue 完全一致。
+    权限：仅可导出 TeacherClass 绑定班级。
+    """
+    tc_rows = db.query(models.TeacherClass).filter(
+        models.TeacherClass.teacher_id == current_user.id
+    ).all()
+    class_names = [r.class_name for r in tc_rows]
+    cls = None
+    if class_names:
+        cls = db.query(models.Class).filter(
+            models.Class.id == class_id,
+            models.Class.name.in_(class_names)
+        ).first()
+    if not cls:
+        raise HTTPException(status_code=404, detail="班级不存在或无权限访问")
+
+    # 查询班级学生
+    students = (
+        db.query(models.User)
+        .filter(
+            models.User.class_id == class_id,
+            models.User.role == "student",
+        )
+        .all()
+    )
+
+    # 生成 CSV 内容
+    output = io.StringIO()
+    writer = csv.writer(output)
+    # 表头
+    writer.writerow(["姓名", "学号", "班级", "有效阳光跑次数", "阳光跑得分"])
+
+    for student in students:
+        # 统计该生有效阳光跑次数
+        valid_count = (
+            db.query(func.count(models.Activity.id))
+            .filter(
+                models.Activity.user_id == student.id,
+                models.Activity.type == "run",
+                models.Activity.is_valid.is_(True),
+            )
+            .scalar()
+        )
+        score = calculate_total_score(valid_count or 0)
+
+        writer.writerow(
+            [
+                student.name,
+                student.student_id or "",
+                cls.name,
+                valid_count or 0,
+                score,
+            ]
+        )
+
+    output.seek(0)
+    filename = f"running_grades_class_{class_id}.csv"
+    headers = {
+        "Content-Disposition": f'attachment; filename="{filename}"',
+        "Content-Type": "text/csv; charset=utf-8",
+    }
+
+    return StreamingResponse(output, headers=headers)

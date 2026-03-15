@@ -1,5 +1,9 @@
 <template>
   <view class="home-container">
+    <!-- 顶部导航栏：用于填充状态栏区域，避免全屏时顶部留白 -->
+    <view class="top-nav">
+      <text class="top-nav-title">首页</text>
+    </view>
     <view class="content-wrapper">
       <view class="student-dashboard">
       
@@ -459,6 +463,24 @@ const loadRunGroupData = async () => {
   background: #f5f7fa;
   display: flex;
   flex-direction: column;
+  max-width: 750rpx;
+  margin: 0 auto;
+}
+
+.top-nav {
+  padding-top: 40rpx;
+  padding-bottom: 20rpx;
+  padding-left: 30rpx;
+  padding-right: 30rpx;
+  background-color: #f5f7fa;
+  display: flex;
+  justify-content: center;
+}
+
+.top-nav-title {
+  font-size: 34rpx;
+  font-weight: bold;
+  color: #333;
 }
 
 .student-dashboard {

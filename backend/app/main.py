@@ -15,8 +15,9 @@ import base64
 import hashlib
 from captcha.image import ImageCaptcha
 from . import models, schemas, auth, database
-from .routers import admin, teacher, courses, approvals, student, upload
+from .routers import teacher, courses, approvals, student, upload
 from .services.video_score import get_video_score
+from .services.score_service import verify_activity, get_sunshine_stats
 
 # 初始化数据库表
 models.Base.metadata.create_all(bind=database.engine)
@@ -34,7 +35,6 @@ app.add_middleware(
     expose_headers=["*"]
 )
 
-app.include_router(admin.router)
 app.include_router(teacher.router)
 app.include_router(courses.router)
 app.include_router(approvals.router)
@@ -80,37 +80,109 @@ def get_captcha():
 
 @app.post("/auth/register", response_model=schemas.Token)
 def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
-    # 1. Verify Captcha
+    """
+    注册逻辑重构：学生采用“档案激活”模式。
+    - 学生：必须在 StudentProfile 中存在对应档案，且姓名匹配，且未被激活
+    - 教师/其他角色：保持原有自由注册逻辑
+    """
+    # 1. Verify Captcha（测试环境允许 code=TEST + 对应 key）
     verify_src = user.captcha_code.upper() + CAPTCHA_SECRET
-    expected_key = hashlib.md5(verify_src.encode('utf-8')).hexdigest()
-    
+    expected_key = hashlib.md5(verify_src.encode("utf-8")).hexdigest()
     if expected_key != user.captcha_key:
         raise HTTPException(status_code=400, detail="验证码错误")
 
+    # 2. 手机号唯一
     db_user = db.query(models.User).filter(models.User.phone == user.phone).first()
     if db_user:
         raise HTTPException(status_code=400, detail="Phone already registered")
-    
+
     hashed_password = auth.get_password_hash(user.password)
-    new_user = models.User(
-        phone=user.phone,
-        name=user.name,
-        role=user.role,
-        password_hash=hashed_password
-    )
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-    
+
+    # 3. 学生：走档案激活流程
+    if user.role == "student":
+        if not user.student_id:
+            raise HTTPException(
+                status_code=400,
+                detail="学生注册必须提供学号",
+            )
+
+        profile = (
+            db.query(models.StudentProfile)
+            .filter(models.StudentProfile.student_id == user.student_id)
+            .first()
+        )
+        if not profile:
+            raise HTTPException(
+                status_code=403,
+                detail="档案库中无此信息，请联系管理员",
+            )
+
+        # 姓名严格匹配档案
+        if profile.full_name.strip() != user.name.strip():
+            raise HTTPException(
+                status_code=403,
+                detail="姓名与档案不符，请确认后重试",
+            )
+
+        if profile.is_activated:
+            raise HTTPException(
+                status_code=400,
+                detail="该学号已被注册",
+            )
+
+        # 根据档案中的班级名称找到或创建班级
+        db_class = (
+            db.query(models.Class)
+            .filter(models.Class.name == profile.class_name)
+            .first()
+        )
+        if not db_class:
+            db_class = models.Class(name=profile.class_name)
+            db.add(db_class)
+            db.commit()
+            db.refresh(db_class)
+
+        new_user = models.User(
+            phone=user.phone,
+            name=profile.full_name,
+            role="student",
+            password_hash=hashed_password,
+            student_id=profile.student_id,
+            gender=profile.gender,
+            class_id=db_class.id,
+            major=profile.major,
+        )
+        db.add(new_user)
+        # 标记档案已激活
+        profile.is_activated = True
+        db.commit()
+        db.refresh(new_user)
+
+    else:
+        # 非学生角色仍然允许常规注册（如教师）
+        new_user = models.User(
+            phone=user.phone,
+            name=user.name,
+            role=user.role,
+            password_hash=hashed_password,
+        )
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+
     access_token = auth.create_access_token(
         data={"sub": new_user.phone, "role": new_user.role}
     )
+    class_name = new_user.student_class.name if getattr(new_user, "student_class", None) else None
     return {
-        "access_token": access_token, 
+        "access_token": access_token,
         "token_type": "bearer",
         "role": new_user.role,
         "user_id": new_user.id,
-        "name": new_user.name
+        "name": new_user.name,
+        "class_name": class_name,
+        "student_id": new_user.student_id,
+        "major": getattr(new_user, "major", None),
     }
 
 
@@ -134,17 +206,19 @@ def login(user_data: schemas.UserLogin, db: Session = Depends(get_db)):
     access_token = auth.create_access_token(
         data={"sub": user.phone, "role": user.role}
     )
-    
-    class_name = user.student_class.name if user.student_class else None
+    class_name = None
+    if getattr(user, "student_class", None):
+        class_name = user.student_class.name
     
     return {
-        "access_token": access_token, 
+        "access_token": access_token,
         "token_type": "bearer",
         "role": user.role,
         "user_id": user.id,
         "name": user.name,
         "class_name": class_name,
-        "student_id": user.student_id
+        "student_id": user.student_id,
+        "major": getattr(user, "major", None),
     }
 
 @app.get("/users/profile", response_model=schemas.UserProfile)
@@ -204,11 +278,13 @@ def finish_activity(
     db: Session = Depends(get_db)
 ):
     # 1. Create Activity
+    # 任务来源的提交默认进入待教师审核/打分队列
+    initial_status = "pending_review" if activity_in.source == "task" else "finished"
     db_activity = models.Activity(
         user_id=current_user.id,
         type=activity_in.type,
         source=activity_in.source,
-        status="finished", # 默认为完成，等待审核或自动通过
+        status=initial_status,  # free: finished；task: pending_review
         started_at=activity_in.started_at,
         ended_at=activity_in.ended_at
     )
@@ -256,8 +332,26 @@ def finish_activity(
         )
         db.add(db_evidence)
     
-    db.commit()
-    db.refresh(db_activity)
+    # 4. 阳光跑自动审核（仅针对跑步）
+    if db_activity.type == "run":
+        is_valid, fail_reason, face_verified = verify_activity(current_user, db_activity, db)
+        db_activity.is_valid = is_valid
+        db_activity.fail_reason = fail_reason or None
+        db_activity.face_verified = face_verified
+        db.commit()
+        db.refresh(db_activity)
+    else:
+        db.commit()
+        db.refresh(db_activity)
+
+    # 5. 计算本次提交后的今日达标状态，用于前端结算页提示
+    try:
+        stats = get_sunshine_stats(current_user, db)
+        setattr(db_activity, "today_completed", stats.get("today_status") == "success")
+    except Exception:
+        # 统计失败不影响本次活动记录
+        setattr(db_activity, "today_completed", None)
+
     return db_activity
 
 @app.get("/activity/history", response_model=schemas.ActivityListResponse)
@@ -280,15 +374,28 @@ def get_history(
 
 # --- Class Interfaces ---
 
+def _teacher_class_ids(db: Session, teacher_id: int):
+    """教师管辖的班级 ID 列表（基于 TeacherClass）"""
+    return _teacher_class_ids_by_binding(db, teacher_id)
+
+def _teacher_can_access_class(db: Session, teacher_id: int, class_id: int) -> bool:
+    return class_id in _teacher_class_ids(db, teacher_id)
+
 @app.get("/teacher/available_classes", response_model=List[schemas.ClassOut])
 def get_available_classes(
     current_user: models.User = Depends(auth.get_current_teacher),
     db: Session = Depends(get_db)
 ):
-    classes = db.query(models.Class).filter(models.Class.teacher_id == None).all()
+    bound_names = [r.class_name for r in db.query(models.TeacherClass).filter(
+        models.TeacherClass.teacher_id == current_user.id
+    ).all()]
+    if bound_names:
+        classes = db.query(models.Class).filter(~models.Class.name.in_(bound_names)).all()
+    else:
+        classes = db.query(models.Class).all()
     results = []
     for c in classes:
-        c_dict = c.__dict__
+        c_dict = {k: v for k, v in c.__dict__.items() if not k.startswith("_")}
         c_dict["student_count"] = len(c.students)
         results.append(c_dict)
     return results
@@ -299,11 +406,16 @@ def bind_classes(
     current_user: models.User = Depends(auth.get_current_teacher),
     db: Session = Depends(get_db)
 ):
-    classes = db.query(models.Class).filter(models.Class.id.in_(bind_data.class_ids)).all()
-    for cls in classes:
-        if cls.teacher_id is not None and cls.teacher_id != current_user.id:
+    for class_id in bind_data.class_ids:
+        cls = db.query(models.Class).filter(models.Class.id == class_id).first()
+        if not cls:
             continue
-        cls.teacher_id = current_user.id
+        if db.query(models.TeacherClass).filter(
+            models.TeacherClass.teacher_id == current_user.id,
+            models.TeacherClass.class_name == cls.name
+        ).first():
+            continue
+        db.add(models.TeacherClass(teacher_id=current_user.id, class_name=cls.name))
     db.commit()
     return {"ok": True}
 
@@ -312,10 +424,15 @@ def get_classes(
     current_user: models.User = Depends(auth.get_current_teacher),
     db: Session = Depends(get_db)
 ):
-    classes = db.query(models.Class).filter(models.Class.teacher_id == current_user.id).all()
+    bound_names = [r.class_name for r in db.query(models.TeacherClass).filter(
+        models.TeacherClass.teacher_id == current_user.id
+    ).all()]
+    if not bound_names:
+        return []
+    classes = db.query(models.Class).filter(models.Class.name.in_(bound_names)).all()
     results = []
     for c in classes:
-        c_dict = c.__dict__
+        c_dict = {k: v for k, v in c.__dict__.items() if not k.startswith("_")}
         c_dict["student_count"] = len(c.students)
         results.append(c_dict)
     return results
@@ -326,13 +443,22 @@ def unbind_class(
     current_user: models.User = Depends(auth.get_current_teacher),
     db: Session = Depends(get_db)
 ):
-    cls = db.query(models.Class).filter(models.Class.id == class_id, models.Class.teacher_id == current_user.id).first()
+    if not _teacher_can_access_class(db, current_user.id, class_id):
+        raise HTTPException(status_code=404, detail="Class not found")
+    cls = db.query(models.Class).filter(models.Class.id == class_id).first()
     if not cls:
         raise HTTPException(status_code=404, detail="Class not found")
-    
-    cls.teacher_id = None
+    db.query(models.TeacherClass).filter(
+        models.TeacherClass.teacher_id == current_user.id,
+        models.TeacherClass.class_name == cls.name
+    ).delete(synchronize_session=False)
     db.commit()
     return {"ok": True}
+
+def _get_class_if_teacher_can_access(db: Session, class_id: int, teacher_id: int):
+    if not _teacher_can_access_class(db, teacher_id, class_id):
+        return None
+    return db.query(models.Class).filter(models.Class.id == class_id).first()
 
 @app.get("/teacher/classes/{class_id}", response_model=schemas.ClassDetail)
 def get_class_detail(
@@ -340,14 +466,10 @@ def get_class_detail(
     current_user: models.User = Depends(auth.get_current_teacher),
     db: Session = Depends(get_db)
 ):
-    cls = db.query(models.Class).filter(models.Class.id == class_id).first()
+    cls = _get_class_if_teacher_can_access(db, class_id, current_user.id)
     if not cls:
-         raise HTTPException(status_code=404, detail="Class not found")
-    
-    if cls.teacher_id != current_user.id:
-         raise HTTPException(status_code=403, detail="Not authorized to view this class")
-    
-    c_dict = cls.__dict__
+        raise HTTPException(status_code=404, detail="Class not found")
+    c_dict = {k: v for k, v in cls.__dict__.items() if not k.startswith("_")}
     c_dict["student_count"] = len(cls.students)
     c_dict["students"] = cls.students
     return c_dict
@@ -359,16 +481,13 @@ def update_class(
     current_user: models.User = Depends(auth.get_current_teacher),
     db: Session = Depends(get_db)
 ):
-    cls = db.query(models.Class).filter(models.Class.id == class_id, models.Class.teacher_id == current_user.id).first()
+    cls = _get_class_if_teacher_can_access(db, class_id, current_user.id)
     if not cls:
         raise HTTPException(status_code=404, detail="Class not found")
-        
     cls.name = class_in.name
     db.commit()
     db.refresh(cls)
-    
-    # Manually attach student count
-    c_dict = cls.__dict__
+    c_dict = {k: v for k, v in cls.__dict__.items() if not k.startswith("_")}
     c_dict["student_count"] = len(cls.students)
     return c_dict
 
@@ -378,10 +497,9 @@ def get_class_students(
     current_user: models.User = Depends(auth.get_current_teacher),
     db: Session = Depends(get_db)
 ):
-    cls = db.query(models.Class).filter(models.Class.id == class_id, models.Class.teacher_id == current_user.id).first()
+    cls = _get_class_if_teacher_can_access(db, class_id, current_user.id)
     if not cls:
         raise HTTPException(status_code=404, detail="Class not found")
-    
     return cls.students
 
 @app.post("/teacher/classes/{class_id}/students")
@@ -391,14 +509,12 @@ def add_student_to_class(
     current_user: models.User = Depends(auth.get_current_teacher),
     db: Session = Depends(get_db)
 ):
-    cls = db.query(models.Class).filter(models.Class.id == class_id, models.Class.teacher_id == current_user.id).first()
+    cls = _get_class_if_teacher_can_access(db, class_id, current_user.id)
     if not cls:
         raise HTTPException(status_code=404, detail="Class not found")
-        
     student = db.query(models.User).filter(models.User.phone == phone, models.User.role == "student").first()
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
-        
     student.class_id = class_id
     db.commit()
     return {"ok": True}
@@ -410,14 +526,12 @@ def remove_student_from_class(
     current_user: models.User = Depends(auth.get_current_teacher),
     db: Session = Depends(get_db)
 ):
-    cls = db.query(models.Class).filter(models.Class.id == class_id, models.Class.teacher_id == current_user.id).first()
+    cls = _get_class_if_teacher_can_access(db, class_id, current_user.id)
     if not cls:
         raise HTTPException(status_code=404, detail="Class not found")
-        
     student = db.query(models.User).filter(models.User.id == student_id, models.User.class_id == class_id).first()
     if not student:
         raise HTTPException(status_code=404, detail="Student not found in this class")
-        
     student.class_id = None
     db.commit()
     return {"ok": True}
@@ -431,7 +545,7 @@ def get_class_stats(
     current_user: models.User = Depends(auth.get_current_teacher),
     db: Session = Depends(get_db)
 ):
-    cls = db.query(models.Class).filter(models.Class.id == class_id, models.Class.teacher_id == current_user.id).first()
+    cls = _get_class_if_teacher_can_access(db, class_id, current_user.id)
     if not cls:
         raise HTTPException(status_code=404, detail="Class not found")
     
@@ -494,12 +608,17 @@ def get_teacher_dashboard_stats(
     db: Session = Depends(get_db)
 ):
     # --- 1. Stats Calculation ---
-    
-    # Get teacher's class IDs for data isolation
-    teacher_classes = db.query(models.Class).filter(
-        models.Class.teacher_id == current_user.id
+    # 使用 TeacherClass 表获取教师管辖班级（与 /teacher/stats、异常处理等一致）
+    tc_rows = db.query(models.TeacherClass).filter(
+        models.TeacherClass.teacher_id == current_user.id
     ).all()
-    teacher_class_ids = [c.id for c in teacher_classes]
+    class_names = [r.class_name for r in tc_rows]
+    if class_names:
+        teacher_class_ids = [
+            c.id for c in db.query(models.Class).filter(models.Class.name.in_(class_names)).all()
+        ]
+    else:
+        teacher_class_ids = []
     
     # 1. Student Count (only in teacher's classes)
     if teacher_class_ids:
@@ -713,6 +832,8 @@ def get_teacher_dashboard_stats(
             "today_checkin": today_checkin,
             "abnormal_count": abnormal_count,
             "pending_approvals": pending_approvals,
+            "pending_health": pending_health,
+            "pending_activities": pending_activities,
             "avg_pace": avg_pace,
             "task_count": task_count,
             "compliance_rate": 92,  # Mock - can be calculated if needed
@@ -722,18 +843,16 @@ def get_teacher_dashboard_stats(
         "todos": todos
     }
 
+@app.get("/teacher/activities", response_model=schemas.ActivityListResponse)
 def get_teacher_activities(
     page: int = 1,
     size: int = 20,
+    status: str = "pending_review",
+    source: str = "task",
     current_user: models.User = Depends(auth.get_current_teacher),
     db: Session = Depends(get_db)
 ):
-    # Get teacher's class IDs for data isolation
-    teacher_classes = db.query(models.Class).filter(
-        models.Class.teacher_id == current_user.id
-    ).all()
-    teacher_class_ids = [c.id for c in teacher_classes]
-
+    teacher_class_ids = _teacher_class_ids(db, current_user.id)
     if not teacher_class_ids:
         return {
             "items": [],
@@ -748,6 +867,10 @@ def get_teacher_activities(
     ).filter(
         models.User.class_id.in_(teacher_class_ids)
     )
+    if status and status != "all":
+        query = query.filter(models.Activity.status == status)
+    if source and source != "all":
+        query = query.filter(models.Activity.source == source)
 
     total = query.count()
     activities = query.order_by(models.Activity.started_at.desc()).offset((page - 1) * size).limit(size).all()
@@ -760,19 +883,189 @@ def get_teacher_activities(
     }
 
 
+@app.get("/student/sunshine-stats")
+def get_sunshine_dashboard(
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    阳光跑看板数据：
+    - total_valid_count: 历史达标次数
+    - score: 阶梯计分
+    - today_status: 'not_started' | 'success' | 'failed'
+    - today_fail_reason: 最近一次失败原因
+    """
+    if current_user.role != "student":
+        raise HTTPException(status_code=403, detail="Only students can access sunshine stats")
+
+    return get_sunshine_stats(current_user, db)
+
+
+def _teacher_class_ids_by_binding(db: Session, teacher_id: int):
+    """从 TeacherClass 表获取教师管辖的班级 ID 列表（分配管辖班级后可见数据）"""
+    tc_rows = db.query(models.TeacherClass).filter(
+        models.TeacherClass.teacher_id == teacher_id
+    ).all()
+    class_names = [r.class_name for r in tc_rows]
+    if not class_names:
+        return []
+    return [
+        c.id
+        for c in db.query(models.Class).filter(models.Class.name.in_(class_names)).all()
+    ]
+
+
+def _compute_sunshine_score(total_valid_count: int) -> int:
+    """阳光跑积分阶梯算法（10-20-40）：
+    - 0-9 次：0 分
+    - 10-19 次：从 40 起，每次 +2，最高 60
+    - 20-40 次：从 60 起，每次 +2，最高 100
+    """
+    if total_valid_count < 10:
+        return 0
+    if total_valid_count < 20:
+        return min(60, 40 + (total_valid_count - 10) * 2)
+    capped = min(total_valid_count, 40)
+    return min(100, 60 + (capped - 20) * 2)
+
+
+@app.get("/teacher/weekly-sunshine-trend")
+def get_weekly_sunshine_trend(
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db)
+):
+    """本周阳光跑趋势：每天完成有效跑步的学生人数（去重）"""
+    from sqlalchemy import func as sqlfunc
+    from datetime import date, timedelta, datetime as dt
+    teacher_class_ids = _teacher_class_ids_by_binding(db, current_user.id)
+    today = date.today()
+    week_start = today - timedelta(days=today.weekday())
+    week_end = week_start + timedelta(days=7)
+
+    if not teacher_class_ids:
+        return [
+            {"day": (week_start + timedelta(days=i)).strftime("%m-%d"), "value": 0}
+            for i in range(7)
+        ]
+
+    # 按 (日期, user_id) 去重后统计每天人数
+    rows = (
+        db.query(
+            sqlfunc.date(models.Activity.started_at).label("d"),
+            models.Activity.user_id
+        )
+        .join(models.User, models.Activity.user_id == models.User.id)
+        .filter(
+            models.Activity.type == "run",
+            models.Activity.is_valid.is_(True),
+            models.User.class_id.in_(teacher_class_ids),
+            models.Activity.started_at >= dt.combine(week_start, dt.min.time()),
+            models.Activity.started_at < dt.combine(week_end, dt.min.time()),
+        )
+        .group_by(sqlfunc.date(models.Activity.started_at), models.Activity.user_id)
+        .all()
+    )
+
+    day_to_count: dict = {}
+    for row in rows:
+        d = row.d
+        day_to_count[d] = day_to_count.get(d, 0) + 1
+
+    result = []
+    for i in range(7):
+        d = week_start + timedelta(days=i)
+        result.append({"day": d.strftime("%m-%d"), "value": day_to_count.get(d, 0)})
+    return result
+
+
+@app.get("/teacher/class-member-details", response_model=schemas.ClassMemberSunshineList)
+def get_class_member_details(
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db)
+):
+    """班级成员阳光跑明细：本周次数、历史积分，按积分降序"""
+    from sqlalchemy import func as sqlfunc
+    from datetime import date, timedelta, datetime as dt
+    teacher_class_ids = _teacher_class_ids_by_binding(db, current_user.id)
+    if not teacher_class_ids:
+        return {"items": []}
+
+    students = (
+        db.query(models.User)
+        .join(models.Class, models.User.class_id == models.Class.id)
+        .filter(
+            models.User.role == "student",
+            models.User.class_id.in_(teacher_class_ids),
+        )
+        .all()
+    )
+    if not students:
+        return {"items": []}
+
+    student_ids = [s.id for s in students]
+    class_by_id = {
+        c.id: c
+        for c in db.query(models.Class).filter(models.Class.id.in_(teacher_class_ids)).all()
+    }
+
+    today = date.today()
+    week_start = today - timedelta(days=today.weekday())
+    week_end = week_start + timedelta(days=7)
+
+    # 本周有效跑步次数
+    weekly_counts: dict = {sid: 0 for sid in student_ids}
+    for uid, cnt in (
+        db.query(models.Activity.user_id, sqlfunc.count(models.Activity.id))
+        .filter(
+            models.Activity.type == "run",
+            models.Activity.is_valid.is_(True),
+            models.Activity.user_id.in_(student_ids),
+            models.Activity.started_at >= dt.combine(week_start, dt.min.time()),
+            models.Activity.started_at < dt.combine(week_end, dt.min.time()),
+        )
+        .group_by(models.Activity.user_id)
+        .all()
+    ):
+        weekly_counts[uid] = cnt
+
+    # 历史有效跑步总次数
+    total_counts: dict = {sid: 0 for sid in student_ids}
+    for uid, cnt in (
+        db.query(models.Activity.user_id, sqlfunc.count(models.Activity.id))
+        .filter(
+            models.Activity.type == "run",
+            models.Activity.is_valid.is_(True),
+            models.Activity.user_id.in_(student_ids),
+        )
+        .group_by(models.Activity.user_id)
+        .all()
+    ):
+        total_counts[uid] = cnt
+
+    items = []
+    for s in students:
+        total_valid = total_counts.get(s.id, 0)
+        cls = class_by_id.get(s.class_id)
+        items.append({
+            "user_id": s.id,
+            "student_id": s.student_id or "",
+            "name": s.name,
+            "class_name": cls.name if cls else "",
+            "weekly_count": weekly_counts.get(s.id, 0),
+            "total_score": _compute_sunshine_score(total_valid),
+        })
+
+    items.sort(key=lambda x: x["total_score"], reverse=True)
+    return {"items": items}
+
+
 @app.get("/teacher/tests/live")
 def get_live_tests(
     current_user: models.User = Depends(auth.get_current_teacher),
     db: Session = Depends(get_db)
 ):
-    """Get currently ongoing tests with video uploads"""
-    
-    # Get teacher's class IDs
-    teacher_classes = db.query(models.Class).filter(
-        models.Class.teacher_id == current_user.id
-    ).all()
-    teacher_class_ids = [c.id for c in teacher_classes]
-    
+    """Get currently ongoing tests with video uploads（按分配管辖班级过滤）"""
+    teacher_class_ids = _teacher_class_ids_by_binding(db, current_user.id)
     if not teacher_class_ids:
         return {"items": []}
     
@@ -814,14 +1107,8 @@ def get_test_stats(
     current_user: models.User = Depends(auth.get_current_teacher),
     db: Session = Depends(get_db)
 ):
-    """Get test statistics for data analysis"""
-    
-    # Get teacher's class IDs
-    teacher_classes = db.query(models.Class).filter(
-        models.Class.teacher_id == current_user.id
-    ).all()
-    teacher_class_ids = [c.id for c in teacher_classes]
-    
+    """Get test statistics for data analysis（按分配管辖班级过滤）"""
+    teacher_class_ids = _teacher_class_ids_by_binding(db, current_user.id)
     if not teacher_class_ids:
         return {
             "class_skills": [],
@@ -882,14 +1169,8 @@ def get_test_history(
     current_user: models.User = Depends(auth.get_current_teacher),
     db: Session = Depends(get_db)
 ):
-    """Get historical test records grouped by date"""
-    
-    # Get teacher's class IDs
-    teacher_classes = db.query(models.Class).filter(
-        models.Class.teacher_id == current_user.id
-    ).all()
-    teacher_class_ids = [c.id for c in teacher_classes]
-    
+    """Get historical test records grouped by date（按分配管辖班级过滤）"""
+    teacher_class_ids = _teacher_class_ids_by_binding(db, current_user.id)
     if not teacher_class_ids:
         return {"items": []}
     
@@ -932,36 +1213,83 @@ def get_teacher_stats(
     current_user: models.User = Depends(auth.get_current_teacher),
     db: Session = Depends(get_db)
 ):
-    # 1. Student Count
-    student_count = db.query(models.User).filter(models.User.role == "student").count()
-    
-    # 2. Pending Approvals (Health Requests)
-    pending_approvals = db.query(models.HealthRequest).filter(models.HealthRequest.status == "pending").count()
-    
-    # 3. Abnormal Count
-    abnormal_count = db.query(models.User).filter(
-        models.User.role == "student",
-        models.User.health_status != "normal"
+    """
+    兼容旧接口：教师工作台统计，但现在基于 TeacherClass 权限过滤。
+    若未绑定任何班级，则视为 0。
+    """
+    tc_rows = db.query(models.TeacherClass).filter(
+        models.TeacherClass.teacher_id == current_user.id
+    ).all()
+    class_names = [r.class_name for r in tc_rows]
+    if class_names:
+        class_ids = [
+            c.id
+            for c in db.query(models.Class)
+            .filter(models.Class.name.in_(class_names))
+            .all()
+        ]
+    else:
+        class_ids = []
+
+    if class_ids:
+        # 1. Student Count
+        student_count = db.query(models.User).filter(
+            models.User.role == "student",
+            models.User.class_id.in_(class_ids),
+        ).count()
+
+        # 2. Pending Approvals (Health Requests)
+        pending_approvals = (
+            db.query(models.HealthRequest)
+            .join(models.User, models.HealthRequest.student_id == models.User.id)
+            .filter(
+                models.HealthRequest.status == "pending",
+                models.User.class_id.in_(class_ids),
+            )
+            .count()
+        )
+
+        # 3. Abnormal Count
+        abnormal_count = db.query(models.User).filter(
+            models.User.role == "student",
+            models.User.class_id.in_(class_ids),
+            models.User.health_status != "normal",
+        ).count()
+
+        # 4. Today Check-in (Activities today)
+        today = datetime.utcnow().date()
+        today_start = datetime(today.year, today.month, today.day)
+        today_checkin = (
+            db.query(models.Activity)
+            .join(models.User, models.Activity.user_id == models.User.id)
+            .filter(
+                models.Activity.started_at >= today_start,
+                models.User.class_id.in_(class_ids),
+            )
+            .count()
+        )
+    else:
+        student_count = 0
+        pending_approvals = 0
+        abnormal_count = 0
+        today_checkin = 0
+
+    # 5. Task Count（仍然按教师本人创建的任务计算）
+    task_count = db.query(models.Task).filter(
+        models.Task.created_by == current_user.id
     ).count()
-    
-    # 4. Today Check-in (Activities today)
-    today = datetime.utcnow().date()
-    today_start = datetime(today.year, today.month, today.day)
-    today_checkin = db.query(models.Activity).filter(
-        models.Activity.started_at >= today_start
-    ).count()
-    
-    # 5. Task Count
-    task_count = db.query(models.Task).count()
-    
+
     return {
         "student_count": student_count,
         "today_checkin": today_checkin,
         "abnormal_count": abnormal_count,
         "pending_approvals": pending_approvals,
-        "avg_pace": "5'45\"", # Mock for now
+        "pending_health": pending_approvals,
+        "avg_pace": "5'45\"",  # 此处仍保持简单占位
         "task_count": task_count,
-        "compliance_rate": 92 # Mock for now
+        "compliance_rate": 92 if class_ids else 0,  # 占位字段，前端主要用于展示
+        "qualified_rate": 0,
+        "completion_rate": 0,
     }
 
 @app.get("/teacher/student/{student_id}/activities", response_model=schemas.ActivityListResponse)
@@ -998,10 +1326,18 @@ def get_all_students(
     current_user: models.User = Depends(auth.get_current_teacher),
     db: Session = Depends(get_db)
 ):
-    # Only show students in classes managed by the current teacher
+    # Only show students in classes bound via TeacherClass
+    tc_rows = db.query(models.TeacherClass).filter(
+        models.TeacherClass.teacher_id == current_user.id
+    ).all()
+    class_names = [r.class_name for r in tc_rows]
+
+    if not class_names:
+        return []
+
     query = db.query(models.User).join(models.Class, models.User.class_id == models.Class.id).filter(
         models.User.role == "student",
-        models.Class.teacher_id == current_user.id
+        models.Class.name.in_(class_names)
     )
     
     if class_id:
@@ -1022,9 +1358,17 @@ def get_abnormal_students(
     current_user: models.User = Depends(auth.get_current_teacher),
     db: Session = Depends(get_db)
 ):
+    tc_rows = db.query(models.TeacherClass).filter(
+        models.TeacherClass.teacher_id == current_user.id
+    ).all()
+    class_names = [r.class_name for r in tc_rows]
+
+    if not class_names:
+        return []
+
     students = db.query(models.User).join(models.Class, models.User.class_id == models.Class.id).filter(
         models.User.role == "student",
-        models.Class.teacher_id == current_user.id,
+        models.Class.name.in_(class_names),
         models.User.health_status != "normal"
     ).all()
     return students
@@ -1173,11 +1517,22 @@ def create_health_request(
     import json
     attachments_json = json.dumps(request_in.attachments) if request_in.attachments else None
         
+    # 校验请假时间（仅请假类型需要）
+    start_date = request_in.start_date
+    end_date = request_in.end_date
+    if request_in.type == "leave":
+        if not start_date or not end_date:
+            raise HTTPException(status_code=400, detail="Leave requests must include start_date and end_date")
+        if end_date < start_date:
+            raise HTTPException(status_code=400, detail="end_date must be after start_date")
+
     new_req = models.HealthRequest(
         student_id=current_user.id,
         type=request_in.type,
         reason=request_in.reason,
         attachments=attachments_json,
+        start_date=start_date,
+        end_date=end_date,
         status="pending"
     )
     db.add(new_req)
@@ -1190,6 +1545,8 @@ def create_health_request(
         "student_id": new_req.student_id,
         "type": new_req.type,
         "reason": new_req.reason,
+        "start_date": new_req.start_date,
+        "end_date": new_req.end_date,
         "attachments": json.loads(new_req.attachments) if new_req.attachments else [],
         "status": new_req.status,
         "created_at": new_req.created_at,
@@ -1217,6 +1574,8 @@ def get_my_health_requests(
             "student_id": req.student_id,
             "type": req.type,
             "reason": req.reason,
+            "start_date": req.start_date,
+            "end_date": req.end_date,
             "attachments": json.loads(req.attachments) if req.attachments else [],
             "status": req.status,
             "created_at": req.created_at,
@@ -1230,12 +1589,7 @@ def get_pending_health_requests(
     current_user: models.User = Depends(auth.get_current_teacher),
     db: Session = Depends(get_db)
 ):
-    # Get teacher's class IDs for data isolation
-    teacher_classes = db.query(models.Class).filter(
-        models.Class.teacher_id == current_user.id
-    ).all()
-    teacher_class_ids = [c.id for c in teacher_classes]
-    
+    teacher_class_ids = _teacher_class_ids(db, current_user.id)
     if not teacher_class_ids:
         return []
     
@@ -1261,6 +1615,9 @@ def review_health_request(
     req = db.query(models.HealthRequest).filter(models.HealthRequest.id == request_id).first()
     if not req:
         raise HTTPException(status_code=404, detail="Request not found")
+    student = db.query(models.User).filter(models.User.id == req.student_id).first()
+    if not student or not student.class_id or student.class_id not in _teacher_class_ids(db, current_user.id):
+        raise HTTPException(status_code=403, detail="Not authorized to review this request")
         
     req.status = status
     
@@ -1798,20 +2155,14 @@ def get_score_trend_stats(
     """获取平时分变化趋势"""
     from datetime import datetime, timedelta
     
-    # 获取教师班级的学生
     students = []
     if current_user.role == "teacher":
-        # 获取教师负责的班级
-        classes = db.query(models.Class).filter(
-            models.Class.teacher_id == current_user.id
-        ).all()
-        
-        for cls in classes:
-            class_students = db.query(models.User).filter(
-                models.User.class_id == cls.id,
+        cids = _teacher_class_ids(db, current_user.id)
+        if cids:
+            students = db.query(models.User).filter(
+                models.User.class_id.in_(cids),
                 models.User.role == "student"
             ).all()
-            students.extend(class_students)
     
     # 按日期统计平时分
     start_date = datetime.utcnow() - timedelta(days=days)
@@ -1890,19 +2241,14 @@ def export_scores(
     db: Session = Depends(get_db)
 ):
     """导出成绩数据"""
-    # 获取教师班级的学生
     students = []
     if current_user.role == "teacher":
-        classes = db.query(models.Class).filter(
-            models.Class.teacher_id == current_user.id
-        ).all()
-        
-        for cls in classes:
-            class_students = db.query(models.User).filter(
-                models.User.class_id == cls.id,
+        cids = _teacher_class_ids(db, current_user.id)
+        if cids:
+            students = db.query(models.User).filter(
+                models.User.class_id.in_(cids),
                 models.User.role == "student"
             ).all()
-            students.extend(class_students)
     
     export_data = []
     for student in students:

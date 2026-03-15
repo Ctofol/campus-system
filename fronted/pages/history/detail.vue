@@ -1,26 +1,34 @@
 <template>
   <view class="container">
-    <!-- Task Info -->
+    <!-- 运动基本信息 -->
     <view class="info-card">
       <view class="header">
-        <text class="title">{{ task.title }}</text>
-        <text class="status" :class="task.status">{{ task.statusText }}</text>
+        <text class="title">{{ headerTitle }}</text>
+        <text class="status completed">{{ headerSubTitle }}</text>
       </view>
       <view class="detail-row">
-        <text class="label">任务类型:</text>
-        <text class="value">{{ task.type === 'run' ? '跑步' : '体测' }}</text>
+        <text class="label">类型:</text>
+        <text class="value">{{ activity.type === 'run' ? '跑步' : '体测' }}</text>
       </view>
       <view class="detail-row">
-        <text class="label">截止时间:</text>
-        <text class="value">{{ task.deadline }}</text>
+        <text class="label">时间:</text>
+        <text class="value">{{ displayTime }}</text>
       </view>
-      <view class="detail-row" v-if="task.description">
-        <text class="label">任务描述:</text>
-        <text class="value">{{ task.description }}</text>
+      <view class="detail-row">
+        <text class="label">距离:</text>
+        <text class="value">{{ distanceKm }} 公里</text>
       </view>
-       <view class="detail-row" v-if="task.resultText">
-        <text class="label">考核结果:</text>
-        <text class="value highlight">{{ task.resultText }}</text>
+      <view class="detail-row" v-if="paceText">
+        <text class="label">平均配速:</text>
+        <text class="value">{{ paceText }} 分/公里</text>
+      </view>
+      <view class="detail-row" v-if="stepCount">
+        <text class="label">步数:</text>
+        <text class="value">{{ stepCount }} 步</text>
+      </view>
+      <view class="detail-row" v-if="stepFrequency">
+        <text class="label">步频:</text>
+        <text class="value">{{ stepFrequency }} 步/分钟</text>
       </view>
     </view>
 
@@ -53,12 +61,20 @@
 import { ref, computed } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 
-const task = ref({});
+const activity = ref({});
 const centerLat = ref(39.909);
 const centerLng = ref(116.397);
 const polyline = ref([]);
 const markers = ref([]);
 const videoUrl = ref('');
+
+const headerTitle = ref('运动详情');
+const headerSubTitle = ref('');
+const displayTime = ref('');
+const distanceKm = ref('0.00');
+const paceText = ref('');
+const stepCount = ref(0);
+const stepFrequency = ref('');
 
 const hasTrajectory = computed(() => {
     return polyline.value.length > 0 && polyline.value[0].points.length > 0;
@@ -68,8 +84,31 @@ onLoad((options) => {
     if (options.data) {
         try {
             const data = JSON.parse(decodeURIComponent(options.data));
-            task.value = data;
+            activity.value = data;
             
+            // 基础信息
+            if (data.started_at) {
+              const d = new Date(data.started_at);
+              displayTime.value = `${d.getMonth()+1}-${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+            }
+            if (data.metrics) {
+              if (data.metrics.distance != null) {
+                distanceKm.value = Number(data.metrics.distance).toFixed(2);
+              }
+              if (data.metrics.pace != null) {
+                paceText.value = Number(data.metrics.pace).toFixed(1);
+              }
+              if (data.metrics.step_count != null) {
+                stepCount.value = data.metrics.step_count;
+                if (data.metrics.duration) {
+                  const minutes = data.metrics.duration / 60;
+                  if (minutes > 0) {
+                    stepFrequency.value = Math.round(stepCount.value / minutes);
+                  }
+                }
+              }
+            }
+
             // Process Trajectory
             // Assuming task.metrics.trajectory or task.trajectory exists if completed
             // If the backend returns trajectory in the task object

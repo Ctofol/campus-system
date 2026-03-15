@@ -156,7 +156,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
-import { request, uploadFile } from '@/utils/request.js';
+import { request, uploadFile, BASE_URL } from '@/utils/request.js';
 
 const courseId = ref(null);
 const courseTitle = ref('');
@@ -299,7 +299,7 @@ const uploadVideo = () => {
       const token = uni.getStorageSync('token');
       
       // 使用fetch上传
-      const response = await fetch('http://127.0.0.1:8000/upload', {
+      const response = await fetch(`${BASE_URL}/upload/file`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`

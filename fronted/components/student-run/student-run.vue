@@ -116,8 +116,10 @@
         <text class="data">时长：{{duration}}秒 | 已跑：{{((distance || 0)/1000).toFixed(2)}}km | 速度：{{currentSpeedKmh}}km/h</text>
         <text class="data">步数：{{stepCount}} | 心率：{{heartRate}}次/分 | 平均速度：{{avgSpeedKmh}}km/h</text>
         <view class="progress-wrap">
-          <view class="progress-bar"><view class="progress-fill" :style="{width: normalProgress + '%'}"></view></view>
-          <text class="progress-text">今日目标 {{dailyTarget}} km · 完成 {{((distance || 0)/1000).toFixed(2)}} km</text>
+          <view class="progress-bar">
+            <view class="progress-fill" :style="{width: normalProgress + '%'}"></view>
+          </view>
+          <text class="progress-text">已跑 {{((distance || 0)/1000).toFixed(2)}} km</text>
         </view>
         <button @click="stopRun" class="stop-btn">结束跑步</button>
       </view>
@@ -173,7 +175,7 @@
 // 统一导入规范
 import { ref, computed, onUnmounted, onMounted } from 'vue';
 import AiChatRobot from '@/components/ai-chat-robot/ai-chat-robot.vue';
-import { submitActivity, getCheckpoints, checkIn } from '@/utils/request.js';
+import { submitActivity, getCheckpoints, checkIn, uploadFile } from '@/utils/request.js';
 import { getCurrentLocation } from '@/utils/location.js';
 
 // Navbar Settings
@@ -618,6 +620,8 @@ let timer = null;
 let accelerometerCallback = null;
 let locationCallback = null;
 let h5LocationTimer = null;
+const startFaceUrl = ref(null);
+const endFaceUrl = ref(null);
 
 // 3. 警务专项固定配置（按公安考核标准）
 const policeTargetDistance = ref(2000); // 固定2000米
@@ -633,8 +637,11 @@ const currentPace = computed(() => {
   const p = min / km;
   return p > 999 ? 999 : p;
 });
-// 实时速度展示 (km/h)
-const currentSpeedKmh = computed(() => (currentSpeed.value * 3.6).toFixed(1));
+// 实时速度展示 (km/h)：无有效移动或未开始跑步时显示 0
+const currentSpeedKmh = computed(() => {
+  if (!isRunning.value || distance.value <= 0) return '0.0';
+  return (currentSpeed.value * 3.6).toFixed(1);
+});
 // 平均速度 (km/h)
 const avgSpeedKmh = computed(() => {
   if (duration.value === 0) return 0;
@@ -1175,8 +1182,65 @@ const initializeRunState = () => {
   return true;
 };
 
+// 模拟人脸验证：调用相机/相册拍照并上传，分别记录起跑/结束照片
+const faceVerify = (phase) => {
+  return new Promise((resolve) => {
+    uni.showModal({
+      title: '人脸验证',
+      content: phase === 'start' ? '请拍摄起跑照片，用于本次阳光跑验证。' : '请拍摄结束照片，用于本次阳光跑验证。',
+      showCancel: true,
+      success: (modalRes) => {
+        if (!modalRes.confirm) {
+          resolve(false);
+          return;
+        }
+        uni.chooseImage({
+          count: 1,
+          sizeType: ['compressed'],
+          sourceType: ['camera', 'album'],
+          success: async (res) => {
+            const filePath = res.tempFilePaths && res.tempFilePaths[0];
+            if (!filePath) {
+              resolve(false);
+              return;
+            }
+            try {
+              const uploadRes = await uploadFile(filePath);
+              const url = uploadRes.url || uploadRes.path || uploadRes.filePath || uploadRes;
+              if (!url) {
+                uni.showToast({ title: '人脸照片上传失败', icon: 'none' });
+                resolve(false);
+                return;
+              }
+              if (phase === 'start') {
+                startFaceUrl.value = url;
+              } else {
+                endFaceUrl.value = url;
+              }
+              resolve(true);
+            } catch (e) {
+              console.error('Face upload fail:', e);
+              uni.showToast({ title: '人脸照片上传失败', icon: 'none' });
+              resolve(false);
+            }
+          },
+          fail: () => {
+            resolve(false);
+          }
+        });
+      }
+    });
+  });
+};
+
 // 普通跑步（无固定目标）
-const startNormalRun = () => {
+const startNormalRun = async () => {
+  const ok = await faceVerify('start');
+  if (!ok) {
+    uni.showToast({ title: '已取消开始跑步', icon: 'none' });
+    return;
+  }
+
   // Clear navigation line in normal mode to ensure clean map
   navPolyline.value = null;
   if (!initializeRunState()) return;
@@ -1191,7 +1255,13 @@ const startNormalRun = () => {
 };
 
 // 专项训练（固定2000米，按达标配速跑）
-const startPoliceRun = () => {
+const startPoliceRun = async () => {
+  const ok = await faceVerify('start');
+  if (!ok) {
+    uni.showToast({ title: '已取消开始训练', icon: 'none' });
+    return;
+  }
+
   if (!initializeRunState()) return;
 
   uni.removeStorageSync('policeFinishTip');
@@ -1209,7 +1279,13 @@ const startPoliceRun = () => {
 };
 
 // 校园打卡
-const startCampusRun = () => {
+const startCampusRun = async () => {
+  const ok = await faceVerify('start');
+  if (!ok) {
+    uni.showToast({ title: '已取消开始打卡', icon: 'none' });
+    return;
+  }
+
   if (!initializeRunState()) return;
 
   isReach.value = false;
@@ -1239,6 +1315,13 @@ const stopRun = async () => {
     return;
   }
 
+  // 结束前进行一次人脸验证拍照
+  const faceOk = await faceVerify('end');
+  if (!faceOk) {
+    uni.showToast({ title: '已取消结束跑步', icon: 'none' });
+    return;
+  }
+
   const runData = {
     type: taskType.value ? taskType.value : (currentMode.value === 'police' ? 'test' : 'run'),
     source: taskId.value ? 'task' : 'free',
@@ -1248,6 +1331,7 @@ const stopRun = async () => {
       distance: distance.value / 1000, // Convert meters to km
       duration: duration.value,
       pace: currentPace.value.toFixed(1),
+      step_count: stepCount.value,
       count: currentMode.value === 'police' ? 1 : null,
       qualified: currentMode.value === 'police' ? currentPace.value <= policeTargetPace.value : false,
       trajectory: JSON.stringify(trajectoryPoints.value),
@@ -1256,15 +1340,28 @@ const stopRun = async () => {
     evidence: []
   };
 
+  // 添加起跑与结束人脸照片证据（如有）
+  if (startFaceUrl.value) {
+    runData.evidence.push({
+      evidence_type: 'start_face',
+      data_ref: startFaceUrl.value
+    });
+  }
+  if (endFaceUrl.value) {
+    runData.evidence.push({
+      evidence_type: 'end_face',
+      data_ref: endFaceUrl.value
+    });
+  }
+
   try {
-    uni.showLoading({ title: '提交中...' });
+    uni.showLoading({ title: '正在核验运动数据...' });
     const res = await submitActivity(runData);
     uni.hideLoading();
     console.log('Submit success:', res);
     
-    // Jump to result page with data
-    // Use storage to pass data to avoid URL length limit
-    uni.setStorageSync('tempRunResult', runData);
+    // 使用后端返回的数据（含校验结果）作为结算页展示源
+    uni.setStorageSync('tempRunResult', res);
     
     // 使用 reLaunch 确保清理页面栈，或者 redirectTo
     uni.redirectTo({

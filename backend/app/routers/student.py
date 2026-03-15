@@ -46,9 +46,19 @@ async def get_student_summary(
     total_minutes = total_duration // 60
     
     # Get pending tasks count for current user
-    pending_tasks = db.query(models.Task).filter(
-        models.Task.deadline >= datetime.utcnow()
-    ).count()
+    # 如果学生还没有班级，不展示任何待办任务
+    if current_user.class_id is None:
+        pending_tasks = 0
+    else:
+        pending_tasks = db.query(models.Task).filter(
+            (
+                models.Task.class_id == current_user.class_id
+            ) | (
+                models.Task.target_group == "all"
+            )
+        ).filter(
+            models.Task.deadline >= datetime.utcnow()
+        ).count()
     
     return {
         "user_id": current_user.id,  # 添加用户ID用于调试
@@ -108,6 +118,15 @@ async def get_student_tasks(
     
     if current_user.role != "student":
         raise HTTPException(status_code=403, detail="Only students can access this endpoint")
+    
+    # 如果学生还没有班级，则不返回任何任务
+    if current_user.class_id is None:
+        return {
+            "items": [],
+            "total": 0,
+            "page": page,
+            "size": size
+        }
     
     # Get tasks for student's class or all students
     query = db.query(models.Task).filter(

@@ -33,7 +33,12 @@
     </view>
 
     <scroll-view scroll-y class="alert-list">
-      <view class="alert-card" v-for="(alert, index) in filteredAlerts" :key="alert.id">
+      <view
+        class="alert-card"
+        v-for="(alert, index) in filteredAlerts"
+        :key="alert.id"
+        @click="openDetail(alert)"
+      >
         <view class="card-header">
           <view class="header-left">
             <view class="type-tag" :class="alert.typeClass">{{ alert.typeText }}</view>
@@ -45,9 +50,14 @@
 
         <view class="card-body">
           <view class="data-row">
-            <text class="label">异常数据：</text>
-            <text class="value highlight">{{ alert.value }}</text>
-            <text class="standard">（标准范围：{{ alert.standard }}）</text>
+            <text class="label">异常类型：</text>
+            <text class="value highlight">{{ alert.typeText }}</text>
+          </view>
+          <view class="data-row">
+            <text class="label">配速/里程：</text>
+            <text class="value">
+              {{ alert.distanceText }} · {{ alert.pace || '--' }}
+            </text>
           </view>
           <view class="desc-box">
             <text class="desc-title">异常说明：</text>
@@ -56,9 +66,7 @@
         </view>
 
         <view class="card-footer">
-          <button class="action-btn ignore" size="mini" @click="ignoreAlert(alert.id)">忽略</button>
-          <button class="action-btn notify" size="mini" @click="notifyStudent(alert)">通知学生</button>
-          <button class="action-btn handle" size="mini" @click="handleAlert(alert)">处理</button>
+          <text class="footer-tip">点击卡片查看详情与处理</text>
         </view>
       </view>
 
@@ -66,12 +74,71 @@
         <text class="empty-text">暂无异常数据</text>
       </view>
     </scroll-view>
+
+    <!-- 异常详情弹窗 -->
+    <view v-if="detailVisible" class="detail-mask" @click.self="closeDetail">
+      <view class="detail-modal">
+        <view class="detail-header">
+          <view class="detail-header-main">
+            <text class="detail-title">异常处理</text>
+            <text class="detail-subtitle">{{ selectedAlert.studentName }}（{{ selectedAlert.studentId }}）</text>
+          </view>
+          <text class="detail-close" @click="closeDetail">关闭</text>
+        </view>
+        <view class="detail-photos">
+          <view class="photo-box">
+            <text class="photo-label">起跑照片</text>
+            <image
+              v-if="selectedAlert.startPhoto"
+              :src="selectedAlert.startPhoto"
+              mode="aspectFill"
+              class="photo-img"
+            />
+            <view v-else class="photo-placeholder">无照片</view>
+          </view>
+          <view class="photo-box">
+            <text class="photo-label">终点照片</text>
+            <image
+              v-if="selectedAlert.endPhoto"
+              :src="selectedAlert.endPhoto"
+              mode="aspectFill"
+              class="photo-img"
+            />
+            <view v-else class="photo-placeholder">无照片</view>
+          </view>
+        </view>
+
+        <view class="detail-data">
+          <view class="data-row">
+            <text class="label">里程：</text>
+            <text class="value">{{ selectedAlert.distanceText }}</text>
+          </view>
+          <view class="data-row">
+            <text class="label">时长：</text>
+            <text class="value">{{ selectedAlert.durationText }}</text>
+          </view>
+          <view class="data-row">
+            <text class="label">配速：</text>
+            <text class="value">{{ selectedAlert.pace || '--' }}</text>
+          </view>
+          <view class="data-row">
+            <text class="label">异常原因：</text>
+            <text class="value danger">{{ selectedAlert.description }}</text>
+          </view>
+        </view>
+
+        <view class="detail-actions">
+          <button class="detail-btn warn" @click="sendCheatWarning">发送作弊警告</button>
+          <button class="detail-btn success" @click="markAsValid">判定有效</button>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue';
-import { onLoad, onShow } from '@dcloudio/uni-app';
+import { onShow } from '@dcloudio/uni-app';
 import { request } from '@/utils/request.js';
 
 const currentFilter = ref('all');
@@ -86,54 +153,74 @@ const filteredAlerts = computed(() => {
   return alerts.value.filter(a => a.level === currentFilter.value);
 });
 
+// 详情弹窗
+const detailVisible = ref(false);
+const selectedAlert = ref({
+  id: null,
+  studentId: '',
+  studentName: '',
+  startPhoto: '',
+  endPhoto: '',
+  distanceText: '',
+  durationText: '',
+  pace: '',
+  description: ''
+});
+
 // 从后端获取异常数据
 const fetchAbnormalData = async () => {
   loading.value = true;
   try {
     const res = await request({
-      url: '/teacher/activities/abnormal',
+      url: '/teacher/activities/invalid',
       method: 'GET'
     });
-    
+
     if (Array.isArray(res)) {
       alerts.value = res.map(item => {
-        // 判断异常类型和级别
-        let typeText = '数据异常';
+        const reason = item.fail_reason || item.reason || '阳光跑数据存在异常';
+        // 判断异常类型和级别（仅关注配速/人脸）
+        let typeText = '配速异常';
         let typeClass = 'tag-orange';
         let level = 'normal';
-        let description = item.reason || '运动数据存在异常';
-        
-        // 根据异常原因判断类型
-        if (item.reason && item.reason.includes('心率')) {
-          typeText = '心率异常';
+
+        if (reason.includes('人脸')) {
+          typeText = '人脸比对失败';
           typeClass = 'tag-red';
           level = 'urgent';
-        } else if (item.reason && item.reason.includes('配速')) {
+        } else if (reason.includes('配速')) {
           typeText = '配速异常';
           typeClass = 'tag-orange';
-        } else if (item.reason && (item.reason.includes('轨迹') || item.reason.includes('GPS'))) {
-          typeText = '轨迹异常';
-          typeClass = 'tag-blue';
-        } else if (item.reason && item.reason.includes('距离')) {
-          typeText = '距离异常';
-          typeClass = 'tag-orange';
         }
-        
+
+        const distanceKm = typeof item.distance === 'number' ? item.distance : null;
+        const durationSec = typeof item.duration === 'number' ? item.duration : null;
+
+        const distanceText = distanceKm != null ? `${distanceKm.toFixed(2)} km` : '--';
+        const durationMinutes = durationSec != null ? Math.floor(durationSec / 60) : null;
+        const durationSeconds = durationSec != null ? durationSec % 60 : null;
+        const durationText = durationSec != null ? `${durationMinutes}分${durationSeconds}秒` : '--';
+
         return {
-          id: item.activity_id || item.id,
-          type: item.type || 'unknown',
-          typeText: typeText,
-          typeClass: typeClass,
+          id: item.id || item.activity_id,
+          type: item.type || 'run',
+          typeText,
+          typeClass,
           studentName: item.student_name || '未知学生',
           studentId: item.student_id || '--',
-          time: item.created_at ? new Date(item.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '--',
-          value: item.abnormal_value || '异常',
-          standard: item.standard_range || '--',
-          description: description,
-          level: level
+          time: item.started_at ? new Date(item.started_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '--',
+          distance: distanceKm,
+          distanceText,
+          duration: durationSec,
+          durationText,
+          pace: item.pace || '--',
+          description: reason,
+          startPhoto: item.start_photo_url || item.start_photo || '',
+          endPhoto: item.end_photo_url || item.end_photo || '',
+          level
         };
       });
-      
+
       // 统计今日新增
       const today = new Date().toDateString();
       todayCount.value = alerts.value.filter(a => {
@@ -154,76 +241,75 @@ onShow(() => {
   fetchAbnormalData();
 });
 
-const ignoreAlert = (id) => {
-  uni.showModal({
-    title: '确认忽略',
-    content: '忽略后该异常将不再提醒，确认操作？',
-    success: async (res) => {
-      if (res.confirm) {
-        try {
-          await request({
-            url: `/teacher/activities/${id}/ignore`,
-            method: 'POST'
-          });
-          alerts.value = alerts.value.filter(a => a.id !== id);
-          uni.showToast({ title: '已忽略', icon: 'success' });
-        } catch (e) {
-          console.error('Failed to ignore alert:', e);
-          uni.showToast({ title: '操作失败', icon: 'none' });
-        }
-      }
-    }
-  });
+const openDetail = (alert) => {
+  selectedAlert.value = { ...alert };
+  detailVisible.value = true;
 };
 
-const notifyStudent = async (alert) => {
+const closeDetail = () => {
+  detailVisible.value = false;
+};
+
+// 发送作弊警告：调用异常处理 & 通知学生
+const sendCheatWarning = async () => {
+  if (!selectedAlert.value || !selectedAlert.value.id) return;
+  const alert = selectedAlert.value;
   try {
+    await request({
+      url: `/teacher/activities/${alert.id}/resolve`,
+      method: 'POST',
+      data: {
+        action: 'confirm_cheat'
+      }
+    });
+
     await request({
       url: `/teacher/students/${alert.studentId}/notify`,
       method: 'POST',
       data: {
-        message: `您的运动数据存在异常：${alert.typeText}，请注意查看。`
+        message: `系统检测到您本次阳光跑存在异常（${alert.typeText}），已记为异常记录，如有疑问请联系任课老师。`
       }
     });
+
     uni.showToast({
-      title: `已发送通知给 ${alert.studentName}`,
+      title: '已发送作弊警告',
       icon: 'success'
     });
+
+    alerts.value = alerts.value.filter(a => a.id !== alert.id);
+    closeDetail();
   } catch (e) {
-    console.error('Failed to notify student:', e);
-    uni.showToast({ title: '通知发送失败', icon: 'none' });
+    console.error('Failed to send cheat warning:', e);
+    const msg = (e && (e.message || e.detail)) || '操作失败';
+    uni.showToast({ title: msg, icon: 'none' });
   }
 };
 
-const handleAlert = (alert) => {
-  uni.showActionSheet({
-    itemList: ['标记为无效成绩', '标记为设备故障', '要求重测'],
-    success: async (res) => {
-      const actions = ['invalid', 'device_error', 'retest'];
-      const actionTexts = ['无效成绩', '设备故障', '重测'];
-      
-      try {
-        await request({
-          url: `/teacher/activities/${alert.id}/handle`,
-          method: 'POST',
-          data: {
-            action: actions[res.tapIndex],
-            reason: alert.description
-          }
-        });
-        
-        uni.showToast({
-          title: `已标记为：${actionTexts[res.tapIndex]}`,
-          icon: 'success'
-        });
-        
-        alerts.value = alerts.value.filter(a => a.id !== alert.id);
-      } catch (e) {
-        console.error('Failed to handle alert:', e);
-        uni.showToast({ title: '处理失败', icon: 'none' });
+// 判定有效：恢复该次阳光跑有效状态
+const markAsValid = async () => {
+  if (!selectedAlert.value || !selectedAlert.value.id) return;
+  const alert = selectedAlert.value;
+  try {
+    await request({
+      url: `/teacher/activities/${alert.id}/resolve`,
+      method: 'POST',
+      data: {
+        action: 'restore_valid'
       }
-    }
-  });
+    });
+
+    uni.showToast({
+      title: '已恢复为有效记录',
+      icon: 'success'
+    });
+
+    alerts.value = alerts.value.filter(a => a.id !== alert.id);
+    closeDetail();
+  } catch (e) {
+    console.error('Failed to mark activity as valid:', e);
+    const msg = (e && (e.message || e.detail)) || '操作失败';
+    uni.showToast({ title: msg, icon: 'none' });
+  }
 };
 </script>
 
@@ -390,32 +476,129 @@ const handleAlert = (alert) => {
   .card-footer {
     display: flex;
     justify-content: flex-end;
-    gap: 20rpx;
+    align-items: center;
 
-    .action-btn {
-      margin: 0;
+    .footer-tip {
       font-size: 24rpx;
-      padding: 0 30rpx;
-      border-radius: 30rpx;
-      background: #fff;
-      
-      &.ignore {
-        color: #999;
-        border: 1px solid #ddd;
-      }
-
-      &.notify {
-        color: #1890ff;
-        border: 1px solid #1890ff;
-      }
-
-      &.handle {
-        background: #20C997;
-        color: #fff;
-        border: none;
-      }
+      color: #999;
     }
   }
+}
+
+.detail-mask {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 999;
+}
+
+.detail-modal {
+  width: 90%;
+  max-width: 700rpx;
+  background: #fff;
+  border-radius: 24rpx;
+  padding: 30rpx;
+}
+
+.detail-header {
+  margin-bottom: 24rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+
+  .detail-header-main {
+    flex: 1;
+  }
+
+  .detail-close {
+    font-size: 28rpx;
+    color: #1989fa;
+    padding: 8rpx 16rpx;
+    flex-shrink: 0;
+  }
+
+  .detail-title {
+    font-size: 32rpx;
+    font-weight: bold;
+    color: #333;
+  }
+
+  .detail-subtitle {
+    margin-top: 8rpx;
+    font-size: 26rpx;
+    color: #666;
+  }
+}
+
+.detail-photos {
+  display: flex;
+  gap: 20rpx;
+  margin-bottom: 24rpx;
+}
+
+.photo-box {
+  flex: 1;
+}
+
+.photo-label {
+  font-size: 24rpx;
+  color: #666;
+  margin-bottom: 8rpx;
+  display: block;
+}
+
+.photo-img {
+  width: 100%;
+  height: 200rpx;
+  border-radius: 12rpx;
+  background: #f3f4f6;
+}
+
+.photo-placeholder {
+  width: 100%;
+  height: 200rpx;
+  border-radius: 12rpx;
+  background: #f3f4f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24rpx;
+  color: #999;
+}
+
+.detail-data {
+  margin-bottom: 24rpx;
+}
+
+.detail-data .data-row .value.danger {
+  color: #e03131;
+}
+
+.detail-actions {
+  display: flex;
+  gap: 20rpx;
+}
+
+.detail-btn {
+  flex: 1;
+  border-radius: 999rpx;
+  font-size: 26rpx;
+}
+
+.detail-btn.warn {
+  background: #ffe3e3;
+  color: #e03131;
+}
+
+.detail-btn.success {
+  background: #12b886;
+  color: #fff;
 }
 
 .empty-state {

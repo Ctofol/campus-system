@@ -106,6 +106,21 @@
           <text class="item-value">数据已自动记录，可在「我的」页面查看汇总</text>
         </view>
       </view>
+
+      <!-- 核验结果 -->
+      <view class="verify-section" v-if="isValid !== null">
+        <text class="verify-title">核验结果</text>
+        <view class="verify-row" v-if="isValid">
+          <text class="verify-icon success">✅</text>
+          <text class="verify-text success">本次运动有效，已计入成绩！</text>
+        </view>
+        <view class="verify-row" v-else>
+          <text class="verify-icon fail">⚠️</text>
+          <text class="verify-text fail">
+            本次运动无效：{{ failReason || '原因未知，请联系老师查看详情' }}
+          </text>
+        </view>
+      </view>
     </view>
 
     <!-- 操作按钮区 -->
@@ -114,6 +129,16 @@
         ✅ 数据已保存
       </button>
       <button @click="backToHome" class="back-btn">返回首页</button>
+    </view>
+
+    <!-- 今日目标提醒 -->
+    <view class="today-tip" v-if="todayCompleted !== null">
+      <text v-if="todayCompleted" class="today-success">
+        ✅ 今日阳光跑目标已达成，明天继续加油！
+      </text>
+      <text v-else class="today-fail">
+        ❌ 今日尚未达成有效运动目标，请重新开始。
+      </text>
     </view>
   </view>
 </template>
@@ -130,6 +155,9 @@ const distance = ref(0); // 运动距离（米）
 const isReach = ref(false); // 校园打卡是否到达
 const isPoliceFinish = ref(false); // 警务2000米是否完成
 const policePace = ref(0); // 警务配速（分/公里）
+const isValid = ref(null); // 本次运动是否有效（后端判定）
+const failReason = ref(''); // 无效原因
+const todayCompleted = ref(null); // 今日是否已完成目标
 // 测试模式专属
 const testProject = ref('');
 const testType = ref('');
@@ -187,6 +215,16 @@ onLoad((options) => {
         testCount.value = data.metrics.count || 0;
         testQualified.value = data.metrics.qualified;
         policePace.value = Number(data.metrics.pace) || 0;
+      }
+
+      if (typeof data.is_valid !== 'undefined') {
+        isValid.value = data.is_valid;
+      }
+      if (typeof data.fail_reason !== 'undefined') {
+        failReason.value = data.fail_reason || '';
+      }
+      if (typeof data.today_completed !== 'undefined') {
+        todayCompleted.value = data.today_completed;
       }
       
       // Additional logic for test mode visualization (simplified)

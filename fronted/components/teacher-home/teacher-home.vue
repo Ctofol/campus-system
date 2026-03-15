@@ -5,7 +5,7 @@
       <view class="custom-nav-bar">
         <view class="nav-status-bar"></view>
         <view class="nav-content">
-          <text class="nav-title">教师工作台</text>
+          <text class="nav-title">教师工作�?/text>
         </view>
       </view>
       
@@ -13,13 +13,13 @@
       <view class="teacher-header">
         <view class="teacher-info">
           <text class="teacher-name">{{ userInfo.name || '老师' }}</text>
-          <text class="teacher-title">体育教研室</text>
+          <text class="teacher-title">体育教研�?/text>
         </view>
         <view class="teacher-avatar">
                 <image class="avatar-img" src="/static/avatar.png" mode="aspectFill"></image>
               </view>
             </view>
-            <!-- 2. 核心数据概览 - 功能打通：重命名 + 跳转 -->
+            <!-- 2. 核心数据概览 - 功能打通：重命�?+ 跳转 -->
       <view class="dashboard-stats">
         <view class="stat-card">
           <text class="stat-num">{{ teacherStats.todayCheckin }}</text>
@@ -27,17 +27,14 @@
         </view>
         <view class="stat-card" @click="goToLeaveApproval">
           <view class="badge-wrapper">
-            <text class="stat-num">{{ teacherStats.abnormalCount }}</text>
-            <view class="badge" v-if="teacherStats.abnormalCount > 0">{{ teacherStats.abnormalCount }}</view>
+            <text class="stat-num">{{ teacherStats.pendingHealth }}</text>
+            <view class="badge" v-if="teacherStats.pendingHealth > 0">{{ teacherStats.pendingHealth }}</view>
           </view>
-          <text class="stat-label">请假待处理</text>
+          <text class="stat-label">请假待处�?/text>
         </view>
         <view class="stat-card" @click="goToActivityApproval">
-          <view class="badge-wrapper">
-            <text class="stat-num">{{ teacherStats.pendingApprovals }}</text>
-            <view class="badge" v-if="teacherStats.pendingApprovals > 0">{{ teacherStats.pendingApprovals }}</view>
-          </view>
-          <text class="stat-label">运动待审批</text>
+          <text class="stat-num">{{ teacherStats.pendingActivities }}</text>
+          <text class="stat-label">运动待审�?/text>
         </view>
       </view>
 
@@ -76,27 +73,27 @@
           <view class="chart-col">
             <view class="chart-ring ring-green">
               <text class="ring-val">{{ studentOverview.qualifiedRate }}%</text>
-              <text class="ring-label">达标率</text>
+              <text class="ring-label">达标�?/text>
             </view>
             <text class="chart-name">体能达标</text>
           </view>
           <view class="chart-col">
             <view class="chart-ring ring-blue">
               <text class="ring-val">{{ studentOverview.completionRate }}%</text>
-              <text class="ring-label">完成率</text>
+              <text class="ring-label">完成�?/text>
             </view>
             <text class="chart-name">本周任务</text>
           </view>
           <view class="chart-col">
             <view class="chart-ring ring-red">
               <text class="ring-val">{{ studentOverview.avgPace }}</text>
-              <text class="ring-label">平均配速</text>
+              <text class="ring-label">平均配�?/text>
             </view>
-            <text class="chart-name">跑步状态</text>
+            <text class="chart-name">跑步状�?/text>
           </view>
         </view>
         
-        <!-- 新增：本周运动趋势 -->
+        <!-- 新增：本周运动趋�?-->
         <view class="trend-chart">
           <text class="trend-title">本周运动趋势</text>
           <view class="trend-bars">
@@ -135,23 +132,19 @@ import { request, getTeacherDashboardStats } from '@/utils/request.js';
 
 const userInfo = ref({});
 
-// 功能打通：跳转到请假审批列表
-const goToLeaveApproval = () => {
+// 功能打通：跳转到请假审批列�?const goToLeaveApproval = () => {
   uni.navigateTo({ url: '/pages/teacher/approval/index?type=leave' });
 };
 
-// 功能打通：跳转到运动审批列表
-const goToActivityApproval = () => {
-  uni.navigateTo({ url: '/pages/teacher/approval/index?type=activity' });
+// 功能打通：跳转到运动审批列表（任务上传/打分审批�?const goToActivityApproval = () => {
+  uni.navigateTo({ url: '/pages/teacher/approve/approve' });
 };
 
-// 功能打通：跳转到待办事项列表
-const goToTodos = () => {
+// 功能打通：跳转到待办事项列�?const goToTodos = () => {
   uni.navigateTo({ url: '/pages/teacher/todos/index' });
 };
 
-// 跳转到学员统计页面
-const goToStudentStats = () => {
+// 跳转到学员统计页�?const goToStudentStats = () => {
   uni.navigateTo({ url: '/pages/teacher/students/students' });
 };
 
@@ -172,6 +165,8 @@ const fetchTeacherStats = async () => {
       studentCount: res.stats.student_count,
       todayCheckin: res.stats.today_checkin,
       abnormalCount: res.stats.abnormal_count,
+      pendingHealth: res.stats.pending_health ?? 0,
+      pendingActivities: res.stats.pending_activities ?? 0,
       pendingApprovals: res.stats.pending_approvals,
       avgPace: res.stats.avg_pace,
       taskCount: res.stats.task_count,
@@ -224,11 +219,13 @@ defineExpose({
   onPageShow
 });
 
-  // --- 教师端数据 ---
+  // --- 教师端数�?---
   const teacherStats = ref({
     studentCount: 0,
     todayCheckin: 0,
     abnormalCount: 0,
+    pendingHealth: 0,
+    pendingActivities: 0,
     pendingApprovals: 0,
     avgPace: "--",
     taskCount: 0,
@@ -258,10 +255,9 @@ defineExpose({
           id: s.id || index,
           student: s.name,
           type: s.health_status === 'injured' ? '受伤' : (s.health_status === 'leave' ? '请假' : '异常'),
-          value: s.abnormal_reason || '未说明',
+          value: s.abnormal_reason || '未说�?,
           time: s.updated_at ? new Date(s.updated_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '--:--'
-        })).slice(0, 5); // 只显示前5条
-      }
+        })).slice(0, 5); // 只显示前5�?      }
     } catch (e) {
       if (!uni.getStorageSync('token')) return;
       console.error('Failed to fetch abnormal alerts:', e);
@@ -307,12 +303,12 @@ const handleTodoClick = (todo) => {
 
 const handleResolveAlert = (index) => {
   uni.showActionSheet({
-    itemList: ['联系学生', '标记已处理', '查看详情'],
+    itemList: ['联系学生', '标记已处�?, '查看详情'],
     success: (res) => {
       if (res.tapIndex === 1) {
         abnormalAlerts.value.splice(index, 1);
         teacherStats.value.abnormalCount = Math.max(0, teacherStats.value.abnormalCount - 1);
-        uni.showToast({ title: '已处理', icon: 'success' });
+        uni.showToast({ title: '已处�?, icon: 'success' });
       } else if (res.tapIndex === 0) {
         uni.showToast({ title: '已发送通知', icon: 'none' });
       } else {
@@ -344,7 +340,7 @@ const handleResolveAlert = (index) => {
   width: 100%;
 }
 .nav-content {
-  height: 44px; /* 标准导航栏高度 */
+  height: 44px; /* 标准导航栏高�?*/
   display: flex;
   align-items: center;
   justify-content: center;
@@ -356,7 +352,7 @@ const handleResolveAlert = (index) => {
   font-weight: bold;
 }
 
-/* 教师端样式 */
+/* 教师端样�?*/
 .teacher-header {
   background: linear-gradient(135deg, #20C997 0%, #17a2b8 100%);
   padding: 40rpx 40rpx 80rpx;

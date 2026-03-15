@@ -32,15 +32,14 @@
 <script setup>
 import { ref } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
-import { request } from '@/utils/request.js';
+import { request, BASE_URL } from '@/utils/request.js';
 
 const myCourses = ref([]);
-const baseURL = 'http://127.0.0.1:8000';
 
 const getFullImageUrl = (url) => {
   if (!url) return '/static/course_default.jpg';
   if (url.startsWith('http')) return url;
-  return `${baseURL}${url}`;
+  return `${BASE_URL}${url}`;
 };
 
 const handleImageError = (e) => {

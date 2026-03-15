@@ -10,7 +10,11 @@ class Token(BaseModel):
     access_token: str
     token_type: str
     role: str
+    user_id: Optional[int] = None
     name: str
+    class_name: Optional[str] = None
+    student_id: Optional[str] = None
+    major: Optional[str] = None
 
 class ClassCreate(BaseModel):
     name: str
@@ -36,9 +40,18 @@ class UserProfile(BaseModel):
     role: str
     class_name: Optional[str] = None
     student_id: Optional[str] = None
+    major: Optional[str] = None
     created_at: Optional[datetime] = None
     class Config:
         from_attributes = True
+
+
+class StudentProfileCreate(BaseModel):
+    student_id: str
+    full_name: str
+    gender: str
+    class_name: str
+    major: Optional[str] = None
 
 class DashboardStats(BaseModel):
     total_students: int

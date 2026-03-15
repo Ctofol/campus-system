@@ -12,6 +12,8 @@ class UserCreate(UserBase):
     password: str
     captcha_code: str
     captcha_key: str
+    # 学生注册专用：用于与 StudentProfile 进行档案匹配
+    student_id: str | None = None
 
 class UserLogin(BaseModel):
     phone: str
@@ -25,6 +27,7 @@ class Token(BaseModel):
     name: str
     class_name: Optional[str] = None
     student_id: Optional[str] = None
+    major: Optional[str] = None
 
 class UserProfile(BaseModel):
     id: int
@@ -33,6 +36,7 @@ class UserProfile(BaseModel):
     role: str
     class_name: Optional[str] = None
     student_id: Optional[str] = None
+    major: Optional[str] = None
     group_name: Optional[str] = None
     health_status: str
     signature: Optional[str] = None
@@ -49,6 +53,28 @@ class UserProfileUpdate(BaseModel):
 class TokenData(BaseModel):
     phone: str | None = None
     role: str | None = None
+
+#
+# Student Profile (档案激活用)
+#
+
+class StudentProfileBase(BaseModel):
+    student_id: str
+    full_name: str
+    gender: str  # 'male' | 'female'
+    class_name: str
+    major: Optional[str] = None
+
+
+class StudentProfileCreate(StudentProfileBase):
+    pass
+
+
+class StudentProfileOut(StudentProfileBase):
+    is_activated: bool
+
+    class Config:
+        from_attributes = True
 
 # Class
 class ClassBase(BaseModel):
@@ -88,6 +114,7 @@ class ActivityMetricsCreate(BaseModel):
     checkpoints: Optional[str] = None # JSON string of check-in data
     count: Optional[int] = None
     qualified: bool = False
+    step_count: Optional[int] = None  # 步数
     video_url: Optional[str] = None  # 视频文件URL
     score: Optional[int] = None  # AI评分（0-100）
     score_detail: Optional[str] = None  # 评分详情（JSON字符串）
@@ -136,6 +163,11 @@ class ActivityOut(BaseModel):
     metrics: Optional[ActivityMetricsOut] = None
     evidence: List[ActivityEvidenceOut] = []
     review: Optional[ActivityReviewOut] = None
+    # 阳光跑相关的实时判定结果
+    is_valid: Optional[bool] = None
+    fail_reason: Optional[str] = None
+    face_verified: Optional[bool] = None
+    today_completed: Optional[bool] = None
 
     class Config:
         from_attributes = True
@@ -143,6 +175,25 @@ class ActivityOut(BaseModel):
 # Teacher
 class ApproveRequest(BaseModel):
     result: str = "approved"
+
+
+class InvalidActivityOut(BaseModel):
+    id: int
+    student_name: str
+    student_id: Optional[str] = None
+    class_name: Optional[str] = None
+    fail_reason: Optional[str] = None
+    distance: Optional[float] = None
+    duration: Optional[int] = None
+    pace: Optional[str] = None
+    started_at: datetime
+    start_photo_url: Optional[str] = None
+    end_photo_url: Optional[str] = None
+
+
+class ResolveActivityExceptionRequest(BaseModel):
+    action: str  # 'confirm_cheat' | 'restore_valid'
+
 
 class TeacherActivityListOut(ActivityOut):
     student_name: str
@@ -273,6 +324,9 @@ class CheckpointOut(CheckpointBase):
 class HealthRequestCreate(BaseModel):
     type: str  # 'leave' | 'injury'
     reason: str
+    # 请假开始/结束时间（仅 type == 'leave' 时必填）
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
     attachments: Optional[List[str]] = []  # List of file URLs
 
 class HealthRequestOut(HealthRequestCreate):
@@ -316,6 +370,8 @@ class TeacherStatsOut(BaseModel):
     today_checkin: int
     abnormal_count: int
     pending_approvals: int
+    pending_health: int = 0  # 请假待处理数量（HealthRequest status=pending）
+    pending_activities: int = 0  # 运动待审批数量（Activity status=pending_review）
     avg_pace: str
     task_count: int
     compliance_rate: int
@@ -519,3 +575,17 @@ class RunGroupRankOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# 阳光跑班级排行 Schemas
+class ClassMemberSunshineItem(BaseModel):
+    user_id: int
+    student_id: str
+    name: str
+    class_name: str
+    weekly_count: int
+    total_score: int
+
+
+class ClassMemberSunshineList(BaseModel):
+    items: List[ClassMemberSunshineItem]

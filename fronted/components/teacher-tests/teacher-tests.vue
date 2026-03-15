@@ -4,6 +4,10 @@
     <view class="custom-nav-bar">
       <view class="nav-status-bar" :style="{ height: statusBarHeight + 'px' }"></view>
       <view class="nav-content">
+        <view class="nav-back" @click="handleBack">
+          <text class="nav-back-icon"><</text>
+          <text class="nav-back-text">返回</text>
+        </view>
         <text class="nav-title">测试监控</text>
       </view>
     </view>
@@ -28,8 +32,25 @@
       </view>
     </view>
 
-    <!-- Content: Data Analysis - 数据分析逻辑限定：仅统计任务完成、平时分、打分趋势 -->
+    <!-- 阳光跑实时看板：监控今日运动人次与异常情况 -->
     <scroll-view scroll-y class="content-area" v-if="currentTab === 'analysis'">
+      <view class="chart-card sunshine-monitor">
+        <view class="card-title">
+          <text class="card-title-text">阳光跑实时看板</text>
+        </view>
+        <view class="sunshine-stats-row">
+          <view class="sunshine-stat-item">
+            <text class="sunshine-label">今日运动人次</text>
+            <text class="sunshine-value">{{ sunshineMonitor.todayTotal }}</text>
+          </view>
+          <view class="sunshine-stat-item">
+            <text class="sunshine-label">今日异常记录</text>
+            <text class="sunshine-value danger">{{ sunshineMonitor.todayExceptions }}</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- Content: Data Analysis - 数据分析逻辑限定：仅统计任务完成、平时分、打分趋势 -->
       <!-- 学生任务完成情况 -->
       <view class="chart-card">
         <view class="card-title">
@@ -166,6 +187,12 @@ const scoringTrendData = ref({
   distribution: {}
 });
 
+// 阳光跑监控数据
+const sunshineMonitor = ref({
+  todayTotal: 0,
+  todayExceptions: 0
+});
+
 onMounted(() => {
   const info = uni.getSystemInfoSync();
   statusBarHeight.value = info.statusBarHeight || 20;
@@ -173,6 +200,24 @@ onMounted(() => {
   fetchTestHistory();
   fetchAnalysisData();
 });
+
+// 顶部返回键
+const handleBack = () => {
+  try {
+    uni.navigateBack({
+      delta: 1,
+      fail() {
+        uni.reLaunch({
+          url: '/pages/teacher/dashboard/index'
+        });
+      }
+    });
+  } catch (e) {
+    uni.reLaunch({
+      url: '/pages/teacher/dashboard/index'
+    });
+  }
+};
 
 // 获取数据分析数据
 const fetchAnalysisData = async () => {
@@ -198,6 +243,9 @@ const fetchAnalysisData = async () => {
       method: 'GET'
     });
     scoringTrendData.value = scoringRes;
+
+    // 获取阳光跑实时数据
+    await fetchSunshineMonitor();
     
   } catch (e) {
     console.error('Failed to fetch analysis data:', e);
@@ -223,6 +271,33 @@ const fetchTestHistory = async () => {
   } catch (e) {
     console.error('Failed to fetch test history:', e);
     historyList.value = [];
+  }
+};
+
+// 阳光跑实时监控（今日总人次 & 今日异常数）
+const fetchSunshineMonitor = async () => {
+  try {
+    // 今日运动总人次：复用教师统计接口
+    const stats = await request({
+      url: '/teacher/stats',
+      method: 'GET'
+    });
+    sunshineMonitor.value.todayTotal = stats.today_checkin || 0;
+
+    // 今日异常记录：从异常活动接口中过滤今天
+    const invalidList = await request({
+      url: '/teacher/activities/invalid',
+      method: 'GET'
+    });
+
+    const todayStr = new Date().toDateString();
+    sunshineMonitor.value.todayExceptions = (invalidList || []).filter(item => {
+      if (!item.started_at) return false;
+      const d = new Date(item.started_at);
+      return d.toDateString() === todayStr;
+    }).length;
+  } catch (e) {
+    console.error('Failed to fetch sunshine monitor data:', e);
   }
 };
 
@@ -280,6 +355,24 @@ defineExpose({
   align-items: center;
   justify-content: center;
   position: relative;
+}
+.nav-back {
+  position: absolute;
+  left: 16rpx;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 12rpx;
+}
+.nav-back-icon {
+  font-size: 32rpx;
+  color: #333;
+  margin-right: 4rpx;
+}
+.nav-back-text {
+  font-size: 26rpx;
+  color: #666;
 }
 .nav-title {
   color: #333;

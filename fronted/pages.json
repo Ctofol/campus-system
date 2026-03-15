@@ -1,6 +1,13 @@
 {
   "pages": [
     {
+      "path": "pages/entry/entry",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "翊晨运动"
+      }
+    },
+    {
       "path": "pages/tab/home",
       "style": {
         "navigationStyle": "custom",
@@ -85,18 +92,27 @@
     {
       "path": "pages/history/history",
       "style": {
+        "navigationStyle": "custom",
         "navigationBarTitleText": "历史任务"
       }
     },
     {
       "path": "pages/history/detail",
       "style": {
-        "navigationBarTitleText": "任务详情"
+        "navigationBarTitleText": "运动详情"
+      }
+    },
+    {
+      "path": "pages/sunshine/detail",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "阳光跑详情"
       }
     },
     {
       "path": "pages/health/request",
       "style": {
+        "navigationStyle": "custom",
         "navigationBarTitleText": "健康报备"
       }
     },
@@ -107,6 +123,12 @@
         "navigationBarTitleText": "教师工作台",
         "navigationBarBackgroundColor": "#20C997",
         "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/teacher/class-rank/class-rank",
+      "style": {
+        "navigationBarTitleText": "阳光跑班级排行"
       }
     },
     {
@@ -126,6 +148,7 @@
     {
       "path": "pages/teacher/students/students",
       "style": {
+        "navigationStyle": "custom",
         "navigationBarTitleText": "学员管理"
       }
     },
@@ -192,6 +215,7 @@
     {
       "path": "pages/teacher/tests/tests",
       "style": {
+        "navigationStyle": "custom",
         "navigationBarTitleText": "测试监控"
       }
     },
@@ -235,6 +259,7 @@
     {
       "path": "pages/teacher/resources/resources",
       "style": {
+        "navigationStyle": "custom",
         "navigationBarTitleText": "教学资源"
       }
     },
@@ -374,7 +399,7 @@
   ],
   "globalStyle": {
     "navigationBarTextStyle": "black",
-    "navigationBarTitleText": "灵析运动",
+    "navigationBarTitleText": "翊晨运动",
     "navigationBarBackgroundColor": "#F8F8F8",
     "backgroundColor": "#F8F8F8"
   },

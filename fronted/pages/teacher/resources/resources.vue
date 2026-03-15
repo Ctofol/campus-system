@@ -96,12 +96,11 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { onLoad, onShow } from '@dcloudio/uni-app';
-import { request } from '@/utils/request.js';
+import { request, BASE_URL } from '@/utils/request.js';
 
 const activeCategory = ref('all');
 const resources = ref([]);
 const loading = ref(false);
-const baseURL = 'http://127.0.0.1:8000';
 
 const filteredResources = computed(() => {
   if (activeCategory.value === 'all') {
@@ -149,7 +148,7 @@ const getCategoryName = (category) => {
 const getFullImageUrl = (url) => {
   if (!url) return '/static/course_default.jpg';
   if (url.startsWith('http')) return url;
-  return `${baseURL}${url}`;
+  return `${BASE_URL}${url}`;
 };
 
 const handleImageError = (e) => {

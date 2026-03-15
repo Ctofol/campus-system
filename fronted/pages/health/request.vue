@@ -28,6 +28,25 @@
         </view>
       </view>
       
+      <!-- 请假时间（仅请假申请显示） -->
+      <view class="form-item" v-if="formData.type === 'leave'">
+        <text class="label">请假时间</text>
+        <view class="time-range">
+          <picker mode="date" :value="formData.start_date" @change="onStartDateChange">
+            <view class="time-input">
+              <text>{{ formData.start_date || '开始日期' }}</text>
+            </view>
+          </picker>
+          <text class="time-separator">至</text>
+          <picker mode="date" :value="formData.end_date" @change="onEndDateChange">
+            <view class="time-input">
+              <text>{{ formData.end_date || '结束日期' }}</text>
+            </view>
+          </picker>
+        </view>
+        <text class="label-tip">请假开始和结束日期（精确到天）</text>
+      </view>
+      
       <view class="form-item">
         <text class="label">申请原因</text>
         <textarea 
@@ -79,6 +98,11 @@
               {{ getStatusText(item.status) }}
             </text>
           </view>
+          <view class="item-time-range" v-if="item.type === 'leave' && (item.start_date || item.end_date)">
+            <text class="time-range-text">
+              {{ (item.start_date || '').substring(0, 10) }} 至 {{ (item.end_date || '').substring(0, 10) }}
+            </text>
+          </view>
           <text class="item-reason">{{ item.reason }}</text>
           <view class="item-attachments" v-if="item.attachments && item.attachments.length > 0">
             <image 
@@ -108,7 +132,9 @@ import { request, BASE_URL } from '@/utils/request.js';
 const submitting = ref(false);
 const formData = ref({
   type: 'leave',
-  reason: ''
+  reason: '',
+  start_date: '',
+  end_date: ''
 });
 const uploadedImages = ref([]);
 const history = ref([]);
@@ -199,6 +225,14 @@ const submitRequest = async () => {
   if (!formData.value.reason.trim()) {
     return uni.showToast({ title: '请填写原因', icon: 'none' });
   }
+  if (formData.value.type === 'leave') {
+    if (!formData.value.start_date || !formData.value.end_date) {
+      return uni.showToast({ title: '请选择请假时间', icon: 'none' });
+    }
+    if (formData.value.end_date < formData.value.start_date) {
+      return uni.showToast({ title: '结束日期不能早于开始日期', icon: 'none' });
+    }
+  }
   
   submitting.value = true;
   try {
@@ -207,12 +241,16 @@ const submitRequest = async () => {
       data: {
         type: formData.value.type,
         reason: formData.value.reason,
+        start_date: formData.value.start_date || null,
+        end_date: formData.value.end_date || null,
         attachments: uploadedImages.value
       }
     });
     
     uni.showToast({ title: '提交成功', icon: 'success' });
     formData.value.reason = '';
+    formData.value.start_date = '';
+    formData.value.end_date = '';
     uploadedImages.value = [];
     
     // 刷新列表
@@ -237,6 +275,15 @@ const getStatusText = (status) => {
 const formatDate = (str) => {
   if (!str) return '';
   return str.replace('T', ' ').substring(0, 16);
+};
+
+// 处理日期选择
+const onStartDateChange = (e) => {
+  formData.value.start_date = e.detail.value;
+};
+
+const onEndDateChange = (e) => {
+  formData.value.end_date = e.detail.value;
 };
 
 onShow(() => {
@@ -294,6 +341,28 @@ onShow(() => {
     margin-bottom: 12rpx;
     display: block;
   }
+}
+
+.time-range {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-top: 10rpx;
+}
+
+.time-input {
+  flex: 1;
+  background: #f7f9fc;
+  border-radius: 12rpx;
+  padding: 20rpx;
+  font-size: 28rpx;
+  color: #333;
+}
+
+.time-separator {
+  margin: 0 20rpx;
+  color: #999;
+  font-size: 26rpx;
 }
 
 .type-selector {

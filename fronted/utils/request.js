@@ -1,20 +1,9 @@
 // 基础配置
-// 生产环境 - 新服务器
-let baseUrl = 'http://101.37.24.171:8000';
+// 本地开发：统一直连本地后端
+let baseUrl = 'http://127.0.0.1:8000';
 
-// #ifdef H5
-// H5环境使用生产服务器
-baseUrl = 'http://101.37.24.171:8000';
-// #endif
-
-// #ifndef H5
-// 真机调试使用生产服务器
-baseUrl = 'http://101.37.24.171:8000';
-// #endif
-
-// --- 本地开发环境配置（本地开发时取消注释） ---
-// baseUrl = 'http://127.0.0.1:8000';
-// --------------------------------------------------------
+// 如果以后需要恢复生产环境，只需改回通过 Nginx 代理的相对路径
+// 并按平台拆分 H5 / 非 H5 地址
 
 export const BASE_URL = baseUrl;
 
@@ -50,19 +39,27 @@ export const request = (...args) => {
         if (res.statusCode >= 200 && res.statusCode < 300) {
           resolve(res.data);
         } else if (res.statusCode === 401) {
-          // Token 失效，跳转登录
-          uni.removeStorageSync('token');
-          uni.removeStorageSync('userInfo');
-          uni.showToast({
-            title: '登录已过期，请重新登录',
-            icon: 'none'
-          });
-          setTimeout(() => {
-            uni.reLaunch({
-              url: '/pages/login/login'
+          const isLoginRequest = (options.url || '').indexOf('/auth/login') !== -1;
+          if (isLoginRequest) {
+            // 登录接口 401 = 账号或密码错误，交给登录页显示
+            const msg = (res.data && res.data.detail) ? res.data.detail : '用户名或密码错误';
+            reject({ type: 'server', statusCode: 401, message: msg, data: res.data });
+          } else {
+            // 其他接口 401 = Token 失效
+            uni.removeStorageSync('token');
+            uni.removeStorageSync('userInfo');
+            uni.removeStorageSync('userRole');
+            uni.showToast({
+              title: '登录已过期，请重新登录',
+              icon: 'none'
             });
-          }, 1500);
-          reject({ type: 'auth', message: '登录已过期', data: res.data });
+            setTimeout(() => {
+              uni.reLaunch({
+                url: '/pages/login/login'
+              });
+            }, 1500);
+            reject({ type: 'auth', message: '登录已过期', data: res.data });
+          }
         } else {
           // 其他错误 - 不在这里显示toast，让调用方处理
           const errorMessage = res.data.detail || res.data.message || '请求失败';
@@ -291,6 +288,14 @@ export const getTeacherDashboardStats = () => {
 export const getTeacherWeeklyTrend = () => {
   return request({
     url: '/teacher/weekly-trend',
+    method: 'GET'
+  });
+};
+
+// Sunshine run stats
+export const getSunshineStats = () => {
+  return request({
+    url: '/student/sunshine-stats',
     method: 'GET'
   });
 };

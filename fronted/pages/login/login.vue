@@ -3,13 +3,13 @@
     <!-- 1. 顶部 Logo 与 标题 -->
     <view class="header-section">
       <image class="logo-image" src="/static/lingxiLOGO.png" mode="aspectFit"></image>
-      <text class="app-name">灵析运动</text>
-      <text class="app-sub-name">Lingxi Sports</text>
+      <text class="app-name">翊晨运动</text>
+      <text class="app-sub-name">Yichen Sports</text>
     </view>
 
     <!-- 2. 登录卡片 -->
     <view class="login-card">
-      <!-- 角色切换 Tab -->
+      <!-- 角色切换 Tab：仅学生端 / 教师端，管理端请使用独立端口访问 -->
       <view class="role-tabs">
         <view 
           class="role-tab" 
@@ -30,11 +30,11 @@
       <!-- 表单区域 -->
       <view class="form-area">
         <view class="input-group">
-          <text class="input-label">{{ currentRole === 'student' ? '学号 / 手机号' : '工号 / 手机号' }}</text>
+          <text class="input-label">{{ accountLabel }}</text>
           <input 
             class="input-field" 
             v-model="loginForm.account" 
-            :placeholder="currentRole === 'student' ? '请输入学号/手机号' : '请输入工号/手机号'"
+            :placeholder="accountPlaceholder"
             placeholder-class="placeholder-style"
           />
         </view>
@@ -59,7 +59,6 @@
           登录
         </button>
 
-        <!-- 底部链接 -->
         <view class="footer-links">
           <text class="link-text" @click="goToRegister">注册新账号</text>
           <text class="divider">|</text>
@@ -79,12 +78,20 @@
 import { ref, computed } from 'vue';
 import { login } from '@/utils/request.js';
 
-// 状态管理
+// 状态管理（仅学生/教师，管理端在独立端口访问）
 const currentRole = ref('student'); // student | teacher
 const loading = ref(false);
 const loginForm = ref({
   account: '',
   password: ''
+});
+
+// 账号标签与占位符
+const accountLabel = computed(() => {
+  return currentRole.value === 'student' ? '学号 / 手机号' : '工号 / 手机号';
+});
+const accountPlaceholder = computed(() => {
+  return currentRole.value === 'student' ? '请输入学号/手机号' : '请输入工号/手机号';
 });
 
 // 计算属性：是否可提交
@@ -116,8 +123,16 @@ const handleLogin = async () => {
       password: loginForm.value.password
     });
     
-    // 校验角色是否匹配
-    if (res.role !== 'admin' && res.role !== currentRole.value) {
+    // 校验角色：仅允许学生、教师在此入口登录；管理员请使用管理端
+    if (res.role === 'admin') {
+      uni.showToast({
+        title: '请使用管理端入口登录',
+        icon: 'none'
+      });
+      loading.value = false;
+      return;
+    }
+    if (res.role !== currentRole.value) {
       uni.showToast({
         title: '角色不匹配，请切换角色登录',
         icon: 'none'
@@ -147,21 +162,9 @@ const handleLogin = async () => {
       icon: 'success'
     });
 
-    // 角色跳转逻辑
+    // 学生、教师统一跳转首页
     setTimeout(() => {
-      if (res.role === 'admin') {
-        uni.reLaunch({ 
-          url: '/pages/admin/dashboard/index',
-          fail: (err) => {
-            console.error('Admin redirect failed:', err);
-            // Fallback to home, which now handles admin redirect
-            uni.reLaunch({ url: '/pages/tab/home' });
-          }
-        });
-      } else {
-        // 学生和教师都跳转到统一的 Tab 容器页，内部会自动根据角色渲染不同组件
-        uni.reLaunch({ url: '/pages/tab/home' });
-      }
+      uni.reLaunch({ url: '/pages/tab/home' });
     }, 1000);
 
   } catch (error) {
@@ -179,8 +182,8 @@ const handleLogin = async () => {
       let errorMsg = error.message;
       
       // 针对常见错误提供更友好的提示
-      if (error.statusCode === 400) {
-        errorMsg = '用户名或密码错误';
+      if (error.statusCode === 400 || error.statusCode === 401) {
+        errorMsg = error.message || '用户名或密码错误';
       } else if (error.statusCode === 404) {
         errorMsg = '用户不存在';
       } else if (error.statusCode === 403) {
@@ -300,6 +303,16 @@ const forgotPassword = () => {
   color: #20C997;
   font-weight: bold;
   background: #fff;
+}
+
+.role-tabs-single {
+  justify-content: center;
+}
+.role-tab-single {
+  font-size: 28rpx;
+  color: #20C997;
+  font-weight: bold;
+  padding: 30rpx 0;
 }
 
 .role-tab.active::after {

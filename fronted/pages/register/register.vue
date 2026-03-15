@@ -42,6 +42,12 @@
         <view class="input-item">
           <input class="input" v-model="registerForm.name" placeholder="真实姓名" />
         </view>
+        <view class="input-item" v-if="registerForm.role === 'student'">
+          <input class="input" v-model="registerForm.studentId" placeholder="学号（与档案一致）" />
+        </view>
+        <view class="hint-text" v-if="registerForm.role === 'student'">
+          请输入管理员导入档案时的学号，系统将自动匹配班级与性别信息
+        </view>
         <view class="input-item">
           <input class="input" v-model="registerForm.phone" type="number" placeholder="手机号码" />
         </view>
@@ -55,29 +61,6 @@
         <view class="input-item">
           <input class="input" v-model="registerForm.confirmPwd" type="password" placeholder="确认密码" />
         </view>
-
-        <!-- 身份扩展信息 -->
-        <view class="section-title">身份信息</view>
-        
-        <!-- 学生扩展字段 -->
-        <template v-if="registerForm.role === 'student'">
-          <view class="input-item">
-            <input class="input" v-model="registerForm.school" placeholder="学校名称" />
-          </view>
-          <view class="input-item">
-            <input class="input" v-model="registerForm.class" placeholder="班级 (如: 22级3班)" />
-          </view>
-        </template>
-
-        <!-- 教师扩展字段 -->
-        <template v-if="registerForm.role === 'teacher'">
-          <view class="input-item">
-            <input class="input" v-model="registerForm.school" placeholder="学校名称" />
-          </view>
-          <view class="input-item">
-            <input class="input" v-model="registerForm.empId" placeholder="教师工号" />
-          </view>
-        </template>
 
         <!-- 注册按钮 -->
         <button class="submit-btn" @click="handleRegister" :loading="loading">立即注册</button>
@@ -102,11 +85,12 @@ const captchaKey = ref('');
 const registerForm = ref({
   role: 'student', // student | teacher
   name: '',
+  studentId: '',
   phone: '',
   code: '',
   password: '',
   confirmPwd: '',
-  // 扩展
+  // 扩展（当前版本不再收集学校/班级，由后台档案自动绑定）
   school: '',
   class: '',
   empId: ''
@@ -170,12 +154,8 @@ const handleRegister = async () => {
   }
   
   // 身份校验
-  if (form.role === 'student' && (!form.school || !form.class)) {
-    uni.showToast({ title: '请完善学生信息', icon: 'none' });
-    return;
-  }
-  if (form.role === 'teacher' && (!form.empId || !form.school)) {
-    uni.showToast({ title: '请完善教师信息', icon: 'none' });
+  if (form.role === 'student' && !form.studentId) {
+    uni.showToast({ title: '请输入学号', icon: 'none' });
     return;
   }
 
@@ -187,6 +167,7 @@ const handleRegister = async () => {
         phone: form.phone,
         name: form.name,
         role: form.role,
+        student_id: form.role === 'student' ? form.studentId : null,
         password: form.password,
         captcha_code: form.code,
         captcha_key: captchaKey.value

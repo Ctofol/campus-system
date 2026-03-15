@@ -3,8 +3,11 @@
     <view class="header">
       <!-- 1. 顶部标题栏 -->
       <view class="nav-row">
-        <!-- <text class="page-title">学员管理</text> -->
-        <view class="placeholder"></view>
+        <view class="nav-back" @click="handleBack">
+          <text class="nav-back-icon"><</text>
+          <text class="nav-back-text">返回</text>
+        </view>
+        <text class="page-title">学员管理</text>
         <view class="batch-btn" @click="toggleBatchMode" :class="{active: isBatchMode}">
           <text>{{ isBatchMode ? '完成' : '批量管理' }}</text>
         </view>
@@ -149,7 +152,12 @@
                   {{ req.type === 'leave' ? '📅 请假申请' : '🏥 伤病报告' }}
                 </text>
               </view>
-              <text class="report-content">{{ req.reason }}</text>
+              <view class="report-body">
+                <text class="report-time-range" v-if="req.type === 'leave' && (req.start_date || req.end_date)">
+                  请假时间：{{ (req.start_date || '').substring(0, 10) }} 至 {{ (req.end_date || '').substring(0, 10) }}
+                </text>
+                <text class="report-content">{{ req.reason }}</text>
+              </view>
             </view>
             <view class="report-actions">
               <button size="mini" class="action-btn reject" @click="handleRequest(req, 'rejected')">驳回</button>
@@ -628,6 +636,23 @@ const formatDate = (str) => {
 const replyStudent = (report) => {
     // ... existing logic ...
 };
+
+const handleBack = () => {
+  try {
+    uni.navigateBack({
+      delta: 1,
+      fail() {
+        uni.reLaunch({
+          url: '/pages/teacher/dashboard/index'
+        });
+      }
+    });
+  } catch (e) {
+    uni.reLaunch({
+      url: '/pages/teacher/dashboard/index'
+    });
+  }
+};
 </script>
 
 <style scoped>
@@ -647,6 +672,20 @@ const replyStudent = (report) => {
   display: flex; 
   justify-content: space-between; 
   align-items: center; 
+}
+.nav-back {
+  display: flex;
+  align-items: center;
+  padding: 0 10rpx;
+}
+.nav-back-icon {
+  font-size: 32rpx;
+  color: #333;
+  margin-right: 4rpx;
+}
+.nav-back-text {
+  font-size: 26rpx;
+  color: #666;
 }
 .page-title { 
   font-size: 40rpx; 
@@ -1084,6 +1123,13 @@ const replyStudent = (report) => {
   word-break: break-all;
   white-space: pre-wrap;
   text-align: justify;
+}
+
+.report-time-range {
+  font-size: 26rpx;
+  color: #666;
+  margin-bottom: 8rpx;
+  display: block;
 }
 
 .report-actions { 

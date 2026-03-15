@@ -34,6 +34,37 @@
           <view class="card-arrow">›</view>
         </view>
 
+        <!-- 阳光跑看板 -->
+        <view class="sunshine-section" @click="goToSunshineDetail">
+          <view class="section-title">阳光跑看板</view>
+          <view class="sunshine-content">
+            <view class="sunshine-circle">
+              <view class="circle-outer">
+                <view class="circle-progress" :style="circleStyle"></view>
+                <view class="circle-inner">
+                  <text class="circle-count">{{ sunshine.total_valid_count }}</text>
+                  <text class="circle-label">有效次数 / 20</text>
+                </view>
+              </view>
+            </view>
+            <view class="sunshine-info">
+              <view class="score-row">
+                <text class="score-label">当前积分</text>
+                <text class="score-value">{{ sunshine.score }} 分</text>
+              </view>
+              <view class="status-row">
+                <text class="status-label">今日状态</text>
+                <text class="status-text" :class="sunshine.today_status">
+                  {{ todayStatusText }}
+                </text>
+              </view>
+              <text class="status-reason" v-if="sunshine.today_status === 'failed' && sunshine.today_fail_reason">
+                审核未通过：{{ sunshine.today_fail_reason }} ❌
+              </text>
+            </view>
+          </view>
+        </view>
+
         <!-- 运动记录统计 -->
         <view class="stats-section">
           <view class="section-title">运动数据统计</view>
@@ -65,10 +96,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { onShow, onHide } from '@dcloudio/uni-app';
 import TeacherManage from '@/components/teacher-manage/teacher-manage.vue';
-import { request } from '@/utils/request.js';
+import { request, getSunshineStats } from '@/utils/request.js';
 
 const role = ref('student');
 const teacherManageRef = ref(null);
@@ -80,12 +111,39 @@ const totalStats = ref({
   count: 0
 });
 
+const sunshine = ref({
+  total_valid_count: 0,
+  score: 0,
+  today_status: 'not_started',
+  today_fail_reason: ''
+});
+
+const circleStyle = computed(() => {
+  const max = 20;
+  const percent = Math.min(1, (sunshine.value.total_valid_count || 0) / max);
+  const deg = 360 * percent;
+  return {
+    backgroundImage: `conic-gradient(#20C997 ${deg}deg, #e5f7f3 ${deg}deg 360deg)`
+  };
+});
+
+const todayStatusText = computed(() => {
+  if (sunshine.value.today_status === 'success') return '今日目标已达成 ✅';
+  if (sunshine.value.today_status === 'failed') return '审核未通过 ❌';
+  return '今日尚未开始';
+});
+
 const goToRun = () => {
   uni.navigateTo({ url: '/pages/run/run' });
 };
 
 const goToPhysicalTest = () => {
   uni.navigateTo({ url: '/pages/test/test' });
+};
+
+const goToSunshineDetail = () => {
+  if (role.value !== 'student') return;
+  uni.navigateTo({ url: '/pages/sunshine/detail' });
 };
 
 const fetchTotalStats = async () => {
@@ -113,11 +171,26 @@ const fetchTotalStats = async () => {
   }
 };
 
+const fetchSunshineStats = async () => {
+  try {
+    const res = await getSunshineStats();
+    sunshine.value = {
+      total_valid_count: res.total_valid_count || 0,
+      score: res.score || 0,
+      today_status: res.today_status || 'not_started',
+      today_fail_reason: res.today_fail_reason || ''
+    };
+  } catch (e) {
+    console.error('Failed to fetch sunshine stats:', e);
+  }
+};
+
 onShow(() => {
   role.value = uni.getStorageSync('userRole') || 'student';
   
   if (role.value === 'student') {
     fetchTotalStats();
+    fetchSunshineStats();
   } else if (teacherManageRef.value && teacherManageRef.value.onPageShow) {
     teacherManageRef.value.onPageShow();
   }
@@ -246,6 +319,112 @@ onMounted(() => {
   padding: 40rpx;
   border-radius: 24rpx;
   box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.06);
+}
+
+.sunshine-section {
+  background: #fff;
+  margin: 0 30rpx 30rpx;
+  margin-top: 0;
+  padding: 40rpx;
+  border-radius: 24rpx;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.06);
+}
+
+.sunshine-content {
+  margin-top: 20rpx;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.sunshine-circle {
+  width: 200rpx;
+  height: 200rpx;
+  margin-right: 40rpx;
+}
+
+.circle-outer {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background-color: #e5f7f3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.circle-progress {
+  position: absolute;
+  width: 200rpx;
+  height: 200rpx;
+  border-radius: 50%;
+}
+
+.circle-inner {
+  width: 140rpx;
+  height: 140rpx;
+  border-radius: 50%;
+  background-color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.circle-count {
+  font-size: 36rpx;
+  font-weight: bold;
+  color: #20C997;
+}
+
+.circle-label {
+  font-size: 22rpx;
+  color: #999;
+  margin-top: 4rpx;
+}
+
+.sunshine-info {
+  flex: 1;
+}
+
+.score-row, .status-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12rpx;
+}
+
+.score-label, .status-label {
+  font-size: 26rpx;
+  color: #666;
+}
+
+.score-value {
+  font-size: 40rpx;
+  font-weight: bold;
+  color: #ff9800;
+}
+
+.status-text {
+  font-size: 26rpx;
+}
+
+.status-text.success {
+  color: #4caf50;
+}
+
+.status-text.failed {
+  color: #f44336;
+}
+
+.status-text.not_started {
+  color: #999;
+}
+
+.status-reason {
+  font-size: 24rpx;
+  color: #f44336;
+  margin-top: 6rpx;
 }
 
 .section-title {

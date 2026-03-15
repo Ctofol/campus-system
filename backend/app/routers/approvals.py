@@ -12,14 +12,17 @@ async def get_pending_approvals(
     current_user: models.User = Depends(auth.get_current_teacher),
     db: Session = Depends(get_db)
 ):
-    """Get pending health requests from students in teacher's classes"""
+    """Get pending health requests from students in teacher's classes (TeacherClass 绑定)"""
     
-    # Get teacher's class IDs
-    teacher_classes = db.query(models.Class).filter(
-        models.Class.teacher_id == current_user.id
+    tc_rows = db.query(models.TeacherClass).filter(
+        models.TeacherClass.teacher_id == current_user.id
     ).all()
-    teacher_class_ids = [c.id for c in teacher_classes]
-    
+    class_names = [r.class_name for r in tc_rows]
+    if not class_names:
+        return []
+    teacher_class_ids = [
+        c.id for c in db.query(models.Class).filter(models.Class.name.in_(class_names)).all()
+    ]
     if not teacher_class_ids:
         return []
     
@@ -36,9 +39,12 @@ async def get_pending_approvals(
         student = db.query(models.User).filter(models.User.id == req.student_id).first()
         result.append({
             "id": req.id,
+            "student_id": req.student_id,
             "student_name": student.name if student else "Unknown",
-            "type": "请假" if req.type == "leave" else "受伤报备",
+            "type": req.type,  # 'leave' | 'injury'
             "reason": req.reason or "无",
+            "start_date": req.start_date,
+            "end_date": req.end_date,
             "created_at": req.created_at.isoformat()
         })
     
@@ -68,12 +74,17 @@ async def approve_request(
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
     
-    teacher_class = db.query(models.Class).filter(
-        models.Class.id == student.class_id,
-        models.Class.teacher_id == current_user.id
+    # 权限：学生所在班级须在教师 TeacherClass 绑定中
+    if not student.class_id:
+        raise HTTPException(status_code=403, detail="Not authorized to approve this request")
+    cls = db.query(models.Class).filter(models.Class.id == student.class_id).first()
+    if not cls:
+        raise HTTPException(status_code=403, detail="Not authorized to approve this request")
+    tc = db.query(models.TeacherClass).filter(
+        models.TeacherClass.teacher_id == current_user.id,
+        models.TeacherClass.class_name == cls.name
     ).first()
-    
-    if not teacher_class:
+    if not tc:
         raise HTTPException(status_code=403, detail="Not authorized to approve this request")
     
     # Update request status
@@ -116,12 +127,16 @@ async def reject_request(
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
     
-    teacher_class = db.query(models.Class).filter(
-        models.Class.id == student.class_id,
-        models.Class.teacher_id == current_user.id
+    if not student.class_id:
+        raise HTTPException(status_code=403, detail="Not authorized to reject this request")
+    cls = db.query(models.Class).filter(models.Class.id == student.class_id).first()
+    if not cls:
+        raise HTTPException(status_code=403, detail="Not authorized to reject this request")
+    tc = db.query(models.TeacherClass).filter(
+        models.TeacherClass.teacher_id == current_user.id,
+        models.TeacherClass.class_name == cls.name
     ).first()
-    
-    if not teacher_class:
+    if not tc:
         raise HTTPException(status_code=403, detail="Not authorized to reject this request")
     
     # Update request status

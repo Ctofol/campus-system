@@ -3,6 +3,26 @@ from sqlalchemy.orm import relationship
 from datetime import datetime
 from .database import Base
 
+
+class StudentProfile(Base):
+    """
+    学生档案表：
+    - 由管理员/导入接口预先创建
+    - 注册时通过学号 + 姓名进行激活
+    """
+    __tablename__ = "student_profiles"
+
+    student_id = Column(String, primary_key=True, index=True)
+    full_name = Column(String, nullable=False)
+    gender = Column(String, nullable=False)  # 'male' | 'female'
+    class_name = Column(String, nullable=False)
+    # 专业/课程（例如：刑侦技术、治安管理等）
+    major = Column(String, nullable=True)
+    is_activated = Column(Boolean, default=False)
+
+    user = relationship("User", back_populates="profile", uselist=False)
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -13,16 +33,22 @@ class User(Base):
     password_hash = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     class_id = Column(Integer, ForeignKey("classes.id"), nullable=True)
-    student_id = Column(String, unique=True, nullable=True) # 学号
-    health_status = Column(String, default="normal") # normal, leave, injured
+    # 学号：同时作为 StudentProfile 的外键，用于从档案自动绑定性别和班级
+    student_id = Column(String, ForeignKey("student_profiles.student_id"), unique=True, nullable=True)
+    gender = Column(String, nullable=True)  # 'male' | 'female'，默认按 male 处理
+    # 学生专业/课程，来自 StudentProfile.major；教师可为空
+    major = Column(String, nullable=True)
+    health_status = Column(String, default="normal")  # normal, leave, injured
     abnormal_reason = Column(String, nullable=True)
     group_name = Column(String, nullable=True)
     signature = Column(String, nullable=True)  # 个性签名
     avatar_url = Column(String, nullable=True)  # 头像URL
     regular_score = Column(Float, default=0.0)  # 平时分（第三阶段新增）
 
+    profile = relationship("StudentProfile", back_populates="user", foreign_keys=[student_id])
     student_class = relationship("Class", back_populates="students", foreign_keys=[class_id])
     health_requests = relationship("HealthRequest", back_populates="student")
+
 
 class Class(Base):
     __tablename__ = "classes"
@@ -45,6 +71,9 @@ class Activity(Base):
     status = Column(String, default="finished")  # 'finished' | 'approved'
     started_at = Column(DateTime, nullable=False)
     ended_at = Column(DateTime, nullable=False)
+    is_valid = Column(Boolean, default=False)  # 阳光跑是否达标
+    fail_reason = Column(String, nullable=True)  # 不达标原因
+    face_verified = Column(Boolean, default=False)  # 人脸验证结果
 
     user = relationship("User")
     metrics = relationship("ActivityMetrics", back_populates="activity", uselist=False)
@@ -62,10 +91,11 @@ class ActivityMetrics(Base):
     activity_id = Column(Integer, ForeignKey("activities.id"))
     distance = Column(Float, nullable=True)  # 跑步距离（km）
     duration = Column(Integer, nullable=False)  # 时长（秒）
-    pace = Column(String, nullable=True)  # 配速
+    pace = Column(String, nullable=True)  # 配速（分/公里）
     trajectory = Column(String, nullable=True)  # 运动轨迹 (JSON String)
     checkpoints = Column(String, nullable=True)  # 打卡记录 (JSON String)
     count = Column(Integer, nullable=True)  # 体测次数
+    step_count = Column(Integer, nullable=True)  # 步数
     qualified = Column(Boolean, default=False)  # 是否达标
     video_url = Column(String, nullable=True, default=None)  # 视频文件URL
     score = Column(Integer, nullable=True)  # AI评分（0-100）
@@ -139,6 +169,9 @@ class HealthRequest(Base):
     reason = Column(String, nullable=True)
     attachments = Column(String, nullable=True)  # JSON array of file URLs
     status = Column(String, default="pending")  # 'pending' | 'approved' | 'rejected'
+    # 请假时间（仅当 type == 'leave' 时有值）
+    start_date = Column(DateTime, nullable=True)
+    end_date = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -256,7 +289,6 @@ class RunGroupActivity(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     group = relationship("RunGroup", back_populates="activities")
-    creator = relationship("User", foreign_keys=[created_by])
     applications = relationship("RunGroupActivityApplication", back_populates="activity")
 
 
@@ -271,3 +303,18 @@ class RunGroupActivityApplication(Base):
 
     activity = relationship("RunGroupActivity", back_populates="applications")
     user = relationship("User")
+
+
+class TeacherClass(Base):
+    """
+    教师与班级的绑定关系：
+    - 支持一个教师管理多个班级（通过班级名称）
+    - 教师端所有学生/跑步/异常统计接口都应基于该表进行数据过滤
+    """
+    __tablename__ = "teacher_classes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    teacher_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    class_name = Column(String, nullable=False)
+
+    teacher = relationship("User", foreign_keys=[teacher_id])
