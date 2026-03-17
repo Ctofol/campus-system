@@ -77,7 +77,7 @@ const formData = ref({
   avatar: '👮‍♂️',
   name: '',
   phone: '',
-  department: '体能教研室',
+  department: '公共体育教研部',
   signature: ''
 });
 
@@ -89,7 +89,7 @@ const loadProfile = () => {
       avatar: user.avatar || '👮‍♂️',
       name: user.name || '',
       phone: user.phone || '',
-      department: user.department || '体能教研室',
+      department: user.department || '公共体育教研部',
       signature: user.signature || ''
     };
   }

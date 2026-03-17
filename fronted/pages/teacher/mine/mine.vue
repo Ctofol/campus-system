@@ -14,7 +14,7 @@
         <view class="avatar">👮‍♂️</view>
         <view class="info">
           <text class="name">{{ userInfo.name || '拉克丝' }}</text>
-          <text class="role">体能教研室</text>
+          <text class="role">公共体育教研部</text>
         </view>
       </view>
     
