@@ -56,8 +56,8 @@ yarn-error.log*
 .cache/
 
 # Build artifacts
-dist/
-build/
+# dist/
+# build/
 
 # Kiro AI assistant
 .kiro/
