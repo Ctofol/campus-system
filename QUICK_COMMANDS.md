@@ -181,6 +181,8 @@ sudo ufw status
 sudo ufw allow 80/tcp
 sudo ufw allow 443/tcp
 sudo ufw allow 8000/tcp
+sudo ufw allow 8080/tcp
+sudo ufw allow 8090/tcp
 ```
 
 ### SSL证书（Let's Encrypt）

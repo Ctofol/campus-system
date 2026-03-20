@@ -1,6 +1,16 @@
 // 基础配置
-// 本地开发：统一直连本地后端
-let baseUrl = 'http://127.0.0.1:8000';
+// 默认指向服务器后端；可通过 fronted/.env.* 的 VITE_API_BASE_URL 覆盖
+const FALLBACK_BASE_URL = 'http://101.37.24.171:8000';
+let baseUrl = FALLBACK_BASE_URL;
+
+// uni-app(vite) 会在构建期注入 import.meta.env
+try {
+  // eslint-disable-next-line no-undef
+  const envBase = import.meta?.env?.VITE_API_BASE_URL;
+  if (envBase) baseUrl = envBase;
+} catch (e) {
+  // ignore
+}
 
 export const BASE_URL = baseUrl;
 
