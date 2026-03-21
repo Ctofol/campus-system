@@ -340,7 +340,7 @@ async def import_profiles(
 
 
 @app.get("/admin/import/template/profiles")
-def profiles_template(current_user: models.User = Depends(auth.get_current_admin)):
+def profiles_template(current_user: models.User = Depends(auth.get_current_admin_from_query)):
     df = pd.DataFrame(columns=["学号", "姓名", "性别", "班级", "专业"])
     buf = io.BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as w:
@@ -462,7 +462,7 @@ def get_sunshine_class_stats(db: Session = Depends(get_db), current_user: models
 
 
 @app.get("/admin/import/template/students")
-def student_template(current_user: models.User = Depends(auth.get_current_admin)):
+def student_template(current_user: models.User = Depends(auth.get_current_admin_from_query)):
     df = pd.DataFrame(columns=["姓名", "手机号", "密码", "学号", "所属班级名称", "专业/课程"])
     buf = io.BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as w:
@@ -475,7 +475,7 @@ def student_template(current_user: models.User = Depends(auth.get_current_admin)
     )
 
 @app.get("/admin/import/template/teachers")
-def teacher_template(current_user: models.User = Depends(auth.get_current_admin)):
+def teacher_template(current_user: models.User = Depends(auth.get_current_admin_from_query)):
     df = pd.DataFrame(columns=["姓名", "手机号", "密码", "工号"])
     buf = io.BytesIO()
     with pd.ExcelWriter(buf, engine='openpyxl') as w: df.to_excel(w, index=False)
