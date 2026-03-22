@@ -196,15 +196,21 @@ def get_dashboard_stats(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_admin)
 ):
+    # 1. Total counts
+    total_students = db.query(func.count(models.User.id)).filter(models.User.role == "student").scalar() or 0
+    total_teachers = db.query(func.count(models.User.id)).filter(models.User.role == "teacher").scalar() or 0
+    total_classes = db.query(func.count(models.Class.id)).scalar() or 0
+
     # 2. Pending Approvals (Health Requests + Pending Activities)
     pending_health = db.query(models.HealthRequest).filter(models.HealthRequest.status == "pending").count()
     pending_activities = db.query(models.Activity).filter(models.Activity.status == "pending_review").count()
     pending_approvals = pending_health + pending_activities
     
-    # 3. Abnormal Count
-    
     return {
-        "pending_approvals": pending_approvals
+        "total_students": total_students,
+        "total_teachers": total_teachers,
+        "total_classes": total_classes,
+        "pending_approvals": pending_approvals,
     }
 
 # --- Import ---
