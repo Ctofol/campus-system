@@ -2,8 +2,7 @@ import axios from 'axios'
 
 // 管理端独立后端，与学生/教师端分离。
 // 线上统一指向 /admin-api，由 Nginx 代理到 8001 端口
-const BASE_URL = import.meta.env.VITE_ADMIN_API_URL || 
-                 (import.meta.env.MODE === 'development' ? 'http://127.0.0.1:8001' : '/admin-api')
+const BASE_URL = 'http://101.37.24.171:8080/api'
 
 const api = axios.create({ baseURL: BASE_URL })
 

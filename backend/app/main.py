@@ -24,12 +24,15 @@ models.Base.metadata.create_all(bind=database.engine)
 
 app = FastAPI(title="Campus Sports Health MVP")
 
-# CORS配置 - 必须在路由注册之前添加
-# 开发环境允许所有来源
+# CORS配置 - 生产/测试统一放行，支持小程序环境
+origins = [
+    "*", # 测试环境保持通配符放行，方便各种本地调试
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 允许所有来源（开发环境）
-    allow_credentials=False,  # 使用 * 时必须设为 False
+    allow_origins=origins,
+    allow_credentials=True, # 允许带凭核
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["*"]
@@ -42,8 +45,9 @@ app.include_router(student.router)
 app.include_router(upload.router)
 
 # Import run_groups router
-from .routers import run_groups
+from .routers import run_groups, admin
 app.include_router(run_groups.router)
+app.include_router(admin.router)
 
 # Mount uploads directory
 if not os.path.exists("uploads"):
