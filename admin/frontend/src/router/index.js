@@ -4,7 +4,6 @@ import Dashboard from '../views/Dashboard.vue'
 import Classes from '../views/Classes.vue'
 import Users from '../views/Users.vue'
 import Import from '../views/Import.vue'
-import SunshineDashboard from '../views/SunshineDashboard.vue'
 import Layout from '../views/Layout.vue'
 
 const routes = [
@@ -18,7 +17,6 @@ const routes = [
       { path: 'classes', component: Classes, meta: { title: '班级管理' } },
       { path: 'users', component: Users, meta: { title: '账号管理' } },
       { path: 'import', component: Import, meta: { title: '批量导入' } },
-      { path: 'sunshine', component: SunshineDashboard, meta: { title: '阳光跑全校看板' } },
     ]
   }
 ]

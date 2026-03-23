@@ -6,7 +6,7 @@
         <el-menu-item index="/dashboard"><el-icon><Odometer /></el-icon>控制台</el-menu-item>
         <el-menu-item index="/classes"><el-icon><School /></el-icon>班级管理</el-menu-item>
         <el-menu-item index="/users"><el-icon><User /></el-icon>账号管理</el-menu-item>
-        <el-menu-item index="/sunshine"><el-icon><PieChart /></el-icon>阳光跑看板</el-menu-item>
+
         <el-menu-item index="/import"><el-icon><Upload /></el-icon>批量导入</el-menu-item>
       </el-menu>
     </el-aside>
