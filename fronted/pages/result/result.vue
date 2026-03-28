@@ -185,10 +185,8 @@ const modeBgColor = computed(() => {
     default: return '#f5f5f5';
   }
 });
-// 警务配速是否达标（男生6.5，女生7.5，这里默认按男生标准）
-const isPaceQualified = computed(() => {
-  return policePace.value <= 6.5;
-});
+// 警务配速是否达标 (不再硬编码6.5，因为具体项目和性别标准不同)
+const isPaceQualified = ref(false); 
 
 // 4. 页面加载时接收参数
 onLoad((options) => {
@@ -208,13 +206,24 @@ onLoad((options) => {
 
   if (data) {
       // Map backend data to frontend display
-      currentMode.value = data.type === 'test' ? 'test' : 'normal'; // Simplify for MVP
+      if (data.type === 'test') {
+        // Distinguish police run from generic test if distance > 0 or specific criteria met
+        currentMode.value = (data.metrics && data.metrics.distance > 0) ? 'police' : 'test';
+      } else if (data.type === 'run') {
+        // Distinguish campus run if checkpoints data exists
+        currentMode.value = (data.metrics && data.metrics.checkpoints) ? 'campus' : 'normal';
+      } else {
+        currentMode.value = 'normal';
+      }
       if (data.metrics) {
         duration.value = data.metrics.duration || 0;
         distance.value = (data.metrics.distance || 0) * 1000;
         testCount.value = data.metrics.count || 0;
         testQualified.value = data.metrics.qualified;
         policePace.value = Number(data.metrics.pace) || 0;
+        // Use backend's source of truth for qualification
+        isPaceQualified.value = data.metrics.qualified; 
+        isReach.value = data.metrics.qualified; // For campus mode, qualified usually means checkpiont reached
       }
 
       if (typeof data.is_valid !== 'undefined') {

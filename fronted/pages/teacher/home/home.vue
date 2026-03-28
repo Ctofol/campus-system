@@ -12,7 +12,7 @@
       <!-- 1. 教师头部信息 -->
       <view class="teacher-header">
         <view class="teacher-info">
-          <text class="teacher-name">{{ userInfo.name || '拉克丝' }}</text>
+          <text class="teacher-name">{{ userInfo.name || '教师' }}</text>
           <text class="teacher-title">公共体育教研部</text>
         </view>
         <view class="teacher-avatar">
@@ -29,14 +29,12 @@
         <view class="stat-card" @click="goToLeaveApproval">
           <view class="badge-wrapper">
             <text class="stat-num">{{ teacherStats.pendingHealth }}</text>
-            <view class="badge" v-if="teacherStats.pendingHealth > 0">{{ teacherStats.pendingHealth }}</view>
           </view>
           <text class="stat-label">请假待处理</text>
         </view>
         <view class="stat-card" @click="goToActivityApproval">
           <view class="badge-wrapper">
             <text class="stat-num">{{ teacherStats.pendingActivities }}</text>
-            <view class="badge" v-if="teacherStats.pendingActivities > 0">{{ teacherStats.pendingActivities }}</view>
           </view>
           <text class="stat-label">运动待审批</text>
         </view>
@@ -103,21 +101,6 @@
         </view>
       </view>
 
-      <!-- 5. 实时异常警报 -->
-      <view class="section-card alert-widget" v-if="abnormalAlerts.length > 0">
-        <view class="section-header">
-          <text class="section-title red-dot">⚠️ 实时警报</text>
-        </view>
-        <view class="alert-feed">
-          <view class="feed-item" v-for="(alert, idx) in abnormalAlerts" :key="idx">
-            <view class="feed-content">
-              <text class="feed-msg"><text class="feed-name">{{ alert.student }}</text> {{ alert.type }} ({{ alert.value }})</text>
-              <text class="feed-time">{{ alert.time }}</text>
-            </view>
-            <button class="feed-btn" size="mini" @click="handleResolveAlert(idx)">干预</button>
-          </view>
-        </view>
-      </view>
       
       <view style="height: 20rpx;"></view>
     </view>
@@ -134,12 +117,12 @@ const todos = ref([]);
 
 // 功能打通：跳转到请假审批列表
 const goToLeaveApproval = () => {
-  uni.navigateTo({ url: '/pages/teacher/approval/index?type=leave' });
+  uni.navigateTo({ url: '/pages/teacher/students/students?showHealth=true' });
 };
 
 // 功能打通：跳转到运动审批列表
 const goToActivityApproval = () => {
-  uni.navigateTo({ url: '/pages/teacher/approval/index?type=activity' });
+  uni.navigateTo({ url: '/pages/teacher/exceptions/exceptions' });
 };
 
 // 功能打通：跳转到待办事项列表
@@ -433,19 +416,6 @@ const handleResolveAlert = (index) => {
   align-items: center;
   justify-content: center;
 }
-.badge {
-  position: absolute;
-  top: -10rpx;
-  right: -20rpx;
-  background: #ff4d4f;
-  color: #fff;
-  font-size: 20rpx;
-  padding: 4rpx 10rpx;
-  border-radius: 20rpx;
-  min-width: 32rpx;
-  text-align: center;
-  font-weight: bold;
-}
 .stat-num {
   font-size: 44rpx;
   font-weight: bold;
@@ -521,7 +491,6 @@ const handleResolveAlert = (index) => {
 .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30rpx; }
 .section-title { font-size: 34rpx; font-weight: bold; color: #333; }
 .section-more { font-size: 26rpx; color: #20C997; padding: 10rpx 0; }
-.red-dot { color: #ff6b6b; }
 
 .overview-chart { display: flex; justify-content: space-around; }
 .chart-col { text-align: center; }

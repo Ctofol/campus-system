@@ -39,14 +39,24 @@
 
         <!-- 基础信息 -->
         <view class="section-title">基础信息</view>
+        <view class="input-item" v-if="registerForm.role === 'student'">
+          <picker mode="selector" :range="majorOptions" range-key="name" @change="onMajorChange">
+            <view class="picker-value">{{ selectedMajorName || '请选择专业' }}</view>
+          </picker>
+        </view>
+        <view class="input-item" v-if="registerForm.role === 'student' && registerForm.major_id">
+          <picker mode="selector" :range="classOptions" range-key="name" @change="onClassChange">
+            <view class="picker-value">{{ selectedClassName || '请选择班级 (区)' }}</view>
+          </picker>
+        </view>
+        <view class="input-item" v-if="registerForm.role === 'student'">
+          <input class="input" v-model="registerForm.subject" placeholder="体育选科 (如：篮球、羽毛球)" />
+        </view>
         <view class="input-item">
           <input class="input" v-model="registerForm.name" placeholder="真实姓名" />
         </view>
         <view class="input-item" v-if="registerForm.role === 'student'">
-          <input class="input" v-model="registerForm.studentId" placeholder="学号（与档案一致）" />
-        </view>
-        <view class="hint-text" v-if="registerForm.role === 'student'">
-          请输入管理员导入档案时的学号，系统将自动匹配班级与性别信息
+          <input class="input" v-model="registerForm.studentId" placeholder="学号（选填，用于匹配档案）" />
         </view>
         <view class="input-item">
           <input class="input" v-model="registerForm.phone" type="number" placeholder="手机号码" />
@@ -82,6 +92,12 @@ const loading = ref(false);
 const captchaImage = ref('');
 const captchaKey = ref('');
 
+// 专业与班级选项
+const majorOptions = ref([]);
+const classOptions = ref([]);
+const selectedMajorName = ref('');
+const selectedClassName = ref('');
+
 const registerForm = ref({
   role: 'student', // student | teacher
   name: '',
@@ -90,10 +106,9 @@ const registerForm = ref({
   code: '',
   password: '',
   confirmPwd: '',
-  // 扩展（当前版本不再收集学校/班级，由后台档案自动绑定）
-  school: '',
-  class: '',
-  empId: ''
+  major_id: null,
+  class_id: null,
+  subject: ''
 });
 
 const selectRole = (role) => {
@@ -103,6 +118,9 @@ const selectRole = (role) => {
 const nextStep = () => {
   step.value = 2;
   fetchCaptcha();
+  if (registerForm.value.role === 'student') {
+    fetchMajors();
+  }
 };
 
 const fetchCaptcha = () => {
@@ -113,6 +131,40 @@ const fetchCaptcha = () => {
     console.error('Fetch captcha failed', err);
     uni.showToast({ title: '验证码加载失败', icon: 'none' });
   });
+};
+
+const fetchMajors = async () => {
+  try {
+    const res = await request({ url: '/common/majors' });
+    majorOptions.value = res;
+  } catch (err) {
+    console.error('Fetch majors failed', err);
+  }
+};
+
+const onMajorChange = async (e) => {
+  const idx = e.detail.value;
+  const major = majorOptions.value[idx];
+  registerForm.value.major_id = major.id;
+  selectedMajorName.value = major.name;
+  
+  // 拉取该专业下的班级
+  try {
+    const res = await request({ url: `/common/classes?major_id=${major.id}` });
+    classOptions.value = res;
+    // 重置班级
+    registerForm.value.class_id = null;
+    selectedClassName.value = '';
+  } catch (err) {
+    console.error('Fetch classes failed', err);
+  }
+};
+
+const onClassChange = (e) => {
+  const idx = e.detail.value;
+  const cls = classOptions.value[idx];
+  registerForm.value.class_id = cls.id;
+  selectedClassName.value = cls.name;
 };
 
 const goToLogin = () => {
@@ -128,6 +180,13 @@ const handleRegister = async () => {
     return;
   }
 
+  if (form.role === 'student') {
+    if (!form.major_id || !form.class_id) {
+       uni.showToast({ title: '请选择专业和班级', icon: 'none' });
+       return;
+    }
+  }
+
   // 手机号格式校验
   const phoneRegex = /^1[3-9]\d{9}$/;
   if (!phoneRegex.test(form.phone)) {
@@ -141,24 +200,12 @@ const handleRegister = async () => {
     return;
   }
 
-  // 密码长度校验
-  if (form.password.length < 6) {
-    uni.showToast({ title: '密码长度不能少于6位', icon: 'none' });
-    return;
-  }
-
   // 确认密码校验
   if (form.password !== form.confirmPwd) {
     uni.showToast({ title: '两次密码不一致', icon: 'none' });
     return;
   }
   
-  // 身份校验
-  if (form.role === 'student' && !form.studentId) {
-    uni.showToast({ title: '请输入学号', icon: 'none' });
-    return;
-  }
-
   loading.value = true;
   
   try {
@@ -168,6 +215,9 @@ const handleRegister = async () => {
         name: form.name,
         role: form.role,
         student_id: form.role === 'student' ? form.studentId : null,
+        major_id: form.major_id,
+        class_id: form.class_id,
+        subject: form.subject,
         password: form.password,
         captcha_code: form.code,
         captcha_key: captchaKey.value
@@ -178,14 +228,12 @@ const handleRegister = async () => {
       icon: 'success'
     });
     
-    // 注册成功后返回登录页
     setTimeout(() => {
       uni.navigateBack();
     }, 1500);
 
   } catch (error) {
     console.error('Register failed:', error);
-    // 刷新验证码
     fetchCaptcha();
     form.code = '';
   } finally {
@@ -315,6 +363,11 @@ const handleRegister = async () => {
   background: #F8F9FA;
   border-radius: 12rpx;
   padding: 20rpx;
+}
+
+.picker-value {
+  font-size: 28rpx;
+  color: #333;
 }
 
 .input {

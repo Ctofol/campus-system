@@ -8,6 +8,7 @@
     </template>
     <el-table :data="classes" stripe>
       <el-table-column prop="id" label="ID" width="80" />
+      <el-table-column prop="major_name" label="所属专业" width="150" />
       <el-table-column prop="name" label="班级名称" />
       <el-table-column prop="teacher_id" label="绑定教师ID" width="120">
         <template #default="{row}">{{ row.teacher_id || '-' }}</template>
@@ -22,7 +23,16 @@
   </el-card>
 
   <el-dialog v-model="showDialog" title="新增班级" width="400px">
-    <el-input v-model="newName" placeholder="请输入班级名称" />
+    <el-form label-width="80px">
+      <el-form-item label="所属专业">
+        <el-select v-model="selectedMajorId" placeholder="请选择专业" style="width:100%">
+          <el-option v-for="m in majors" :key="m.id" :label="m.name" :value="m.id" />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="班级名称">
+        <el-input v-model="newName" placeholder="请输入班级名称 (如: 1区)" />
+      </el-form-item>
+    </el-form>
     <template #footer>
       <el-button @click="showDialog=false">取消</el-button>
       <el-button type="primary" @click="handleCreate">确定</el-button>
@@ -32,24 +42,33 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { getClasses, createClass, deleteClass } from '../api/index.js'
+import { getClasses, createClass, deleteClass, getMajors } from '../api/index.js'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const classes = ref([])
+const majors = ref([])
 const showDialog = ref(false)
 const newName = ref('')
+const selectedMajorId = ref(null)
 
 const load = async () => {
   classes.value = await getClasses()
+  majors.value = await getMajors()
 }
 
 const handleCreate = async () => {
-  if (!newName.value) return
+  if (!newName.value || !selectedMajorId.value) {
+    return ElMessage.warning('请填写完整信息')
+  }
   try {
-    await createClass({ name: newName.value })
+    await createClass({ 
+      name: newName.value,
+      major_id: selectedMajorId.value 
+    })
     ElMessage.success('创建成功')
     showDialog.value = false
     newName.value = ''
+    selectedMajorId.value = null
     load()
   } catch(e) { ElMessage.error(e?.detail || '创建失败') }
 }

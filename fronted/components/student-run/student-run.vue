@@ -62,7 +62,7 @@
       :show-location="true"
     >
        <cover-view class="location-status-bar" :style="{ display: locationState === 'success' ? 'none' : 'flex' }">
-         <text class="status-text">{{ locationStatusText }}</text>
+         {{ locationStatusText }}
        </cover-view>
 
        <cover-view class="map-controls">
@@ -252,7 +252,7 @@ const onPageShow = (options = {}) => {
       // 注意：这里可能需要父组件配合跳转，或者直接使用 uni.switchTab
       setTimeout(() => {
         // 假设 teacher home 也是 tab 页
-        uni.switchTab({ url: '/pages/index/index' }); // 临时跳转，后续需确认路由
+        uni.switchTab({ url: '/pages/tab/home' }); // Correct path to home tab
       }, 800);
       return;
     }
@@ -401,16 +401,14 @@ const checkinRecords = ref([]); // Store successful check-ins
 const updateMapPolyline = () => {
   const lines = [];
   // 1. Add running trajectory (Blue)
-  if (runPolyline.value.points.length > 0) {
+  // 微信小程序地层图层非常严苛，points必须要>=2个点才会生成路线，空数组反而会报错崩溃
+  if (runPolyline.value.points && runPolyline.value.points.length >= 2) {
     // Deep clone to ensure Vue detects change
     lines.push(JSON.parse(JSON.stringify(runPolyline.value)));
-  } else {
-    // Keep an empty line placeholder if needed, or just omit
-    lines.push({ ...runPolyline.value, points: [] });
   }
   
   // 2. Add navigation line (Red) if exists
-  if (navPolyline.value) {
+  if (navPolyline.value && navPolyline.value.points && navPolyline.value.points.length >= 2) {
     lines.push(JSON.parse(JSON.stringify(navPolyline.value)));
   }
   
@@ -1376,7 +1374,7 @@ const stopRun = async () => {
     console.error('Submit failed:', error);
     uni.showModal({
       title: '提交失败',
-      content: (error && error.detail) ? error.detail : '网络或服务器错误，请重试',
+      content: error.message || error.detail || '网络或服务器错误，请重试',
       confirmText: '重试',
       cancelText: '强制结束',
       success: (modalRes) => {

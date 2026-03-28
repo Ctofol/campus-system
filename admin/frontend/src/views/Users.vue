@@ -31,6 +31,7 @@
       <el-table-column prop="phone" label="手机号" width="140" />
       <el-table-column v-if="role==='student'" prop="class_name" label="班级" width="140" />
       <el-table-column v-if="role==='student'" prop="major" label="专业" width="160" />
+      <el-table-column v-if="role==='student'" prop="subject" label="选科" width="120" />
       <el-table-column v-if="role==='teacher'" label="工号/标识" width="140">
         <template #default="{row}">{{ row.student_id }}</template>
       </el-table-column>
@@ -45,32 +46,32 @@
             v-if="role==='teacher'"
             size="small"
             type="primary"
-            @click="openAssignClasses(row)"
-          >分配管辖班级</el-button>
+            @click="openAssignSubjects(row)"
+          >分配管辖选科</el-button>
         </template>
       </el-table-column>
     </el-table>
 
     <el-dialog
       v-model="assignDialog.visible"
-      title="分配管辖班级"
+      title="分配管辖选科"
       width="480px"
     >
       <div style="margin-bottom:8px;color:#666">
-        为教师「{{ assignDialog.teacher?.name || '' }}」选择可管辖的班级：
+        为教师「{{ assignDialog.teacher?.name || '' }}」选择可管辖的体育选科：
       </div>
       <el-checkbox-group v-model="assignDialog.selected">
         <el-checkbox
-          v-for="cls in classOptions"
-          :key="cls.name"
-          :label="cls.name"
+          v-for="sub in subjectOptions"
+          :key="sub"
+          :label="sub"
         >
-          {{ cls.name }}
+          {{ sub }}
         </el-checkbox>
       </el-checkbox-group>
       <template #footer>
         <el-button @click="assignDialog.visible=false">取 消</el-button>
-        <el-button type="primary" @click="saveAssignClasses">保 存</el-button>
+        <el-button type="primary" @click="saveAssignSubjects">保 存</el-button>
       </template>
     </el-dialog>
   </el-card>
@@ -78,13 +79,14 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { getUsers, getUserMajors, deleteUser, resetPassword, getClasses, getTeacherClasses, updateTeacherClasses } from '../api/index.js'
+import { getUsers, getUserMajors, deleteUser, resetPassword, getClasses, getTeacherSubjects, updateTeacherSubjects } from '../api/index.js'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const role = ref('student')
 const users = ref([])
 const classOptions = ref([])
 const majorOptions = ref([])
+const subjectOptions = ref(['篮球', '羽毛球', '乒乓球', '游泳', '跆拳道'])
 const filters = ref({
   class_name: '',
   major: ''
@@ -103,15 +105,6 @@ const load = async () => {
     if (filters.value.major) params.major = filters.value.major
   }
   users.value = await getUsers(params)
-  if (role.value === 'student' && majorOptions.value.length === 0) {
-    try {
-      majorOptions.value = await getUserMajors()
-    } catch (_) {
-      const majors = new Set()
-      users.value.forEach(u => { if (u.major) majors.add(u.major) })
-      majorOptions.value = Array.from(majors)
-    }
-  }
 }
 
 const handleReset = async (row) => {
@@ -131,29 +124,24 @@ const handleDelete = async (row) => {
   } catch(e) { ElMessage.error(e?.detail || '删除失败') }
 }
 
-const openAssignClasses = async (teacher) => {
+const openAssignSubjects = async (teacher) => {
   assignDialog.value.teacher = teacher
   assignDialog.value.visible = true
-  // 确保已有班级列表
-  if (!classOptions.value.length) {
-    classOptions.value = await getClasses()
-  }
-  const bound = await getTeacherClasses(teacher.id)
-  assignDialog.value.selected = bound.map(item => item.class_name || item)
+  const bound = await getTeacherSubjects(teacher.id)
+  assignDialog.value.selected = bound.map(item => item.name || item)
 }
 
-const saveAssignClasses = async () => {
+const saveAssignSubjects = async () => {
   const t = assignDialog.value.teacher
   if (!t) return
-  await updateTeacherClasses(t.id, { class_names: assignDialog.value.selected })
+  await updateTeacherSubjects(t.id, { subject_names: assignDialog.value.selected })
   assignDialog.value.visible = false
+  ElMessage.success('分配成功')
 }
 
 onMounted(async () => {
   classOptions.value = await getClasses()
-  if (role.value === 'student') {
-    try { majorOptions.value = await getUserMajors() } catch (_) {}
-  }
+  try { majorOptions.value = await getUserMajors() } catch (_) {}
   await load()
 })
 </script>

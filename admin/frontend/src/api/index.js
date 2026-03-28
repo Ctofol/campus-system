@@ -1,8 +1,8 @@
 import axios from 'axios'
 
-// 管理端独立后端，与学生/教师端分离。
-// 线上统一指向 /admin-api，由 Nginx 代理到 8001 端口
-const BASE_URL = 'http://101.37.24.171:8080/api'
+// 管理端独立路由
+// 生产环境通过 8090 端口访问，Nginx 代理 /admin-api/ 到 8001
+const BASE_URL = '' // 使用 Vite 代理或者直接同源访问
 
 const api = axios.create({ baseURL: BASE_URL })
 
@@ -18,43 +18,40 @@ api.interceptors.response.use(
     if (err.response?.status === 401 || err.response?.status === 403) {
       localStorage.removeItem('admin_token')
       localStorage.removeItem('admin_info')
-      window.location.href = '/#/login'
+      window.location.hash = '#/login'
     }
     return Promise.reject(err.response?.data || err)
   }
 )
 
 export const login = (data) => api.post('/auth/login', data)
-export const refreshToken = () => api.post('/auth/refresh')
 export const getDashboardStats = () => api.get('/admin/dashboard/stats')
+export const getMajors = () => api.get('/common/majors')
 export const getClasses = () => api.get('/admin/classes')
 export const createClass = (data) => api.post('/admin/classes', data)
 export const deleteClass = (id) => api.delete(`/admin/classes/${id}`)
 export const getUsers = (params) => api.get('/admin/users', { params })
-export const getUserMajors = () => api.get('/admin/users/majors')
-export const createUser = (data, params) => api.post('/admin/users', data, { params })
-export const deleteUser = (id) => api.delete(`/admin/users/${id}`)
-export const resetPassword = (id) => api.post(`/admin/users/${id}/reset-password`)
+export const createUser = (data, p) => api.post('/admin/users', data, { params: p })
 export const importStudents = (file) => {
-  const form = new FormData(); form.append('file', file)
-  return api.post('/admin/import/students', form, { headers: { 'Content-Type': 'multipart/form-data' } })
+  const f = new FormData(); f.append('file', file)
+  return api.post('/admin/import/students', f, { headers: { 'Content-Type': 'multipart/form-data' } })
 }
 export const importTeachers = (file) => {
-  const form = new FormData(); form.append('file', file)
-  return api.post('/admin/import/teachers', form, { headers: { 'Content-Type': 'multipart/form-data' } })
+  const f = new FormData(); f.append('file', file)
+  return api.post('/admin/import/teachers', f, { headers: { 'Content-Type': 'multipart/form-data' } })
 }
-export const downloadStudentTemplate = () => `${BASE_URL}/admin/import/template/students`
-export const downloadTeacherTemplate = () => `${BASE_URL}/admin/import/template/teachers`
-export const downloadProfilesTemplate = () => `${BASE_URL}/admin/import/template/profiles`
 export const importProfiles = (file) => {
-  const form = new FormData()
-  form.append('file', file)
-  return api.post('/admin/import/profiles', form, { headers: { 'Content-Type': 'multipart/form-data' } })
+  const f = new FormData(); f.append('file', file)
+  return api.post('/admin/import/profiles', f, { headers: { 'Content-Type': 'multipart/form-data' } })
 }
-
-// Teacher ↔ Class bindings
-export const getTeacherClasses = (teacherId) => api.get(`/admin/teacher-classes/${teacherId}`)
-export const updateTeacherClasses = (teacherId, data) => api.post(`/admin/teacher-classes/${teacherId}`, data)
-
-// 阳光跑全校看板
 export const getSunshineClassStats = () => api.get('/admin/sunshine/class-stats')
+export const getUserMajors = () => api.get('/admin/users/majors')
+export const deleteUser = (id) => api.delete(`/admin/users/${id}`)
+export const resetPassword = (id) => api.post(`/admin/users/${id}/reset-password`)
+export const getTeacherSubjects = (id) => api.get(`/admin/teacher-subjects/${id}`)
+export const updateTeacherSubjects = (id, data) => api.post(`/admin/teacher-subjects/${id}`, data)
+export const downloadProfilesTemplate = () => window.open(`${BASE_URL}/import/template/profiles`)
+export const downloadStudentTemplate = () => window.open(`${BASE_URL}/import/template/students`)
+export const downloadTeacherTemplate = () => window.open(`${BASE_URL}/import/template/teachers`)
+
+export default api

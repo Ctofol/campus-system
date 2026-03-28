@@ -2,7 +2,7 @@ from datetime import datetime, date, timedelta
 from typing import Tuple
 import random
 
-from .. import models
+from .. import models, config
 
 
 def verify_activity(user: models.User, activity: models.Activity, db) -> Tuple[bool, str, bool]:
@@ -28,12 +28,12 @@ def verify_activity(user: models.User, activity: models.Activity, db) -> Tuple[b
 
     # 1. 性别 + 里程校验
     gender = (user.gender or "male").lower()
-    min_distance = 2.0 if gender == "male" else 1.2
-    if distance_km < min_distance:
+    min_dist = config.MIN_DISTANCE_MALE if gender == "male" else config.MIN_DISTANCE_FEMALE
+    if distance_km < min_dist:
         return False, "里程不足", False
 
-    # 2. 配速区间校验（3 - 10 分钟/公里）
-    if pace_val is None or pace_val < 3.0 or pace_val > 10.0:
+    # 2. 配速区间校验
+    if pace_val is None or pace_val < config.MIN_PACE_MIN_KM or pace_val > config.MAX_PACE_MIN_KM:
         return False, "配速异常", False
 
     # 3. 频次限制：当天只允许一条达标记录
@@ -79,17 +79,17 @@ def calculate_total_score(valid_count: int) -> int:
     - 21-40 次：每次 +2 分，40 次为 100 分
     - >40 次：封顶 100 分
     """
-    if valid_count <= 10:
+    if valid_count < config.SCORE_TIER_1_MIN:
         return 0
-    if valid_count < 20:
+    if valid_count < config.SCORE_TIER_2_MIN:
         # 11 次为 42 分，每多 1 次 +2 分
-        return 42 + (valid_count - 11) * 2
-    if valid_count == 20:
-        return 60
+        return config.SCORE_TIER_1_START_VAL + (valid_count - config.SCORE_TIER_1_MIN) * 2
+    if valid_count == config.SCORE_TIER_2_MIN:
+        return config.SCORE_TIER_2_START_VAL
 
     # > 20
-    score = 60 + (valid_count - 20) * 2
-    return min(score, 100)
+    score = config.SCORE_TIER_2_START_VAL + (valid_count - config.SCORE_TIER_2_MIN) * 2
+    return min(score, config.SCORE_MAX)
 
 
 def get_sunshine_stats(user: models.User, db):

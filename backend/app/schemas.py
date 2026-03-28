@@ -14,6 +14,9 @@ class UserCreate(UserBase):
     captcha_key: str
     # 学生注册专用：用于与 StudentProfile 进行档案匹配
     student_id: str | None = None
+    major_id: int | None = None
+    class_id: int | None = None
+    subject: str | None = None
 
 class UserLogin(BaseModel):
     phone: str
@@ -26,8 +29,10 @@ class Token(BaseModel):
     user_id: int
     name: str
     class_name: Optional[str] = None
+    class_id: Optional[int] = None
     student_id: Optional[str] = None
     major: Optional[str] = None
+    major_id: Optional[int] = None
 
 class UserProfile(BaseModel):
     id: int
@@ -35,8 +40,11 @@ class UserProfile(BaseModel):
     phone: str
     role: str
     class_name: Optional[str] = None
+    class_id: Optional[int] = None
     student_id: Optional[str] = None
     major: Optional[str] = None
+    major_id: Optional[int] = None
+    subject: Optional[str] = None
     group_name: Optional[str] = None
     health_status: str
     signature: Optional[str] = None
@@ -64,6 +72,7 @@ class StudentProfileBase(BaseModel):
     gender: str  # 'male' | 'female'
     class_name: str
     major: Optional[str] = None
+    subject: Optional[str] = None
 
 
 class StudentProfileCreate(StudentProfileBase):
@@ -81,17 +90,36 @@ class ClassBase(BaseModel):
     name: str
 
 class ClassCreate(ClassBase):
-    pass
+    major_id: int
 
 class ClassBind(BaseModel):
     class_ids: List[int]
 
 class ClassOut(ClassBase):
     id: int
+    major_id: int
+    major_name: Optional[str] = None
     teacher_id: Optional[int] = None
     student_count: int = 0
     created_at: Optional[datetime] = None
     
+    class Config:
+        from_attributes = True
+
+class MajorOut(BaseModel):
+    id: int
+    name: str
+
+    class Config:
+        from_attributes = True
+
+class TeacherSubjectBase(BaseModel):
+    subject_name: str
+
+class TeacherSubjectOut(TeacherSubjectBase):
+    id: int
+    teacher_id: int
+
     class Config:
         from_attributes = True
 
@@ -589,3 +617,6 @@ class ClassMemberSunshineItem(BaseModel):
 
 class ClassMemberSunshineList(BaseModel):
     items: List[ClassMemberSunshineItem]
+
+class StudentNotify(BaseModel):
+    message: str

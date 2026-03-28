@@ -18,9 +18,22 @@ class StudentProfile(Base):
     class_name = Column(String, nullable=False)
     # 专业/课程（例如：刑侦技术、治安管理等）
     major = Column(String, nullable=True)
+    # 选科（例如：篮球、羽毛球）
+    subject = Column(String, nullable=True)
     is_activated = Column(Boolean, default=False)
 
     user = relationship("User", back_populates="profile", uselist=False)
+
+
+# 新增：专业模型
+class Major(Base):
+    __tablename__ = "majors"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, nullable=False)   # 如 “信息安全”
+
+    classes = relationship("Class", back_populates="major")
+    students = relationship("User", back_populates="major_rel")
 
 
 class User(Base):
@@ -32,34 +45,68 @@ class User(Base):
     phone = Column(String, unique=True, index=True, nullable=False)
     password_hash = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # 学生属性
     class_id = Column(Integer, ForeignKey("classes.id"), nullable=True)
-    # 学号：同时作为 StudentProfile 的外键，用于从档案自动绑定性别和班级
+    major_id = Column(Integer, ForeignKey("majors.id"), nullable=True)
     student_id = Column(String, ForeignKey("student_profiles.student_id"), unique=True, nullable=True)
-    gender = Column(String, nullable=True)  # 'male' | 'female'，默认按 male 处理
-    # 学生专业/课程，来自 StudentProfile.major；教师可为空
-    major = Column(String, nullable=True)
-    health_status = Column(String, default="normal")  # normal, leave, injured
+    gender = Column(String, nullable=True)
+    major_name = Column(String, nullable=True) # 冗余字段或来自档案
+    subject = Column(String, nullable=True) # 选科
+    
+    health_status = Column(String, default="normal")
     abnormal_reason = Column(String, nullable=True)
     group_name = Column(String, nullable=True)
-    signature = Column(String, nullable=True)  # 个性签名
-    avatar_url = Column(String, nullable=True)  # 头像URL
-    regular_score = Column(Float, default=0.0)  # 平时分（第三阶段新增）
+    signature = Column(String, nullable=True)
+    avatar_url = Column(String, nullable=True)
+    regular_score = Column(Float, default=0.0)
 
     profile = relationship("StudentProfile", back_populates="user", foreign_keys=[student_id])
     student_class = relationship("Class", back_populates="students", foreign_keys=[class_id])
+    major_rel = relationship("Major", back_populates="students", foreign_keys=[major_id])
     health_requests = relationship("HealthRequest", back_populates="student")
+    # 教师选科
+    teacher_subjects = relationship("TeacherSubject", back_populates="teacher")
+
+    @property
+    def major(self):
+        return self.major_rel.name if self.major_rel else self.major_name
+    
+    @property
+    def class_name(self):
+        if self.student_class:
+            m_name = self.student_class.major.name if self.student_class.major else ""
+            return f"{m_name} {self.student_class.name}".strip()
+        return None
 
 
 class Class(Base):
     __tablename__ = "classes"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, unique=True, index=True, nullable=False)
-    teacher_id = Column(Integer, ForeignKey("users.id"))
+    name = Column(String, index=True, nullable=False) # 如 "1区"
+    major_id = Column(Integer, ForeignKey("majors.id"), nullable=False)
+    teacher_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+    major = relationship("Major", back_populates="classes")
     teacher = relationship("User", foreign_keys=[teacher_id])
     students = relationship("User", back_populates="student_class", foreign_keys="User.class_id")
+
+    @property
+    def major_name(self):
+        return self.major.name if self.major else None
+
+
+# 新增：教师选科模型
+class TeacherSubject(Base):
+    __tablename__ = "teacher_subjects"
+
+    id = Column(Integer, primary_key=True, index=True)
+    teacher_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    subject_name = Column(String, nullable=False) # 如 "篮球"
+
+    teacher = relationship("User", back_populates="teacher_subjects")
 
 class Activity(Base):
     __tablename__ = "activities"

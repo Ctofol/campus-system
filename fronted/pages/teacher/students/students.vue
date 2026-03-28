@@ -58,21 +58,30 @@
         </view>
       </view>
       
-      <!-- 4. 通知栏 -->
-      <view class="notice-bar" v-if="pendingRequests.length > 0" @click="showHealthModal = true">
+      <!-- 4. 通知栏: 请假审批 -->
+      <view class="notice-bar" v-if="(pendingRequests||[]).length > 0" @click="showHealthModal = true">
         <view class="notice-content">
-          <text class="notice-icon">🔔</text>
-          <text>有 {{ pendingRequests.length }} 条待审批申请</text>
+          <text class="notice-icon">📋</text>
+          <text>有 {{ (pendingRequests||[]).length }} 条请假申请待处理</text>
         </view>
         <text class="arrow">去处理 ></text>
+      </view>
+
+      <!-- 5. 通知栏: 运动异常 (新增) -->
+      <view class="notice-bar exception" v-if="pendingExceptionCount > 0" @click="goToExceptions">
+        <view class="notice-content">
+          <text class="notice-icon">🏃</text>
+          <text>有 {{ pendingExceptionCount }} 条运动异常待核实</text>
+        </view>
+        <text class="arrow">去核实 ></text>
       </view>
     </view>
 
     <!-- AI Analysis Reports Notification -->
-    <view class="report-notice" v-if="sharedReports.length > 0" @click="showReportsModal = true">
+    <view class="report-notice" v-if="(sharedReports||[]).length > 0" @click="showReportsModal = true">
       <view class="notice-left">
         <text class="notice-icon">🤖</text>
-        <text class="notice-text">收到 {{ sharedReports.length }} 份新的运动分析报告</text>
+        <text class="notice-text">收到 {{ (sharedReports||[]).length }} 份新的运动分析报告</text>
       </view>
       <text class="notice-arrow">查看 ></text>
     </view>
@@ -209,7 +218,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import { onShow, onReachBottom } from '@dcloudio/uni-app';
+import { onShow, onReachBottom, onLoad } from '@dcloudio/uni-app';
 import { request, BASE_URL } from '@/utils/request';
 
 const isBatchMode = ref(false);
@@ -220,6 +229,7 @@ const showHealthModal = ref(false);
 
 const students = ref([]);
 const pendingRequests = ref([]);
+const pendingExceptionCount = ref(0);
 const keyword = ref('');
 
 // Pagination
@@ -278,6 +288,7 @@ const loadStats = async () => {
     totalCount.value = res.student_count;
     abnormalCount.value = res.abnormal_count;
     normalCount.value = res.student_count - res.abnormal_count;
+    pendingExceptionCount.value = res.pending_activities || 0;
   } catch (e) {
     console.error(e);
   }
@@ -357,6 +368,12 @@ const loadHealthRequests = async () => {
     console.error(e);
   }
 };
+
+onLoad((options) => {
+  if (options.showHealth === 'true') {
+    showHealthModal.value = true;
+  }
+});
 
 onShow(() => {
   const role = uni.getStorageSync('userRole') || uni.getStorageSync('role');
@@ -551,6 +568,10 @@ const doExport = (data) => {
   });
 };
 
+const goToExceptions = () => {
+    uni.navigateTo({ url: '/pages/teacher/exceptions/exceptions' });
+};
+
 const editStudent = (stu) => {
   uni.showActionSheet({
     itemList: ['修改状态: 正常', '修改状态: 请假', '修改状态: 受伤', '修改状态: 异常', '修改分组'],
@@ -622,7 +643,8 @@ const handleRequest = async (req, action) => {
     });
     uni.showToast({ title: '已处理', icon: 'success' });
     loadHealthRequests();
-    loadStudents(); // Status might change
+    loadStudents(true); // Reset and reload full list
+    loadStats();      // Refresh top counters
   } catch (e) {
     uni.showToast({ title: '处理失败', icon: 'none' });
   }
@@ -1020,6 +1042,15 @@ const handleBack = () => {
   from { opacity: 0; transform: translateY(-10rpx); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+.notice-bar.exception {
+  background-color: #FFF5F5;
+  border-color: #FFD1D1;
+  color: #E53E3E;
+  margin-top: 10rpx;
+}
+.notice-bar.exception .notice-icon { color: #E53E3E; }
+.notice-bar.exception .arrow { color: #E53E3E; }
 
 /* Report Notification */
 .report-notice {

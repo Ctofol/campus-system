@@ -52,7 +52,7 @@ def create_class(
     if db_class:
         raise HTTPException(status_code=400, detail="Class already exists")
     
-    new_class = models.Class(name=class_in.name, teacher_id=teacher_id)
+    new_class = models.Class(name=class_in.name, teacher_id=teacher_id, major_id=class_in.major_id)
     db.add(new_class)
     db.commit()
     db.refresh(new_class)
@@ -87,8 +87,7 @@ def get_user_majors(
 ):
     """获取全校专业列表，用于账号管理页筛选下拉"""
     rows = (
-        db.query(models.User.major)
-        .filter(models.User.role == "student", models.User.major.isnot(None), models.User.major != "")
+        db.query(models.Major.name)
         .distinct()
         .all()
     )
@@ -112,19 +111,17 @@ def get_users(
     if class_id:
         query = query.filter(models.User.class_id == class_id)
     if major:
-        query = query.filter(models.User.major == major)
+        # 使用关联查询进行专业过滤
+        query = query.join(models.Major, models.User.major_id == models.Major.id).filter(
+            models.Major.name == major
+        )
     if class_name:
         query = query.join(models.Class, models.User.class_id == models.Class.id).filter(
             models.Class.name == class_name
         )
 
     users = query.offset(skip).limit(limit).all()
-    # Populate class_name for response
-    for user in users:
-        if user.class_id:
-            cls = db.query(models.Class).filter(models.Class.id == user.class_id).first()
-            user.class_name = cls.name if cls else None
-
+    # 属性字段（major, class_name）已通过 models.py 的 @property 自动处理
     return users
 
 @router.post("/users", response_model=schemas.UserProfile)
@@ -249,14 +246,22 @@ async def import_students(
             if db.query(models.User).filter(models.User.phone == phone).first():
                 raise ValueError("手机号已存在")
                 
-            # Check class
-            db_class = db.query(models.Class).filter(models.Class.name == class_name).first()
+            # 1. 找到或创建专业 (Major)
+            db_major = db.query(models.Major).filter(models.Major.name == major).first()
+            if not db_major:
+                db_major = models.Major(name=major)
+                db.add(db_major)
+                db.flush()
+                
+            # 2. 找到或创建班级 (Class) - 绑定到专业
+            db_class = db.query(models.Class).filter(
+                models.Class.name == class_name, 
+                models.Class.major_id == db_major.id
+            ).first()
             if not db_class:
-                # Create class if not exists
-                db_class = models.Class(name=class_name)
+                db_class = models.Class(name=class_name, major_id=db_major.id)
                 db.add(db_class)
-                db.commit()
-                db.refresh(db_class)
+                db.flush()
                 
             hashed_password = auth.get_password_hash(password)
             new_user = models.User(
@@ -266,7 +271,8 @@ async def import_students(
                 role="student",
                 student_id=student_id,
                 class_id=db_class.id,
-                major=major
+                major_id=db_major.id,
+                major_name=major
             )
             db.add(new_user)
             # 同步/创建学生档案
@@ -341,6 +347,7 @@ async def import_profiles(
                 gender = "female"
             class_name = str(row["班级"]).strip()
             major = str(row["专业"]).strip() if pd.notna(row.get("专业")) else None
+            subject = str(row["选科"]).strip() if pd.notna(row.get("选科")) else None
 
             profile = (
                 db.query(models.StudentProfile)
@@ -352,6 +359,7 @@ async def import_profiles(
                 profile.gender = gender
                 profile.class_name = class_name
                 profile.major = major or profile.major
+                profile.subject = subject or profile.subject
             else:
                 profile = models.StudentProfile(
                     student_id=student_id,
@@ -359,6 +367,7 @@ async def import_profiles(
                     gender=gender,
                     class_name=class_name,
                     major=major,
+                    subject=subject,
                     is_activated=False,
                 )
                 db.add(profile)
@@ -534,19 +543,19 @@ def mock_import_student_profiles(
     }
 
 
-@router.get("/teacher-classes/{teacher_id}")
+@router.get("/teacher-subjects/{teacher_id}")
 def get_teacher_classes(
     teacher_id: int,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_admin),
 ):
-    """获取指定教师当前绑定的班级列表。"""
+    """获取指定教师当前绑定的选科列表。"""
     items = (
-        db.query(models.TeacherClass)
-        .filter(models.TeacherClass.teacher_id == teacher_id)
+        db.query(models.TeacherSubject)
+        .filter(models.TeacherSubject.teacher_id == teacher_id)
         .all()
     )
-    return [{"class_name": i.class_name} for i in items]
+    return [{"name": i.subject_name} for i in items]
 
 
 # --- 阳光跑全校看板（班级统计）---
@@ -592,7 +601,7 @@ def get_sunshine_class_stats(
         class_stats.append(
             {
                 "class_id": cls.id,
-                "class_name": cls.name,
+                "class_name": f"{cls.major.name if cls.major else ''} {cls.name}",
                 "total_count": total_count,
                 "total_valid_runs": total_valid_runs,
                 "avg_score": avg_score,
@@ -600,20 +609,13 @@ def get_sunshine_class_stats(
                 "passed_20_count": passed_20_count,
             }
         )
-    # 专业活跃度：按 User.major 汇总有效跑步次数
-    majors_q = (
-        db.query(models.User.major)
-        .filter(models.User.role == "student", models.User.major.isnot(None), models.User.major != "")
-        .distinct()
-        .all()
-    )
+    # 专业活跃度：按 Major 模型汇总有效跑步次数
+    majors_objs = db.query(models.Major).all()
     major_activity = []
-    for (major,) in majors_q:
-        if not major:
-            continue
+    for m_obj in majors_objs:
         users_in_major = (
             db.query(models.User)
-            .filter(models.User.role == "student", models.User.major == major)
+            .filter(models.User.role == "student", models.User.major_id == m_obj.id)
             .all()
         )
         total_valid = 0
@@ -627,35 +629,35 @@ def get_sunshine_class_stats(
                 )
                 .count()
             )
-        major_activity.append({"major": major, "valid_runs": total_valid})
+        major_activity.append({"major": m_obj.name, "valid_runs": total_valid})
     return {
         "class_stats": class_stats,
         "major_activity": major_activity,
     }
 
 
-@router.post("/teacher-classes/{teacher_id}")
-def update_teacher_classes(
+@router.post("/teacher-subjects/{teacher_id}")
+def update_teacher_subjects(
     teacher_id: int,
     payload: dict,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_admin),
 ):
     """
-    更新教师与班级的绑定关系。
-    请求体示例：{"class_names": ["22级3班", "22级4班"] }
+    更新教师与选科的绑定关系。
+    请求体示例：{"subject_names": ["篮球", "羽毛球"] }
     """
-    class_names = payload.get("class_names") or []
+    subject_names = payload.get("subject_names") or []
     # 清空原有绑定
-    db.query(models.TeacherClass).filter(
-        models.TeacherClass.teacher_id == teacher_id
+    db.query(models.TeacherSubject).filter(
+        models.TeacherSubject.teacher_id == teacher_id
     ).delete()
 
     # 新建绑定
-    for name in class_names:
+    for name in subject_names:
         if not name:
             continue
-        db.add(models.TeacherClass(teacher_id=teacher_id, class_name=name))
+        db.add(models.TeacherSubject(teacher_id=teacher_id, subject_name=name))
 
     db.commit()
-    return {"teacher_id": teacher_id, "class_names": class_names}
+    return {"teacher_id": teacher_id, "subject_names": subject_names}

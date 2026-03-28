@@ -5,8 +5,9 @@ export default defineConfig({
   plugins: [vue()],
   server: {
     proxy: {
-      '/auth': 'http://localhost:8001',
-      '/admin': 'http://localhost:8001'
+      '/auth': 'http://localhost:8080',
+      '/admin': 'http://localhost:8080',
+      '/upload': 'http://localhost:8080'
     }
   }
 })

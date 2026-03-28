@@ -1,6 +1,6 @@
 // 基础配置
 // 默认指向服务器后端；可通过 fronted/.env.* 的 VITE_API_BASE_URL 覆盖
-const FALLBACK_BASE_URL = 'http://101.37.24.171:8080/api';
+const FALLBACK_BASE_URL = 'http://localhost:8080';
 let baseUrl = FALLBACK_BASE_URL;
 
 // uni-app(vite) 会在构建期注入 import.meta.env

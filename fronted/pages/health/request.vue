@@ -184,7 +184,7 @@ const uploadImage = (filePath) => {
     const token = uni.getStorageSync('token');
     
     uni.uploadFile({
-      url: `${BASE_URL}/upload`,
+      url: `${BASE_URL}/upload/file`,
       filePath: filePath,
       name: 'file',
       header: {
@@ -257,7 +257,7 @@ const submitRequest = async () => {
     await loadHistory();
     
   } catch (e) {
-    uni.showToast({ title: e.detail || '提交失败', icon: 'none' });
+    uni.showToast({ title: e.message || e.detail || '提交失败', icon: 'none' });
   } finally {
     submitting.value = false;
   }

@@ -169,3 +169,106 @@ async def get_student_tasks(
         "page": page,
         "size": size
     }
+
+@router.get("/sunshine-stats")
+def get_sunshine_dashboard(
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    阳光跑看板数据：
+    - total_valid_count: 历史达标次数
+    - score: 阶梯计分
+    - today_status: 'not_started' | 'success' | 'failed'
+    - today_fail_reason: 最近一次失败原因
+    """
+    from ..services.score_service import get_sunshine_stats
+    if current_user.role != "student":
+        raise HTTPException(status_code=403, detail="Only students can access sunshine stats")
+
+    return get_sunshine_stats(current_user, db)
+
+@router.post("/health/request")
+def create_health_request(
+    request_in: schemas.HealthRequestCreate,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    if current_user.role != "student":
+        raise HTTPException(status_code=403, detail="Only students can submit health requests")
+        
+    # Check if there is already a pending request
+    pending = db.query(models.HealthRequest).filter(
+        models.HealthRequest.student_id == current_user.id,
+        models.HealthRequest.status == "pending"
+    ).first()
+    
+    if pending:
+        raise HTTPException(status_code=400, detail="You already have a pending request")
+    
+    import json
+    attachments_json = json.dumps(request_in.attachments) if request_in.attachments else None
+        
+    # 校验请假时间（仅请假类型需要）
+    start_date = request_in.start_date
+    end_date = request_in.end_date
+    if request_in.type == "leave":
+        if not start_date or not end_date:
+            raise HTTPException(status_code=400, detail="Leave requests must include start_date and end_date")
+        if end_date < start_date:
+            raise HTTPException(status_code=400, detail="end_date must be after start_date")
+
+    new_req = models.HealthRequest(
+        student_id=current_user.id,
+        type=request_in.type,
+        reason=request_in.reason,
+        attachments=attachments_json,
+        start_date=start_date,
+        end_date=end_date,
+        status="pending"
+    )
+    db.add(new_req)
+    db.commit()
+    db.refresh(new_req)
+    
+    return {
+        "id": new_req.id,
+        "student_id": new_req.student_id,
+        "type": new_req.type,
+        "reason": new_req.reason,
+        "start_date": new_req.start_date,
+        "end_date": new_req.end_date,
+        "attachments": json.loads(new_req.attachments) if new_req.attachments else [],
+        "status": new_req.status,
+        "created_at": new_req.created_at,
+        "updated_at": new_req.updated_at
+    }
+
+@router.get("/health/requests")
+def get_my_health_requests(
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    import json
+    if current_user.role != "student":
+        raise HTTPException(status_code=403, detail="Only students can view their health requests")
+        
+    requests = db.query(models.HealthRequest).filter(
+        models.HealthRequest.student_id == current_user.id
+    ).order_by(models.HealthRequest.created_at.desc()).all()
+    
+    result = []
+    for req in requests:
+        result.append({
+            "id": req.id,
+            "student_id": req.student_id,
+            "type": req.type,
+            "reason": req.reason,
+            "start_date": req.start_date,
+            "end_date": req.end_date,
+            "attachments": json.loads(req.attachments) if req.attachments else [],
+            "status": req.status,
+            "created_at": req.created_at,
+            "updated_at": req.updated_at
+        })
+    return result

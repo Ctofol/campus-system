@@ -62,7 +62,7 @@ sudo systemctl status nginx
 ### 启动后端
 ```bash
 cd backend
-python -m uvicorn app.main:app --reload
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8080 --reload
 ```
 
 ### 启动前端

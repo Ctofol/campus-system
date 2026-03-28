@@ -220,28 +220,9 @@
       }
     },
     {
-      "path": "pages/teacher/approve/approve",
-      "style": {
-        "navigationBarTitleText": "活动审批"
-      }
-    },
-    {
-      "path": "pages/teacher/approval/index",
-      "style": {
-        "navigationStyle": "custom",
-        "navigationBarTitleText": "待审批"
-      }
-    },
-    {
       "path": "pages/teacher/todos/index",
       "style": {
         "navigationBarTitleText": "今日待办"
-      }
-    },
-    {
-      "path": "pages/teacher/approve/student-detail",
-      "style": {
-        "navigationBarTitleText": "学生运动详情"
       }
     },
     {

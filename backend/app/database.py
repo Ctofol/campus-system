@@ -11,7 +11,9 @@ from sqlalchemy.orm import sessionmaker
 # 
 # 使用SQLite（开发环境）:
 # 默认使用SQLite，无需配置
-DEFAULT_DB_URL = "sqlite:///./campus_sports.db"
+# Use absolute path for SQLite
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DEFAULT_DB_URL = f"sqlite:///{os.path.join(PROJECT_ROOT, 'campus_sports.db')}"
 SQLALCHEMY_DATABASE_URL = os.getenv("SQLALCHEMY_DATABASE_URL", DEFAULT_DB_URL)
 
 # SQLite需要特殊配置

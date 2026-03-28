@@ -90,17 +90,30 @@ def make_name():
 
 def clear_non_admin(db):
     """清空非管理员数据（保留 role=admin 的用户）"""
-    # 顺序依赖外键
+    # 顺序依赖外键 (Delete child tables first)
     db.query(models.ActivityMetrics).delete()
     db.query(models.ActivityReview).delete()
+    db.query(models.ActivityEvidence).delete()
     db.query(models.Activity).delete()
     db.query(models.TeacherClass).delete()
+    db.query(models.TeacherSubject).delete()
     db.query(models.HealthRequest).delete()
     db.query(models.Task).delete()
+    db.query(models.RunGroupActivityApplication).delete()
+    db.query(models.RunGroupActivity).delete()
+    db.query(models.RunGroupMember).delete()
+    db.query(models.RunGroup).delete()
+    db.query(models.Enrollment).delete()
+    db.query(models.CourseProgress).delete()
+    db.query(models.CourseContent).delete()
+    db.query(models.Course).delete()
+    db.query(models.Checkpoint).delete()
+
     # User: 删除学生和教师，保留 admin
     db.query(models.User).filter(models.User.role.in_(["student", "teacher"])).delete(synchronize_session=False)
     db.query(models.StudentProfile).delete()
     db.query(models.Class).delete()
+    db.query(models.Major).delete()
     db.commit()
 
 
@@ -108,9 +121,16 @@ def ensure_classes(db):
     """创建 5 个班级，返回 name -> Class 映射"""
     name_to_class = {}
     for cfg in CLASSES_CONFIG:
+        # Link to Major
+        major = db.query(models.Major).filter(models.Major.name == cfg["major"]).first()
+        if not major:
+            major = models.Major(name=cfg["major"])
+            db.add(major)
+            db.flush()
+            
         c = db.query(models.Class).filter(models.Class.name == cfg["name"]).first()
         if not c:
-            c = models.Class(name=cfg["name"])
+            c = models.Class(name=cfg["name"], major_id=major.id)
             db.add(c)
             db.flush()
         name_to_class[cfg["name"]] = c
@@ -135,6 +155,7 @@ def seed_profiles(db, name_to_class):
                 gender=gender,
                 class_name=cfg["name"],
                 major=cfg["major"],
+                subject=random.choice(["篮球", "羽毛球", "乒乓球", "游泳", "网球"]),
                 is_activated=False,
             )
             db.add(profile)
@@ -167,7 +188,8 @@ def activate_students(db, profiles_with_class):
             student_id=profile.student_id,
             gender=profile.gender,
             class_id=cls.id,
-            major=profile.major,
+            major_id=cls.major_id,
+            subject=profile.subject
         )
         db.add(user)
         db.flush()
@@ -279,6 +301,13 @@ def seed_teachers(db):
         db.query(models.TeacherClass).filter(models.TeacherClass.teacher_id == u.id).delete(synchronize_session=False)
         for class_name in tc["classes"]:
             db.add(models.TeacherClass(teacher_id=u.id, class_name=class_name))
+        
+        # Add TeacherSubject for PE subjects (matches student subjects)
+        all_subjects = ["篮球", "羽毛球", "乒乓球", "游泳", "网球"]
+        teacher_pe_subjects = random.sample(all_subjects, k=random.randint(2, 3))
+        for sub in teacher_pe_subjects:
+            db.add(models.TeacherSubject(teacher_id=u.id, subject_name=sub))
+            
         teachers.append(u)
     db.commit()
     return teachers

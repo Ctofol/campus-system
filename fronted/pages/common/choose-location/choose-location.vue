@@ -18,7 +18,7 @@
       
       <!-- Back Button -->
       <cover-view class="back-btn" @click="goBack" :style="{ top: backButtonTop }">
-        <text class="back-text">返回</text>
+        <cover-view class="back-text">返回</cover-view>
       </cover-view>
     </map>
 
