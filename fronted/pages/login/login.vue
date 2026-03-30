@@ -64,6 +64,18 @@
           <text class="divider">|</text>
           <text class="link-text" @click="forgotPassword">忘记密码？</text>
         </view>
+
+        <!-- 快速体验按钮：演示使用 -->
+        <view class="demo-section">
+          <view class="demo-divider">
+            <view class="line"></view>
+            <text class="demo-text">演示账号</text>
+            <view class="line"></view>
+          </view>
+          <button class="demo-btn" @click="handleQuickLogin">
+            一键进入{{ currentRole === 'student' ? '学生' : '教师' }}端
+          </button>
+        </view>
       </view>
     </view>
 
@@ -216,6 +228,26 @@ const goToRegister = () => {
 // 忘记密码
 const forgotPassword = () => {
   uni.showToast({ title: '请联系管理员重置密码', icon: 'none' });
+};
+
+// 快速体验登录
+const handleQuickLogin = () => {
+  if (currentRole.value === 'student') {
+    loginForm.value.account = '13800138000';
+    loginForm.value.password = '123456';
+  } else {
+    loginForm.value.account = '13900139000';
+    loginForm.value.password = '123456';
+  }
+  
+  // 提示正在进入
+  uni.showLoading({ title: '正在进入演示端...' });
+  
+  // 直接调用登录逻辑
+  setTimeout(() => {
+    uni.hideLoading();
+    handleLogin();
+  }, 500);
 };
 </script>
 
@@ -409,5 +441,50 @@ const forgotPassword = () => {
   margin-bottom: 40rpx;
   font-size: 20rpx;
   color: #ccc;
+}
+
+/* 演示账号区域样式 */
+.demo-section {
+  margin-top: 50rpx;
+  padding: 20rpx 0;
+}
+
+.demo-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 30rpx;
+}
+
+.demo-divider .line {
+  flex: 1;
+  height: 1rpx;
+  background-color: #EEE;
+}
+
+.demo-text {
+  font-size: 24rpx;
+  color: #BBB;
+  margin: 0 20rpx;
+}
+
+.demo-btn {
+  background: #fff;
+  color: #20C997;
+  font-size: 28rpx;
+  border: 2rpx solid #20C997;
+  height: 80rpx;
+  line-height: 80rpx;
+  border-radius: 40rpx;
+  box-shadow: 0 5rpx 15rpx rgba(32, 201, 151, 0.1);
+}
+
+.demo-btn:active {
+  background: #F0FAF7;
+  transform: translateY(2rpx);
+}
+
+.demo-btn::after {
+  border: none;
 }
 </style>

@@ -403,8 +403,8 @@ const updateMapPolyline = () => {
   // 1. Add running trajectory (Blue)
   // 微信小程序地层图层非常严苛，points必须要>=2个点才会生成路线，空数组反而会报错崩溃
   if (runPolyline.value.points && runPolyline.value.points.length >= 2) {
-    // Deep clone to ensure Vue detects change
-    lines.push(JSON.parse(JSON.stringify(runPolyline.value)));
+    // Using spread to update reference for better performance in long runs
+    lines.push({ ...runPolyline.value, points: [...runPolyline.value.points] });
   }
   
   // 2. Add navigation line (Red) if exists
@@ -443,8 +443,8 @@ const updateLocationLogic = (newLat, newLng, speed, accuracy) => {
 
   if (isRunning.value) {
     // 0. Accuracy Filter (Anti-Drift)
-    // Ignore points with poor accuracy (> 40m) to prevent "teleporting"
-    if (accuracy && accuracy > 40) {
+    // Relaxed to 60m for urban/track environments to avoid dropping curve points
+    if (accuracy && accuracy > 60) {
         // console.log('Dropped weak signal point, accuracy:', accuracy);
         return; 
     }
@@ -470,9 +470,9 @@ const updateLocationLogic = (newLat, newLng, speed, accuracy) => {
     const calculatedSpeed = d / timeDiff;
 
     // Filter Logic:
-    // 1. Ignore tiny jitters (d < 4m) to keep path smooth (increased from 2m)
-    // 2. Ignore teleportation (Speed > 20m/s)
-    if (d >= 4 && calculatedSpeed < 20) {
+    // 1. Ignore tiny jitters (d < 1.5m) to keep path smooth and curve accurately (tuned for track)
+    // 2. Ignore teleportation (Speed > 15m/s - ~54km/h)
+    if (d >= 1.5 && calculatedSpeed < 15) {
         distance.value += d;
         
         const point = { latitude: newLat, longitude: newLng, timestamp: Date.now(), speed: speed || calculatedSpeed };
