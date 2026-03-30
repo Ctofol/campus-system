@@ -257,6 +257,22 @@ const onPageShow = (options = {}) => {
       return;
     }
 
+    // 根据性别自动设置普通跑步目标里程
+    const userInfo = uni.getStorageSync('userInfo');
+    if (userInfo) {
+      try {
+        const userObj = typeof userInfo === 'string' ? JSON.parse(userInfo) : userInfo;
+        const gender = userObj.gender;
+        if (gender === 'male' || gender === '男') {
+          dailyTarget.value = 3;
+        } else {
+          dailyTarget.value = 2;
+        }
+      } catch (e) {
+        dailyTarget.value = 2;
+      }
+    }
+
     // 处理参数 (合并 onLoad 逻辑)
     if (options.mode) {
       currentMode.value = options.mode;
@@ -355,7 +371,7 @@ const handleShareToTeacher = (card) => {
 const todayRunCount = ref(0);
 const todayRunDistance = ref(0);
 const teacherRunTask = ref('');
-const dailyTarget = ref(5);
+const dailyTarget = ref(2);
 const normalProgress = ref(0);
 const policeProgress = ref(0);
 const historyList = ref([]);
@@ -455,6 +471,14 @@ const updateLocationLogic = (newLat, newLng, speed, accuracy) => {
         trajectoryPoints.value.push(point);
         runPolyline.value.points.push({ latitude: newLat, longitude: newLng });
         updateMapPolyline();
+        
+        // 修复：第一个点也需要计算打卡点距离
+        if (currentMode.value === 'campus' && checkpoint.value.lat) {
+          distanceToCheckpoint.value = Math.floor(getDistance(newLat, newLng, checkpoint.value.lat, checkpoint.value.lng));
+          if (distanceToCheckpoint.value <= (checkpoint.value.radius || 100)) { 
+             isReach.value = true;
+          }
+        }
         return;
     }
 
@@ -463,6 +487,31 @@ const updateLocationLogic = (newLat, newLng, speed, accuracy) => {
     const d = getDistance(lastPoint.latitude, lastPoint.longitude, newLat, newLng);
     const timeDiff = (Date.now() - lastPoint.timestamp) / 1000; // seconds
     
+    // Checkpoint logic - 修复：移出里程过滤逻辑，确保静止时也能刷新距离
+    if (currentMode.value === 'campus' && checkpoint.value.lat) {
+      distanceToCheckpoint.value = Math.floor(getDistance(newLat, newLng, checkpoint.value.lat, checkpoint.value.lng));
+      // Tolerance increased to 100m as requested for better user experience
+      if (distanceToCheckpoint.value <= (checkpoint.value.radius || 100)) { 
+        isReach.value = true;
+        if (!uni.getStorageSync('checkpointReached')) {
+           if (checkpoint.value.id) {
+             checkIn({ lat: newLat, lng: newLng, checkpoint_id: checkpoint.value.id })
+               .then(res => {
+                 if (res.success) {
+                   uni.showToast({ title: '打卡成功！', icon: 'success' });
+                   checkinRecords.value.push({ checkpoint_id: checkpoint.value.id, time: new Date().toISOString(), lat: newLat, lng: newLng });
+                 }
+               }).catch(() => {});
+           } else {
+              uni.showToast({ title: '已到达打卡点范围！', icon: 'success' });
+           }
+           uni.setStorageSync('checkpointReached', '1');
+        }
+      } else {
+        isReach.value = false;
+      }
+    }
+
     // Speed check: Max 20m/s (72km/h) - Humanly impossible for running, likely GPS drift
     // If timeDiff is very small (e.g. duplicate updates), skip
     if (timeDiff < 0.5) return; 
@@ -483,31 +532,6 @@ const updateLocationLogic = (newLat, newLng, speed, accuracy) => {
         
         // Force Map Update
         updateMapPolyline();
-
-        // Checkpoint logic
-        if (currentMode.value === 'campus' && checkpoint.value.lat) {
-          distanceToCheckpoint.value = Math.floor(getDistance(newLat, newLng, checkpoint.value.lat, checkpoint.value.lng));
-          // Tolerance increased to 100m as requested for better user experience
-          if (distanceToCheckpoint.value <= (checkpoint.value.radius || 100)) { 
-            isReach.value = true;
-            if (!uni.getStorageSync('checkpointReached')) {
-               if (checkpoint.value.id) {
-                 checkIn({ lat: newLat, lng: newLng, checkpoint_id: checkpoint.value.id })
-                   .then(res => {
-                     if (res.success) {
-                       uni.showToast({ title: '打卡成功！', icon: 'success' });
-                       checkinRecords.value.push({ checkpoint_id: checkpoint.value.id, time: new Date().toISOString(), lat: newLat, lng: newLng });
-                     }
-                   }).catch(() => {});
-               } else {
-                  uni.showToast({ title: '已到达打卡点范围！', icon: 'success' });
-               }
-               uni.setStorageSync('checkpointReached', '1');
-            }
-          } else {
-            isReach.value = false;
-          }
-        }
 
         // Update progress
         if (currentMode.value === 'normal') {
@@ -608,7 +632,7 @@ const currentMode = ref('normal'); // normal-普通 police-警务 campus-校园
 const isRunning = ref(false);
 const duration = ref(0);
 const distance = ref(0); // 已跑距离（米）
-const distanceToCheckpoint = ref(0);
+const distanceToCheckpoint = ref('---');
 const isReach = ref(false);
 const stepCount = ref(0);
 const heartRate = ref(80);

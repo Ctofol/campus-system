@@ -2,7 +2,7 @@ import axios from 'axios'
 
 // 管理端独立路由
 // 生产环境通过 8090 端口访问，Nginx 代理 /admin-api/ 到 8001
-const BASE_URL = '' // 使用 Vite 代理或者直接同源访问
+const BASE_URL = 'http://101.33.210.169:8002'
 
 const api = axios.create({ baseURL: BASE_URL })
 

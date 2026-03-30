@@ -841,15 +841,18 @@ async def get_task_completion_stats(
         
         completed_count = 0
         if t_student_ids:
-            completed_count = db.query(models.Activity).join(models.ActivityMetrics).filter(
+            # Fix: Count unique students who have at least one qualified activity for this task
+            completed_count = db.query(func.count(func.distinct(models.Activity.user_id))).join(models.ActivityMetrics).filter(
                 models.Activity.user_id.in_(t_student_ids),
                 models.Activity.type == task.type,
                 models.ActivityMetrics.qualified == True
-            ).distinct(models.Activity.user_id).count()
+            ).scalar() or 0
             
         stats.append({
             "task_id": task.id,
             "task_title": task.title,
+            "total_students": total_students,
+            "completed_count": completed_count,
             "completion_rate": round((completed_count / total_students * 100), 2) if total_students > 0 else 0
         })
     return {"tasks": stats}

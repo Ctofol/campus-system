@@ -7,21 +7,21 @@
     <view class="content-wrapper">
       <view class="student-dashboard">
       
-      <!-- Hero Section: 开始运动 -->
+      <!-- Hero Section: 开始运�?-->
       <view class="hero-card">
-        <!-- 中间大圆形按钮 -->
+        <!-- 中间大圆形按�?-->
         <view class="center-button" @click="showExerciseActionSheet">
           <view class="go-circle">
             <text class="go-text">GO</text>
-            <text class="go-label">开始运动</text>
+            <text class="go-label">开始运�?/text>
           </view>
         </view>
         
-        <!-- 底部3个操作按钮 -->
+        <!-- 底部3个操作按�?-->
         <view class="action-buttons">
           <view class="action-btn-item" @click="startOutdoorRun">
             <text class="btn-icon">🏃</text>
-            <text class="btn-label">户外跑</text>
+            <text class="btn-label">户外�?/text>
           </view>
           <view class="action-btn-item" @click="startPhysicalTest">
             <text class="btn-icon">💪</text>
@@ -34,11 +34,14 @@
         </view>
       </view>
       
-      <!-- Task Stream: 任务流 -->
+
+
+
+      <!-- Task Stream: 任务�?-->
       <view class="section-container" v-if="teacherTasks.length > 0">
         <view class="section-header">
           <text class="section-title">我的任务</text>
-          <text class="section-more" @click="handleTaskClick()">查看全部 ›</text>
+          <text class="section-more" @click="handleTaskClick()">查看全部 �?/text>
         </view>
         <view class="task-stream">
           <view class="task-card" v-for="task in teacherTasks.slice(0, 3)" :key="task.id" @click="handleTaskClick(task)">
@@ -83,11 +86,11 @@
               <view class="group-stats">
                 <view class="stat-item">
                   <text class="stat-value">{{ myRunGroup.member_count }}</text>
-                  <text class="stat-label">成员数</text>
+                  <text class="stat-label">成员�?/text>
                 </view>
                 <view class="stat-item">
                   <text class="stat-value">{{ myRunGroup.total_mileage.toFixed(1) }}km</text>
-                  <text class="stat-label">总里程</text>
+                  <text class="stat-label">总里�?/text>
                 </view>
                 <view class="stat-item">
                   <text class="stat-value">{{ myRunGroup.month_activity_count }}</text>
@@ -97,25 +100,25 @@
             </view>
             <view class="rank-action" @click.stop="showRankList">
               <text class="rank-icon">🏆</text>
-              <text class="rank-label">排行榜</text>
+              <text class="rank-label">排行�?/text>
             </view>
           </view>
         </view>
         
-        <!-- 未加入跑团提示 -->
+        <!-- 未加入跑团提�?-->
         <view class="no-group-tip" v-else>
-          <text class="tip-text">您还未加入跑团</text>
+          <text class="tip-text">您还未加入跑�?/text>
           <view class="tip-actions">
             <button class="tip-btn primary" @click="createRunGroup">创建跑团</button>
             <button class="tip-btn" @click="joinRunGroup">加入跑团</button>
           </view>
         </view>
         
-        <!-- 最新动态列表 -->
+        <!-- 最新动态列�?-->
         <view class="activity-section">
           <view class="activity-header">
             <view class="header-decorator"></view>
-            <text class="activity-title">最新动态</text>
+            <text class="activity-title">最新动�?/text>
           </view>
           <scroll-view scroll-x class="activity-scroll" v-if="latestActivities.length > 0">
             <view 
@@ -167,7 +170,7 @@
                 <text class="task-desc">{{ task.desc }}</text>
               </view>
               <view class="task-action">
-                <text class="btn-text">去完成</text>
+                <text class="btn-text">去完�?/text>
               </view>
            </view>
         </view>
@@ -187,7 +190,7 @@ import { request } from '@/utils/request.js';
 // 状态栏高度
 const statusBarHeight = ref(20);
 
-// 角色状态
+// 角色状�?
 const role = ref('student');
 const userInfo = ref({});
 
@@ -219,7 +222,7 @@ const fetchTasks = async () => {
          type: task.type || task.task_type || 'run',
          deadline: task.deadline,
          urgent: task.urgent || false,
-         desc: task.description || (task.min_distance ? `目标: ${task.min_distance}km` : '请查看详情')
+         desc: task.description || (task.min_distance ? `目标: ${task.min_distance}km` : '请查看详�?)
       }));
       
       if (teacherTasks.value.length > 0) {
@@ -265,7 +268,7 @@ const onPageShow = () => {
   }
   
   fetchTasks();
-  loadRunGroupData(); // 每次显示页面时重新加载跑团数据
+  loadRunGroupData(); // 每次显示页面时重新加载跑团数�?
 };
 
 // Initial load
@@ -303,10 +306,10 @@ const getTaskStatusClass = (task) => {
 };
 
 const getTaskStatusText = (task) => {
-  if (task.urgent) return '紧急';
-  if (task.status === 'pending') return '待开始';
-  if (task.status === 'in_progress') return '进行中';
-  return '未完成';
+  if (task.urgent) return '紧�?;
+  if (task.status === 'pending') return '待开�?;
+  if (task.status === 'in_progress') return '进行�?;
+  return '未完�?;
 };
 
 // 运动选项 - 使用 ActionSheet
@@ -409,11 +412,11 @@ const getActivityStatusClass = (status) => {
 
 const getActivityStatusText = (status) => {
   const textMap = {
-    'upcoming': '报名中',
-    'ongoing': '进行中',
-    'finished': '已结束'
+    'upcoming': '报名�?,
+    'ongoing': '进行�?,
+    'finished': '已结�?
   };
-  return textMap[status] || '报名中';
+  return textMap[status] || '报名�?;
 };
 
 const formatActivityTime = (timeStr) => {
@@ -422,8 +425,10 @@ const formatActivityTime = (timeStr) => {
   const day = date.getDate();
   const hour = date.getHours().toString().padStart(2, '0');
   const minute = date.getMinutes().toString().padStart(2, '0');
-  return `${month}月${day}日 ${hour}:${minute}`;
+  return `${month}�?{day}�?${hour}:${minute}`;
 };
+
+
 
 // 加载跑团数据
 const loadRunGroupData = async () => {
@@ -440,7 +445,7 @@ const loadRunGroupData = async () => {
   }
   
   try {
-    // 加载最新活动
+    // 加载最新活�?
     const activityRes = await request({
       url: '/run-group/activity/list',
       method: 'GET',
@@ -839,4 +844,5 @@ const loadRunGroupData = async () => {
   font-size: 22rpx;
   font-weight: bold;
 }
+
 </style>
