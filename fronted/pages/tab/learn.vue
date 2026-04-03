@@ -106,14 +106,17 @@ const userRole = ref('student');
 const userId = ref(0);
 
 const getFullImageUrl = (url) => {
-  if (!url) return '/static/course_default.jpg';
-  if (url.startsWith('http')) return url;
+  if (!url) return '/static/activity-placeholder.png';
+  if (url.startsWith('http') || url.startsWith('blob:') || url.startsWith('wxfile:')) return url;
   return `${BASE_URL}${url}`;
 };
 
 const handleImageError = (e) => {
   console.error('Image load error:', e);
-  e.target.src = '/static/course_default.jpg';
+  // 避免递归循环
+  if (e.target.src.indexOf('activity-placeholder.png') === -1) {
+    e.target.src = '/static/activity-placeholder.png';
+  }
 };
 
 const loadCourses = async (reset = false) => {

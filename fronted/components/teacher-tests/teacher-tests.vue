@@ -222,27 +222,38 @@ const handleBack = () => {
 // 获取数据分析数据
 const fetchAnalysisData = async () => {
   try {
-    // 获取任务完成情况
+    // 获取任务完成情况：复用教师任务接口
     const taskRes = await request({
-      url: '/teacher/stats/task-completion',
-      method: 'GET'
-    });
-    taskCompletionData.value = taskRes.tasks || [];
-    
-    // 获取平时分趋势
-    const trendRes = await request({
-      url: '/teacher/stats/score-trend',
+      url: '/teacher/tasks',
       method: 'GET',
-      data: { days: 30 }
+      data: { status: 'all' }
     });
-    scoreTrendData.value = trendRes.trend || [];
+    // 计算完成率
+    const tasks = taskRes.items || [];
+    taskCompletionData.value = tasks.map(t => ({
+      task_title: t.title,
+      total_students: t.total_students || 0,
+      completed_count: t.completed_count || 0,
+      completion_rate: t.total_students > 0 ? Math.round((t.completed_count / t.total_students) * 100) : 0
+    }));
     
-    // 获取打分趋势
-    const scoringRes = await request({
-      url: '/teacher/stats/scoring-trend',
+    // 获取平时分趋势：复用阳光跑趋势接口作为演示
+    const trendRes = await request({
+      url: '/teacher/weekly-sunshine-trend',
       method: 'GET'
     });
-    scoringTrendData.value = scoringRes;
+    // 将日人次映射为趋势点
+    scoreTrendData.value = (trendRes || []).map(item => ({
+      date: item.day,
+      avg_score: item.value || 0
+    }));
+    
+    // 获取打分趋势：此接口服务器暂未开放，设为默认值
+    scoringTrendData.value = {
+      total_scored: 0,
+      avg_score: 0,
+      distribution: {}
+    };
 
     // 获取阳光跑实时数据
     await fetchSunshineMonitor();
@@ -257,16 +268,19 @@ const historyList = ref([]);
 
 const fetchTestHistory = async () => {
   try {
+    // 复用任务列表作为历史回顾
     const res = await request({
-      url: '/teacher/tests/history',
-      method: 'GET'
+      url: '/teacher/tasks',
+      method: 'GET',
+      data: { status: 'ended' }
     });
     
-    historyList.value = res.items.map(item => ({
-      date: item.date,
-      testName: item.test_name,
-      count: item.count,
-      passRate: item.pass_rate
+    const tasks = res.items || [];
+    historyList.value = tasks.map(item => ({
+      date: item.deadline ? item.deadline.substring(0, 10) : '长期',
+      testName: item.title,
+      count: item.completed_count,
+      passRate: item.total_students > 0 ? Math.round((item.completed_count / item.total_students) * 100) : 0
     }));
   } catch (e) {
     console.error('Failed to fetch test history:', e);

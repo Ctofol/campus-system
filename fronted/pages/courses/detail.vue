@@ -115,14 +115,16 @@ const loading = ref(true);
 const enrolling = ref(false);
 
 const getFullImageUrl = (url) => {
-  if (!url) return '/static/course_default.jpg';
-  if (url.startsWith('http')) return url;
+  if (!url) return '/static/activity-placeholder.png';
+  if (url.startsWith('http') || url.startsWith('blob:') || url.startsWith('wxfile:')) return url;
   return `${BASE_URL}${url}`;
 };
 
 const handleImageError = (e) => {
   console.error('Image load error:', e);
-  e.target.src = '/static/course_default.jpg';
+  if (e.target.src.indexOf('activity-placeholder.png') === -1) {
+    e.target.src = '/static/activity-placeholder.png';
+  }
 };
 
 const loadCourseDetail = async () => {

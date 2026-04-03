@@ -222,6 +222,12 @@ const previewHistoryImage = (images, index) => {
 };
 
 const submitRequest = async () => {
+  // Check if there is already a pending request in history
+  const hasPending = history.value.some(item => item.status === 'pending');
+  if (hasPending) {
+    return uni.showToast({ title: '您已有一个待审批的申请，请不要重复提交', icon: 'none', duration: 3000 });
+  }
+
   if (!formData.value.reason.trim()) {
     return uni.showToast({ title: '请填写原因', icon: 'none' });
   }
@@ -257,7 +263,13 @@ const submitRequest = async () => {
     await loadHistory();
     
   } catch (e) {
-    uni.showToast({ title: e.message || e.detail || '提交失败', icon: 'none' });
+    // Correctly show the error detail message from our server
+    const msg = e.message || (e.data && e.data.detail) || '提交失败';
+    uni.showModal({
+      title: '申请未成功',
+      content: msg,
+      showCancel: false
+    });
   } finally {
     submitting.value = false;
   }

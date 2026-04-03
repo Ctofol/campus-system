@@ -19,10 +19,8 @@ def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
 
 def get_password_hash(password: str):
-    password = password[:72]  # 截断密码
-    print(f"Original password length: {len(password)}")
-    password = password.encode('utf-8')  # 进行 UTF-8 编码
-    print(f"Password length after encoding: {len(password)}")
+    # Passlib bcrypt has a 72-character limit, truncating prevents errors
+    password = password[:72]
     return pwd_context.hash(password)
 
 

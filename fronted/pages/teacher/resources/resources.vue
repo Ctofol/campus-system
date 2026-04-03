@@ -101,6 +101,8 @@ import { request, BASE_URL } from '@/utils/request.js';
 const activeCategory = ref('all');
 const resources = ref([]);
 const loading = ref(false);
+const userId = ref(0);
+const userRole = ref('');
 
 const filteredResources = computed(() => {
   if (activeCategory.value === 'all') {
@@ -112,13 +114,21 @@ const filteredResources = computed(() => {
 const loadResources = async () => {
   loading.value = true;
   try {
+    const params = {
+      page: 1,
+      size: 100
+    };
+    
+    // 如果是教师端，建议传入老师ID以优先展示自己的课程
+    // 如果后端支持根据角色返回数据也可以不用传
+    if (userRole.value === 'teacher' && userId.value) {
+      params.teacher_id = userId.value;
+    }
+
     const res = await request({
-      url: '/courses',
+      url: '/courses/',
       method: 'GET',
-      data: {
-        page: 1,
-        size: 100
-      }
+      data: params
     });
     resources.value = res.items || [];
   } catch (e) {
@@ -146,13 +156,15 @@ const getCategoryName = (category) => {
 };
 
 const getFullImageUrl = (url) => {
-  if (!url) return '/static/course_default.jpg';
+  if (!url) return '/static/activity-placeholder.png';
   if (url.startsWith('http')) return url;
   return `${BASE_URL}${url}`;
 };
 
 const handleImageError = (e) => {
-  e.target.src = '/static/course_default.jpg';
+  if (e.target.src.indexOf('activity-placeholder.png') === -1) {
+    e.target.src = '/static/activity-placeholder.png';
+  }
 };
 
 const createResource = () => {
@@ -208,6 +220,23 @@ const goBack = () => {
 };
 
 onShow(() => {
+  // 获取当前用户信息
+  userRole.value = uni.getStorageSync('userRole') || '';
+  const userInfo = uni.getStorageSync('userInfo');
+  if (userInfo) {
+    try {
+      const info = typeof userInfo === 'string' ? JSON.parse(userInfo) : userInfo;
+      userId.value = info.userId || info.id || 0;
+    } catch (e) {
+      console.error('Parse userInfo error:', e);
+    }
+  }
+  
+  loadResources();
+});
+
+// 监听课程创建/编辑事件
+uni.$on('courseCreated', () => {
   loadResources();
 });
 </script>

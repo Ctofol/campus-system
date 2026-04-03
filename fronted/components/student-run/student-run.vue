@@ -970,13 +970,15 @@ const processSelectedLocation = (res) => {
       let nearest = null;
       let minDist = Infinity;
       
-      availableCheckpoints.value.forEach(cp => {
-        const d = getDistance(selLat, selLng, cp.latitude, cp.longitude);
-        if (d < minDist) {
-          minDist = d;
-          nearest = cp;
-        }
-      });
+      if (availableCheckpoints.value && Array.isArray(availableCheckpoints.value)) {
+        availableCheckpoints.value.forEach(cp => {
+          const d = getDistance(selLat, selLng, cp.latitude, cp.longitude);
+          if (d < minDist) {
+            minDist = d;
+            nearest = cp;
+          }
+        });
+      }
       
       // Tolerance 200m
       if (nearest && minDist <= 200) {

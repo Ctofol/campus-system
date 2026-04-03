@@ -1,11 +1,8 @@
-// 基础配置
-// 默认本机后端；可通过 fronted/.env.* 的 VITE_API_BASE_URL 覆盖
-const FALLBACK_BASE_URL = 'http://101.33.210.169:8000';
+const FALLBACK_BASE_URL = 'https://api.gzyichenai.com';
 let baseUrl = FALLBACK_BASE_URL;
 
-// uni-app(vite) 会在构建期注入 import.meta.env
+// 优先读取环境变量 (HBuilderX/Vite 构建期注入)
 try {
-  // eslint-disable-next-line no-undef
   const envBase = import.meta?.env?.VITE_API_BASE_URL;
   if (envBase) baseUrl = envBase;
 } catch (e) {

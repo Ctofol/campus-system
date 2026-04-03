@@ -34,7 +34,7 @@
           <image 
             v-if="form.cover_url" 
             class="cover-preview" 
-            :src="form.cover_url" 
+            :src="getFullImageUrl(form.cover_url)" 
             mode="aspectFill"
           ></image>
           <view v-else class="upload-placeholder">
@@ -77,7 +77,13 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
-import { createCourse, uploadFile } from '@/utils/request.js';
+import { createCourse, uploadFile, BASE_URL } from '@/utils/request.js';
+
+const getFullImageUrl = (url) => {
+  if (!url) return '/static/activity-placeholder.png';
+  if (url.startsWith('http') || url.startsWith('blob:') || url.startsWith('wxfile:')) return url;
+  return `${BASE_URL}${url}`;
+};
 
 const categories = [
   { label: '技能课', value: 'skill' },
