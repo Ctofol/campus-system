@@ -73,3 +73,11 @@ campus-system/
 # Login response temp file
 login_response.txt
 admin/backend/.venv/
+ 
+# Deployment Certificates
+certs/
+*.pem
+*.key
+*.crt
+*.pfx
+
