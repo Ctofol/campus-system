@@ -12,7 +12,7 @@ from .. import models, schemas, auth
 from ..services.score_service import calculate_total_score
 
 router = APIRouter(
-    prefix="/admin",
+    prefix="/manage",
     tags=["admin"],
     responses={404: {"description": "Not found"}},
 )

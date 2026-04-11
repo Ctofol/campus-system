@@ -32,8 +32,6 @@ app.add_middleware(
 # 挂载静态文件目录
 if not os.path.exists("uploads"):
     os.makedirs("uploads")
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
-
 # 引入模块化路由
 app.include_router(auth_router)
 app.include_router(common_router)
@@ -45,6 +43,25 @@ app.include_router(courses_router)
 app.include_router(upload_router)
 app.include_router(run_groups_router)
 app.include_router(admin_router)
+
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
+# 挂载管理端前端静态文件
+admin_frontend_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "admin", "frontend", "dist")
+if os.path.exists(admin_frontend_path):
+    from fastapi.staticfiles import StaticFiles
+    from fastapi.responses import RedirectResponse
+    
+    @app.get("/admin", include_in_schema=False)
+    async def admin_index():
+        return RedirectResponse(url="/admin/")
+    
+    @app.get("/admin/", include_in_schema=False)
+    async def admin_spa_fallback():
+        from fastapi.responses import FileResponse
+        return FileResponse(os.path.join(admin_frontend_path, "index.html"))
+    
+    app.mount("/admin", StaticFiles(directory=admin_frontend_path), name="admin")
 
 @app.get("/")
 async def root():
