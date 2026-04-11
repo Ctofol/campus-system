@@ -1,5 +1,14 @@
 <template>
   <view class="container">
+    <!-- 自定义导航栏 -->
+    <view class="nav-bar">
+      <view class="nav-back" @click="uni.navigateBack()">
+        <text class="nav-back-icon">←</text>
+      </view>
+      <text class="nav-title">健康报备</text>
+      <view style="width: 60rpx;"></view>
+    </view>
+
     <view class="form-card">
       <view class="form-header">
         <text class="title">健康报备申请</text>
@@ -308,6 +317,42 @@ onShow(() => {
   padding: 30rpx;
   background-color: #f5f7fa;
   min-height: 100vh;
+}
+
+.nav-bar {
+  height: 88rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 30rpx;
+  background: #fff;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.05);
+  margin-bottom: 20rpx;
+  margin-left: -30rpx;
+  margin-right: -30rpx;
+  padding-top: 20rpx;
+}
+
+.nav-back {
+  width: 60rpx;
+  height: 60rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-back-icon {
+  font-size: 40rpx;
+  color: #333;
+}
+
+.nav-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333;
 }
 
 .form-card {

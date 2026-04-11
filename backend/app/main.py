@@ -29,9 +29,11 @@ app.add_middleware(
     expose_headers=["*"]
 )
 
-# 挂载静态文件目录
+# 挂载静态文件目录（必须在路由注册之前）
 if not os.path.exists("uploads"):
     os.makedirs("uploads")
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
 # 引入模块化路由
 app.include_router(auth_router)
 app.include_router(common_router)
@@ -43,8 +45,6 @@ app.include_router(courses_router)
 app.include_router(upload_router)
 app.include_router(run_groups_router)
 app.include_router(admin_router)
-
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # 挂载管理端前端静态文件
 admin_frontend_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "admin", "frontend", "dist")
