@@ -72,7 +72,7 @@ CLASSES_CONFIG = [
 
 # 教师及其管辖班级（班级名称）
 TEACHER_CLASSES = [
-    {"name": "教师A", "phone": "13800010001", "classes": ["信息安全1区", "网络安全1区"]},
+    {"name": "教师A", "phone": "13900139000", "classes": ["信息安全1区", "网络安全1区"]},
     {"name": "教师B", "phone": "13800010002", "classes": ["数警2区"]},
 ]
 
@@ -172,6 +172,30 @@ def activate_students(db, profiles_with_class):
     activated = []
     phone_base = 13800100000
     used_phones = set()
+    
+    # 预先确保测试学生账号 13800138000 存在
+    test_student = db.query(models.User).filter(models.User.phone == "13800138000").first()
+    if not test_student and profiles_with_class:
+        first_profile, first_cls = profiles_with_class[0]
+        # 使用独立的学号避免冲突
+        test_student_id = "20250001"
+        test_student = models.User(
+            phone="13800138000",
+            name=first_profile.full_name,
+            password_hash=get_password_hash("123456"),
+            role="student",
+            student_id=test_student_id,
+            gender=first_profile.gender,
+            class_id=first_cls.id,
+            major_id=first_cls.major_id,
+            subject=first_profile.subject
+        )
+        db.add(test_student)
+        db.flush()
+        first_profile.is_activated = True
+        activated.append((test_student, first_profile))
+        used_phones.add("13800138000")
+    
     for i, (profile, cls) in enumerate(profiles_with_class):
         if i >= n_activate:
             break

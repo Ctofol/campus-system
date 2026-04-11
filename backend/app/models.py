@@ -293,7 +293,7 @@ class RunGroup(Base):
     description = Column(String, nullable=True)
     avatar = Column(String, nullable=True)
     creator_id = Column(Integer, ForeignKey("users.id"))
-    total_mileage = Column(Float, default=0.0)  # 总里程
+    total_mileage = Column(Float, default=0.0, nullable=False)  # 总里程
     member_count = Column(Integer, default=1)  # 成员数
     rank = Column(Integer, nullable=True)  # 排名
     created_at = Column(DateTime, default=datetime.utcnow)

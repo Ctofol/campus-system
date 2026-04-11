@@ -49,7 +49,7 @@
         <view class="info">
           <text class="name">{{ group.name }}</text>
           <text class="desc">{{ group.description || '暂无描述' }}</text>
-          <text class="stats">{{ group.member_count }}人 · {{ group.total_mileage.toFixed(1) }}km</text>
+          <text class="stats">{{ group.member_count }}人 · {{ (group.total_mileage || 0).toFixed(1) }}km</text>
         </view>
         <button class="join-btn" @click.stop="handleJoin(group.id)">加入</button>
       </view>

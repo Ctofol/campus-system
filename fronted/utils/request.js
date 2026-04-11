@@ -1,4 +1,4 @@
-const FALLBACK_BASE_URL = 'https://api.gzyichenai.com';
+const FALLBACK_BASE_URL = '';
 let baseUrl = FALLBACK_BASE_URL;
 
 // 优先读取环境变量 (HBuilderX/Vite 构建期注入)

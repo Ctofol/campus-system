@@ -45,12 +45,21 @@ def seed_database():
             {"name": "2022级体育1班"}
         ]
         
+        # Get or create major
+        major = db.query(models.Major).first()
+        if not major:
+            major = models.Major(name="体育专业")
+            db.add(major)
+            db.commit()
+            db.refresh(major)
+        
         classes = []
         for cls_data in classes_data:
             cls = db.query(models.Class).filter(models.Class.name == cls_data["name"]).first()
             if not cls:
                 cls = models.Class(
                     name=cls_data["name"],
+                    major_id=major.id,
                     teacher_id=teacher.id
                 )
                 db.add(cls)

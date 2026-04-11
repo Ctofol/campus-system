@@ -32,7 +32,7 @@
             <text class="label">成员数</text>
           </view>
           <view class="stat-item">
-            <text class="value">{{ myGroup.total_mileage.toFixed(1) }}km</text>
+            <text class="value">{{ (myGroup.total_mileage || 0).toFixed(1) }}km</text>
             <text class="label">总里程</text>
           </view>
           <view class="stat-item">
@@ -82,7 +82,7 @@
         <view class="member-item" v-for="member in members" :key="member.id">
           <text class="member-name">{{ member.user_name }}</text>
           <text class="member-role">{{ getRoleText(member.role) }}</text>
-          <text class="member-mileage">{{ member.total_mileage.toFixed(1) }}km</text>
+          <text class="member-mileage">{{ (member.total_mileage || 0).toFixed(1) }}km</text>
         </view>
       </view>
       

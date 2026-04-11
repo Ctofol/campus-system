@@ -1,11 +1,13 @@
 from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import List, Optional
 import pandas as pd
 import io
+import os
 
 from .database import get_db, engine
 from . import models, schemas, auth
@@ -37,6 +39,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# 挂载管理端前端静态文件
+admin_frontend_path = "/root/campus-system/admin/frontend/dist"
+if os.path.exists(admin_frontend_path):
+    
+    @app.get("/admin/", include_in_schema=False)
+    async def admin_index():
+        from fastapi.responses import FileResponse
+        return FileResponse(os.path.join(admin_frontend_path, "index.html"))
+    
+    @app.get("/admin/{rest:path}", include_in_schema=False)
+    async def admin_spa_handler(rest: str):
+        from fastapi.responses import FileResponse
+        import pathlib
+        from fastapi.staticfiles import StaticFiles
+        full_path = pathlib.Path(admin_frontend_path) / rest
+        if full_path.is_file():
+            return FileResponse(str(full_path))
+        return FileResponse(os.path.join(admin_frontend_path, "index.html"))
+
 # Auth
 @app.post("/auth/login", response_model=schemas.Token)
 def login(user_data: schemas.UserLogin, db: Session = Depends(get_db)):
@@ -66,11 +87,11 @@ def refresh_token(current_user: models.User = Depends(auth.get_current_admin)):
 # Dashboard
 @app.get("/admin/dashboard/stats")
 def get_dashboard_stats(db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_admin)):
-    total_students = db.query(func.count(models.User.id)).filter(models.User.role == "student").scalar()
-    total_teachers = db.query(func.count(models.User.id)).filter(models.User.role == "teacher").scalar()
-    total_classes = db.query(func.count(models.Class.id)).scalar()
-    pending_health = db.query(models.HealthRequest).filter(models.HealthRequest.status == "pending").count()
-    pending_activities = db.query(models.Activity).filter(models.Activity.status == "pending_review").count()
+    total_students = db.query(func.count(models.User.id)).filter(models.User.role == "student").scalar() or 0
+    total_teachers = db.query(func.count(models.User.id)).filter(models.User.role == "teacher").scalar() or 0
+    total_classes = db.query(func.count(models.Class.id)).scalar() or 0
+    pending_health = db.query(models.HealthRequest).filter(models.HealthRequest.status == "pending").count() or 0
+    pending_activities = db.query(models.Activity).filter(models.Activity.status == "pending_review").count() or 0
     return {
         "total_students": total_students,
         "total_teachers": total_teachers,
@@ -142,11 +163,20 @@ def get_users(
     if class_name:
         query = query.join(models.Class, models.User.class_id == models.Class.id).filter(models.Class.name == class_name)
     users = query.offset(skip).limit(limit).all()
+    result = []
     for user in users:
-        if user.class_id:
-            cls = db.query(models.Class).filter(models.Class.id == user.class_id).first()
-            user.class_name = cls.name if cls else None
-    return users
+        cls = db.query(models.Class).filter(models.Class.id == user.class_id).first() if user.class_id else None
+        result.append({
+            "id": user.id,
+            "name": user.name,
+            "phone": user.phone,
+            "role": user.role,
+            "class_name": cls.name if cls else None,
+            "student_id": user.student_id,
+            "major": user.major_name,
+            "created_at": user.created_at,
+        })
+    return result
 
 
 @app.post("/admin/users", response_model=schemas.UserProfile)
@@ -172,10 +202,16 @@ def create_user(
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-    if class_id:
-        cls = db.query(models.Class).filter(models.Class.id == class_id).first()
-        new_user.class_name = cls.name if cls else None
-    return new_user
+    return {
+        "id": new_user.id,
+        "name": new_user.name,
+        "phone": new_user.phone,
+        "role": new_user.role,
+        "class_name": None,
+        "student_id": new_user.student_id,
+        "major": new_user.major,
+        "created_at": new_user.created_at,
+    }
 
 @app.delete("/admin/users/{user_id}")
 def delete_user(user_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_admin)):
@@ -411,54 +447,59 @@ def update_teacher_classes(
 
 @app.get("/admin/sunshine/class-stats")
 def get_sunshine_class_stats(db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_admin)):
-    classes = db.query(models.Class).all()
-    class_stats = []
-    for cls in classes:
-        students = db.query(models.User).filter(models.User.class_id == cls.id, models.User.role == "student").all()
-        total_count = len(students)
-        total_valid_runs = 0
-        scores = []
-        passed_20_count = 0
-        for u in students:
-            valid_count = (
+    try:
+        classes = db.query(models.Class).all()
+        class_stats = []
+        for cls in classes:
+            students = db.query(models.User).filter(models.User.class_id == cls.id, models.User.role == "student").all()
+            total_count = len(students)
+            total_valid_runs = 0
+            scores = []
+            passed_20_count = 0
+            for u in students:
+                valid_count = (
+                    db.query(models.Activity)
+                    .filter(models.Activity.user_id == u.id, models.Activity.type == "run", models.Activity.is_valid.is_(True))
+                    .count()
+                )
+                total_valid_runs += valid_count
+                scores.append(_sunshine_score(valid_count))
+                if valid_count >= 20:
+                    passed_20_count += 1
+            avg_score = round(sum(scores) / len(scores), 2) if scores else 0
+            pass_rate = round((passed_20_count / total_count) * 100, 1) if total_count else 0
+            class_stats.append({
+                "class_id": cls.id,
+                "class_name": cls.name,
+                "total_count": total_count,
+                "total_valid_runs": total_valid_runs,
+                "avg_score": avg_score,
+                "pass_rate": pass_rate,
+                "passed_20_count": passed_20_count,
+            })
+        majors_q = (
+            db.query(models.User.major_name)
+            .filter(models.User.role == "student", models.User.major_name.isnot(None), models.User.major_name != "")
+            .distinct()
+            .all()
+        )
+        major_activity = []
+        for (major_name,) in majors_q:
+            if not major_name:
+                continue
+            users_in_major = db.query(models.User).filter(models.User.role == "student", models.User.major_name == major_name).all()
+            total_valid = sum(
                 db.query(models.Activity)
                 .filter(models.Activity.user_id == u.id, models.Activity.type == "run", models.Activity.is_valid.is_(True))
                 .count()
+                for u in users_in_major
             )
-            total_valid_runs += valid_count
-            scores.append(_sunshine_score(valid_count))
-            if valid_count >= 20:
-                passed_20_count += 1
-        avg_score = round(sum(scores) / len(scores), 2) if scores else 0
-        pass_rate = round((passed_20_count / total_count) * 100, 1) if total_count else 0
-        class_stats.append({
-            "class_id": cls.id,
-            "class_name": cls.name,
-            "total_count": total_count,
-            "total_valid_runs": total_valid_runs,
-            "avg_score": avg_score,
-            "pass_rate": pass_rate,
-            "passed_20_count": passed_20_count,
-        })
-    majors_q = (
-        db.query(models.User.major)
-        .filter(models.User.role == "student", models.User.major.isnot(None), models.User.major != "")
-        .distinct()
-        .all()
-    )
-    major_activity = []
-    for (major,) in majors_q:
-        if not major:
-            continue
-        users_in_major = db.query(models.User).filter(models.User.role == "student", models.User.major == major).all()
-        total_valid = sum(
-            db.query(models.Activity)
-            .filter(models.Activity.user_id == u.id, models.Activity.type == "run", models.Activity.is_valid.is_(True))
-            .count()
-            for u in users_in_major
-        )
-        major_activity.append({"major": major, "valid_runs": total_valid})
-    return {"class_stats": class_stats, "major_activity": major_activity}
+            major_activity.append({"major": major_name, "valid_runs": total_valid})
+        return {"class_stats": class_stats, "major_activity": major_activity}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/admin/import/template/students")

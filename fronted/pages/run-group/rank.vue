@@ -20,7 +20,7 @@
           <text class="group-name">{{ group.group_name }}</text>
           <text class="member-count">{{ group.member_count }}人</text>
         </view>
-        <text class="mileage">{{ group.total_mileage.toFixed(1) }}km</text>
+        <text class="mileage">{{ (group.total_mileage || 0).toFixed(1) }}km</text>
       </view>
       
       <view class="loading" v-if="loading">

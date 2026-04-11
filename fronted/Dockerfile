@@ -1,7 +1,6 @@
 # 使用 Nginx 官方轻量级镜像
 
-FROM nginx:alpine
-
+FROM ccr.ccs.tencentyun.com/z5882852/nginx:1.27-alpine
 
 
 # 设置时区为上海
