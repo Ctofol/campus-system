@@ -1,5 +1,5 @@
-// 小程序端必须写死绝对 URL
-const FALLBACK_BASE_URL = 'https://api.gzyichenai.com';
+// 统一入口：小程序 API 和 H5 都使用同一个域名
+const FALLBACK_BASE_URL = 'https://campus.gzyichenai.com';
 let baseUrl = FALLBACK_BASE_URL;
 
 // 优先读取环境变量 (HBuilderX/Vite 构建期注入)

@@ -52,19 +52,19 @@
                 ]
             },
             /* ios打包配置 */
-            "ios" : {
-                "dSYMs" : false,
-                "allowsArbitraryLoads" : true,
-                "NSAppTransportSecurity" : {
-                    "NSAllowsArbitraryLoads" : false,
-                    "NSExceptionDomains" : {
-                        "api.gzyichenai.com" : {
-                            "NSExceptionAllowsInsecureHTTPLoads" : false,
-                            "NSExceptionMinimumTLSVersion" : "TLSv1.2"
+                "ios" : {
+                    "dSYMs" : false,
+                    "allowsArbitraryLoads" : true,
+                    "NSAppTransportSecurity" : {
+                        "NSAllowsArbitraryLoads" : false,
+                        "NSExceptionDomains" : {
+                            "campus.gzyichenai.com" : {
+                                "NSExceptionAllowsInsecureHTTPLoads" : false,
+                                "NSExceptionMinimumTLSVersion" : "TLSv1.2"
+                            }
                         }
                     }
-                }
-            },
+                },
             /* SDK配置 */
             "sdkConfigs" : {
                 "maps" : {
