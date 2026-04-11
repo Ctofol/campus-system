@@ -30,9 +30,10 @@ app.add_middleware(
 )
 
 # 挂载静态文件目录（必须在路由注册之前）
-if not os.path.exists("uploads"):
-    os.makedirs("uploads")
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+uploads_dir = "/app/uploads"
+if not os.path.exists(uploads_dir):
+    os.makedirs(uploads_dir)
+app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
 
 # 引入模块化路由
 app.include_router(auth_router)
