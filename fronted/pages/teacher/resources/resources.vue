@@ -52,9 +52,9 @@
       >
         <image 
           class="resource-cover" 
-          :src="getFullImageUrl(resource.cover_url)" 
+          :src="getFullImageUrl(resource.cover_url, resource.id)" 
           mode="aspectFill"
-          @error="handleImageError"
+          @error="handleImageError(resource.id)"
         ></image>
         <view class="resource-info">
           <text class="resource-title">{{ resource.title }}</text>
@@ -103,6 +103,7 @@ const resources = ref([]);
 const loading = ref(false);
 const userId = ref(0);
 const userRole = ref('');
+const brokenImages = ref(new Set());
 
 const filteredResources = computed(() => {
   if (activeCategory.value === 'all') {
@@ -155,16 +156,15 @@ const getCategoryName = (category) => {
   return map[category] || '未分类';
 };
 
-const getFullImageUrl = (url) => {
+const getFullImageUrl = (url, id) => {
   if (!url) return '/static/activity-placeholder.png';
+  if (brokenImages.value.has(id)) return '/static/activity-placeholder.png';
   if (url.startsWith('http')) return url;
   return `${BASE_URL}${url}`;
 };
 
-const handleImageError = (e) => {
-  if (e.target.src.indexOf('activity-placeholder.png') === -1) {
-    e.target.src = '/static/activity-placeholder.png';
-  }
+const handleImageError = (id) => {
+  brokenImages.value.add(id);
 };
 
 const createResource = () => {

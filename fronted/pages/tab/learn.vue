@@ -36,9 +36,9 @@
         >
           <image 
             class="course-cover" 
-            :src="getFullImageUrl(course.cover_url)" 
+            :src="getFullImageUrl(course.cover_url, course.id)" 
             mode="aspectFill"
-            @error="handleImageError"
+            @error="handleImageError(course.id)"
           ></image>
           <view class="course-info">
             <text class="course-title">{{ course.title }}</text>
@@ -104,19 +104,17 @@ const page = ref(1);
 const hasMore = ref(true);
 const userRole = ref('student');
 const userId = ref(0);
+const brokenImages = ref(new Set());
 
-const getFullImageUrl = (url) => {
+const getFullImageUrl = (url, id) => {
   if (!url) return '/static/activity-placeholder.png';
+  if (brokenImages.value.has(id)) return '/static/activity-placeholder.png';
   if (url.startsWith('http') || url.startsWith('blob:') || url.startsWith('wxfile:')) return url;
   return `${BASE_URL}${url}`;
 };
 
-const handleImageError = (e) => {
-  console.error('Image load error:', e);
-  // 避免递归循环
-  if (e.target.src.indexOf('activity-placeholder.png') === -1) {
-    e.target.src = '/static/activity-placeholder.png';
-  }
+const handleImageError = (id) => {
+  brokenImages.value.add(id);
 };
 
 const loadCourses = async (reset = false) => {

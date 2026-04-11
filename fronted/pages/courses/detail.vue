@@ -17,7 +17,7 @@
         class="course-banner" 
         :src="getFullImageUrl(course.cover_url)" 
         mode="aspectFill"
-        @error="handleImageError"
+        @error="handleImageError(course.cover_url)"
       ></image>
 
       <!-- 课程信息 -->
@@ -113,18 +113,17 @@ const userRole = ref('student');
 const userId = ref(0);
 const loading = ref(true);
 const enrolling = ref(false);
+const brokenImages = ref(new Set());
 
 const getFullImageUrl = (url) => {
   if (!url) return '/static/activity-placeholder.png';
+  if (brokenImages.value.has(url)) return '/static/activity-placeholder.png';
   if (url.startsWith('http') || url.startsWith('blob:') || url.startsWith('wxfile:')) return url;
   return `${BASE_URL}${url}`;
 };
 
-const handleImageError = (e) => {
-  console.error('Image load error:', e);
-  if (e.target.src.indexOf('activity-placeholder.png') === -1) {
-    e.target.src = '/static/activity-placeholder.png';
-  }
+const handleImageError = (url) => {
+  if (url) brokenImages.value.add(url);
 };
 
 const loadCourseDetail = async () => {

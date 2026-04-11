@@ -11,9 +11,9 @@
       >
         <image 
           class="course-cover" 
-          :src="getFullImageUrl(course.cover_url)" 
+          :src="getFullImageUrl(course.cover_url, course.id)" 
           mode="aspectFill"
-          @error="handleImageError"
+          @error="handleImageError(course.id)"
         ></image>
         <view class="course-info">
           <text class="course-title">{{ course.title }}</text>
@@ -35,16 +35,17 @@ import { onShow } from '@dcloudio/uni-app';
 import { request, BASE_URL } from '@/utils/request.js';
 
 const myCourses = ref([]);
+const brokenImages = ref(new Set());
 
-const getFullImageUrl = (url) => {
+const getFullImageUrl = (url, id) => {
   if (!url) return '/static/course_default.jpg';
+  if (brokenImages.value.has(id)) return '/static/course_default.jpg';
   if (url.startsWith('http')) return url;
   return `${BASE_URL}${url}`;
 };
 
-const handleImageError = (e) => {
-  console.error('Image load error:', e);
-  e.target.src = '/static/course_default.jpg';
+const handleImageError = (id) => {
+  brokenImages.value.add(id);
 };
 
 const loadMyCourses = async () => {

@@ -272,7 +272,6 @@ const onPageShow = () => {
 onMounted(() => {
   statusBarHeight.value = uni.getSystemInfoSync().statusBarHeight || 20;
   onPageShow();
-  loadRunGroupData(); // 加载跑团数据
 });
 
 // Expose methods

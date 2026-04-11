@@ -1,4 +1,5 @@
-const FALLBACK_BASE_URL = '';
+// 小程序端必须写死绝对 URL
+const FALLBACK_BASE_URL = 'https://api.gzyichenai.com';
 let baseUrl = FALLBACK_BASE_URL;
 
 // 优先读取环境变量 (HBuilderX/Vite 构建期注入)
@@ -6,7 +7,7 @@ try {
   const envBase = import.meta?.env?.VITE_API_BASE_URL;
   if (envBase) baseUrl = envBase;
 } catch (e) {
-  // ignore
+  console.warn('env load failed', e);
 }
 
 export const BASE_URL = baseUrl;

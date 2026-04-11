@@ -56,15 +56,11 @@
                 "dSYMs" : false,
                 "allowsArbitraryLoads" : true,
                 "NSAppTransportSecurity" : {
-                    "NSAllowsArbitraryLoads" : true,
+                    "NSAllowsArbitraryLoads" : false,
                     "NSExceptionDomains" : {
-                        "192.168.0.216" : {
-                            "NSExceptionAllowsInsecureHTTPLoads" : true,
-                            "NSExceptionMinimumTLSVersion" : "TLSv1.0"
-                        },
-                        "127.0.0.1" : {
-                            "NSExceptionAllowsInsecureHTTPLoads" : true,
-                            "NSExceptionMinimumTLSVersion" : "TLSv1.0"
+                        "api.gzyichenai.com" : {
+                            "NSExceptionAllowsInsecureHTTPLoads" : false,
+                            "NSExceptionMinimumTLSVersion" : "TLSv1.2"
                         }
                     }
                 }
