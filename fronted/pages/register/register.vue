@@ -72,6 +72,17 @@
           <input class="input" v-model="registerForm.confirmPwd" type="password" placeholder="确认密码" />
         </view>
 
+        <!-- 隐私协议勾选 -->
+        <view class="agreement-section">
+          <checkbox-group @change="onAgreementChange">
+            <label class="agreement-label">
+              <checkbox value="agree" :checked="isAgreed" color="#20C997" style="transform:scale(0.7)" />
+              <text class="agreement-text">我已阅读并同意</text>
+            </label>
+          </checkbox-group>
+          <text class="agreement-link" @click="openPrivacy">《用户服务协议》及《隐私政策》</text>
+        </view>
+
         <!-- 注册按钮 -->
         <button class="submit-btn" @click="handleRegister" :loading="loading">立即注册</button>
       </view>
@@ -91,6 +102,19 @@ const step = ref(1);
 const loading = ref(false);
 const captchaImage = ref('');
 const captchaKey = ref('');
+const isAgreed = ref(false);
+
+const onAgreementChange = (e) => {
+  isAgreed.value = e.detail.value.length > 0;
+};
+
+const openPrivacy = () => {
+  wx.openPrivacyContract({
+    fail: () => {
+      uni.showToast({ title: '暂时无法打开协议', icon: 'none' });
+    }
+  });
+};
 
 // 专业与班级选项
 const majorOptions = ref([]);
@@ -177,6 +201,12 @@ const handleRegister = async () => {
   // 基础非空校验
   if (!form.name || !form.phone || !form.password) {
     uni.showToast({ title: '请完善基础信息', icon: 'none' });
+    return;
+  }
+
+  // 协议勾选校验
+  if (!isAgreed.value) {
+    uni.showToast({ title: '请勾选同意用户协议', icon: 'none' });
     return;
   }
 
@@ -399,8 +429,32 @@ const handleRegister = async () => {
   background: linear-gradient(90deg, #20C997, #17a2b8);
   color: #fff;
   border-radius: 44rpx;
-  margin-top: 40rpx;
+  margin-top: 20rpx;
   font-weight: bold;
+}
+
+.agreement-section {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 20rpx 0 30rpx;
+  padding: 0 10rpx;
+}
+
+.agreement-label {
+  display: flex;
+  align-items: center;
+}
+
+.agreement-text {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.agreement-link {
+  font-size: 24rpx;
+  color: #20C997;
+  margin-left: 4rpx;
 }
 
 .footer-link {

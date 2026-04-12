@@ -59,6 +59,17 @@
           登录
         </button>
 
+        <!-- 隐私协议勾选 -->
+        <view class="agreement-section">
+          <checkbox-group @change="onAgreementChange">
+            <label class="agreement-label">
+              <checkbox value="agree" :checked="isAgreed" color="#20C997" style="transform:scale(0.7)" />
+              <text class="agreement-text">我已阅读并同意</text>
+            </label>
+          </checkbox-group>
+          <text class="agreement-link" @click="openPrivacy">《用户服务协议》及《隐私政策》</text>
+        </view>
+
         <view class="footer-links">
           <text class="link-text" @click="goToRegister">注册新账号</text>
           <text class="divider">|</text>
@@ -97,6 +108,19 @@ const loginForm = ref({
   account: '',
   password: ''
 });
+const isAgreed = ref(false);
+
+const onAgreementChange = (e) => {
+  isAgreed.value = e.detail.value.length > 0;
+};
+
+const openPrivacy = () => {
+  wx.openPrivacyContract({
+    fail: () => {
+      uni.showToast({ title: '暂时无法打开协议', icon: 'none' });
+    }
+  });
+};
 
 // 账号标签与占位符
 const accountLabel = computed(() => {
@@ -126,6 +150,12 @@ const validateForm = () => {
 const handleLogin = async () => {
   if (!canSubmit.value) return;
   if (!validateForm()) return;
+
+  // 协议勾选校验
+  if (!isAgreed.value) {
+    uni.showToast({ title: '请勾选同意用户协议', icon: 'none' });
+    return;
+  }
 
   loading.value = true;
   
@@ -405,6 +435,30 @@ const handleQuickLogin = () => {
   border-radius: 44rpx;
   margin-top: 60rpx;
   box-shadow: 0 10rpx 20rpx rgba(32, 201, 151, 0.3);
+}
+
+.agreement-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 30rpx;
+}
+
+.agreement-label {
+  display: flex;
+  align-items: center;
+}
+
+.agreement-text {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.agreement-link {
+  font-size: 24rpx;
+  color: #20C997;
+  margin-left: 4rpx;
 }
 
 .submit-btn.disabled {

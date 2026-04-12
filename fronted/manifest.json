@@ -2,8 +2,8 @@
     "name" : "翊晨运动",
     "appid" : "__UNI__93A54B0",
     "description" : "",
-    "versionName" : "1.1.0",
-    "versionCode" : 110,
+    "versionName" : "1.2.0",
+    "versionCode" : 120,
     "transformPx" : false,
     /* 5+App特有相关 */
     "app-plus" : {
@@ -52,19 +52,19 @@
                 ]
             },
             /* ios打包配置 */
-                "ios" : {
-                    "dSYMs" : false,
-                    "allowsArbitraryLoads" : true,
-                    "NSAppTransportSecurity" : {
-                        "NSAllowsArbitraryLoads" : false,
-                        "NSExceptionDomains" : {
-                            "campus.gzyichenai.com" : {
-                                "NSExceptionAllowsInsecureHTTPLoads" : false,
-                                "NSExceptionMinimumTLSVersion" : "TLSv1.2"
-                            }
+            "ios" : {
+                "dSYMs" : false,
+                "allowsArbitraryLoads" : true,
+                "NSAppTransportSecurity" : {
+                    "NSAllowsArbitraryLoads" : false,
+                    "NSExceptionDomains" : {
+                        "campus.gzyichenai.com" : {
+                            "NSExceptionAllowsInsecureHTTPLoads" : false,
+                            "NSExceptionMinimumTLSVersion" : "TLSv1.2"
                         }
                     }
-                },
+                }
+            },
             /* SDK配置 */
             "sdkConfigs" : {
                 "maps" : {
@@ -134,13 +134,15 @@
     },
     "mp-weixin" : {
         "appid" : "wxd35d4693a349f93b",
+        "__usePrivacyCheck__" : true,
         "setting" : {
-            "urlCheck" : false
+            "urlCheck" : false,
+            "minified" : true
         },
         "usingComponents" : true,
         "permission" : {
             "scope.userLocation" : {
-                "desc" : "您的位置信息将用于记录跑步轨迹和判断校园打卡点范围"
+                "desc" : "您的位置信息用于通过GPS记录跑步轨迹、测量运动距离以及判断是否进入校园打卡点范围"
             }
         },
         "requiredPrivateInfos" : [

@@ -8,6 +8,9 @@
     <view v-else class="unknown-role">
       <text>未知角色: {{ role }}</text>
     </view>
+
+    <!-- 隐私授权弹窗 (微信小程序必须) -->
+    <privacy-popup />
   </view>
 </template>
 
@@ -16,6 +19,7 @@ import { ref, nextTick } from 'vue';
 import { onShow, onHide } from '@dcloudio/uni-app';
 import StudentHome from '@/components/student-home/student-home.vue';
 import TeacherHome from '@/components/teacher-home/teacher-home.vue';
+import PrivacyPopup from '@/components/privacy-popup/privacy-popup.vue';
 
 const role = ref(uni.getStorageSync('userRole') || 'student');
 const studentHomeRef = ref(null);
