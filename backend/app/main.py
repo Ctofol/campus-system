@@ -30,7 +30,15 @@ app.add_middleware(
 )
 
 # 挂载静态文件目录（必须在路由注册之前）
-uploads_dir = "/app/uploads"
+# 开发环境: 使用项目目录下的 uploads 文件夹
+# 生产环境(Docker): 使用 /app/uploads
+if os.path.exists("/app/uploads"):
+    uploads_dir = "/app/uploads"
+else:
+    # 本地开发模式，使用相对路径
+    backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    uploads_dir = os.path.join(backend_dir, "uploads")
+
 if not os.path.exists(uploads_dir):
     os.makedirs(uploads_dir)
 app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
