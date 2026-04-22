@@ -64,7 +64,7 @@
           <text class="notice-icon">📋</text>
           <text>有 {{ (pendingRequests||[]).length }} 条请假申请待处理</text>
         </view>
-        <text class="arrow">去处理 ></text>
+        <text class="arrow">去处理 →</text>
       </view>
 
       <!-- 5. 通知栏: 运动异常 (新增) -->
@@ -73,7 +73,7 @@
           <text class="notice-icon">🏃</text>
           <text>有 {{ pendingExceptionCount }} 条运动异常待核实</text>
         </view>
-        <text class="arrow">去核实 ></text>
+        <text class="arrow">去核实 →</text>
       </view>
     </view>
 
@@ -83,7 +83,7 @@
         <text class="notice-icon">🤖</text>
         <text class="notice-text">收到 {{ (sharedReports||[]).length }} 份新的运动分析报告</text>
       </view>
-      <text class="notice-arrow">查看 ></text>
+      <text class="notice-arrow">查看 →</text>
     </view>
 
     <view class="card-list" :class="{ 'has-bottom-bar': isBatchMode }">
