@@ -11,7 +11,7 @@
         <picker mode="selector" :range="taskTypeLabels" @change="onTypeChange">
           <view class="picker-box">
             <text>{{ form.typeLabel || '请选择任务类型' }}</text>
-            <text class="arrow">></text>
+            <text class="arrow">→</text>
           </view>
         </picker>
       </view>
@@ -50,7 +50,7 @@
         <picker mode="date" @change="onDateChange">
           <view class="picker-box">
             <text>{{ form.deadline || '请选择截止日期' }}</text>
-            <text class="arrow">></text>
+            <text class="arrow">→</text>
           </view>
         </picker>
       </view>
@@ -60,7 +60,7 @@
         <picker mode="selector" :range="groupLabels" @change="onGroupChange">
           <view class="picker-box">
             <text>{{ form.targetLabel || '全员' }}</text>
-            <text class="arrow">></text>
+            <text class="arrow">→</text>
           </view>
         </picker>
       </view>
