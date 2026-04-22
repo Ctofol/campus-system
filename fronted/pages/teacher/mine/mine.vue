@@ -25,14 +25,14 @@
             <text class="menu-icon">👤</text>
             <text class="menu-text">个人信息设置</text>
           </view>
-          <text class="arrow">></text>
+          <text class="arrow">→</text>
         </view>
         <view class="menu-item" @click="handleAccountSecurity">
           <view class="menu-left">
             <text class="menu-icon">🔒</text>
             <text class="menu-text">账号安全</text>
           </view>
-          <text class="arrow">></text>
+          <text class="arrow">→</text>
         </view>
         <view class="menu-item" @click="handleNotifications">
           <view class="menu-left">
@@ -40,14 +40,14 @@
             <text class="menu-text">系统通知</text>
           </view>
           <view class="badge" v-if="notificationCount > 0">{{ notificationCount }}</view>
-          <text class="arrow">></text>
+          <text class="arrow">→</text>
         </view>
         <view class="menu-item" @click="handleHelpFeedback">
           <view class="menu-left">
             <text class="menu-icon">💬</text>
             <text class="menu-text">帮助与反馈</text>
           </view>
-          <text class="arrow">></text>
+          <text class="arrow">→</text>
         </view>
       </view>
     
