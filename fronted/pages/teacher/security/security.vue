@@ -15,7 +15,7 @@
           <text class="item-icon">🔒</text>
           <text class="item-text">修改密码</text>
         </view>
-        <text class="arrow">></text>
+        <text class="arrow">→</text>
       </view>
 
       <!-- 绑定手机号 -->
@@ -26,7 +26,7 @@
         </view>
         <view class="item-right">
           <text class="item-value">{{ phoneDisplay }}</text>
-          <text class="arrow">></text>
+          <text class="arrow">→</text>
         </view>
       </view>
 
@@ -36,7 +36,7 @@
           <text class="item-icon">⚠️</text>
           <text class="item-text">账号注销</text>
         </view>
-        <text class="arrow">></text>
+        <text class="arrow">→</text>
       </view>
     </view>
   </view>
