@@ -192,14 +192,18 @@ const handleEnroll = async () => {
       method: 'POST'
     });
     
+    // 立即更新本地数据
+    course.value.enrolled = true;
+    course.value.enrollment_count = (course.value.enrollment_count || 0) + 1;
+    
     uni.showToast({ 
       title: '加入成功', 
       icon: 'success',
       duration: 1500
     });
     
-    // 重新加载课程详情以确保状态同步
-    await loadCourseDetail();
+    // 通知课程列表页刷新数据
+    uni.$emit('courseEnrolled');
     
   } catch (e) {
     console.error('Failed to enroll:', e);
