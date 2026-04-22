@@ -1096,14 +1096,40 @@ const switchMode = (mode) => {
     const MIN_STEP_INTERVAL = 300; // 最小间隔 ms
     const RESET_TIMEOUT = 1500; // 强制复位超时 (ms)
 
-    const startStepCount = () => {
-      console.log('=== 开始启动步数统计 ===');
+    // 启动步数统计 - 带重试机制
+    const startStepCount = (retryCount = 0) => {
+      const MAX_RETRIES = 3;
+      console.log('=== 开始启动步数统计 (重试次数:', retryCount, ') ===');
       
-      // 先停止之前的监听，防止重复
-      uni.stopAccelerometer();
+      // 先确保停止之前的监听，使用回调确保完成后再启动
+      const stopAndStart = () => {
+        uni.stopAccelerometer({
+          success: () => {
+            console.log('✅ 传感器已停止');
+            // 延迟200ms确保传感器完全释放
+            setTimeout(() => {
+              startAccelerometerWithRetry(retryCount);
+            }, 200);
+          },
+          fail: (err) => {
+            console.warn('停止传感器失败，继续尝试启动:', err);
+            // 即使停止失败也尝试启动
+            setTimeout(() => {
+              startAccelerometerWithRetry(retryCount);
+            }, 200);
+          }
+        });
+      };
+      
+      stopAndStart();
+    };
+    
+    // 带重试的启动传感器
+    const startAccelerometerWithRetry = (retryCount) => {
+      const MAX_RETRIES = 3;
       
       uni.startAccelerometer({
-        interval: 'game', // 使用 game (20ms) 频率，采样更密集，捕捉波峰更准
+        interval: 'game', // 使用 game (20ms) 频率
         success: () => {
           console.log('✅ 加速度传感器启动成功');
           uni.showToast({
@@ -1116,11 +1142,27 @@ const switchMode = (mode) => {
         },
         fail: (err) => {
           console.error('❌ 加速度传感器启动失败:', err);
-          uni.showModal({
-            title: '步数统计启动失败',
-            content: '无法启动加速度传感器，步数将无法统计。错误：' + JSON.stringify(err),
-            showCancel: false
-          });
+          
+          // 检查是否是"传感器已被占用"错误，尝试重试
+          const errMsg = err && err.errMsg ? err.errMsg : '';
+          if (retryCount < MAX_RETRIES && errMsg.includes('enable')) {
+            console.log('🔄 传感器被占用，', (retryCount + 1), '秒后重试...');
+            uni.showToast({
+              title: '传感器冲突，正在重试...',
+              icon: 'none',
+              duration: 1000
+            });
+            setTimeout(() => {
+              startStepCount(retryCount + 1);
+            }, 1000);
+          } else {
+            // 重试次数用完，显示友好提示
+            uni.showModal({
+              title: '步数统计启动失败',
+              content: '无法启动加速度传感器，步数将无法统计。请在手机设置中允许小程序使用传感器权限，然后重试。',
+              showCancel: false
+            });
+          }
         }
       });
       
@@ -1150,9 +1192,10 @@ const switchMode = (mode) => {
            isStepActive = false;
         }
       };
-      uni.onAccelerometerChange(accelerometerCallback);
+uni.onAccelerometerChange(accelerometerCallback);
       console.log('=== 步数统计监听已设置 ===');
     };
+
 const stopStepCount = () => {
   console.log('=== 停止步数统计 ===');
   if (accelerometerCallback) {
