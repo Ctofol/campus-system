@@ -83,9 +83,15 @@ async def upload_file(
         file_type = validate_file(file)
         
         # 创建按月份分组的目录
+        # 开发环境: 使用项目目录下的 uploads 文件夹
+        # 生产环境(Docker): 使用 /app/uploads
         current_date = datetime.now()
         month_dir = current_date.strftime("%Y%m")
-        upload_dir = os.path.join("uploads", month_dir)
+        if os.path.exists("/app/uploads"):
+            upload_dir = os.path.join("/app/uploads", month_dir)
+        else:
+            # 本地开发模式，使用相对路径
+            upload_dir = os.path.join("uploads", month_dir)
         
         # 确保目录存在
         os.makedirs(upload_dir, exist_ok=True)
