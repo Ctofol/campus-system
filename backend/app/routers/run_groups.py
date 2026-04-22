@@ -154,8 +154,13 @@ async def get_run_groups(
     current_user: models.User = Depends(auth.get_current_user),
     db: Session = Depends(get_db)
 ):
-    """获取跑团列表（用于加入跑团）"""
-    groups = db.query(models.RunGroup).order_by(
+    """获取跑团列表（用于加入跑团）- 只返回有效跑团"""
+    # 只返回有有效成员数的跑团，过滤空跑团
+    groups = db.query(models.RunGroup).filter(
+        models.RunGroup.member_count > 0,
+        models.RunGroup.name.isnot(None),
+        models.RunGroup.name != ""
+    ).order_by(
         models.RunGroup.total_mileage.desc()
     ).offset((page - 1) * size).limit(size).all()
     
