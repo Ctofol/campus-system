@@ -108,13 +108,16 @@ const loadGroups = async (refresh = false) => {
       size: 20
     });
     
+    // 数据验证：确保返回的是有效数组
+    const validGroups = Array.isArray(res) ? res.filter(g => g && g.id) : [];
+    
     if (refresh) {
-      groups.value = res;
+      groups.value = validGroups;
     } else {
-      groups.value.push(...res);
+      groups.value.push(...validGroups);
     }
     
-    if (res.length < 20) {
+    if (validGroups.length < 20) {
       noMore.value = true;
     }
   } catch (e) {
