@@ -226,12 +226,26 @@ onShow(() => {
     }
   }
   
+  // 刷新课程列表（包含人数）
   loadCourses(true);
 });
 
 // 监听课程创建事件
 uni.$on('courseCreated', () => {
   loadCourses(true);
+});
+
+// 监听课程加入事件（刷新人数）
+uni.$on('courseEnrolled', () => {
+  // 立即刷新课程列表，确保人数最新
+  loadCourses(true);
+});
+
+// 页面隐藏时移除事件监听，避免重复监听
+import { onHide } from '@dcloudio/uni-app';
+onHide(() => {
+  uni.$off('courseCreated');
+  uni.$off('courseEnrolled');
 });
 
 onReachBottom(() => {
