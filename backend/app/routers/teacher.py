@@ -324,18 +324,16 @@ async def get_invalid_activities(
     """
     获取阳光跑异常记录：
     - is_valid = False 且 fail_reason 非空（人脸比对失败、配速异常、配速过快、里程不足等）
-    仅返回当前教师所带班级内学生的数据。
+    仅返回当前教师所带班级内学生的数据（统一使用 get_managed_students_query）。
     """
-    # 1. 获取教师绑定的选科 (TeacherSubject)
-    ts_rows = db.query(models.TeacherSubject).filter(
-        models.TeacherSubject.teacher_id == current_user.id
-    ).all()
-    subjects = [r.subject_name for r in ts_rows]
+    # 使用统一的教师管辖学生查询逻辑（与首页统计一致）
+    student_query = await get_managed_students_query(current_user, db)
+    managed_student_ids = [u.id for u in student_query.with_entities(models.User.id).all()]
 
-    if not subjects:
+    if not managed_student_ids:
         return []
 
-    # 2. 查询异常活动
+    # 查询异常活动（使用统一的学生ID列表 + type过滤）
     activities = (
         db.query(models.Activity)
         .join(models.User, models.Activity.user_id == models.User.id)
@@ -345,7 +343,7 @@ async def get_invalid_activities(
             models.Activity.is_valid.is_(False),
             models.Activity.fail_reason.isnot(None),
             models.Activity.fail_reason != "",
-            models.User.subject.in_(subjects),
+            models.Activity.user_id.in_(managed_student_ids),
         )
         .order_by(models.Activity.started_at.desc())
         .all()
