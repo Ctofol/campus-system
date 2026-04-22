@@ -44,7 +44,7 @@
       <view class="section-card todo-section">
         <view class="section-header">
           <text class="section-title">今日待办</text>
-          <text class="section-more" @click="goToTodos">全部 ></text>
+          <text class="section-more" @click="goToTodos">全部 →</text>
         </view>
         <view class="todo-list" v-if="todos.length > 0">
           <view class="todo-item" v-for="(todo, index) in todos.slice(0, 3)" :key="index" @click="handleTodoClick(todo)">
