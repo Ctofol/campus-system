@@ -64,8 +64,9 @@ async def get_teacher_stats_data(current_user: models.User, db: Session):
         models.HealthRequest.student_id.in_(managed_student_ids)
     ).count()
     
-    # 待审批记录 (Activity Exceptions)
+    # 待审批记录 (Activity Exceptions) - 仅统计阳光跑类型
     pending_activities = db.query(models.Activity).filter(
+        models.Activity.type == "run",
         models.Activity.is_valid.is_(False),
         models.Activity.fail_reason.isnot(None),
         models.Activity.fail_reason != "",
