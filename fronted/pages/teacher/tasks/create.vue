@@ -176,7 +176,7 @@ const uploadVideo = (filePath) => {
     const token = uni.getStorageSync('token');
     
     uni.uploadFile({
-      url: `${BASE_URL}/upload`,
+      url: `${BASE_URL}/upload/file`,
       filePath: filePath,
       name: 'file',
       header: {

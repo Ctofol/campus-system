@@ -119,6 +119,7 @@ class TeacherSubjectBase(BaseModel):
 class TeacherSubjectOut(TeacherSubjectBase):
     id: int
     teacher_id: int
+    enrollment_count: int = 0
 
     class Config:
         from_attributes = True
@@ -175,6 +176,7 @@ class ActivityFinish(BaseModel):
 class ActivityReviewOut(BaseModel):
     id: int
     teacher_id: int
+    enrollment_count: int = 0
     result: str
     reviewed_at: datetime
     class Config:
@@ -446,6 +448,7 @@ class CourseCreate(CourseBase):
 class CourseOut(CourseBase):
     id: int
     teacher_id: int
+    enrollment_count: int = 0
     created_at: datetime
     
     class Config:
@@ -537,7 +540,7 @@ class RunGroupCreate(RunGroupBase):
 
 class RunGroupOut(RunGroupBase):
     id: int
-    creator_id: int
+    creator_id: Optional[int] = None
     total_mileage: float
     member_count: int
     rank: Optional[int] = None

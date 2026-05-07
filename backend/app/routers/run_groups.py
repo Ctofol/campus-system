@@ -118,7 +118,8 @@ async def get_my_run_group(
     
     if not member:
         # 返回null而不是抛出404错误，让前端决定如何处理
-        return None
+        from fastapi.responses import JSONResponse
+        return JSONResponse(content=None, status_code=204)
     
     group = member.group
     
@@ -157,7 +158,7 @@ async def get_run_groups(
     """获取跑团列表（用于加入跑团）- 只返回有效跑团"""
     # 只返回有有效成员数的跑团，过滤空跑团
     groups = db.query(models.RunGroup).filter(
-        models.RunGroup.member_count > 0,
+        models.RunGroup.member_count >= 1,
         models.RunGroup.name.isnot(None),
         models.RunGroup.name != ""
     ).order_by(
