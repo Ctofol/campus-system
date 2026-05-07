@@ -179,6 +179,7 @@ const uploadVideo = (filePath) => {
       url: `${BASE_URL}/upload/file`,
       filePath: filePath,
       name: 'file',
+      fileName: 'upload.mp4',
       header: {
         'Authorization': `Bearer ${token}`
       },
