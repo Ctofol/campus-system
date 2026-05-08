@@ -35,7 +35,7 @@ TOUCH_HOST_NGINX=no
 硬约束
 ================================================================================
 1. 所有 git 操作在 PROJECT_ROOT 内；pull 前 git status，有冲突按用户先前约定处理（stash / 协商），禁止 force push。
-2. Docker：优先 docker compose restart COMPOSE_SERVICE；需改镜像或 Dockerfile 时用 build；避免无故 docker compose down 整栈除非用户写明。
+2. Docker：根目录 compose 下后端代码在镜像内，`git pull` 后须 `docker compose up -d --build COMPOSE_SERVICE` 才会更新 Python；仅 `restart` 不会换代码。避免无故 down 全栈除非用户写明。
 3. 主机 Nginx：仅当 TOUCH_HOST_NGINX=yes；改前整文件 cp 备份；改后 nginx -t 通过再 reload；/api/ 须「剥前缀」代理到上游（参见仓库 remote_nginx.conf）。
 4. 数据库：ALTER 或 db_update_production.py 前提醒备份；使用与 campus-backend 一致的 DATABASE_URL。
 5. 密钥与 PAT：禁止把 token 写进聊天记录以外的明文日志；禁止把私钥贴给用户。
@@ -44,7 +44,7 @@ TOUCH_HOST_NGINX=no
 推荐默认流程（若变更说明包含「同步代码」）
 ================================================================================
 cd PROJECT_ROOT && git fetch origin && git checkout GIT_BRANCH && git pull origin GIT_BRANCH
-docker compose restart COMPOSE_SERVICE
+docker compose up -d --build COMPOSE_SERVICE
 （按需）cd PROJECT_ROOT/backend && python db_update_production.py
 curl 抽测：POST https://DOMAIN/api/auth/login 假账号应 401 JSON；若用户给了 Token 再测 /api/users/profile。
 

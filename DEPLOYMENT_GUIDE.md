@@ -31,28 +31,28 @@ Migration completed!
 
 ### 2. 后端部署（Docker方式）
 
-#### 方式A: 重启后端容器（推荐）
+#### 方式A: 重新构建并启动学生端后端（推荐；根目录 compose 服务名为 `campus-backend`，且代码在镜像内）
 ```bash
-# 在项目根目录
-docker-compose restart backend
+# 在项目根目录（仅 restart 不会应用 git pull 后的 Python 变更）
+docker compose up -d --build campus-backend
 ```
 
-#### 方式B: 完全重新构建（如果遇到问题）
+#### 方式B: 整栈重建（如果遇到问题）
 ```bash
 # 停止所有容器
-docker-compose down
+docker compose down
 
-# 重新构建并启动
-docker-compose up -d --build backend
+# 重新构建并启动学生端后端
+docker compose up -d --build campus-backend
 ```
 
 #### 验证后端运行状态
 ```bash
 # 查看容器状态
-docker-compose ps
+docker compose ps
 
 # 查看后端日志
-docker-compose logs -f backend
+docker compose logs -f campus-backend
 ```
 
 **预期输出**: 应该看到 "Application startup complete" 或类似信息

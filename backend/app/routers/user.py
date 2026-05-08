@@ -6,11 +6,21 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 get_db = database.get_db
 
+
+def _safe_rel_str(getter):
+    """班级/专业等关系可能因脏 FK 在懒加载时抛错，避免整接口 500。"""
+    try:
+        return getter()
+    except Exception:
+        return None
+
+
 @router.get("/profile", response_model=schemas.UserProfile)
 def get_my_profile(
     current_user: models.User = Depends(auth.get_current_user),
     db: Session = Depends(get_db)
 ):
+    # 与 get_current_user 共用同一请求的 get_db 时 refresh 安全；若仅读列也可省略
     db.refresh(current_user)
     # 旧库可能为 NULL；UserProfile 中 name/phone/role/health_status 为必填 str，缺省会触发响应校验 → 500
     health = current_user.health_status or "normal"
@@ -24,9 +34,9 @@ def get_my_profile(
         "health_status": health,
         "signature": getattr(current_user, 'signature', None),
         "avatar_url": getattr(current_user, 'avatar_url', None),
-        "class_name": current_user.class_name,
+        "class_name": _safe_rel_str(lambda: current_user.class_name),
         "class_id": current_user.class_id,
-        "major": current_user.major,
+        "major": _safe_rel_str(lambda: current_user.major),
         "major_id": current_user.major_id,
         "subject": current_user.subject,
     }
