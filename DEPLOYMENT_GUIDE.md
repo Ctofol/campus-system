@@ -29,7 +29,24 @@ Migration completed!
 
 ---
 
-### 2. 后端部署（Docker方式）
+### 2. 后端部署（systemd，当前线上常用）
+
+若 Nginx 将 `/api/` 反代到本机 **127.0.0.1:18721**，且进程由 **systemd** 管理（例如 `campus-backend.service`），则发版**不要依赖 Docker**，按下面即可：
+
+```bash
+cd /path/to/campus-system    # 服务器上克隆目录，如 /root/campus-system
+git pull origin master
+sudo systemctl restart campus-backend
+sudo journalctl -u campus-backend -n 80 --no-pager
+```
+
+数据库补丁仍在仓库 `backend` 目录下用与线上一致的 `DATABASE_URL` 执行（如 `python db_update_production.py`）。
+
+---
+
+### 2b. 后端部署（Docker 方式，可选）
+
+仓库根目录提供 `docker-compose.yml`，适合本地/另一套环境；**与线上 systemd 并存时，改代码后重启 Docker 容器不会更新 systemd 里的进程**，二者勿混用。
 
 #### 方式A: 重新构建并启动学生端后端（推荐；根目录 compose 服务名为 `campus-backend`，且代码在镜像内）
 ```bash
