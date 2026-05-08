@@ -33,6 +33,8 @@ def upgrade_database():
                 ("score_detail", "VARCHAR")
             ],
             "users": [
+                ("health_status", "VARCHAR DEFAULT 'normal'"),
+                ("abnormal_reason", "VARCHAR"),
                 ("regular_score", "FLOAT DEFAULT 0.0"),
                 ("group_name", "VARCHAR"),
                 ("signature", "VARCHAR"),

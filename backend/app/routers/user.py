@@ -12,13 +12,13 @@ def get_my_profile(
     db: Session = Depends(get_db)
 ):
     db.refresh(current_user)
-    # 旧库可能为 NULL，而 UserProfile.health_status 为必填 str，否则会响应校验失败 → 500
+    # 旧库可能为 NULL；UserProfile 中 name/phone/role/health_status 为必填 str，缺省会触发响应校验 → 500
     health = current_user.health_status or "normal"
     profile_data = {
         "id": current_user.id,
-        "name": current_user.name,
-        "phone": current_user.phone,
-        "role": current_user.role,
+        "name": (current_user.name or "").strip() or "未命名",
+        "phone": current_user.phone or "",
+        "role": current_user.role or "student",
         "student_id": current_user.student_id,
         "group_name": current_user.group_name,
         "health_status": health,
