@@ -12,6 +12,8 @@ def get_my_profile(
     db: Session = Depends(get_db)
 ):
     db.refresh(current_user)
+    # 旧库可能为 NULL，而 UserProfile.health_status 为必填 str，否则会响应校验失败 → 500
+    health = current_user.health_status or "normal"
     profile_data = {
         "id": current_user.id,
         "name": current_user.name,
@@ -19,7 +21,7 @@ def get_my_profile(
         "role": current_user.role,
         "student_id": current_user.student_id,
         "group_name": current_user.group_name,
-        "health_status": current_user.health_status,
+        "health_status": health,
         "signature": getattr(current_user, 'signature', None),
         "avatar_url": getattr(current_user, 'avatar_url', None),
         "class_name": current_user.class_name,

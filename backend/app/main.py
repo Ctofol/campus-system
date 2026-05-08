@@ -13,6 +13,7 @@ from .routers.common import router as common_router
 from .routers.auth import router as auth_router
 from .routers.user import router as user_router
 from .routers.activity import router as activity_router
+from .routers.feedback_diagnose import router as feedback_diagnose_router
 
 # 初始化数据库表
 models.Base.metadata.create_all(bind=database.engine)
@@ -54,6 +55,7 @@ app.include_router(courses_router)
 app.include_router(upload_router)
 app.include_router(run_groups_router)
 app.include_router(admin_router)
+app.include_router(feedback_diagnose_router)
 
 # 挂载管理端前端静态文件
 admin_frontend_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "admin", "frontend", "dist")
