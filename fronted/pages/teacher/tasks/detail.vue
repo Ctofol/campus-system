@@ -69,14 +69,14 @@
       
       <scroll-view scroll-y class="student-list">
         <view class="student-item" v-for="student in filteredStudents" :key="student.id">
-          <view class="student-info">
+          <!-- 任务管理：仅查看本任务的提交记录；学员档案在「学员管理」 -->
+          <view class="student-info" @click="openTaskSubmissionDetail(student)">
             <image
               class="avatar"
               :src="student.avatar || '/static/avatar.png'"
               mode="aspectFill"
-              @click.stop="openTaskRunDetail(student)"
             ></image>
-            <view class="info-col" @click="goToStudentDetail(student)">
+            <view class="info-col">
               <text class="name">{{ student.name }}</text>
               <text class="id">{{ student.studentId }}</text>
               <text v-if="student.metricValue && student.metricValue !== '-'" class="metric-val">成绩: {{ student.metricValue }}</text>
@@ -146,15 +146,11 @@ const remindStudent = (student) => {
   });
 };
 
-const goToStudentDetail = (student) => {
-    uni.navigateTo({
-        url: `/pages/teacher/students/detail?id=${student.id}`
-    });
-};
-
-const openTaskRunDetail = (student) => {
+/** 本条任务下的运动/体测提交详情（与学员管理里的总档案区分） */
+const openTaskSubmissionDetail = (student) => {
     if (!student.activityId) {
-        return uni.showToast({ title: '该生暂无任务跑步提交记录', icon: 'none' });
+        uni.showToast({ title: '该生尚未提交本任务', icon: 'none' });
+        return;
     }
     uni.navigateTo({
         url: `/pages/teacher/tasks/run-detail?activityId=${student.activityId}`

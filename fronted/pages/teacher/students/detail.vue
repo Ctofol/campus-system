@@ -117,7 +117,7 @@ const healthClass = computed(() => {
 });
 
 onLoad((opt) => {
-  id.value = opt.id || '';
+  id.value = opt.id || opt.studentId || '';
   if (id.value) {
       fetchData();
   }
