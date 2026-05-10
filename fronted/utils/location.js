@@ -7,7 +7,7 @@ export const getCurrentLocation = (options = {}) => {
     const config = {
       type: 'gcj02', // 默认 gcj02，兼容性好
       isHighAccuracy: true, // 开启高精度
-      timeout: 15000, // 超时 15秒（增加超时时间）
+      timeout: 8000, // 超时 8秒
       altitude: true, // 传入 true 会返回高度信息，由于获取高度需要较高精确度，会减慢接口返回速度
       ...options
     };

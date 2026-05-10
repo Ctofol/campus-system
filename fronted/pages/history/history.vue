@@ -3,7 +3,7 @@
     <view class="custom-navbar" :style="{paddingTop: statusBarHeight + 'px'}">
       <view class="navbar-content">
         <view class="back-btn" @click="goBack">
-          <text class="back-arrow">←</text>
+          <text class="back-arrow">‹</text>
         </view>
         <text class="navbar-title">全部运动记录</text>
       </view>

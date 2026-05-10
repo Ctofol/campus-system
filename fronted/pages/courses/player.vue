@@ -2,6 +2,7 @@
   <view class="player-page">
     <!-- 视频播放器 -->
     <video
+      v-if="videoUrl"
       :src="videoUrl"
       class="video-player"
       controls
@@ -13,6 +14,9 @@
       @ended="onVideoEnded"
       @error="onVideoError"
     ></video>
+    <view v-else class="video-placeholder">
+      <text class="placeholder-text">{{ loadError || '加载视频中…' }}</text>
+    </view>
     
     <!-- 课程信息 -->
     <view class="content-info">
@@ -49,7 +53,7 @@
 <script setup>
 import { ref } from 'vue';
 import { onLoad, onUnload } from '@dcloudio/uni-app';
-import { request, BASE_URL } from '@/utils/request.js';
+import { request, resolveMediaUrl } from '@/utils/request.js';
 
 const contentId = ref(null);
 const currentContentId = ref(null);
@@ -60,30 +64,33 @@ const lastPosition = ref(0);
 const playlist = ref([]);
 const progressTimer = ref(null);
 const currentTime = ref(0);
+const loadError = ref('');
 
 const loadContent = async (id) => {
+  videoUrl.value = '';
+  loadError.value = '';
   try {
     const res = await request({
       url: `/courses/content/${id}`,
-      method: 'GET'
+      method: 'GET',
+      timeout: 120000
     });
     
     currentContentId.value = res.id;
     contentTitle.value = res.title;
     contentDesc.value = res.description || '';
     
-    // 拼接完整视频URL
     if (res.content_url) {
-      videoUrl.value = res.content_url.startsWith('http') 
-        ? res.content_url 
-        : `${BASE_URL}${res.content_url}`;
+      videoUrl.value = resolveMediaUrl(res.content_url);
+    } else {
+      loadError.value = '暂无视频地址';
     }
     
-    // 加载播放进度
     loadProgress(id);
     
   } catch (e) {
     console.error('Failed to load content:', e);
+    loadError.value = e?.message || '加载失败';
     uni.showToast({ title: '加载失败', icon: 'none' });
   }
 };
@@ -165,10 +172,11 @@ const onVideoEnded = async () => {
 };
 
 const onVideoError = (e) => {
-  console.error('Video error:', e);
+  const msg = e?.detail?.errMsg || e?.errMsg || JSON.stringify(e?.detail || {});
+  console.error('Video error:', msg, e);
   uni.showModal({
     title: '播放失败',
-    content: '视频加载失败，请检查网络连接',
+    content: '请确认：1) 小程序后台已配置该视频域名为下载/音视频合法域名；2) 地址为 https 且可直连；3) 当前网络正常。',
     showCancel: false
   });
 };
@@ -217,6 +225,20 @@ onUnload(() => {
   background: #000;
 }
 
+.video-placeholder {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #111;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.placeholder-text {
+  color: #999;
+  font-size: 28rpx;
+  padding: 24rpx;
+  text-align: center;
+}
 .video-player {
   width: 100%;
   height: 450rpx;

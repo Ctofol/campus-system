@@ -118,44 +118,43 @@ const onScoreChange = (e) => {
 const loadActivityData = async () => {
   try {
     // 获取活动详情
-    const activity = await request({
-      url: `/teacher/activities/${activityId.value}`,
+    const res = await request({
+      url: `/teacher/task-runs/${activityId.value}`,
       method: 'GET'
     });
-    
-    studentName.value = activity.student_name || '未知学生';
+
+    const activity = res.activity || {};
+    const metrics = res.metrics || {};
+
+    studentName.value = res.student?.name || '未知学生';
     activityType.value = activity.type === 'run' ? '跑步' : '体能测试';
     completedTime.value = activity.ended_at ? new Date(activity.ended_at).toLocaleString() : '未知';
-    
-    // 活动数据
-    if (activity.metrics) {
+
+    if (metrics && Object.keys(metrics).length) {
       if (activity.type === 'run') {
-        activityData.value = `${activity.metrics.distance || 0}km / ${Math.floor((activity.metrics.duration || 0) / 60)}分钟`;
+        activityData.value = `${metrics.distance || 0}km / ${Math.floor((metrics.duration || 0) / 60)}分钟`;
       } else {
-        activityData.value = `${activity.metrics.count || 0}次`;
+        activityData.value = `${metrics.count || 0}次`;
       }
-      
-      aiScore.value = activity.metrics.score || 0;
-      
-      // 视频URL
-      if (activity.metrics.video_url) {
-        videoUrl.value = activity.metrics.video_url.startsWith('http') 
-          ? activity.metrics.video_url 
-          : `${BASE_URL}${activity.metrics.video_url}`;
+
+      aiScore.value = metrics.score || 0;
+
+      if (metrics.video_url) {
+        videoUrl.value = metrics.video_url.startsWith('http')
+          ? metrics.video_url
+          : `${BASE_URL}${metrics.video_url}`;
       }
-      
-      // 历史打分
-      if (activity.metrics.teacher_score) {
+
+      if (metrics.teacher_score) {
         hasHistory.value = true;
-        lastScore.value = activity.metrics.teacher_score;
-        lastComment.value = activity.metrics.teacher_comment || '';
-        lastScoreTime.value = activity.metrics.scored_at 
-          ? new Date(activity.metrics.scored_at).toLocaleString() 
+        lastScore.value = metrics.teacher_score;
+        lastComment.value = metrics.teacher_comment || '';
+        lastScoreTime.value = metrics.scored_at
+          ? new Date(metrics.scored_at).toLocaleString()
           : '';
-        
-        // 如果有历史打分，使用历史分数作为默认值
-        score.value = activity.metrics.teacher_score;
-        comment.value = activity.metrics.teacher_comment || '';
+
+        score.value = metrics.teacher_score;
+        comment.value = metrics.teacher_comment || '';
       }
     }
     
@@ -173,10 +172,9 @@ const submitScore = async () => {
   uni.showLoading({ title: '提交中...' });
   
   try {
-    const method = hasHistory.value ? 'PUT' : 'POST';
     const res = await request({
       url: `/teacher/activities/${activityId.value}/score`,
-      method: method,
+      method: 'POST',
       data: {
         activity_id: activityId.value,
         score: score.value,
@@ -186,7 +184,7 @@ const submitScore = async () => {
     
     uni.hideLoading();
     uni.showToast({ 
-      title: hasHistory.value ? '打分更新成功' : '打分成功', 
+      title: '提交成功', 
       icon: 'success' 
     });
     

@@ -32,8 +32,8 @@
       </view>
     </view>
 
-    <!-- Map Trajectory -->
-    <view class="map-card" v-if="hasTrajectory">
+    <!-- Map Trajectory（微信折线至少 2 点；仅 1 点时只显示标记、不传折线，避免渲染层 MultiPolyline 崩溃） -->
+    <view class="map-card" v-if="showMap">
       <text class="section-title">运动轨迹</text>
       <map 
         class="map" 
@@ -45,7 +45,7 @@
         :enable-scroll="true"
       ></map>
     </view>
-    <view class="no-data-card" v-else-if="task.status === 'completed'">
+    <view class="no-data-card" v-else-if="!showMap && activity && (activity.status === 'finished' || activity.status === 'completed')">
         <text class="tip">暂无轨迹数据</text>
     </view>
 
@@ -58,7 +58,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 
 const activity = ref({});
@@ -67,6 +67,8 @@ const centerLng = ref(116.397);
 const polyline = ref([]);
 const markers = ref([]);
 const videoUrl = ref('');
+/** 是否展示地图区：≥2 点可走折线；1 点仅标记；0 点不展示（避免传非法 polyline） */
+const showMap = ref(false);
 
 const headerTitle = ref('运动详情');
 const headerSubTitle = ref('');
@@ -76,9 +78,28 @@ const paceText = ref('');
 const stepCount = ref(0);
 const stepFrequency = ref('');
 
-const hasTrajectory = computed(() => {
-    return polyline.value.length > 0 && polyline.value[0].points.length > 0;
-});
+function normalizeTrajectoryPoints(raw) {
+  if (raw == null) return [];
+  let arr = raw;
+  if (typeof raw === 'string') {
+    try {
+      arr = JSON.parse(raw);
+    } catch {
+      return [];
+    }
+  }
+  if (!Array.isArray(arr)) return [];
+  const out = [];
+  for (const p of arr) {
+    if (!p || typeof p !== 'object') continue;
+    const lat = Number(p.latitude ?? p.lat);
+    const lng = Number(p.longitude ?? p.lng ?? p.lon);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      out.push({ latitude: lat, longitude: lng });
+    }
+  }
+  return out;
+}
 
 onLoad((options) => {
     if (options.data) {
@@ -109,26 +130,26 @@ onLoad((options) => {
               }
             }
 
-            // Process Trajectory
-            // Assuming task.metrics.trajectory or task.trajectory exists if completed
-            // If the backend returns trajectory in the task object
+            // Process Trajectory（微信 map 折线至少 2 个合法点，否则渲染层报 MultiPolyline / typed array length 错误）
             let points = [];
             if (data.trajectory) {
-                points = typeof data.trajectory === 'string' ? JSON.parse(data.trajectory) : data.trajectory;
+                points = normalizeTrajectoryPoints(data.trajectory);
             } else if (data.metrics && data.metrics.trajectory) {
-                points = typeof data.metrics.trajectory === 'string' ? JSON.parse(data.metrics.trajectory) : data.metrics.trajectory;
+                points = normalizeTrajectoryPoints(data.metrics.trajectory);
             }
-            
-            if (points && points.length > 0) {
+
+            polyline.value = [];
+            markers.value = [];
+            showMap.value = false;
+
+            if (points.length >= 2) {
                 polyline.value = [{
-                    points: points,
+                    points,
                     color: '#20C997',
                     width: 4
                 }];
-                // Set center to start point
                 centerLat.value = points[0].latitude;
                 centerLng.value = points[0].longitude;
-                // Add start/end markers
                 markers.value = [
                     {
                         id: 0,
@@ -141,14 +162,30 @@ onLoad((options) => {
                     },
                     {
                         id: 1,
-                        latitude: points[points.length-1].latitude,
-                        longitude: points[points.length-1].longitude,
+                        latitude: points[points.length - 1].latitude,
+                        longitude: points[points.length - 1].longitude,
                         title: '终点',
                         iconPath: '/static/location.png',
                         width: 20,
                         height: 20
                     }
                 ];
+                showMap.value = true;
+            } else if (points.length === 1) {
+                centerLat.value = points[0].latitude;
+                centerLng.value = points[0].longitude;
+                markers.value = [
+                    {
+                        id: 0,
+                        latitude: points[0].latitude,
+                        longitude: points[0].longitude,
+                        title: '位置',
+                        iconPath: '/static/location.png',
+                        width: 20,
+                        height: 20
+                    }
+                ];
+                showMap.value = true;
             }
             
             // Process Video
@@ -156,8 +193,15 @@ onLoad((options) => {
                 // Evidence is usually an array of { type: 'video', url: '...' }
                 // or just a string url if simplified
                 if (Array.isArray(data.evidence)) {
-                    const vid = data.evidence.find(e => e.type === 'video' || e.url.endsWith('.mp4'));
-                    if (vid) videoUrl.value = vid.url;
+                    const vid = data.evidence.find((e) => {
+                      if (e == null) return false;
+                      if (typeof e === 'string') return e.endsWith('.mp4');
+                      if (e.type === 'video' && typeof e.url === 'string') return true;
+                      return typeof e.url === 'string' && e.url.endsWith('.mp4');
+                    });
+                    if (vid != null) {
+                      videoUrl.value = typeof vid === 'string' ? vid : (vid.url || '');
+                    }
                 } else if (typeof data.evidence === 'string' && data.evidence.endsWith('.mp4')) {
                     videoUrl.value = data.evidence;
                 }

@@ -12,6 +12,9 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
     """
     注册逻辑：学生采用“档案激活”模式。
     """
+    if user.role not in ("student", "teacher"):
+        raise HTTPException(status_code=400, detail="仅支持学生或教师注册")
+
     # 1. Verify Captcha
     verify_src = user.captcha_code.upper() + config.CAPTCHA_SECRET
     expected_key = hashlib.md5(verify_src.encode("utf-8")).hexdigest()
@@ -23,20 +26,27 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
     if db_user:
         raise HTTPException(status_code=400, detail="Phone already registered")
 
-    hashed_password = auth.get_password_hash(user.password)
+    pwd = (user.password or "").strip()
+    if len(pwd) < 6:
+        raise HTTPException(status_code=400, detail="密码至少 6 位")
+    hashed_password = auth.get_password_hash(pwd)
 
-    # 3. 学生：走档案激活流程
+    # 3. 学生：走档案激活流程（专业、班级以档案为准，与前端所选无关）
     if user.role == "student":
-        if not user.student_id:
+        student_id_key = (user.student_id or "").strip()
+        if not student_id_key:
             raise HTTPException(status_code=400, detail="学生注册必须提供学号")
+        display_name = (user.name or "").strip()
+        if not display_name:
+            raise HTTPException(status_code=400, detail="请填写姓名")
 
         profile = db.query(models.StudentProfile).filter(
-            models.StudentProfile.student_id == user.student_id
+            models.StudentProfile.student_id == student_id_key
         ).first()
         if not profile:
             raise HTTPException(status_code=403, detail="档案库中无此信息，请联系管理员")
 
-        if profile.full_name.strip() != user.name.strip():
+        if profile.full_name.strip() != display_name:
             raise HTTPException(status_code=403, detail="姓名与档案不符，请确认后重试")
 
         if profile.is_activated:
@@ -60,8 +70,12 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
             db.commit()
             db.refresh(db_class)
 
+        sub_in = (user.subject or "").strip() or None
+        sub_prof = (profile.subject or "").strip() or None
+        subject_final = sub_in or sub_prof
+
         new_user = models.User(
-            phone=user.phone,
+            phone=user.phone.strip(),
             name=profile.full_name,
             role="student",
             password_hash=hashed_password,
@@ -70,7 +84,7 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
             class_id=db_class.id,
             major_id=db_major.id,
             major_name=profile.major,
-            subject=profile.subject,
+            subject=subject_final,
         )
         db.add(new_user)
         profile.is_activated = True
@@ -78,9 +92,12 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
         db.refresh(new_user)
 
     else:
+        tname = (user.name or "").strip()
+        if not tname:
+            raise HTTPException(status_code=400, detail="请填写姓名")
         new_user = models.User(
-            phone=user.phone,
-            name=user.name,
+            phone=user.phone.strip(),
+            name=tname,
             role=user.role,
             password_hash=hashed_password,
         )

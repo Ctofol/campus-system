@@ -209,7 +209,7 @@ const fetchTasks = async () => {
     });
     
     if (res.items && res.items.length > 0) {
-      const ongoingStatuses = ['pending', 'in_progress', 'uncompleted']; 
+      const ongoingStatuses = ['pending', 'in_progress', 'uncompleted', 'not_started', 'failed'];
       teacherTasks.value = res.items
         .filter(task => ongoingStatuses.includes(task.status))
         .map(task => ({
@@ -296,6 +296,7 @@ const getTaskTypeClass = (task) => {
 
 const getTaskStatusClass = (task) => {
   if (task.urgent) return 'status-urgent';
+  if (task.status === 'not_started') return 'status-uncompleted';
   if (task.status === 'pending') return 'status-pending';
   if (task.status === 'in_progress') return 'status-progress';
   return 'status-uncompleted';
@@ -303,6 +304,7 @@ const getTaskStatusClass = (task) => {
 
 const getTaskStatusText = (task) => {
   if (task.urgent) return '紧急';
+  if (task.status === 'not_started') return '未开始';
   if (task.status === 'pending') return '待开始';
   if (task.status === 'in_progress') return '进行中';
   return '未完成';

@@ -6,6 +6,7 @@
         <text class="task-title">{{ task.title }}</text>
         <view class="status-tag" :class="task.status">{{ task.statusText }}</view>
       </view>
+      <text class="due-date" v-if="task.startDateText">开始时间：{{ task.startDateText }}</text>
       <text class="due-date">截止日期：{{ task.dueDate }}</text>
     </view>
 
@@ -67,10 +68,15 @@
       </view>
       
       <scroll-view scroll-y class="student-list">
-        <view class="student-item" v-for="student in filteredStudents" :key="student.id" @click="goToStudentDetail(student)">
+        <view class="student-item" v-for="student in filteredStudents" :key="student.id">
           <view class="student-info">
-            <image class="avatar" :src="student.avatar || '/static/avatar.png'" mode="aspectFill"></image>
-            <view class="info-col">
+            <image
+              class="avatar"
+              :src="student.avatar || '/static/avatar.png'"
+              mode="aspectFill"
+              @click.stop="openTaskRunDetail(student)"
+            ></image>
+            <view class="info-col" @click="goToStudentDetail(student)">
               <text class="name">{{ student.name }}</text>
               <text class="id">{{ student.studentId }}</text>
               <text v-if="student.metricValue && student.metricValue !== '-'" class="metric-val">成绩: {{ student.metricValue }}</text>
@@ -112,6 +118,7 @@ const task = ref({
   title: '',
   status: '',
   statusText: '',
+  startDateText: '',
   dueDate: '',
   requirements: [],
   completedCount: 0,
@@ -141,7 +148,16 @@ const remindStudent = (student) => {
 
 const goToStudentDetail = (student) => {
     uni.navigateTo({
-        url: `/pages/teacher/approve/student-detail?studentId=${student.id}&studentName=${student.name}`
+        url: `/pages/teacher/students/detail?id=${student.id}`
+    });
+};
+
+const openTaskRunDetail = (student) => {
+    if (!student.activityId) {
+        return uni.showToast({ title: '该生暂无任务跑步提交记录', icon: 'none' });
+    }
+    uni.navigateTo({
+        url: `/pages/teacher/tasks/run-detail?activityId=${student.activityId}`
     });
 };
 
@@ -197,6 +213,7 @@ const fetchTaskDetail = async () => {
             title: res.title,
             status: status,
             statusText: statusText,
+            startDateText: res.starts_at ? String(res.starts_at).replace('T', ' ').slice(0, 19) : '',
             dueDate: res.deadline ? res.deadline.replace('T', ' ') : '无限制',
             requirements: reqs,
             completedCount: res.completed_count,
@@ -209,13 +226,13 @@ const fetchTaskDetail = async () => {
         students.value = statusList.map(s => ({
             id: s.student_id,
             name: s.student_name,
-            studentId: `ID:${s.student_id}`, // Mock student ID if not available
+            studentId: s.student_no || '',
             status: s.status === 'completed' ? 'completed' : 'uncompleted',
             statusText: s.status === 'completed' ? '已完成' : '未完成',
             metricValue: s.metric_value,
-            avatar: '',
-            activityId: s.activity_id || null,  // 第三阶段新增
-            teacherScore: s.teacher_score || null  // 第三阶段新增
+            avatar: s.avatar_url || '',
+            activityId: s.activity_id || null,
+            teacherScore: s.teacher_score || null
         }));
 
     } catch (e) {

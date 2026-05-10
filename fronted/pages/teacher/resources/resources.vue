@@ -2,12 +2,15 @@
   <view class="resources-container">
     <!-- 导航栏 -->
     <view class="nav-bar">
+      <view :style="{ height: statusBarHeight + 'px' }"></view>
+      <view class="nav-bar-inner">
       <view class="nav-back" @click="goBack">
-        <text class="back-icon">←</text>
+        <text class="back-icon">‹</text>
       </view>
       <text class="nav-title">教学资源</text>
       <view class="nav-action" @click="createResource">
         <text class="action-icon">+</text>
+      </view>
       </view>
     </view>
 
@@ -104,6 +107,7 @@ const loading = ref(false);
 const userId = ref(0);
 const userRole = ref('');
 const brokenImages = ref(new Set());
+const statusBarHeight = ref(20);
 
 const filteredResources = computed(() => {
   if (activeCategory.value === 'all') {
@@ -220,6 +224,7 @@ const goBack = () => {
 };
 
 onShow(() => {
+  statusBarHeight.value = uni.getSystemInfoSync().statusBarHeight || 20;
   // 获取当前用户信息
   userRole.value = uni.getStorageSync('userRole') || '';
   const userInfo = uni.getStorageSync('userInfo');
@@ -250,23 +255,21 @@ uni.$on('courseCreated', () => {
 
 .nav-bar {
   background: #fff;
-  height: 88rpx;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 30rpx;
   position: sticky;
   top: 0;
   z-index: 100;
   box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.05);
 }
 
-.nav-back, .nav-action {
-  width: 60rpx;
-  height: 60rpx;
+.nav-bar-inner, .nav-back, .nav-action {
   display: flex;
   align-items: center;
-  justify-content: center;
+}
+
+.nav-bar-inner {
+  height: 88rpx;
+  justify-content: space-between;
+  padding: 0 30rpx;
 }
 
 .back-icon {

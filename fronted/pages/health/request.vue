@@ -2,8 +2,9 @@
   <view class="container">
     <!-- 自定义导航栏 -->
     <view class="nav-bar">
+      <view :style="{ height: statusBarHeight + 'px' }"></view>
       <view class="nav-back" @click="uni.navigateBack()">
-        <text class="nav-back-icon">←</text>
+        <text class="nav-back-icon">‹</text>
       </view>
       <text class="nav-title">健康报备</text>
       <view style="width: 60rpx;"></view>
@@ -134,10 +135,11 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { onLoad, onShow } from '@dcloudio/uni-app';
 import { request, BASE_URL } from '@/utils/request.js';
 
+const statusBarHeight = ref(20);
 const submitting = ref(false);
 const formData = ref({
   type: 'leave',
@@ -154,7 +156,9 @@ const loadHistory = async () => {
     // API now returns attachments as array directly
     history.value = res.map(item => ({
       ...item,
-      attachments: item.attachments || []
+      attachments: (item.attachments || []).map(url =>
+        url.startsWith('http') ? url : `${BASE_URL}${url}`
+      )
     }));
   } catch (e) {
     console.error(e);
@@ -308,6 +312,7 @@ const onEndDateChange = (e) => {
 };
 
 onShow(() => {
+  statusBarHeight.value = uni.getSystemInfoSync().statusBarHeight || 20;
   loadHistory();
 });
 </script>
@@ -320,11 +325,8 @@ onShow(() => {
 }
 
 .nav-bar {
-  height: 88rpx;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 30rpx;
+  flex-direction: column;
   background: #fff;
   position: sticky;
   top: 0;
@@ -333,7 +335,14 @@ onShow(() => {
   margin-bottom: 20rpx;
   margin-left: -30rpx;
   margin-right: -30rpx;
-  padding-top: 20rpx;
+}
+
+.nav-bar > view:last-child {
+  height: 88rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 30rpx;
 }
 
 .nav-back {

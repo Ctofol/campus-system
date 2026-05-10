@@ -83,6 +83,18 @@
       }
     },
     {
+      "path": "pages/student/task-runs/task-runs",
+      "style": {
+        "navigationBarTitleText": "任务跑步记录"
+      }
+    },
+    {
+      "path": "pages/teacher/tasks/run-detail",
+      "style": {
+        "navigationBarTitleText": "任务运动详情"
+      }
+    },
+    {
       "path": "pages/sport/free-practice",
       "style": {
         "navigationStyle": "custom",
@@ -260,6 +272,12 @@
       "path": "pages/mine/edit-profile/edit-profile",
       "style": {
         "navigationBarTitleText": "编辑资料"
+      }
+    },
+    {
+      "path": "pages/mine/history-tasks/history-tasks",
+      "style": {
+        "navigationBarTitleText": "历史任务"
       }
     },
     {

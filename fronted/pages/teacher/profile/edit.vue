@@ -2,12 +2,15 @@
   <view class="edit-profile-page">
     <!-- 导航栏 -->
     <view class="nav-bar">
+      <view :style="{ height: statusBarHeight + 'px' }"></view>
+      <view class="nav-bar-inner">
       <view class="nav-back" @click="goBack">
-        <text class="back-icon">←</text>
+        <text class="back-icon">‹</text>
       </view>
       <text class="nav-title">个人信息设置</text>
       <view class="nav-action" @click="saveProfile">
         <text class="action-text">保存</text>
+      </view>
       </view>
     </view>
 
@@ -72,6 +75,8 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { request } from '@/utils/request.js';
+
+const statusBarHeight = ref(20);
 
 const formData = ref({
   avatar: '👮‍♂️',
@@ -147,6 +152,7 @@ const goBack = () => {
 };
 
 onMounted(() => {
+  statusBarHeight.value = uni.getSystemInfoSync().statusBarHeight || 20;
   loadProfile();
 });
 </script>
@@ -159,15 +165,18 @@ onMounted(() => {
 
 .nav-bar {
   background: #fff;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.05);
+}
+
+.nav-bar-inner {
   height: 88rpx;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 30rpx;
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.05);
 }
 
 .nav-back {

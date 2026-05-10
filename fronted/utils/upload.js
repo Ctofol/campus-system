@@ -121,7 +121,7 @@ export function uploadFile(filePath, fileType = 'image', options = {}) {
         // 3. 执行上传
         const token = uni.getStorageSync('token');
         
-        uni.uploadFile({
+        const uploadOpts = {
           url: `${BASE_URL}/upload/file`,
           filePath: filePath,
           name: 'file', // 后端接收的字段名
@@ -196,7 +196,11 @@ export function uploadFile(filePath, fileType = 'image', options = {}) {
               error: err
             });
           }
-        });
+        };
+        if (fileType === 'video') {
+          uploadOpts.fileName = 'upload.mp4';
+        }
+        uni.uploadFile(uploadOpts);
       },
       fail: (err) => {
         console.error('Get file info fail:', err);

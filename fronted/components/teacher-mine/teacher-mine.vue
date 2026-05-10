@@ -10,7 +10,7 @@
 
     <view class="content-wrapper">
       <view class="user-card">
-      <view class="avatar">👮‍♂️</view>
+      <view class="avatar">👮</view>
       <view class="info">
         <text class="name">{{ userInfo.name || '教官' }}</text>
         <text class="role">公共体育教研部</text>
@@ -23,14 +23,14 @@
           <text class="menu-icon">👤</text>
           <text class="menu-text">个人信息设置</text>
         </view>
-        <text class="arrow">></text>
+        <text class="arrow"></text>
       </view>
       <view class="menu-item" @click="handleAccountSecurity">
         <view class="menu-left">
           <text class="menu-icon">🔒</text>
           <text class="menu-text">账号安全</text>
         </view>
-        <text class="arrow">></text>
+        <text class="arrow"></text>
       </view>
       <view class="menu-item" @click="handleNotifications">
         <view class="menu-left">
@@ -38,14 +38,14 @@
           <text class="menu-text">系统通知</text>
         </view>
         <view class="badge" v-if="notificationCount > 0">{{ notificationCount }}</view>
-        <text class="arrow">></text>
+        <text class="arrow"></text>
       </view>
       <view class="menu-item" @click="handleHelpFeedback">
         <view class="menu-left">
           <text class="menu-icon">💬</text>
           <text class="menu-text">帮助与反馈</text>
         </view>
-        <text class="arrow">></text>
+        <text class="arrow"></text>
       </view>
     </view>
     
@@ -130,7 +130,7 @@ const handleHelpFeedback = () => {
       } else if (res.tapIndex === 2) {
         uni.showModal({
           title: '联系管理员',
-          content: '管理员联系方式：\n\n电话：138-0013-8000\n邮箱：admin@campus.edu.cn\n办公室：体育馆201',
+          content: '管理员联系方式：\n\n电话：138-0013-8000\n邮箱：admin@campus.edu.cn\n办公室：体育楼101',
           confirmText: '我知道了'
         });
       }
@@ -289,6 +289,12 @@ const handleLogout = () => {
 .arrow {
   color: #ccc;
   font-size: 28rpx;
+  width: 20rpx;
+  height: 20rpx;
+  border-top: 3rpx solid #ccc;
+  border-right: 3rpx solid #ccc;
+  transform: rotate(45deg);
+  display: inline-block;
 }
 
 .logout-btn {

@@ -118,11 +118,13 @@ class Activity(Base):
     status = Column(String, default="finished")  # 'finished' | 'approved'
     started_at = Column(DateTime, nullable=False)
     ended_at = Column(DateTime, nullable=False)
-    is_valid = Column(Boolean, default=False)  # 阳光跑是否达标
+    is_valid = Column(Boolean, default=False)  # 自由跑：阳光跑达标；任务跑：是否满足任务要求
     fail_reason = Column(String, nullable=True)  # 不达标原因
     face_verified = Column(Boolean, default=False)  # 人脸验证结果
+    task_id = Column(Integer, ForeignKey("tasks.id"), nullable=True)  # 任务跑步关联
 
     user = relationship("User")
+    task = relationship("Task", back_populates="activities", foreign_keys=[task_id])
     metrics = relationship("ActivityMetrics", back_populates="activity", uselist=False)
     evidence = relationship("ActivityEvidence", back_populates="activity")
     review = relationship("ActivityReview", back_populates="activity", uselist=False)
@@ -185,6 +187,7 @@ class Task(Base):
     min_duration = Column(Integer, nullable=True)
     min_count = Column(Integer, nullable=True)
     deadline = Column(DateTime, nullable=True)
+    starts_at = Column(DateTime, nullable=True)  # 任务生效开始时间，空表示发布后即可参与
     description = Column(String, nullable=True)
     target_group = Column(String, default="all") # 'all', 'group_a', etc.
     class_id = Column(Integer, ForeignKey("classes.id"), nullable=True)
@@ -194,6 +197,7 @@ class Task(Base):
 
     creator = relationship("User")
     target_class = relationship("Class")
+    activities = relationship("Activity", back_populates="task", foreign_keys="Activity.task_id")
 
 class ActivityReview(Base):
     __tablename__ = "activity_review"

@@ -46,6 +46,16 @@
       </view>
       
       <view class="form-item">
+        <text class="label">开始日期</text>
+        <picker mode="date" @change="onStartDateChange">
+          <view class="picker-box">
+            <text>{{ form.startDate || '选填，默认发布后即可开始' }}</text>
+            <text class="arrow">→</text>
+          </view>
+        </picker>
+      </view>
+
+      <view class="form-item">
         <text class="label">截止日期</text>
         <picker mode="date" @change="onDateChange">
           <view class="picker-box">
@@ -92,6 +102,7 @@ const form = ref({
   type: '',
   typeLabel: '',
   distance: '',
+  startDate: '',
   deadline: '',
   target: 'all',
   targetLabel: '全员',
@@ -126,6 +137,10 @@ const onTypeChange = (e) => {
     form.value.videoUrl = '';
     form.value.videoFile = null;
   }
+};
+
+const onStartDateChange = (e) => {
+  form.value.startDate = e.detail.value;
 };
 
 const onDateChange = (e) => {
@@ -217,6 +232,10 @@ const submitTask = async () => {
   if (!form.value.title || !form.value.type || !form.value.deadline) {
     return uni.showToast({ title: '请完善任务信息', icon: 'none' });
   }
+
+  if (form.value.startDate && form.value.deadline && form.value.startDate > form.value.deadline) {
+    return uni.showToast({ title: '开始日期不能晚于截止日期', icon: 'none' });
+  }
   
   // 体测任务必须上传视频
   if (form.value.type === 'test' && !form.value.videoUrl) {
@@ -232,6 +251,7 @@ const submitTask = async () => {
       min_distance: form.value.type === 'run' ? Number(form.value.distance) : 0,
       min_duration: 0,
       min_count: 0,
+      starts_at: form.value.startDate ? new Date(form.value.startDate).toISOString() : null,
       deadline: new Date(form.value.deadline).toISOString(),
       description: form.value.description,
       target_group: form.value.target === 'all' ? 'all' : null,

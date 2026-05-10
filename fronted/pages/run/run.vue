@@ -9,11 +9,17 @@
 
 <script setup>
 import { ref } from 'vue';
-import { onShow } from '@dcloudio/uni-app';
+import { onShow, onLoad } from '@dcloudio/uni-app';
 import StudentRun from '@/components/student-run/student-run.vue';
 
 const role = ref('student');
 const studentRunRef = ref(null);
+/** 由 onLoad 传入，再交给跑步组件（任务跑带 taskId / mode 等） */
+const runLaunchOptions = ref({});
+
+onLoad((options) => {
+  runLaunchOptions.value = options || {};
+});
 
 onShow(() => {
   const userRole = uni.getStorageSync('userRole') || uni.getStorageSync('role');
@@ -21,7 +27,9 @@ onShow(() => {
 
   if (role.value === 'student') {
      setTimeout(() => {
-       if (studentRunRef.value) studentRunRef.value.onPageShow();
+       if (studentRunRef.value) {
+         studentRunRef.value.onPageShow(runLaunchOptions.value || {});
+       }
      }, 50);
   }
 });

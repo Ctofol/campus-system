@@ -140,9 +140,13 @@
             "minified" : true
         },
         "usingComponents" : true,
+        "requiredBackgroundModes" : [ "location" ],
         "permission" : {
             "scope.userLocation" : {
-                "desc" : "您的位置信息用于通过GPS记录跑步轨迹、测量运动距离以及判断是否进入校园打卡点范围"
+                "desc" : "用于记录跑步轨迹及校园打卡时的位置判定"
+            },
+            "scope.userLocationBackground" : {
+                "desc" : "跑步时在息屏或离开小程序期间持续获取位置，用于统计里程与运动轨迹"
             }
         },
         "requiredPrivateInfos" : [
@@ -150,6 +154,7 @@
             "onLocationChange",
             "startLocationUpdate",
             "startLocationUpdateBackground",
+            "userLocationBackground",
             "chooseLocation"
         ]
     },

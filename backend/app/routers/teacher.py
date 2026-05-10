@@ -1,13 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, Body
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, desc
 from typing import List
 import io
 import csv
 from datetime import datetime, timedelta
 from .. import models, schemas, auth
 from ..services.teacher_service import get_teacher_stats_data, get_managed_students_query
+from ..services.score_service import calculate_total_score, sunshine_run_filter
 from ..database import get_db
 
 router = APIRouter(prefix="/teacher", tags=["teacher"])
@@ -102,11 +103,16 @@ async def get_weekly_trend(
         day_start = datetime(date.year, date.month, date.day)
         day_end = day_start + timedelta(days=1)
         
-        count = db.query(models.Activity).filter(
-            models.Activity.started_at >= day_start,
-            models.Activity.started_at < day_end,
-            models.Activity.user_id.in_(managed_student_ids)
-        ).count()
+        count = (
+            db.query(models.Activity)
+            .filter(
+                models.Activity.started_at >= day_start,
+                models.Activity.started_at < day_end,
+                models.Activity.user_id.in_(managed_student_ids),
+            )
+            .filter(sunshine_run_filter())
+            .count()
+        )
         
         # Calculate percentage (max 100)
         percentage = min(int(count / (len(managed_student_ids) * 0.5 + 1) * 100), 100) if count > 0 else 0
@@ -193,11 +199,16 @@ async def get_weekly_sunshine_trend(
         
         count = 0
         if managed_student_ids:
-            count = db.query(models.Activity).filter(
-                models.Activity.started_at >= day_start,
-                models.Activity.started_at < day_end,
-                models.Activity.user_id.in_(managed_student_ids)
-            ).count()
+            count = (
+                db.query(models.Activity)
+                .filter(
+                    models.Activity.started_at >= day_start,
+                    models.Activity.started_at < day_end,
+                    models.Activity.user_id.in_(managed_student_ids),
+                )
+                .filter(sunshine_run_filter())
+                .count()
+            )
             
         res.append({
             "day": days_map[date.weekday()],
@@ -234,23 +245,31 @@ async def get_class_analysis(
     
     student_count = len(students)
     
+    cls_row = db.query(models.Class).filter(models.Class.id == class_id).first()
+    class_name_display = (
+        f"{cls_row.major.name if cls_row and cls_row.major else ''} {cls_row.name if cls_row else ''}".strip()
+        or f"Class_{class_id}"
+    )
+
     if student_count == 0:
         return {
             "class_id": class_id,
-            "class_name": f"{cls.major.name if cls.major else ''} {cls.name}".strip(),
+            "class_name": class_name_display,
             "student_count": 0,
             "avg_distance": 0.0,
             "avg_duration": 0,
             "completion_rate": 0.0
         }
     
-    # Calculate averages from activities
+    # Calculate averages from activities（仅阳光跑跑步记录）
     student_ids = [s.id for s in students]
     
-    # Get all activities for these students
-    activities = db.query(models.Activity).filter(
-        models.Activity.user_id.in_(student_ids)
-    ).all()
+    activities = (
+        db.query(models.Activity)
+        .filter(models.Activity.user_id.in_(student_ids))
+        .filter(sunshine_run_filter())
+        .all()
+    )
     
     total_distance = 0.0
     total_duration = 0
@@ -273,12 +292,127 @@ async def get_class_analysis(
     
     return {
         "class_id": class_id,
-        "class_name": f"{cls.major.name if cls.major else ''} {cls.name}".strip(),
+        "class_name": class_name_display,
         "student_count": student_count,
         "avg_distance": round(avg_distance, 2),
         "avg_duration": avg_duration,
         "completion_rate": round(completion_rate, 2)
     }
+
+
+@router.get("/class-member-details")
+async def get_class_member_sunshine_details(
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db),
+):
+    """
+    班级阳光跑积分排行（教师端 class-rank 页）。
+    口径与学生端 /student/sunshine-stats 一致。
+    """
+    student_query = await get_managed_students_query(current_user, db)
+    students = student_query.all()
+    week_start = datetime.utcnow() - timedelta(days=7)
+
+    items = []
+    for s in students:
+        valid_total = (
+            db.query(func.count(models.Activity.id))
+            .filter(
+                models.Activity.user_id == s.id,
+                models.Activity.is_valid.is_(True),
+            )
+            .filter(sunshine_run_filter())
+            .scalar()
+            or 0
+        )
+        weekly_valid = (
+            db.query(func.count(models.Activity.id))
+            .filter(
+                models.Activity.user_id == s.id,
+                models.Activity.is_valid.is_(True),
+                models.Activity.started_at >= week_start,
+            )
+            .filter(sunshine_run_filter())
+            .scalar()
+            or 0
+        )
+        items.append(
+            {
+                "user_id": s.id,
+                "student_id": s.student_id,
+                "name": s.name,
+                "class_name": s.class_name,
+                "weekly_count": weekly_valid,
+                "total_score": calculate_total_score(int(valid_total)),
+            }
+        )
+
+    items.sort(key=lambda x: x["total_score"], reverse=True)
+    return {"items": items}
+
+
+@router.get("/student/{student_id}/activities")
+async def list_student_activities_for_teacher(
+    student_id: int,
+    page: int = 1,
+    size: int = 50,
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db),
+):
+    """学员跑步/体测记录（含任务跑与阳光跑），供教师学员详情页使用。"""
+    student_query = await get_managed_students_query(current_user, db)
+    stu = student_query.filter(models.User.id == student_id).first()
+    if not stu:
+        raise HTTPException(status_code=404, detail="学员不存在或无权限")
+
+    q = db.query(models.Activity).filter(models.Activity.user_id == student_id)
+    total = q.count()
+    rows = (
+        q.order_by(desc(models.Activity.started_at))
+        .offset((page - 1) * size)
+        .limit(size)
+        .all()
+    )
+
+    def metrics_dict(m):
+        if not m:
+            return None
+        return {
+            "id": m.id,
+            "distance": m.distance,
+            "duration": m.duration,
+            "pace": m.pace,
+            "trajectory": m.trajectory,
+            "count": m.count,
+            "qualified": m.qualified,
+            "step_count": m.step_count,
+            "video_url": m.video_url,
+            "score": m.score,
+            "teacher_score": m.teacher_score,
+        }
+
+    items = []
+    for a in rows:
+        m = a.metrics
+        items.append(
+            {
+                "id": a.id,
+                "user_id": a.user_id,
+                "type": a.type,
+                "source": a.source,
+                "status": a.status,
+                "task_id": a.task_id,
+                "started_at": a.started_at,
+                "ended_at": a.ended_at,
+                "is_valid": a.is_valid,
+                "fail_reason": a.fail_reason,
+                "metrics": metrics_dict(m),
+                "student_name": stu.name,
+            }
+        )
+
+    return {"items": items, "total": total, "page": page, "size": size}
+
 
 @router.get("/students", response_model=List[schemas.StudentDetail])
 async def get_teacher_students(
@@ -333,18 +467,18 @@ async def get_invalid_activities(
     if not managed_student_ids:
         return []
 
-    # 查询异常活动（使用统一的学生ID列表 + type过滤）
+    # 查询异常活动：仅阳光跑（含旧库 source 为空），不含任务跑
     activities = (
         db.query(models.Activity)
         .join(models.User, models.Activity.user_id == models.User.id)
         .outerjoin(models.ActivityMetrics, models.Activity.id == models.ActivityMetrics.activity_id)
         .filter(
-            models.Activity.type == "run",
             models.Activity.is_valid.is_(False),
             models.Activity.fail_reason.isnot(None),
             models.Activity.fail_reason != "",
             models.Activity.user_id.in_(managed_student_ids),
         )
+        .filter(sunshine_run_filter())
         .order_by(models.Activity.started_at.desc())
         .all()
     )
@@ -464,9 +598,9 @@ async def export_running_grades(
             db.query(func.count(models.Activity.id))
             .filter(
                 models.Activity.user_id == student.id,
-                models.Activity.type == "run",
                 models.Activity.is_valid.is_(True),
             )
+            .filter(sunshine_run_filter())
             .scalar()
         )
         score = calculate_total_score(valid_count or 0)
@@ -479,6 +613,57 @@ async def export_running_grades(
         "Content-Type": "text/csv; charset=utf-8",
     }
     return StreamingResponse(output, headers=headers)
+
+
+@router.post("/tasks", response_model=schemas.TaskOut)
+async def create_teacher_task(
+    task_in: schemas.TaskCreate,
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db),
+):
+    """教师发布任务（与学生端「我的任务」、任务跑步关联）"""
+    if task_in.starts_at and task_in.deadline and task_in.starts_at > task_in.deadline:
+        raise HTTPException(status_code=400, detail="任务开始时间不能晚于截止时间")
+    t = models.Task(
+        title=task_in.title,
+        type=task_in.type,
+        min_distance=task_in.min_distance,
+        min_duration=task_in.min_duration,
+        min_count=task_in.min_count,
+        starts_at=task_in.starts_at,
+        deadline=task_in.deadline,
+        description=task_in.description,
+        target_group=task_in.target_group or "all",
+        class_id=task_in.class_id,
+        video_url=task_in.video_url,
+        created_by=current_user.id,
+    )
+    db.add(t)
+    db.commit()
+    db.refresh(t)
+    return t
+
+
+@router.delete("/tasks/{task_id}")
+async def delete_teacher_task(
+    task_id: int,
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db),
+):
+    task = (
+        db.query(models.Task)
+        .filter(models.Task.id == task_id, models.Task.created_by == current_user.id)
+        .first()
+    )
+    if not task:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    sub = db.query(models.Activity).filter(models.Activity.task_id == task_id).count()
+    if sub > 0:
+        raise HTTPException(status_code=400, detail="已有学生任务运动记录，无法删除")
+    db.delete(task)
+    db.commit()
+    return {"success": True}
+
 
 @router.get("/tasks")
 async def get_teacher_tasks(
@@ -507,17 +692,25 @@ async def get_teacher_tasks(
     for task in tasks:
         completed_count = 0
         if managed_student_ids:
-            completed_count = db.query(models.Activity.user_id).filter(
-                models.Activity.user_id.in_(managed_student_ids),
-                models.Activity.is_valid.is_(True),
-                models.Activity.started_at >= (task.created_at or (now - timedelta(days=7)))
-            ).distinct().count()
+            completed_count = (
+                db.query(func.count(func.distinct(models.Activity.user_id)))
+                .filter(
+                    models.Activity.task_id == task.id,
+                    models.Activity.source == "task",
+                    models.Activity.type == task.type,
+                    models.Activity.is_valid.is_(True),
+                    models.Activity.user_id.in_(managed_student_ids),
+                )
+                .scalar()
+                or 0
+            )
 
         result.append({
             "id": task.id,
             "title": task.title,
             "type": task.type,
             "description": task.description,
+            "starts_at": task.starts_at,
             "deadline": task.deadline,
             "total_students": managed_student_count,
             "completed_count": completed_count,
@@ -529,76 +722,150 @@ async def get_teacher_tasks(
 async def get_task_detail(
     task_id: int,
     current_user: models.User = Depends(auth.get_current_teacher),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-    """获取任务详情及学生列表 (统一管理逻辑)"""
-    task = db.query(models.Task).filter(
-        models.Task.id == task_id,
-        models.Task.created_by == current_user.id
-    ).first()
+    """任务详情：仅统计「任务跑步/任务体测」提交记录（与阳光跑区分）"""
+    task = (
+        db.query(models.Task)
+        .filter(models.Task.id == task_id, models.Task.created_by == current_user.id)
+        .first()
+    )
     if not task:
         raise HTTPException(status_code=404, detail="任务不存在")
-        
+
     student_query = await get_managed_students_query(current_user, db)
+    if task.class_id is not None:
+        student_query = student_query.filter(models.User.class_id == task.class_id)
     students = student_query.all()
-    
-    student_list = []
-    now = datetime.utcnow()
-    for s in students:
-        done = db.query(models.Activity).filter(
-            models.Activity.user_id == s.id,
-            models.Activity.is_valid.is_(True),
-            models.Activity.started_at >= (task.created_at or (now - timedelta(days=7)))
-        ).first() is not None
-        
-        student_list.append({
-            "id": s.id,
-            "name": s.name,
-            "is_completed": done,
-            "student_id": s.student_id,
-            "class_name": s.class_name
-        })
-    
-    student_list = []
-    for s in students:
-        # 检测是否完成
-        done = db.query(models.Activity).filter(
-            models.Activity.user_id == s.id,
-            models.Activity.is_valid.is_(True),
-            models.Activity.started_at >= (task.created_at or (datetime.utcnow() - timedelta(days=7)))
-        ).first() is not None
-        
-        student_list.append({
-            "id": s.id,
-            "name": s.name,
-            "is_completed": done,
-            "student_id": s.student_id,
-            "class_name": s.class_name
-        })
-        
-    total_count = len(student_list)
-    completed_count = sum(1 for s in student_list if s["is_completed"])
-    
-    # Map to frontend expected format
+
     student_statuses = []
-    for s in student_list:
-        student_statuses.append({
-            "student_id": s["id"],
-            "student_name": s["name"],
-            "status": "completed" if s["is_completed"] else "uncompleted",
-            "activity_id": s.get("activity_id"),
-            "teacher_score": s.get("teacher_score")
-        })
+    for s in students:
+        act = (
+            db.query(models.Activity)
+            .filter(
+                models.Activity.user_id == s.id,
+                models.Activity.task_id == task.id,
+                models.Activity.source == "task",
+                models.Activity.type == task.type,
+            )
+            .order_by(models.Activity.started_at.desc())
+            .first()
+        )
+        done = act is not None and act.is_valid
+        metric_value = "-"
+        teacher_score = None
+        activity_id = None
+        if act:
+            activity_id = act.id
+            if act.metrics:
+                if task.type == "run":
+                    metric_value = f"{act.metrics.distance or 0:.2f}km · {act.metrics.duration or 0}秒"
+                else:
+                    metric_value = f"{act.metrics.count or 0}次"
+                if act.metrics.teacher_score is not None:
+                    teacher_score = act.metrics.teacher_score
+
+        student_statuses.append(
+            {
+                "student_id": s.id,
+                "student_no": s.student_id,
+                "student_name": s.name,
+                "status": "completed" if done else "uncompleted",
+                "activity_id": activity_id,
+                "teacher_score": teacher_score,
+                "metric_value": metric_value,
+                "avatar_url": getattr(s, "avatar_url", None) or "",
+            }
+        )
+
+    total_count = len(student_statuses)
+    completed_count = sum(1 for x in student_statuses if x["status"] == "completed")
 
     return {
         "id": task.id,
         "title": task.title,
         "type": task.type,
         "description": task.description,
+        "starts_at": task.starts_at,
         "deadline": task.deadline,
+        "min_distance": task.min_distance,
+        "min_duration": task.min_duration,
+        "min_count": task.min_count,
+        "video_url": task.video_url,
         "total_students": total_count,
         "completed_count": completed_count,
-        "student_statuses": student_statuses
+        "student_statuses": student_statuses,
+    }
+
+
+@router.get("/task-runs/{activity_id}")
+async def get_teacher_task_run_detail(
+    activity_id: int,
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db),
+):
+    """教师查看某条任务运动记录（地图轨迹 + 指标），与阳光跑无关"""
+    student_query = await get_managed_students_query(current_user, db)
+    managed_ids = [u.id for u in student_query.with_entities(models.User.id).all()]
+
+    act = (
+        db.query(models.Activity)
+        .filter(
+            models.Activity.id == activity_id,
+            models.Activity.source == "task",
+            models.Activity.task_id.isnot(None),
+        )
+        .first()
+    )
+    if not act or act.user_id not in managed_ids:
+        raise HTTPException(status_code=404, detail="记录不存在或无权限")
+
+    stu = db.query(models.User).filter(models.User.id == act.user_id).first()
+    t = db.query(models.Task).filter(models.Task.id == act.task_id).first()
+    metrics = db.query(models.ActivityMetrics).filter(models.ActivityMetrics.activity_id == act.id).first()
+
+    metrics_out = None
+    if metrics:
+        metrics_out = {
+            "id": metrics.id,
+            "activity_id": metrics.activity_id,
+            "distance": metrics.distance,
+            "duration": metrics.duration,
+            "pace": metrics.pace,
+            "trajectory": metrics.trajectory,
+            "checkpoints": metrics.checkpoints,
+            "count": metrics.count,
+            "step_count": metrics.step_count,
+            "qualified": metrics.qualified,
+            "video_url": metrics.video_url,
+            "score": metrics.score,
+            "score_detail": metrics.score_detail,
+            "teacher_score": metrics.teacher_score,
+            "teacher_comment": metrics.teacher_comment,
+            "scored_at": metrics.scored_at,
+            "scored_by": metrics.scored_by,
+        }
+
+    return {
+        "activity": {
+            "id": act.id,
+            "type": act.type,
+            "source": act.source,
+            "task_id": act.task_id,
+            "task_title": t.title if t else "",
+            "started_at": act.started_at,
+            "ended_at": act.ended_at,
+            "is_valid": act.is_valid,
+            "fail_reason": act.fail_reason,
+            "status": act.status,
+        },
+        "student": {
+            "id": stu.id if stu else act.user_id,
+            "name": stu.name if stu else "",
+            "student_no": stu.student_id if stu else None,
+            "avatar_url": getattr(stu, "avatar_url", None) if stu else None,
+        },
+        "metrics": metrics_out,
     }
 
 @router.put("/health/requests/{req_id}/review")
@@ -867,11 +1134,18 @@ async def get_abnormal_activities_v2(
     if not managed_student_ids:
         return []
 
-    activities = db.query(models.Activity).filter(
-        models.Activity.is_valid == False,
-        models.Activity.fail_reason != None,
-        models.Activity.user_id.in_(managed_student_ids)
-    ).order_by(models.Activity.started_at.desc()).limit(50).all()
+    activities = (
+        db.query(models.Activity)
+        .filter(
+            models.Activity.is_valid == False,
+            models.Activity.fail_reason != None,
+            models.Activity.user_id.in_(managed_student_ids),
+        )
+        .filter(sunshine_run_filter())
+        .order_by(models.Activity.started_at.desc())
+        .limit(50)
+        .all()
+    )
     
     return [
         {

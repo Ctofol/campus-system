@@ -21,7 +21,8 @@ def upgrade_database():
             "activities": [
                 ("is_valid", "BOOLEAN DEFAULT FALSE"),
                 ("fail_reason", "VARCHAR"),
-                ("face_verified", "BOOLEAN DEFAULT FALSE")
+                ("face_verified", "BOOLEAN DEFAULT FALSE"),
+                ("task_id", "INTEGER"),
             ],
             "activity_metrics": [
                 ("teacher_score", "FLOAT"),
@@ -43,7 +44,8 @@ def upgrade_database():
             "tasks": [
                 ("video_url", "VARCHAR"),
                 ("target_group", "VARCHAR DEFAULT 'all'"),
-                ("class_id", "INTEGER")
+                ("class_id", "INTEGER"),
+                ("starts_at", "DATETIME"),
             ],
             "health_requests": [
                 ("attachments", "VARCHAR"),
@@ -59,15 +61,15 @@ def upgrade_database():
                 try:
                     conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {col_name} {col_type}"))
                     conn.commit()
-                    print(f"  ✅ [成功] 添加字段: {table_name}.{col_name}")
+                    print(f"  [ok] added {table_name}.{col_name}")
                 except Exception as e:
                     err_msg = str(e).lower()
                     if 'duplicate' in err_msg or 'already exists' in err_msg or 'no such table' in err_msg:
-                        print(f"  ☑️ [跳过] 字段 {table_name}.{col_name} 已存在。")
+                        print(f"  [skip] {table_name}.{col_name} already exists")
                     else:
-                        print(f"  ❌ [报错] 尝试添加 {table_name}.{col_name} 失败: {e}")
+                        print(f"  [err] {table_name}.{col_name}: {e}")
             
-    print("\n🎉 全量数据库热升级完成！所有缺失列和新表均已补充就绪。")
+    print("\n[done] database schema check finished.")
 
 if __name__ == "__main__":
     upgrade_database()

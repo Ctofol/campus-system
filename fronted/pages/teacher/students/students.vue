@@ -1,10 +1,12 @@
 <template>
   <view class="students-page">
     <view class="header">
+      <!-- 状态栏占位 -->
+      <view :style="{ height: statusBarHeight + 'px' }"></view>
       <!-- 1. 顶部标题栏 -->
       <view class="nav-row">
         <view class="nav-back" @click="handleBack">
-          <text class="nav-back-icon"><</text>
+          <text class="nav-back-icon">‹</text>
           <text class="nav-back-text">返回</text>
         </view>
         <text class="page-title">学员管理</text>
@@ -221,6 +223,7 @@ import { ref, computed, onMounted } from 'vue';
 import { onShow, onReachBottom, onLoad } from '@dcloudio/uni-app';
 import { request, BASE_URL } from '@/utils/request';
 
+const statusBarHeight = ref(20);
 const isBatchMode = ref(false);
 const selectedIds = ref([]);
 const sharedReports = ref([]);
@@ -376,6 +379,8 @@ onLoad((options) => {
 });
 
 onShow(() => {
+  const info = uni.getSystemInfoSync();
+  statusBarHeight.value = info.statusBarHeight || 20;
   const role = uni.getStorageSync('userRole') || uni.getStorageSync('role');
   if (role !== 'teacher') {
     uni.showToast({ title: '请使用教师账号登录', icon: 'none' });

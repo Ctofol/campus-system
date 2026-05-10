@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, or_
 from datetime import datetime, timedelta
 from .. import models, config
+from .score_service import sunshine_run_filter
 
 async def get_managed_students_query(current_user: models.User, db: Session):
     """获取教师管辖的学生查询对象（统一逻辑：支持选科、班级管理、直接关联）"""
@@ -64,25 +65,34 @@ async def get_teacher_stats_data(current_user: models.User, db: Session):
         models.HealthRequest.student_id.in_(managed_student_ids)
     ).count()
     
-    # 待审批记录 (Activity Exceptions) - 仅统计阳光跑类型
-    pending_activities = db.query(models.Activity).filter(
-        models.Activity.type == "run",
-        models.Activity.is_valid.is_(False),
-        models.Activity.fail_reason.isnot(None),
-        models.Activity.fail_reason != "",
-        models.Activity.user_id.in_(managed_student_ids)
-    ).count()
+    # 待审批记录：仅阳光跑（自由跑/旧库 source 空）异常，不含任务跑
+    pending_activities = (
+        db.query(models.Activity)
+        .filter(
+            models.Activity.is_valid.is_(False),
+            models.Activity.fail_reason.isnot(None),
+            models.Activity.fail_reason != "",
+            models.Activity.user_id.in_(managed_student_ids),
+        )
+        .filter(sunshine_run_filter())
+        .count()
+    )
     
     # 身体状态异常人数
     abnormal_count = student_query.filter(models.User.health_status != "normal").count()
     
-    # 今日打卡人数
+    # 今日阳光跑人次（不含任务跑）
     today = datetime.utcnow().date()
     today_start = datetime(today.year, today.month, today.day)
-    today_checkin = db.query(models.Activity).filter(
-        models.Activity.started_at >= today_start,
-        models.Activity.user_id.in_(managed_student_ids)
-    ).count()
+    today_checkin = (
+        db.query(models.Activity)
+        .filter(
+            models.Activity.started_at >= today_start,
+            models.Activity.user_id.in_(managed_student_ids),
+        )
+        .filter(sunshine_run_filter())
+        .count()
+    )
     
     # 进行中任务数
     now = datetime.utcnow()
@@ -93,13 +103,16 @@ async def get_teacher_stats_data(current_user: models.User, db: Session):
     
     # 平均配速 (近7天)
     week_ago = datetime.utcnow() - timedelta(days=7)
-    activities = db.query(models.ActivityMetrics).join(
-        models.Activity
-    ).filter(
-        models.Activity.type == "run",
-        models.Activity.user_id.in_(managed_student_ids),
-        models.Activity.started_at >= week_ago
-    ).all()
+    activities = (
+        db.query(models.ActivityMetrics)
+        .join(models.Activity)
+        .filter(
+            models.Activity.user_id.in_(managed_student_ids),
+            models.Activity.started_at >= week_ago,
+        )
+        .filter(sunshine_run_filter())
+        .all()
+    )
     
     avg_pace = "--"
     if activities:

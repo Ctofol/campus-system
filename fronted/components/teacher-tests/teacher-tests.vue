@@ -5,7 +5,7 @@
       <view class="nav-status-bar" :style="{ height: statusBarHeight + 'px' }"></view>
       <view class="nav-content">
         <view class="nav-back" @click="handleBack">
-          <text class="nav-back-icon"><</text>
+          <text class="nav-back-icon">‹</text>
           <text class="nav-back-text">返回</text>
         </view>
         <text class="nav-title">测试监控</text>

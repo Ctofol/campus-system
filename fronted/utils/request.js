@@ -1,5 +1,5 @@
-// 统一入口：小程序 API 和 H5 都使用同一个域名
-const FALLBACK_BASE_URL = 'https://campus.gzyichenai.com';
+// 统一入口：生产须与 nginx `location /api/` 一致，否则 /auth 等会落到 H5 静态而 404
+const FALLBACK_BASE_URL = 'https://campus.gzyichenai.com/api';
 let baseUrl = FALLBACK_BASE_URL;
 
 // 优先读取环境变量 (HBuilderX/Vite 构建期注入)
@@ -11,6 +11,16 @@ try {
 }
 
 export const BASE_URL = baseUrl;
+
+/** 静态资源（/uploads 等）在站点根路径，不在 /api 下；勿用 BASE_URL 直接拼接 */
+export function resolveMediaUrl(pathOrUrl) {
+  if (pathOrUrl == null || pathOrUrl === '') return '';
+  const u = String(pathOrUrl).trim();
+  if (/^https?:\/\//i.test(u) || u.startsWith('wxfile:') || u.startsWith('blob:')) return u;
+  const origin = BASE_URL.replace(/\/api\/?$/i, '');
+  const path = u.startsWith('/') ? u : `/${u}`;
+  return `${origin}${path}`;
+}
 
 // 请求封装
 export const request = (...args) => {
@@ -40,6 +50,7 @@ export const request = (...args) => {
       method: options.method || 'GET',
       data: options.data || {},
       header: header,
+      timeout: typeof options.timeout === 'number' ? options.timeout : 60000,
       success: (res) => {
         if (res.statusCode >= 200 && res.statusCode < 300) {
           resolve(res.data);
@@ -183,6 +194,34 @@ export const getStudentTasks = (params) => {
   });
 };
 
+export const getStudentTaskDetail = (taskId) => {
+  return request({
+    url: `/student/tasks/${taskId}`,
+    method: 'GET'
+  });
+};
+
+export const getStudentTaskRunHistory = (params) => {
+  let queryString = '';
+  if (params) {
+    const queryParts = [];
+    if (params.page) queryParts.push(`page=${params.page}`);
+    if (params.size) queryParts.push(`size=${params.size}`);
+    if (queryParts.length > 0) queryString = `?${queryParts.join('&')}`;
+  }
+  return request({
+    url: `/student/task-runs/history${queryString}`,
+    method: 'GET'
+  });
+};
+
+export const getTeacherTaskRunDetail = (activityId) => {
+  return request({
+    url: `/teacher/task-runs/${activityId}`,
+    method: 'GET'
+  });
+};
+
 export const getTeacherStudentActivities = (studentId, params) => {
   return request({
     url: `/teacher/student/${studentId}/activities`,
@@ -200,7 +239,7 @@ export const getTeacherTaskDetail = (taskId) => {
 
 export const getCheckpoints = () => {
   return request({
-    url: '/checkpoints',
+    url: '/common/checkpoints',
     method: 'GET'
   });
 };
@@ -217,8 +256,7 @@ export const checkIn = (data) => {
 export const uploadFile = (filePath, fileType = 'image') => {
   return new Promise((resolve, reject) => {
     const token = uni.getStorageSync('token');
-    
-    uni.uploadFile({
+    const opts = {
       url: `${BASE_URL}/upload/file`,
       filePath: filePath,
       name: 'file',
@@ -270,7 +308,12 @@ export const uploadFile = (filePath, fileType = 'image') => {
         });
         reject(err);
       }
-    });
+    };
+    // 微信小程序 multipart 常无 .mp4 后缀，需显式 fileName（基础库 2.10.0+）
+    if (fileType === 'video') {
+      opts.fileName = 'upload.mp4';
+    }
+    uni.uploadFile(opts);
   });
 };
 

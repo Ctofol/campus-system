@@ -1,7 +1,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query
 from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 from typing import List, Optional
 import pandas as pd
@@ -185,6 +185,76 @@ def reset_password(
     db_user.password_hash = auth.get_password_hash("123456")
     db.commit()
     return {"message": "Password reset to 123456"}
+
+
+def _admin_activity_record_kind(act: models.Activity) -> str:
+    if act.type == "test":
+        return "体测"
+    if act.task_id:
+        return "任务跑步"
+    if act.type == "run" and (act.source == "free" or act.source is None):
+        return "阳光跑"
+    return "跑步"
+
+
+@router.get("/users/{user_id}/activities", response_model=schemas.AdminStudentActivitiesPage)
+def admin_student_activities(
+    user_id: int,
+    page: int = 1,
+    size: int = 20,
+    activity_type: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_admin),
+):
+    """管理端：按学生查看运动记录（阳光跑 / 任务跑 / 体测）"""
+    stu = (
+        db.query(models.User)
+        .filter(models.User.id == user_id, models.User.role == "student")
+        .first()
+    )
+    if not stu:
+        raise HTTPException(status_code=404, detail="学生不存在")
+
+    q = (
+        db.query(models.Activity)
+        .options(joinedload(models.Activity.metrics), joinedload(models.Activity.task))
+        .filter(models.Activity.user_id == user_id)
+    )
+    if activity_type in ("run", "test"):
+        q = q.filter(models.Activity.type == activity_type)
+
+    total = q.count()
+    rows = (
+        q.order_by(models.Activity.started_at.desc())
+        .offset((page - 1) * size)
+        .limit(size)
+        .all()
+    )
+
+    items: List[schemas.AdminStudentActivityItem] = []
+    for act in rows:
+        m = act.metrics
+        items.append(
+            schemas.AdminStudentActivityItem(
+                id=act.id,
+                type=act.type,
+                record_kind=_admin_activity_record_kind(act),
+                source=act.source,
+                started_at=act.started_at,
+                ended_at=act.ended_at,
+                is_valid=bool(act.is_valid),
+                fail_reason=act.fail_reason,
+                distance_km=m.distance if m else None,
+                duration_sec=m.duration if m else None,
+                pace=str(m.pace) if m and m.pace is not None else None,
+                task_id=act.task_id,
+                task_title=act.task.title if act.task else None,
+            )
+        )
+    return schemas.AdminStudentActivitiesPage(
+        items=items, total=total, page=page, size=size
+    )
+
 
 # --- Dashboard ---
 

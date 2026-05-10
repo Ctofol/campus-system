@@ -88,7 +88,7 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { onShow, onReachBottom } from '@dcloudio/uni-app';
-import { request, BASE_URL } from '@/utils/request.js';
+import { request, resolveMediaUrl } from '@/utils/request.js';
 
 const categories = [
   { label: '全部', value: '' },
@@ -110,7 +110,7 @@ const getFullImageUrl = (url, id) => {
   if (!url) return '/static/activity-placeholder.png';
   if (brokenImages.value.has(id)) return '/static/activity-placeholder.png';
   if (url.startsWith('http') || url.startsWith('blob:') || url.startsWith('wxfile:')) return url;
-  return `${BASE_URL}${url}`;
+  return resolveMediaUrl(url);
 };
 
 const handleImageError = (id) => {

@@ -38,8 +38,15 @@
       <el-table-column prop="created_at" label="创建时间" width="180">
         <template #default="{row}">{{ row.created_at ? new Date(row.created_at).toLocaleDateString() : '-' }}</template>
       </el-table-column>
-      <el-table-column label="操作" width="260">
+      <el-table-column label="操作" width="360">
         <template #default="{row}">
+          <el-button
+            v-if="role==='student'"
+            size="small"
+            type="primary"
+            plain
+            @click="openSportDialog(row)"
+          >运动记录</el-button>
           <el-button size="small" @click="handleReset(row)">重置密码</el-button>
           <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
           <el-button
@@ -51,6 +58,50 @@
         </template>
       </el-table-column>
     </el-table>
+
+    <el-dialog
+      v-model="sportDialog.visible"
+      :title="sportDialog.title"
+      width="920px"
+      destroy-on-close
+      @closed="onSportDialogClosed"
+    >
+      <div style="margin-bottom:12px;color:#666;font-size:13px">
+        含阳光跑、任务跑步、体测等提交记录；「类型」为业务归类，便于与管理口径一致。
+      </div>
+      <el-table :data="sportDialog.rows" stripe v-loading="sportDialog.loading" max-height="420">
+        <el-table-column prop="record_kind" label="类型" width="100" />
+        <el-table-column prop="started_at" label="开始时间" width="170">
+          <template #default="{ row }">{{ formatDt(row.started_at) }}</template>
+        </el-table-column>
+        <el-table-column prop="ended_at" label="结束时间" width="170">
+          <template #default="{ row }">{{ formatDt(row.ended_at) }}</template>
+        </el-table-column>
+        <el-table-column label="达标" width="72" align="center">
+          <template #default="{ row }">
+            <el-tag :type="row.is_valid ? 'success' : 'info'" size="small">{{ row.is_valid ? '是' : '否' }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="距离(km)" width="88" align="right">
+          <template #default="{ row }">{{ row.distance_km != null ? Number(row.distance_km).toFixed(2) : '-' }}</template>
+        </el-table-column>
+        <el-table-column prop="duration_sec" label="时长(秒)" width="88" align="right">
+          <template #default="{ row }">{{ row.duration_sec != null ? row.duration_sec : '-' }}</template>
+        </el-table-column>
+        <el-table-column prop="pace" label="配速" width="90" show-overflow-tooltip />
+        <el-table-column prop="task_title" label="关联任务" min-width="120" show-overflow-tooltip />
+        <el-table-column prop="fail_reason" label="说明" min-width="140" show-overflow-tooltip />
+      </el-table>
+      <div style="margin-top:12px;display:flex;justify-content:flex-end">
+        <el-pagination
+          layout="total, prev, pager, next"
+          :total="sportDialog.total"
+          :page-size="sportDialog.size"
+          :current-page="sportDialog.page"
+          @current-change="onSportPageChange"
+        />
+      </div>
+    </el-dialog>
 
     <el-dialog
       v-model="assignDialog.visible"
@@ -79,7 +130,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { getUsers, getUserMajors, deleteUser, resetPassword, getClasses, getTeacherSubjects, updateTeacherSubjects } from '../api/index.js'
+import { getUsers, getUserMajors, deleteUser, resetPassword, getClasses, getTeacherSubjects, updateTeacherSubjects, getStudentActivities } from '../api/index.js'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const role = ref('student')
@@ -97,6 +148,64 @@ const assignDialog = ref({
   teacher: null,
   selected: []
 })
+
+const sportDialog = ref({
+  visible: false,
+  title: '运动记录',
+  student: null,
+  rows: [],
+  total: 0,
+  page: 1,
+  size: 20,
+  loading: false
+})
+
+const formatDt = (v) => {
+  if (!v) return '-'
+  const d = new Date(v)
+  if (Number.isNaN(d.getTime())) return String(v)
+  return d.toLocaleString('zh-CN', { hour12: false })
+}
+
+const loadSportPage = async () => {
+  const stu = sportDialog.value.student
+  if (!stu) return
+  sportDialog.value.loading = true
+  try {
+    const res = await getStudentActivities(stu.id, {
+      page: sportDialog.value.page,
+      size: sportDialog.value.size
+    })
+    sportDialog.value.rows = res.items || []
+    sportDialog.value.total = res.total || 0
+  } catch (e) {
+    ElMessage.error(e?.detail || '加载运动记录失败')
+    sportDialog.value.rows = []
+    sportDialog.value.total = 0
+  } finally {
+    sportDialog.value.loading = false
+  }
+}
+
+const openSportDialog = (row) => {
+  sportDialog.value.student = row
+  sportDialog.value.title = `运动记录 — ${row.name || ''}（学号 ${row.student_id || '-'}）`
+  sportDialog.value.page = 1
+  sportDialog.value.visible = true
+  loadSportPage()
+}
+
+const onSportPageChange = (p) => {
+  sportDialog.value.page = p
+  loadSportPage()
+}
+
+const onSportDialogClosed = () => {
+  sportDialog.value.student = null
+  sportDialog.value.rows = []
+  sportDialog.value.total = 0
+  sportDialog.value.page = 1
+}
 
 const load = async () => {
   const params = { role: role.value }

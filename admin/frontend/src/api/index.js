@@ -29,6 +29,8 @@ export const getClasses = () => api.get('/manage/classes')
 export const createClass = (data) => api.post('/manage/classes', data)
 export const deleteClass = (id) => api.delete(`/manage/classes/${id}`)
 export const getUsers = (params) => api.get('/manage/users', { params })
+export const getStudentActivities = (userId, params) =>
+  api.get(`/manage/users/${userId}/activities`, { params })
 export const createUser = (data, p) => api.post('/manage/users', data, { params: p })
 export const importStudents = (file) => {
   const f = new FormData(); f.append('file', file)

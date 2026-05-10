@@ -39,24 +39,17 @@
 
         <!-- 基础信息 -->
         <view class="section-title">基础信息</view>
-        <view class="input-item" v-if="registerForm.role === 'student'">
-          <picker mode="selector" :range="majorOptions" range-key="name" @change="onMajorChange">
-            <view class="picker-value">{{ selectedMajorName || '请选择专业' }}</view>
-          </picker>
-        </view>
-        <view class="input-item" v-if="registerForm.role === 'student' && registerForm.major_id">
-          <picker mode="selector" :range="classOptions" range-key="name" @change="onClassChange">
-            <view class="picker-value">{{ selectedClassName || '请选择班级 (区)' }}</view>
-          </picker>
+        <view class="archive-tip" v-if="registerForm.role === 'student'">
+          <text class="tip-text">学生注册为「档案激活」：专业、班级以学校预导入档案为准；请填写与档案一致的姓名与学号。</text>
         </view>
         <view class="input-item" v-if="registerForm.role === 'student'">
-          <input class="input" v-model="registerForm.subject" placeholder="体育选科 (如：篮球、羽毛球)" />
+          <input class="input" v-model="registerForm.subject" placeholder="体育选科（选填，未填则用档案中的选科）" />
         </view>
         <view class="input-item">
-          <input class="input" v-model="registerForm.name" placeholder="真实姓名" />
+          <input class="input" v-model="registerForm.name" placeholder="真实姓名（须与档案一致）" />
         </view>
         <view class="input-item" v-if="registerForm.role === 'student'">
-          <input class="input" v-model="registerForm.studentId" placeholder="学号（选填，用于匹配档案）" />
+          <input class="input" v-model="registerForm.studentId" placeholder="学号（必填，与档案一致）" />
         </view>
         <view class="input-item">
           <input class="input" v-model="registerForm.phone" type="number" placeholder="手机号码" />
@@ -109,18 +102,16 @@ const onAgreementChange = (e) => {
 };
 
 const openPrivacy = () => {
-  wx.openPrivacyContract({
-    fail: () => {
-      uni.showToast({ title: '暂时无法打开协议', icon: 'none' });
-    }
-  });
+  if (typeof wx !== 'undefined' && wx.openPrivacyContract) {
+    wx.openPrivacyContract({
+      fail: () => {
+        uni.showToast({ title: '暂时无法打开协议', icon: 'none' });
+      }
+    });
+  } else {
+    uni.showToast({ title: '请在微信小程序内查看协议', icon: 'none' });
+  }
 };
-
-// 专业与班级选项
-const majorOptions = ref([]);
-const classOptions = ref([]);
-const selectedMajorName = ref('');
-const selectedClassName = ref('');
 
 const registerForm = ref({
   role: 'student', // student | teacher
@@ -130,8 +121,6 @@ const registerForm = ref({
   code: '',
   password: '',
   confirmPwd: '',
-  major_id: null,
-  class_id: null,
   subject: ''
 });
 
@@ -142,9 +131,6 @@ const selectRole = (role) => {
 const nextStep = () => {
   step.value = 2;
   fetchCaptcha();
-  if (registerForm.value.role === 'student') {
-    fetchMajors();
-  }
 };
 
 const fetchCaptcha = () => {
@@ -155,40 +141,6 @@ const fetchCaptcha = () => {
     console.error('Fetch captcha failed', err);
     uni.showToast({ title: '验证码加载失败', icon: 'none' });
   });
-};
-
-const fetchMajors = async () => {
-  try {
-    const res = await request({ url: '/common/majors' });
-    majorOptions.value = res;
-  } catch (err) {
-    console.error('Fetch majors failed', err);
-  }
-};
-
-const onMajorChange = async (e) => {
-  const idx = e.detail.value;
-  const major = majorOptions.value[idx];
-  registerForm.value.major_id = major.id;
-  selectedMajorName.value = major.name;
-  
-  // 拉取该专业下的班级
-  try {
-    const res = await request({ url: `/common/classes?major_id=${major.id}` });
-    classOptions.value = res;
-    // 重置班级
-    registerForm.value.class_id = null;
-    selectedClassName.value = '';
-  } catch (err) {
-    console.error('Fetch classes failed', err);
-  }
-};
-
-const onClassChange = (e) => {
-  const idx = e.detail.value;
-  const cls = classOptions.value[idx];
-  registerForm.value.class_id = cls.id;
-  selectedClassName.value = cls.name;
 };
 
 const goToLogin = () => {
@@ -211,9 +163,9 @@ const handleRegister = async () => {
   }
 
   if (form.role === 'student') {
-    if (!form.major_id || !form.class_id) {
-       uni.showToast({ title: '请选择专业和班级', icon: 'none' });
-       return;
+    if (!form.studentId || !String(form.studentId).trim()) {
+      uni.showToast({ title: '请填写学号', icon: 'none' });
+      return;
     }
   }
 
@@ -235,23 +187,37 @@ const handleRegister = async () => {
     uni.showToast({ title: '两次密码不一致', icon: 'none' });
     return;
   }
+
+  if (form.password.length < 6) {
+    uni.showToast({ title: '密码至少 6 位', icon: 'none' });
+    return;
+  }
   
   loading.value = true;
   
   try {
-    // 调用后端注册接口
-    await register({
-        phone: form.phone,
-        name: form.name,
+    const res = await register({
+        phone: form.phone.trim(),
+        name: form.name.trim(),
         role: form.role,
-        student_id: form.role === 'student' ? form.studentId : null,
-        major_id: form.major_id,
-        class_id: form.class_id,
-        subject: form.subject,
+        student_id: form.role === 'student' ? String(form.studentId).trim() : null,
+        subject: form.role === 'student' ? (form.subject || '').trim() || null : null,
         password: form.password,
         captcha_code: form.code,
         captcha_key: captchaKey.value
     });
+
+    const userInfo = {
+      userId: res.user_id,
+      role: res.role,
+      name: res.name,
+      phone: form.phone.trim(),
+      schoolId: '10001',
+      isPoliceSchool: false
+    };
+    uni.setStorageSync('token', res.access_token);
+    uni.setStorageSync('userInfo', userInfo);
+    uni.setStorageSync('userRole', res.role);
 
     uni.showToast({
       title: '注册成功',
@@ -259,11 +225,13 @@ const handleRegister = async () => {
     });
     
     setTimeout(() => {
-      uni.navigateBack();
-    }, 1500);
+      uni.reLaunch({ url: '/pages/tab/home' });
+    }, 800);
 
   } catch (error) {
     console.error('Register failed:', error);
+    const msg = error?.message || error?.data?.detail || '注册失败';
+    uni.showToast({ title: typeof msg === 'string' ? msg : '注册失败', icon: 'none', duration: 2500 });
     fetchCaptcha();
     form.code = '';
   } finally {
@@ -386,6 +354,18 @@ const handleRegister = async () => {
   margin: 30rpx 0 20rpx;
   padding-left: 16rpx;
   border-left: 6rpx solid #20C997;
+}
+
+.archive-tip {
+  background: #f0faf6;
+  border-radius: 12rpx;
+  padding: 20rpx;
+  margin-bottom: 24rpx;
+}
+.tip-text {
+  font-size: 24rpx;
+  color: #555;
+  line-height: 1.5;
 }
 
 .input-item {

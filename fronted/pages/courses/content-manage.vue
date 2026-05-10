@@ -2,12 +2,15 @@
   <view class="content-manage-container">
     <!-- 导航栏 -->
     <view class="nav-bar">
+      <view :style="{ height: statusBarHeight + 'px' }"></view>
+      <view class="nav-bar-inner">
       <view class="nav-back" @click="goBack">
-        <text class="back-icon">←</text>
+        <text class="back-icon">‹</text>
       </view>
       <text class="nav-title">课程内容管理</text>
       <view class="nav-action" @click="addContent">
         <text class="action-icon">+</text>
+      </view>
       </view>
     </view>
 
@@ -341,51 +344,65 @@ const uploadVideo = () => {
   // #endif
   
   // #ifndef H5
-  uni.chooseVideo({
-    sourceType: ['album', 'camera'],
-    maxDuration: 600, // 最长10分钟
-    success: async (res) => {
-      const tempFilePath = res.tempFilePath;
-      const duration = Math.floor(res.duration);
-      
-      // 检查文件大小（100MB限制）
-      uni.getFileInfo({
-        filePath: tempFilePath,
-        success: async (fileInfo) => {
-          if (fileInfo.size > 100 * 1024 * 1024) {
-            uni.showModal({
-              title: '文件过大',
-              content: '视频大小不能超过100MB，请重新选择',
-              showCancel: false
-            });
-            return;
-          }
-          
-          // 上传视频
-          uploading.value = true;
-          uni.showLoading({ title: '上传中...', mask: true });
-          
-          try {
-            const uploadRes = await uploadFile(tempFilePath, 'video');
-            contentForm.value.content_url = uploadRes.url;
-            contentForm.value.duration = duration;
-            
-            uni.hideLoading();
-            uni.showToast({ title: '上传成功', icon: 'success' });
-          } catch (e) {
-            uni.hideLoading();
-            console.error('Upload failed:', e);
-            uni.showModal({
-              title: '上传失败',
-              content: e.message || '上传失败，请重试',
-              showCancel: false
-            });
-          } finally {
-            uploading.value = false;
-          }
+  const doChooseMedia = () => {
+    uni.chooseMedia({
+      count: 1,
+      mediaType: ['video'],
+      sourceType: ['album', 'camera'],
+      maxDuration: 600,
+      success: async (res) => {
+        const item = res.tempFiles[0];
+        const tempFilePath = item.tempFilePath;
+        const duration = Math.floor(item.duration || 0);
+
+        if (item.size > 100 * 1024 * 1024) {
+          uni.showModal({
+            title: '文件过大',
+            content: '视频大小不能超过100MB，请重新选择',
+            showCancel: false
+          });
+          return;
         }
-      });
-    }
+
+        uploading.value = true;
+        uni.showLoading({ title: '上传中...', mask: true });
+
+        try {
+          const uploadRes = await uploadFile(tempFilePath, 'video');
+          contentForm.value.content_url = uploadRes.url;
+          contentForm.value.duration = duration;
+          uni.hideLoading();
+          uni.showToast({ title: '上传成功', icon: 'success' });
+        } catch (e) {
+          uni.hideLoading();
+          uni.showModal({
+            title: '上传失败',
+            content: e.message || '上传失败，请重试',
+            showCancel: false
+          });
+        } finally {
+          uploading.value = false;
+        }
+      },
+      fail: (err) => {
+        console.error('chooseMedia fail:', err);
+      }
+    });
+  };
+
+  // 先检查隐私授权
+  wx.getPrivacySetting({
+    success: (res) => {
+      if (res.needAuthorization) {
+        wx.requirePrivacyAuthorize({
+          success: () => doChooseMedia(),
+          fail: () => uni.showToast({ title: '需要授权才能上传视频', icon: 'none' })
+        });
+      } else {
+        doChooseMedia();
+      }
+    },
+    fail: () => doChooseMedia() // 获取设置失败时直接尝试
   });
   // #endif
 };

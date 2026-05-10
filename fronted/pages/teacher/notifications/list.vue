@@ -2,12 +2,15 @@
   <view class="notifications-page">
     <!-- 导航栏 -->
     <view class="nav-bar">
+      <view :style="{ height: statusBarHeight + 'px' }"></view>
+      <view class="nav-bar-inner">
       <view class="nav-back" @click="goBack">
-        <text class="back-icon">←</text>
+        <text class="back-icon">‹</text>
       </view>
       <text class="nav-title">系统通知</text>
       <view class="nav-action" @click="markAllRead">
         <text class="action-text">全部已读</text>
+      </view>
       </view>
     </view>
 
@@ -51,6 +54,7 @@ import { request } from '@/utils/request.js';
 
 const notifications = ref([]);
 const loading = ref(false);
+const statusBarHeight = ref(20);
 
 const loadNotifications = async () => {
   loading.value = true;
@@ -139,6 +143,7 @@ const goBack = () => {
 };
 
 onMounted(() => {
+  statusBarHeight.value = uni.getSystemInfoSync().statusBarHeight || 20;
   loadNotifications();
 });
 </script>
@@ -151,15 +156,18 @@ onMounted(() => {
 
 .nav-bar {
   background: #fff;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.05);
+}
+
+.nav-bar-inner {
   height: 88rpx;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 30rpx;
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.05);
 }
 
 .nav-back {

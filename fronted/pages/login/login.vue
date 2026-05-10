@@ -227,7 +227,8 @@ const handleLogin = async () => {
       if (error.statusCode === 400 || error.statusCode === 401) {
         errorMsg = error.message || '用户名或密码错误';
       } else if (error.statusCode === 404) {
-        errorMsg = '用户不存在';
+        // 登录路由正常不会 404；多为 Nginx 未代理 /api/ 或 BASE_URL 与网关不一致
+        errorMsg = '登录服务不可用，请联系管理员检查接口地址';
       } else if (error.statusCode === 403) {
         errorMsg = '账号已被禁用';
       }

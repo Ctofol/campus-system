@@ -172,6 +172,7 @@ class ActivityFinish(BaseModel):
     ended_at: datetime
     metrics: ActivityMetricsCreate
     evidence: List[ActivityEvidenceCreate] = []
+    task_id: Optional[int] = None  # 任务跑步必填，与阳光跑区分
 
 class ActivityReviewOut(BaseModel):
     id: int
@@ -193,14 +194,22 @@ class ActivityOut(BaseModel):
     metrics: Optional[ActivityMetricsOut] = None
     evidence: List[ActivityEvidenceOut] = []
     review: Optional[ActivityReviewOut] = None
-    # 阳光跑相关的实时判定结果
+    # 自由跑：阳光跑核验；任务跑：是否满足任务要求
     is_valid: Optional[bool] = None
     fail_reason: Optional[str] = None
     face_verified: Optional[bool] = None
     today_completed: Optional[bool] = None
+    task_id: Optional[int] = None
+    task_title: Optional[str] = None
+    task_completed: Optional[bool] = None  # 任务维度是否达标（等同任务下 is_valid）
 
     class Config:
         from_attributes = True
+
+
+class ActivityFinishResponse(ActivityOut):
+    """结算接口返回（含任务文案）"""
+    pass
 
 # Teacher
 class ApproveRequest(BaseModel):
@@ -250,6 +259,7 @@ class TaskCreate(BaseModel):
     min_distance: Optional[float] = 0.0
     min_duration: Optional[int] = 0
     min_count: Optional[int] = 0
+    starts_at: Optional[datetime] = None  # 未到该时间学生不可提交
     deadline: Optional[datetime] = None
     description: Optional[str] = None
     target_group: Optional[str] = "all"
@@ -282,6 +292,32 @@ class StudentTaskListResponse(BaseModel):
     total: int
     page: int
     size: int
+
+
+class AdminStudentActivityItem(BaseModel):
+    """管理端：单个学生运动记录（含阳光跑 / 任务跑 / 体测）"""
+
+    id: int
+    type: str
+    record_kind: str
+    source: Optional[str] = None
+    started_at: datetime
+    ended_at: datetime
+    is_valid: bool
+    fail_reason: Optional[str] = None
+    distance_km: Optional[float] = None
+    duration_sec: Optional[int] = None
+    pace: Optional[str] = None
+    task_id: Optional[int] = None
+    task_title: Optional[str] = None
+
+
+class AdminStudentActivitiesPage(BaseModel):
+    items: List[AdminStudentActivityItem]
+    total: int
+    page: int
+    size: int
+
 
 class StudentCompletionStatus(BaseModel):
     student_id: int

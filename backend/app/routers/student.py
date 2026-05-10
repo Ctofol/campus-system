@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import or_, and_
 from typing import List
 from datetime import datetime, timedelta
 from .. import models, schemas, auth
 from ..database import get_db
+from ..services.task_run_service import student_may_submit_task
 
 router = APIRouter(prefix="/student", tags=["student"])
 
@@ -50,15 +51,17 @@ async def get_student_summary(
     if current_user.class_id is None:
         pending_tasks = 0
     else:
-        pending_tasks = db.query(models.Task).filter(
-            (
-                models.Task.class_id == current_user.class_id
-            ) | (
-                models.Task.target_group == "all"
+        pending_tasks = (
+            db.query(models.Task)
+            .filter(
+                or_(
+                    models.Task.class_id == current_user.class_id,
+                    and_(models.Task.target_group == "all", models.Task.class_id.is_(None)),
+                )
             )
-        ).filter(
-            models.Task.deadline >= datetime.utcnow()
-        ).count()
+            .filter(models.Task.deadline >= datetime.utcnow())
+            .count()
+        )
     
     return {
         "user_id": current_user.id,  # 添加用户ID用于调试
@@ -128,40 +131,65 @@ async def get_student_tasks(
             "size": size
         }
     
-    # Get tasks for student's class or all students
     query = db.query(models.Task).filter(
-        (models.Task.class_id == current_user.class_id) | 
-        (models.Task.target_group == "all")
-    ).filter(
-        models.Task.deadline >= datetime.utcnow()
+        or_(
+            models.Task.class_id == current_user.class_id,
+            and_(models.Task.target_group == "all", models.Task.class_id.is_(None)),
+        )
     ).order_by(models.Task.deadline.asc())
-    
+
     total = query.count()
     tasks = query.offset((page - 1) * size).limit(size).all()
-    
-    # Format tasks with status
+    now = datetime.utcnow()
+
     result_tasks = []
     for task in tasks:
-        # Check if student has completed this task
-        completed_activity = db.query(models.Activity).filter(
-            models.Activity.user_id == current_user.id,
-            models.Activity.type == task.type,
-            models.Activity.started_at >= task.created_at
-        ).first()
-        
-        # Check if urgent (deadline within 24 hours)
-        time_left = task.deadline - datetime.utcnow() if task.deadline else None
-        is_urgent = time_left and time_left < timedelta(hours=24)
-        
-        result_tasks.append({
-            "id": task.id,
-            "title": task.title,
-            "type": "run" if task.type == "run" else "learn",
-            "deadline": task.deadline.isoformat() if task.deadline else None,
-            "urgent": is_urgent,
-            "status": "completed" if completed_activity else "pending",
-            "description": task.description
-        })
+        last_act = (
+            db.query(models.Activity)
+            .filter(
+                models.Activity.user_id == current_user.id,
+                models.Activity.task_id == task.id,
+                models.Activity.source == "task",
+                models.Activity.type == task.type,
+                models.Activity.started_at >= task.created_at,
+            )
+            .order_by(models.Activity.started_at.desc())
+            .first()
+        )
+
+        expired = bool(task.deadline and task.deadline < now)
+        not_started = bool(task.starts_at and now < task.starts_at)
+        if last_act and last_act.is_valid:
+            st = "completed"
+        elif expired:
+            st = "expired"
+        elif not_started:
+            st = "not_started"
+        elif last_act and not last_act.is_valid:
+            st = "failed"
+        else:
+            st = "pending"
+
+        time_left = task.deadline - now if task.deadline else None
+        is_urgent = bool(
+            time_left and time_left < timedelta(hours=24) and st in ("pending", "failed")
+        )
+
+        result_tasks.append(
+            {
+                "id": task.id,
+                "title": task.title,
+                "type": "run" if task.type == "run" else "learn",
+                "starts_at": task.starts_at.isoformat() if task.starts_at else None,
+                "deadline": task.deadline.isoformat() if task.deadline else None,
+                "urgent": is_urgent,
+                "status": st,
+                "description": task.description,
+                "min_distance": task.min_distance,
+                "min_duration": task.min_duration,
+                "min_count": task.min_count,
+            }
+        )
     
     return {
         "items": result_tasks,
@@ -169,6 +197,91 @@ async def get_student_tasks(
         "page": page,
         "size": size
     }
+
+
+@router.get("/tasks/{task_id}")
+def get_student_task_detail(
+    task_id: int,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
+    """任务跑步页拉取要求（专项跑中间页展示）"""
+    if current_user.role != "student":
+        raise HTTPException(status_code=403, detail="Only students")
+
+    task = db.query(models.Task).filter(models.Task.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="任务不存在")
+
+    if current_user.class_id is None:
+        raise HTTPException(status_code=403, detail="未分班，无法领取任务")
+
+    allowed = (task.class_id == current_user.class_id) or (
+        task.target_group == "all" and task.class_id is None
+    )
+    if not allowed:
+        raise HTTPException(status_code=403, detail="无权查看该任务")
+
+    may, hint = student_may_submit_task(current_user, task)
+    return {
+        "id": task.id,
+        "title": task.title,
+        "type": task.type,
+        "description": task.description,
+        "starts_at": task.starts_at.isoformat() if task.starts_at else None,
+        "deadline": task.deadline.isoformat() if task.deadline else None,
+        "min_distance": task.min_distance,
+        "min_duration": task.min_duration,
+        "min_count": task.min_count,
+        "class_id": task.class_id,
+        "can_submit": may,
+        "submit_hint": hint,
+    }
+
+
+@router.get("/task-runs/history")
+def get_student_task_run_history(
+    page: int = 1,
+    size: int = 20,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
+    """我的：任务跑步/任务体测提交历史（与阳光跑区分）"""
+    if current_user.role != "student":
+        raise HTTPException(status_code=403, detail="Only students")
+
+    q = (
+        db.query(models.Activity)
+        .filter(
+            models.Activity.user_id == current_user.id,
+            models.Activity.source == "task",
+            models.Activity.task_id.isnot(None),
+        )
+        .order_by(models.Activity.started_at.desc())
+    )
+    total = q.count()
+    rows = q.offset((page - 1) * size).limit(size).all()
+    out = []
+    for act in rows:
+        t = db.query(models.Task).filter(models.Task.id == act.task_id).first()
+        m = act.metrics
+        out.append(
+            {
+                "activity_id": act.id,
+                "task_id": act.task_id,
+                "task_title": t.title if t else "",
+                "task_type": act.type,
+                "started_at": act.started_at,
+                "ended_at": act.ended_at,
+                "completed_ok": act.is_valid,
+                "fail_reason": act.fail_reason,
+                "distance_km": m.distance if m else None,
+                "duration_sec": m.duration if m else None,
+                "pace": m.pace if m else None,
+            }
+        )
+    return {"items": out, "total": total, "page": page, "size": size}
+
 
 @router.get("/sunshine-stats")
 def get_sunshine_dashboard(

@@ -107,17 +107,30 @@
         </view>
       </view>
 
-      <!-- 核验结果 -->
-      <view class="verify-section" v-if="isValid !== null">
-        <text class="verify-title">核验结果</text>
+      <!-- 任务完成结果 -->
+      <view class="verify-section" v-if="isTaskRun && taskCompleted !== null">
+        <text class="verify-title">任务是否完成</text>
+        <view class="verify-row" v-if="taskCompleted">
+          <text class="verify-icon success">✅</text>
+          <text class="verify-text success">已满足任务要求（{{ taskTitle || '本次任务' }}）</text>
+        </view>
+        <view class="verify-row" v-else>
+          <text class="verify-icon fail">⚠️</text>
+          <text class="verify-text fail">未满足任务要求：{{ failReason || '请查看距离/时长是否达标' }}</text>
+        </view>
+      </view>
+
+      <!-- 核验结果（阳光跑自由跑） -->
+      <view class="verify-section" v-if="!isTaskRun && isValid !== null">
+        <text class="verify-title">阳光跑核验结果</text>
         <view class="verify-row" v-if="isValid">
           <text class="verify-icon success">✅</text>
-          <text class="verify-text success">本次运动有效，已计入成绩！</text>
+          <text class="verify-text success">本次自由跑有效，已计入阳光跑成绩！</text>
         </view>
         <view class="verify-row" v-else>
           <text class="verify-icon fail">⚠️</text>
           <text class="verify-text fail">
-            本次运动无效：{{ failReason || '原因未知，请联系老师查看详情' }}
+            本次运动未计入阳光跑：{{ failReason || '原因未知，请联系老师查看详情' }}
           </text>
         </view>
       </view>
@@ -131,8 +144,8 @@
       <button @click="backToHome" class="back-btn">返回首页</button>
     </view>
 
-    <!-- 今日目标提醒 -->
-    <view class="today-tip" v-if="todayCompleted !== null">
+    <!-- 今日目标提醒（仅阳光跑） -->
+    <view class="today-tip" v-if="!isTaskRun && todayCompleted !== null">
       <text v-if="todayCompleted" class="today-success">
         ✅ 今日阳光跑目标已达成，明天继续加油！
       </text>
@@ -157,7 +170,10 @@ const isPoliceFinish = ref(false); // 警务2000米是否完成
 const policePace = ref(0); // 警务配速（分/公里）
 const isValid = ref(null); // 本次运动是否有效（后端判定）
 const failReason = ref(''); // 无效原因
-const todayCompleted = ref(null); // 今日是否已完成目标
+const todayCompleted = ref(null); // 今日是否已完成目标（仅阳光跑自由跑）
+const isTaskRun = ref(false);
+const taskTitle = ref('');
+const taskCompleted = ref(null);
 // 测试模式专属
 const testProject = ref('');
 const testType = ref('');
@@ -170,8 +186,9 @@ const suggestionText = ref('');
 
 // 3. 计算属性：动态标题和背景色
 const modeTitle = computed(() => {
+  if (isTaskRun.value) return '📋 任务跑步结算';
   switch (currentMode.value) {
-    case 'police': return '🎯 2000米专项体能结算';
+    case 'police': return '🎯 专项体能结算';
     case 'campus': return '🏫 校园打卡跑步结算';
     case 'test': return '💪 体能测试结算';
     default: return '🏃 普通跑步结算';
@@ -205,13 +222,20 @@ onLoad((options) => {
   }
 
   if (data) {
+      isTaskRun.value = data.source === 'task';
+      taskTitle.value = data.task_title || '';
+      taskCompleted.value = typeof data.task_completed === 'boolean' ? data.task_completed : null;
+
       // Map backend data to frontend display
       if (data.type === 'test') {
         // Distinguish police run from generic test if distance > 0 or specific criteria met
         currentMode.value = (data.metrics && data.metrics.distance > 0) ? 'police' : 'test';
       } else if (data.type === 'run') {
-        // Distinguish campus run if checkpoints data exists
-        currentMode.value = (data.metrics && data.metrics.checkpoints) ? 'campus' : 'normal';
+        if (isTaskRun.value) {
+          currentMode.value = 'police';
+        } else {
+          currentMode.value = (data.metrics && data.metrics.checkpoints) ? 'campus' : 'normal';
+        }
       } else {
         currentMode.value = 'normal';
       }
@@ -234,6 +258,13 @@ onLoad((options) => {
       }
       if (typeof data.today_completed !== 'undefined') {
         todayCompleted.value = data.today_completed;
+      }
+
+      if (isTaskRun.value) {
+        isPoliceFinish.value = !!taskCompleted.value;
+        isPaceQualified.value = !!taskCompleted.value;
+      } else if (currentMode.value === 'police' && data.metrics) {
+        isPoliceFinish.value = Number(data.metrics.distance || 0) >= 2;
       }
       
       // Additional logic for test mode visualization (simplified)

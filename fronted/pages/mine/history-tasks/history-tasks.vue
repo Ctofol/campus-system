@@ -3,7 +3,7 @@
     <view class="custom-navbar" :style="{paddingTop: statusBarHeight + 'px'}">
       <view class="navbar-content">
         <view class="back-btn" @click="goBack">
-          <text class="back-arrow">←</text>
+          <text class="back-arrow">‹</text>
         </view>
         <text class="navbar-title">历史任务</text>
       </view>
@@ -63,6 +63,8 @@ const fetchTasks = async () => {
 const getStatusText = (status) => {
   const map = {
     'pending': '待开始',
+    'not_started': '未开始',
+    'failed': '未达标',
     'in_progress': '进行中',
     'completed': '已完成',
     'expired': '已过期',
@@ -74,6 +76,7 @@ const getStatusText = (status) => {
 const getStatusClass = (status) => {
   if (status === 'completed') return 'status-green';
   if (status === 'expired' || status === 'canceled') return 'status-gray';
+  if (status === 'not_started') return 'status-gray';
   return 'status-orange';
 };
 

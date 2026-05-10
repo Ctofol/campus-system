@@ -2,7 +2,23 @@ from datetime import datetime, date, timedelta
 from typing import Tuple
 import random
 
+from sqlalchemy import and_, or_
+
 from .. import models, config
+
+
+def sunshine_run_filter():
+    """
+    阳光跑数据口径（与任务跑区分）：
+    - 跑步类型 run
+    - source 为 free 或历史库中为 NULL 的旧记录
+    - 非任务跑（task_id 为空）
+    """
+    return and_(
+        models.Activity.type == "run",
+        or_(models.Activity.source == "free", models.Activity.source.is_(None)),
+        models.Activity.task_id.is_(None),
+    )
 
 
 def verify_activity(user: models.User, activity: models.Activity, db) -> Tuple[bool, str, bool]:
@@ -45,11 +61,11 @@ def verify_activity(user: models.User, activity: models.Activity, db) -> Tuple[b
         db.query(models.Activity)
         .filter(
             models.Activity.user_id == user.id,
-            models.Activity.type == "run",
             models.Activity.is_valid.is_(True),
             models.Activity.started_at >= start,
             models.Activity.started_at <= end,
         )
+        .filter(sunshine_run_filter())
         .count()
     )
     if valid_today_count > 0:
@@ -107,9 +123,9 @@ def get_sunshine_stats(user: models.User, db):
         db.query(models.Activity)
         .filter(
             models.Activity.user_id == user.id,
-            models.Activity.type == "run",
             models.Activity.is_valid.is_(True),
         )
+        .filter(sunshine_run_filter())
         .count()
     )
 
@@ -124,10 +140,10 @@ def get_sunshine_stats(user: models.User, db):
         db.query(models.Activity)
         .filter(
             models.Activity.user_id == user.id,
-            models.Activity.type == "run",
             models.Activity.started_at >= start,
             models.Activity.started_at <= end,
         )
+        .filter(sunshine_run_filter())
         .order_by(models.Activity.started_at.desc())
         .all()
     )
@@ -153,9 +169,9 @@ def get_sunshine_stats(user: models.User, db):
         db.query(models.Activity)
         .filter(
             models.Activity.user_id == user.id,
-            models.Activity.type == "run",
             models.Activity.started_at >= seven_start,
         )
+        .filter(sunshine_run_filter())
         .order_by(models.Activity.started_at.desc())
         .all()
     )

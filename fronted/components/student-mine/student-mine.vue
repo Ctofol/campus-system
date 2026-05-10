@@ -68,6 +68,21 @@
           </view>
         </view>
       </view>
+
+      <!-- 任务跑步记录（与阳光跑区分） -->
+      <view class="task-run-card" v-if="taskRunPreview.length > 0">
+        <view class="card-header">
+          <text class="card-title">任务跑步</text>
+          <text class="view-all" @click="gotoTaskRuns">查看全部</text>
+        </view>
+        <view class="task-run-item" v-for="(tr, idx) in taskRunPreview" :key="idx">
+          <view class="tr-row">
+            <text class="tr-title">{{ tr.task_title || '任务' }}</text>
+            <text class="tr-tag" :class="tr.completed_ok ? 'ok' : 'bad'">{{ tr.completed_ok ? '达标' : '未达标' }}</text>
+          </view>
+          <text class="tr-meta">{{ formatTaskRunTime(tr.started_at) }} · {{ tr.distance_km != null ? Number(tr.distance_km).toFixed(2) : '--' }}km</text>
+        </view>
+      </view>
       
       <!-- 3. 运动记录列表 -->
       <view class="record-card">
@@ -141,7 +156,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import { request } from '@/utils/request.js';
+import { request, getStudentTaskRunHistory } from '@/utils/request.js';
 
 const statusBarHeight = ref(20);
 
@@ -161,6 +176,7 @@ const progressPercent = ref(0);
 
 const runRecords = ref([]);
 const showRecords = computed(() => runRecords.value.slice(0, 5));
+const taskRunPreview = ref([]);
 
 const deviceId = ref('');
 
@@ -205,9 +221,9 @@ const fetchHistory = async () => {
                     statusText: item.status === 'finished' ? '有效' : '待审核',
                     statusColor: '#20C997',
                     // Add flags for filtering
-                    isTask: !!(item.task_id || item.plan_id)
+                    isTask: item.source === 'task' || !!item.task_id
                 };
-            }).filter(item => !item.isTask); // Filter out task records
+            }).filter(item => !item.isTask)
             
             // 更新统计数据
             const runs = runRecords.value.filter(r => r.type === 'run');
@@ -245,6 +261,22 @@ const fetchHistory = async () => {
         console.error('Fetch history failed', e);
         // uni.showToast({ title: '获取记录失败', icon: 'none' });
     }
+};
+
+const formatTaskRunTime = (iso) => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
+};
+
+const fetchTaskRuns = async () => {
+  try {
+    const res = await getStudentTaskRunHistory({ page: 1, size: 5 });
+    taskRunPreview.value = res.items || [];
+  } catch (e) {
+    console.error(e);
+    taskRunPreview.value = [];
+  }
 };
 
 const fetchUserProfile = async () => {
@@ -290,6 +322,7 @@ const onPageShow = () => {
   }
   
   fetchHistory();
+  fetchTaskRuns();
   fetchUserProfile();
 };
 
@@ -311,6 +344,10 @@ const gotoHealthRequest = () => {
 
 const gotoHistoryTasks = () => {
   uni.navigateTo({ url: '/pages/mine/history-tasks/history-tasks' });
+};
+
+const gotoTaskRuns = () => {
+  uni.navigateTo({ url: '/pages/student/task-runs/task-runs' });
 };
 
 const viewAllRecords = () => {
@@ -538,6 +575,55 @@ const logout = () => {
   background: linear-gradient(90deg, #20C997, #4ECDC4);
   border-radius: 6rpx;
   transition: width 0.5s ease;
+}
+
+.task-run-card {
+  background-color: #fff;
+  margin: 0 20rpx 20rpx;
+  padding: 24rpx;
+  border-radius: 16rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.05);
+}
+.task-run-card .view-all {
+  font-size: 24rpx;
+  color: #20c997;
+}
+.task-run-item {
+  padding: 16rpx 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+.task-run-item:last-child {
+  border-bottom: none;
+}
+.tr-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8rpx;
+}
+.tr-title {
+  font-size: 28rpx;
+  color: #333;
+  font-weight: 500;
+  flex: 1;
+  padding-right: 12rpx;
+}
+.tr-tag {
+  font-size: 22rpx;
+  padding: 4rpx 10rpx;
+  border-radius: 8rpx;
+}
+.tr-tag.ok {
+  background: #e6fff6;
+  color: #20c997;
+}
+.tr-tag.bad {
+  background: #fff1f0;
+  color: #ff4d4f;
+}
+.tr-meta {
+  font-size: 24rpx;
+  color: #999;
 }
 
 /* 3. 运动记录 */
