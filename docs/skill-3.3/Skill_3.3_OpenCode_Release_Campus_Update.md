@@ -9,11 +9,9 @@
 ### 后端（FastAPI，`campus-backend` 或等价服务名）
 
 1. **数据库迁移**（必做一次）  
-   - 仓库 `backend/db_update_production.py` 会补列，其中包含：  
-     - `activities.task_id`  
-     - `tasks.starts_at`（任务开始时间，可空）  
-   - 在 **与线上一致 DATABASE_URL** 的环境下执行：  
-     `cd PROJECT_ROOT/backend && python db_update_production.py`  
+   - 仓库 `backend/db_update_production.py` 会补列（含 `activities.task_id`、`tasks.starts_at` 等）。  
+   - **PostgreSQL**：每条 `ALTER` 已改为独立事务，避免「列已存在」导致后续语句 `InFailedSqlTransaction`。  
+   - **推荐**在 `campus-backend` 容器内执行：`python /app/db_update_production.py`（与线上一致 `DATABASE_URL`）。  
    - 若列已存在，脚本会 `[skip]`，属正常。
 
 2. **管理端 API**（主后端 `/manage`，非独立 admin 容器时与小程序同域 `/api`）  
@@ -125,3 +123,49 @@ curl -sS -o /dev/null -w "%{http_code}" -X POST "https://DOMAIN/api/auth/login" 
 | **本文** | **本次迭代** 的业务说明 + 给 OpenCode 的一键粘贴正文 |
 
 将 `PROJECT_ROOT` / `DOMAIN` / `GIT_BRANCH` / `COMPOSE_SERVICE` 换成服务器真实值后再粘贴。
+
+---
+
+## 服务器拉取更新（OpenCode 一键粘贴 · 与当前 docker-compose 一致）
+
+**适用**：仓库已在 `/root/campus-system`；Compose 含 `campus-backend`、`campus-admin-backend`、`campus-frontend-h5`、`campus-admin-frontend`、`nginx`；`ubuntu` 无 docker 组时需 **`sudo`**。
+
+**下面整段复制给 OpenCode**（可按实际改 `PROJECT_ROOT` / `DOMAIN`；已加入 docker 组则去掉 `sudo`）：
+
+```
+【执行模式】用户已授权：在 PROJECT_ROOT 执行 git pull、在 campus-backend 容器内跑迁移、docker compose build/up。禁止 force push；禁止改与本项目无关的 Nginx 站点。
+
+【环境常量】
+PROJECT_ROOT=/root/campus-system
+DOMAIN=campus.gzyichenai.com
+# 无 docker 组权限时全程 sudo；否则自行去掉 sudo
+
+================================================================================
+步骤
+================================================================================
+1) 更新代码
+   cd /root/campus-system && sudo git fetch origin && sudo git checkout master && sudo git pull origin master
+   sudo git log -1 --oneline
+
+2) 数据库迁移（仅 campus-backend 镜像内，WORKDIR=/app）
+   sudo docker compose exec campus-backend python /app/db_update_production.py
+   若提示找不到文件：sudo docker compose exec campus-backend ls -la /app | head
+
+3) 重建并启动（含 H5 / 管理前后端，以镜像内 nginx 与 Dockerfile 为准）
+   cd /root/campus-system
+   sudo docker compose up -d --build campus-backend campus-admin-backend campus-frontend-h5 campus-admin-frontend nginx
+
+4) 状态与健康检查
+   sudo docker compose ps
+   curl -sS -o /dev/null -w "api_root=%{http_code}\n" "https://campus.gzyichenai.com/api/" || true
+   curl -sS -o /dev/null -w "login=%{http_code}\n" -X POST "https://campus.gzyichenai.com/api/auth/login" \
+     -H "Content-Type: application/json" -d '{"phone":"0","password":"x"}' || true
+
+================================================================================
+交付物
+================================================================================
+- 执行的命令摘要、git 最新一行、db_update 末尾是否 [done]、compose ps、三步 curl 状态码。
+- 失败时：docker compose logs --tail=60 相关服务名 + 错误关键词。
+
+【说明】仓库 master 已含：fronted/nginx.conf 上游 campus-backend、admin/backend Dockerfile PyPI 镜像、db_update 按列独立事务；拉取后重建即可，一般无需再手改 sed / 手补列。
+```
