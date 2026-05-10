@@ -450,6 +450,25 @@ async def get_teacher_students(
     return result
 
 
+@router.get("/students/{student_id}", response_model=schemas.StudentDetail)
+async def get_teacher_student_detail(
+    student_id: int,
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db),
+):
+    """学员详情页用的单个学员信息（小程序 GET /teacher/students/{id}）。"""
+    student_query = await get_managed_students_query(current_user, db)
+    student = student_query.filter(models.User.id == student_id).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found or no permission")
+
+    s_dict = {k: v for k, v in student.__dict__.items() if not k.startswith("_")}
+    s_dict["class_name"] = student.class_name
+    s_dict["major_name"] = student.major
+    s_dict.setdefault("health_requests", [])
+    return s_dict
+
+
 @router.get("/activities/invalid", response_model=List[schemas.InvalidActivityOut])
 async def get_invalid_activities(
     current_user: models.User = Depends(auth.get_current_teacher),

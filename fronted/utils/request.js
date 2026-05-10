@@ -1,11 +1,18 @@
-// 统一入口：生产须与 nginx `location /api/` 一致，否则 /auth 等会落到 H5 静态而 404
-const FALLBACK_BASE_URL = 'https://campus.gzyichenai.com/api';
-let baseUrl = FALLBACK_BASE_URL;
+// 生产：须与 nginx `location /api/` 一致（BASE_URL 含 /api，请求 path 为 /student/...）。
+// 本地直连 uvicorn：无 /api 前缀，见下方 DEV_FALLBACK。
+const PROD_FALLBACK = 'https://campus.gzyichenai.com/api';
+const DEV_FALLBACK = 'http://127.0.0.1:8000';
 
-// 优先读取环境变量 (HBuilderX/Vite 构建期注入)
+let baseUrl = PROD_FALLBACK;
 try {
-  const envBase = import.meta?.env?.VITE_API_BASE_URL;
-  if (envBase) baseUrl = envBase;
+  const env = import.meta?.env;
+  const envBase = env?.VITE_API_BASE_URL;
+  if (envBase && String(envBase).trim()) {
+    baseUrl = String(envBase).trim();
+  } else if (env && (env.DEV === true || env.MODE === 'development')) {
+    // 开发构建未注入 .env 时，避免误连生产 HTTPS（易出现 ERR_CONNECTION_CLOSED，代码无法修复 TLS）
+    baseUrl = DEV_FALLBACK;
+  }
 } catch (e) {
   console.warn('env load failed', e);
 }

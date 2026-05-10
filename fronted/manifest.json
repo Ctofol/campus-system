@@ -154,7 +154,6 @@
             "onLocationChange",
             "startLocationUpdate",
             "startLocationUpdateBackground",
-            "userLocationBackground",
             "chooseLocation"
         ]
     },
