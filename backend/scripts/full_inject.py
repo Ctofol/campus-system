@@ -45,7 +45,8 @@ def inject_data():
     class_objs = []
     for major in major_objs:
         for i in range(1, 4):
-            cls = models.Class(name=f"{i}区", major_id=major.id)
+            # 行政班名称全局唯一，避免 teacher_classes 按名称解析时误匹配多个班
+            cls = models.Class(name=f"{major.name}{i}区", major_id=major.id)
             db.add(cls)
             class_objs.append(cls)
     db.flush()
@@ -87,6 +88,14 @@ def inject_data():
         for sub in assigned:
             ts = models.TeacherSubject(teacher_id=teacher.id, subject_name=sub)
             db.add(ts)
+
+    # 7b. TeacherClass：与教师端 get_managed_students_query 的班级绑定路径对齐
+    for idx, cls in enumerate(class_objs):
+        owner = teacher_objs[idx % len(teacher_objs)]
+        db.add(
+            models.TeacherClass(teacher_id=owner.id, class_name=cls.name)
+        )
+    db.flush()
 
     # 8. Create Students and Profiles
     print("Creating students...")
@@ -188,7 +197,9 @@ def inject_data():
             min_duration=600,
             deadline=datetime.utcnow() + timedelta(days=7),
             description="请按时完成本周训练任务",
-            created_by=t.id
+            target_group="all",
+            class_id=None,
+            created_by=t.id,
         )
         db.add(task)
 
