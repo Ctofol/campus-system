@@ -33,13 +33,17 @@ class Token(BaseModel):
     student_id: Optional[str] = None
     major: Optional[str] = None
     major_id: Optional[int] = None
+    subject: Optional[str] = None
 
 class UserProfile(BaseModel):
     id: int
     name: str
     phone: str
     role: str
+    # class_name：历史兼容，常为「专业名 + 班级名」拼接；管理端表格请用 plain_class_name + major，避免重复。
     class_name: Optional[str] = None
+    # plain_class_name：仅行政班级名 classes.name
+    plain_class_name: Optional[str] = None
     class_id: Optional[int] = None
     student_id: Optional[str] = None
     major: Optional[str] = None
@@ -49,7 +53,8 @@ class UserProfile(BaseModel):
     health_status: str
     signature: Optional[str] = None
     avatar_url: Optional[str] = None
-    
+    created_at: Optional[datetime] = None
+
     class Config:
         from_attributes = True
 
@@ -218,9 +223,12 @@ class ApproveRequest(BaseModel):
 
 class InvalidActivityOut(BaseModel):
     id: int
+    user_id: Optional[int] = None
     student_name: str
     student_id: Optional[str] = None
+    # 行政班级名 classes.name；major_name 为专业
     class_name: Optional[str] = None
+    major_name: Optional[str] = None
     fail_reason: Optional[str] = None
     distance: Optional[float] = None
     duration: Optional[int] = None
@@ -411,6 +419,10 @@ class StudentDetail(StudentInfo):
     abnormal_reason: Optional[str] = None
     group_name: Optional[str] = None
     health_requests: List[HealthRequestOut] = []
+    # 教师端展示：行政班 / 专业（与 User.plain_class_name、major 对齐）
+    plain_class_name: Optional[str] = None
+    major_name: Optional[str] = None
+    class_name: Optional[str] = None
 
 class StudentUpdate(BaseModel):
     student_id: Optional[str] = None
@@ -463,7 +475,9 @@ class TeacherDashboardOut(BaseModel):
 
 class ClassAnalysisOut(BaseModel):
     class_id: int
+    # 行政班级名；major_name 为专业
     class_name: str
+    major_name: Optional[str] = None
     student_count: int
     avg_distance: float
     avg_duration: int

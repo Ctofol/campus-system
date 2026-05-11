@@ -179,7 +179,14 @@ const fetchTaskDetail = async () => {
         if (res.type === 'run') {
             reqs.push('任务类型: 跑步任务');
             if (res.min_distance) reqs.push(`最低距离: ${res.min_distance} km`);
-            if (res.min_duration) reqs.push(`最低时长: ${res.min_duration} 分钟`);
+            if (res.min_duration) {
+                const sec = Number(res.min_duration);
+                const m = Math.floor(sec / 60);
+                const s = sec % 60;
+                reqs.push(
+                    s > 0 ? `最低时长: ${m} 分 ${s} 秒` : `最低时长: ${m} 分钟`
+                );
+            }
         } else {
             reqs.push('任务类型: 体测任务');
             if (res.min_count) reqs.push(`最低次数: ${res.min_count} 次`);

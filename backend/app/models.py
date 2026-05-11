@@ -71,9 +71,15 @@ class User(Base):
     @property
     def major(self):
         return self.major_rel.name if self.major_rel else self.major_name
-    
+
+    @property
+    def plain_class_name(self):
+        """行政班级名称（classes.name），不含专业前缀；专业见 major。"""
+        return self.student_class.name if self.student_class else None
+
     @property
     def class_name(self):
+        """展示用：专业名 + 班级名（与 plain_class_name、major 并用时会显得重复，教师端/历史接口仍依赖此格式）。"""
         if self.student_class:
             m_name = self.student_class.major.name if self.student_class.major else ""
             return f"{m_name} {self.student_class.name}".strip()

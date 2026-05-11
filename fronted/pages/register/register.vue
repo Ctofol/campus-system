@@ -143,6 +143,19 @@ const fetchCaptcha = () => {
   });
 };
 
+/** 解析 uni.request / axios 风格错误，兼容 FastAPI detail 字符串或校验错误数组 */
+const formatRegisterError = (error) => {
+  if (!error) return '注册失败';
+  if (typeof error.message === 'string' && error.message) return error.message;
+  const d = error.data?.detail ?? error.detail;
+  if (typeof d === 'string') return d;
+  if (Array.isArray(d)) {
+    const parts = d.map((x) => (typeof x === 'object' && x?.msg ? x.msg : String(x)));
+    return parts.filter(Boolean).join('；') || '注册失败';
+  }
+  return '注册失败';
+};
+
 const goToLogin = () => {
   uni.navigateBack();
 };
@@ -192,6 +205,10 @@ const handleRegister = async () => {
     uni.showToast({ title: '密码至少 6 位', icon: 'none' });
     return;
   }
+  if (form.password.length > 16) {
+    uni.showToast({ title: '密码不能超过 16 位', icon: 'none' });
+    return;
+  }
   
   loading.value = true;
   
@@ -230,8 +247,8 @@ const handleRegister = async () => {
 
   } catch (error) {
     console.error('Register failed:', error);
-    const msg = error?.message || error?.data?.detail || '注册失败';
-    uni.showToast({ title: typeof msg === 'string' ? msg : '注册失败', icon: 'none', duration: 2500 });
+    const msg = formatRegisterError(error);
+    uni.showToast({ title: msg, icon: 'none', duration: 2500 });
     fetchCaptcha();
     form.code = '';
   } finally {

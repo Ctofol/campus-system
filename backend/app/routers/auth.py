@@ -29,6 +29,8 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
     pwd = (user.password or "").strip()
     if len(pwd) < 6:
         raise HTTPException(status_code=400, detail="密码至少 6 位")
+    if len(pwd) > 16:
+        raise HTTPException(status_code=400, detail="密码不能超过 16 位")
     hashed_password = auth.get_password_hash(pwd)
 
     # 3. 学生：走档案激活流程（专业、班级以档案为准，与前端所选无关）
@@ -52,20 +54,34 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
         if profile.is_activated:
             raise HTTPException(status_code=400, detail="该学号已被注册")
 
+        major_nm = (profile.major or "").strip()
+        if not major_nm:
+            raise HTTPException(
+                status_code=403,
+                detail="档案中缺少专业信息，请联系管理员完善后再注册",
+            )
+
         # 根据档案中的内容找到对应的专业和班级
-        db_major = db.query(models.Major).filter(models.Major.name == profile.major).first()
+        db_major = db.query(models.Major).filter(models.Major.name == major_nm).first()
         if not db_major:
-            db_major = models.Major(name=profile.major)
+            db_major = models.Major(name=major_nm)
             db.add(db_major)
             db.commit()
             db.refresh(db_major)
 
+        class_nm = (profile.class_name or "").strip()
+        if not class_nm:
+            raise HTTPException(
+                status_code=403,
+                detail="档案中缺少班级信息，请联系管理员完善后再注册",
+            )
+
         db_class = db.query(models.Class).filter(
-            models.Class.name == profile.class_name, 
+            models.Class.name == class_nm,
             models.Class.major_id == db_major.id
         ).first()
         if not db_class:
-            db_class = models.Class(name=profile.class_name, major_id=db_major.id)
+            db_class = models.Class(name=class_nm, major_id=db_major.id)
             db.add(db_class)
             db.commit()
             db.refresh(db_class)
@@ -83,7 +99,7 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
             gender=profile.gender,
             class_id=db_class.id,
             major_id=db_major.id,
-            major_name=profile.major,
+            major_name=major_nm,
             subject=subject_final,
         )
         db.add(new_user)

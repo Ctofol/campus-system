@@ -143,16 +143,17 @@ def create_user(
         password_hash=hashed_password,
         role=user_in.role,
         class_id=class_id,
-        student_id=student_id
+        student_id=student_id,
     )
     db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-    
+    db.flush()
     if class_id:
         cls = db.query(models.Class).filter(models.Class.id == class_id).first()
-        new_user.class_name = cls.name if cls else None
-        
+        if cls and cls.major_id is not None:
+            new_user.major_id = cls.major_id
+    db.commit()
+    db.refresh(new_user)
+
     return new_user
 
 @router.delete("/users/{user_id}")
@@ -417,7 +418,9 @@ async def import_profiles(
                 gender = "female"
             class_name = str(row["班级"]).strip()
             major = str(row["专业"]).strip() if pd.notna(row.get("专业")) else None
-            subject = str(row["选科"]).strip() if pd.notna(row.get("选科")) else None
+            subject = None
+            if "选科" in df.columns and pd.notna(row.get("选科")):
+                subject = str(row.get("选科", "")).strip() or None
 
             profile = (
                 db.query(models.StudentProfile)
@@ -455,8 +458,8 @@ async def import_profiles(
 
 @router.get("/import/template/profiles")
 def get_profiles_template(current_user: models.User = Depends(get_current_admin)):
-    """下载档案导入模板（学号、姓名、性别、班级、专业）"""
-    df = pd.DataFrame(columns=["学号", "姓名", "性别", "班级", "专业"])
+    """下载档案导入模板（选科可选）"""
+    df = pd.DataFrame(columns=["学号", "姓名", "性别", "班级", "专业", "选科"])
     stream = io.BytesIO()
     with pd.ExcelWriter(stream, engine="openpyxl") as writer:
         df.to_excel(writer, index=False)

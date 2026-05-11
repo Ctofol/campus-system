@@ -71,14 +71,15 @@
 <script setup>
 import { ref, onMounted, nextTick } from 'vue'
 import * as echarts from 'echarts'
+import { UserFilled, Avatar, School, Bell } from '@element-plus/icons-vue'
 import { getDashboardStats, getSunshineClassStats } from '../api/index.js'
 
-// 核心指标
+// 核心指标（须传入图标组件，不能用字符串）
 const stats = ref([
-  { label: '学生总数', value: 0, icon: 'UserFilled', color: '#409eff' },
-  { label: '教师总数', value: 0, icon: 'Avatar', color: '#67c23a' },
-  { label: '班级总数', value: 0, icon: 'School', color: '#e6a23c' },
-  { label: '待审批事项', value: 0, icon: 'Bell', color: '#f56c6c' },
+  { label: '学生总数', value: 0, icon: UserFilled, color: '#409eff' },
+  { label: '教师总数', value: 0, icon: Avatar, color: '#67c23a' },
+  { label: '班级总数', value: 0, icon: School, color: '#e6a23c' },
+  { label: '待审批事项', value: 0, icon: Bell, color: '#f56c6c' },
 ])
 
 // 阳光跑数据

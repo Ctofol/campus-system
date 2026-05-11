@@ -98,6 +98,7 @@
               <text class="name">{{ stu.name }} <text class="group-tag" v-if="stu.groupName">({{stu.groupName}})</text></text>
               <text class="meta">学号：{{ stu.student_id || '未录入' }}</text>
               <text class="meta">班级：{{ stu.className }}</text>
+              <text class="meta">专业：{{ stu.majorLabel }}</text>
               <text class="meta">{{ stu.health_status === 'normal' ? '健康：良好' : '原因：' + (stu.abnormal_reason || '未说明') }}</text>
             </view>
           </view>
@@ -323,11 +324,7 @@ const loadStudents = async (reset = false) => {
     
     // Process data
     const newStudents = res.map(s => {
-      let className = '未分配';
-      if (s.class_id) {
-        const c = classList.value.find(cls => cls.id === s.class_id);
-        if (c) className = c.name;
-      }
+      const className = s.class_name || s.plain_class_name || '未分配';
       
       let statusLabel = '正常';
       let statusClass = 'ok';
@@ -338,6 +335,7 @@ const loadStudents = async (reset = false) => {
       return {
         ...s,
         className,
+        majorLabel: s.major_name || '—',
         statusLabel,
         statusClass,
         expanded: false

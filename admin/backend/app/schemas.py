@@ -18,10 +18,13 @@ class Token(BaseModel):
 
 class ClassCreate(BaseModel):
     name: str
+    major_id: int
 
 class ClassOut(BaseModel):
     id: int
     name: str
+    major_id: Optional[int] = None
+    major_name: Optional[str] = None
     teacher_id: Optional[int] = None
     student_count: int = 0
     class Config:
@@ -39,8 +42,10 @@ class UserProfile(BaseModel):
     phone: str
     role: str
     class_name: Optional[str] = None
+    plain_class_name: Optional[str] = None
     student_id: Optional[str] = None
     major: Optional[str] = None
+    subject: Optional[str] = None
     created_at: Optional[datetime] = None
     class Config:
         from_attributes = True

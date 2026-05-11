@@ -29,9 +29,11 @@
     <el-table :data="users" stripe>
       <el-table-column prop="name" label="姓名" width="120" />
       <el-table-column prop="phone" label="手机号" width="140" />
-      <el-table-column v-if="role==='student'" prop="class_name" label="班级" width="140" />
-      <el-table-column v-if="role==='student'" prop="major" label="专业" width="160" />
-      <el-table-column v-if="role==='student'" prop="subject" label="选科" width="120" />
+      <el-table-column v-if="role==='student'" label="班级（行政班）" width="160">
+        <template #default="{ row }">{{ row.plain_class_name || '-' }}</template>
+      </el-table-column>
+      <el-table-column v-if="role==='student'" prop="major" label="专业（Major）" width="160" />
+      <el-table-column v-if="role==='student'" prop="subject" label="体育选科" width="120" />
       <el-table-column v-if="role==='teacher'" label="工号/标识" width="140">
         <template #default="{row}">{{ row.student_id }}</template>
       </el-table-column>

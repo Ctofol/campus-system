@@ -1,6 +1,14 @@
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Float
+from sqlalchemy.orm import relationship
 from datetime import datetime
 from .database import Base
+
+
+class Major(Base):
+    __tablename__ = "majors"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, nullable=False)
 
 
 class StudentProfile(Base):
@@ -39,8 +47,18 @@ class Class(Base):
     __tablename__ = "classes"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True, nullable=False)
+    major_id = Column(Integer, ForeignKey("majors.id"), nullable=True)
     teacher_id = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    major = relationship("Major", foreign_keys=[major_id])
+
+
+class Task(Base):
+    __tablename__ = "tasks"
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=True)
+    type = Column(String, nullable=True)
 
 
 class Activity(Base):
@@ -55,6 +73,9 @@ class Activity(Base):
     is_valid = Column(Boolean, default=False)
     fail_reason = Column(String, nullable=True)
     face_verified = Column(Boolean, default=False)
+    task_id = Column(Integer, ForeignKey("tasks.id"), nullable=True)
+
+    task = relationship("Task", foreign_keys=[task_id])
 
 
 class TeacherClass(Base):
@@ -62,6 +83,13 @@ class TeacherClass(Base):
     id = Column(Integer, primary_key=True, index=True)
     teacher_id = Column(Integer, nullable=False)
     class_name = Column(String, nullable=False)
+
+
+class TeacherSubject(Base):
+    __tablename__ = "teacher_subjects"
+    id = Column(Integer, primary_key=True, index=True)
+    teacher_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    subject_name = Column(String, nullable=False)
 
 
 class ActivityMetrics(Base):

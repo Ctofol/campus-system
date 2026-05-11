@@ -137,25 +137,6 @@ export const getActivityHistory = (params) => {
   });
 };
 
-// Teacher
-export const getTeacherActivities = (params) => {
-  let queryString = '';
-  if (params) {
-    queryString = `?page=${params.page}&size=${params.size}`;
-  }
-  return request({
-    url: `/teacher/activities${queryString}`,
-    method: 'GET'
-  });
-};
-
-export const approveActivity = (activityId) => {
-  return request({
-    url: `/teacher/activity/${activityId}/approve`,
-    method: 'POST'
-  });
-};
-
 export const createTeacherTask = (data) => {
   return request({
     url: '/teacher/tasks',
@@ -360,10 +341,8 @@ export default {
   register,
   submitActivity,
   getActivityHistory,
-  getTeacherActivities,
   getTeacherDashboardStats,
   getTeacherWeeklyTrend,
-  approveActivity,
   createTeacherTask,
   getTeacherTasks,
   getStudentTasks,

@@ -9,7 +9,8 @@
             <text class="name">{{ name }}</text>
             <text class="status-badge" :class="healthClass">{{ healthStatus }}</text>
           </view>
-          <text class="sub-text">学号：{{ no }} | {{ className }}</text>
+          <text class="sub-text">学号：{{ no }}</text>
+          <text class="sub-text">班级：{{ className }} · 专业：{{ majorName }}</text>
           <text class="sub-text">分组：{{ group || '未分组' }}</text>
         </view>
       </view>
@@ -101,6 +102,7 @@ const id = ref('');
 const name = ref('');
 const no = ref('');
 const className = ref('');
+const majorName = ref('—');
 const group = ref('体能A组'); // Mock group
 const healthStatus = ref('良好');
 const activeTab = ref('run');
@@ -142,21 +144,13 @@ const formatDuration = (seconds) => {
 
 const fetchData = async () => {
     try {
-        // 0. Load classes to map name
-        const classes = await request({ url: '/teacher/classes' });
-        
-        // 1. Get student info
         const student = await request({ url: `/teacher/students/${id.value}` });
         name.value = student.name;
         no.value = student.student_id || student.phone; // Use student_id if available
         
-        // Map Class Name
-        if (student.class_id) {
-            const cls = classes.find(c => c.id === student.class_id);
-            className.value = cls ? cls.name : '未知班级';
-        } else {
-            className.value = '未分配班级';
-        }
+        majorName.value = student.major_name || '—';
+        className.value =
+          student.plain_class_name || student.class_name || '未分配班级';
         
         // Map Group & Health
         group.value = student.group_name || '未分组';
