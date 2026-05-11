@@ -429,10 +429,16 @@ def seed_recent_runs_and_scores(db, activated, teachers):
             if teacher_by_id and random.random() < 0.35:
                 cls = db.query(models.Class).filter(models.Class.id == user.class_id).first()
                 if cls:
-                    tc = db.query(models.TeacherClass).filter(
-                        models.TeacherClass.class_name == cls.name
-                    ).first()
-                    if tc and tc.teacher_id in teacher_by_id:
+                    tc = (
+                        db.query(models.TeacherClass)
+                        .filter(
+                            models.TeacherClass.class_name == cls.name,
+                            models.TeacherClass.teacher_id.in_(list(teacher_by_id.keys())),
+                        )
+                        .order_by(models.TeacherClass.id)
+                        .first()
+                    )
+                    if tc:
                         score_val = round(random.uniform(75, 98), 1)
                         metrics.teacher_score = score_val
                         metrics.scored_by = tc.teacher_id
@@ -517,10 +523,10 @@ def seed_tasks_and_completions(db, activated, teachers, name_to_class):
                     title="阳光跑达标任务" if random.random() < 0.6 else "周末跑步打卡",
                     type="run",
                     min_distance=2.0,
-                    min_duration=25,
+                    min_duration=1500,
                     min_count=None,
                     deadline=deadline,
-                    description="完成至少 2km，约 25 分钟。",
+                    description="完成至少 2km，时长不少于约 25 分钟。",
                     target_group="all",
                     class_id=class_id,
                     created_by=teacher.id,

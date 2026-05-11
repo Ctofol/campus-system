@@ -13,6 +13,42 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from app.database import SessionLocal, engine
 from app import models, auth
 
+# 与教师端管辖逻辑一致：TeacherSubject（选科）与 TeacherClass（按行政班名称绑定）为 OR 关系
+PE_SUBJECTS = ["篮球", "羽毛球", "乒乓球", "游泳", "网球"]
+
+
+def sync_teacher_class_bindings(db, teacher, classes):
+    """为当前教师补全 teacher_classes（与 Admin「关联班级」一致，幂等）。"""
+    for cls in classes:
+        exists = (
+            db.query(models.TeacherClass)
+            .filter(
+                models.TeacherClass.teacher_id == teacher.id,
+                models.TeacherClass.class_name == cls.name,
+            )
+            .first()
+        )
+        if not exists:
+            db.add(
+                models.TeacherClass(teacher_id=teacher.id, class_name=cls.name)
+            )
+
+
+def sync_teacher_subjects(db, teacher):
+    """补全教师选科，便于与学生的 subject 字段形成管辖 OR 条件（幂等）。"""
+    for sub in PE_SUBJECTS:
+        exists = (
+            db.query(models.TeacherSubject)
+            .filter(
+                models.TeacherSubject.teacher_id == teacher.id,
+                models.TeacherSubject.subject_name == sub,
+            )
+            .first()
+        )
+        if not exists:
+            db.add(models.TeacherSubject(teacher_id=teacher.id, subject_name=sub))
+
+
 def seed_database():
     """Seed the database with test data"""
     db = SessionLocal()
@@ -69,6 +105,11 @@ def seed_database():
             else:
                 print(f"✅ Class already exists: {cls.name} (ID: {cls.id})")
             classes.append(cls)
+
+        sync_teacher_class_bindings(db, teacher, classes)
+        sync_teacher_subjects(db, teacher)
+        db.commit()
+        print("✅ Synced teacher_classes + teacher_subjects (aligned with runtime class logic)")
         
         # 3. Create Students
         print("\n👥 Creating students...")
@@ -110,6 +151,7 @@ def seed_database():
                 password_hash=auth.get_password_hash("student123"),
                 student_id=student_id,
                 class_id=classes[class_idx].id,
+                subject=PE_SUBJECTS[i % len(PE_SUBJECTS)],
                 health_status=health_statuses[i],
                 abnormal_reason="请假" if health_statuses[i] == "leave" else ("受伤" if health_statuses[i] == "injured" else None),
                 group_name=groups[i % len(groups)]
@@ -227,17 +269,18 @@ def seed_database():
         db.commit()
         print(f"✅ Created health requests for abnormal students")
         
-        # 6. Create Tasks
+        # 6. Create Tasks（与学生端 /student/tasks 过滤一致：全校任务 class_id 须为 NULL）
         print("\n📋 Creating tasks...")
         tasks_data = [
             {
                 "title": "本周跑步任务",
                 "type": "run",
                 "min_distance": 3.0,
-                "min_duration": 20,
+                "min_duration": 1200,
                 "deadline": datetime.utcnow() + timedelta(days=3),
                 "description": "完成3公里跑步，时长不少于20分钟",
-                "target_group": "all"
+                "target_group": "all",
+                "class_id": None,
             },
             {
                 "title": "体能测试",
@@ -245,20 +288,34 @@ def seed_database():
                 "min_count": 2,
                 "deadline": datetime.utcnow() + timedelta(days=7),
                 "description": "完成2次体能测试",
-                "target_group": "all"
-            }
+                "target_group": "all",
+                "class_id": None,
+            },
+            {
+                "title": "2021级体育1班专项跑步",
+                "type": "run",
+                "min_distance": 2.0,
+                "min_duration": 1200,
+                "deadline": datetime.utcnow() + timedelta(days=5),
+                "description": "仅本班可见的班级任务示例",
+                "target_group": "all",
+                "class_id": classes[0].id,
+            },
         ]
         
-        for task_data in tasks_data:
+        for spec in tasks_data:
+            row = {k: v for k, v in spec.items() if k != "class_id"}
+            title = row["title"]
+            class_id = spec.get("class_id")
             existing_task = db.query(models.Task).filter(
-                models.Task.title == task_data["title"]
+                models.Task.title == title
             ).first()
             
             if not existing_task:
                 task = models.Task(
-                    **task_data,
+                    **row,
                     created_by=teacher.id,
-                    class_id=classes[0].id
+                    class_id=class_id,
                 )
                 db.add(task)
         
