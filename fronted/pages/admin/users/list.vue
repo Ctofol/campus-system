@@ -16,7 +16,7 @@
       <view v-for="item in users" :key="item.id" class="list-item">
         <text class="col name">{{ item.name }}</text>
         <text class="col phone">{{ item.phone }}</text>
-        <text class="col info">{{ role==='student' ? item.class_name : item.student_id }}</text>
+        <text class="col info">{{ role==='student' ? (item.plain_class_name || item.class_name || '-') : item.student_id }}</text>
         <view class="col action">
           <text class="btn reset" @click="resetPwd(item)">重置</text>
           <text class="btn delete" @click="deleteUser(item)">删除</text>

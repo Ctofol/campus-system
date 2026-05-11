@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const BASE_URL = ''
+const BASE_URL = '/admin-api'
 
 const api = axios.create({ baseURL: BASE_URL })
 
@@ -50,8 +50,5 @@ export const deleteUser = (id) => api.delete(`/manage/users/${id}`)
 export const resetPassword = (id) => api.post(`/manage/users/${id}/reset-password`)
 export const getTeacherSubjects = (id) => api.get(`/manage/teacher-subjects/${id}`)
 export const updateTeacherSubjects = (id, data) => api.post(`/manage/teacher-subjects/${id}`, data)
-export const downloadProfilesTemplate = () => window.open(`${BASE_URL}/import/template/profiles`)
-export const downloadStudentTemplate = () => window.open(`${BASE_URL}/import/template/students`)
-export const downloadTeacherTemplate = () => window.open(`${BASE_URL}/import/template/teachers`)
 
 export default api

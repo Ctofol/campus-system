@@ -4,6 +4,77 @@ from datetime import datetime, timedelta
 from .. import models, config
 from .score_service import sunshine_run_filter
 
+
+def class_display_name(c: models.Class) -> str:
+    """教师端列表展示：专业名 + 行政班名（与历史接口一致）。"""
+    m_name = c.major.name if c.major else ""
+    return f"{m_name} {c.name}".strip()
+
+
+async def get_managed_class_summaries(current_user: models.User, db: Session) -> list:
+    """
+    当前教师在「班级维度」下可见的行政班列表：
+    - 已有管辖学生在内的班级
+    - TeacherClass 显式绑定的班级
+    - Class.teacher_id 直接指定的班级
+    student_count 仅统计管辖范围内的学生人数。
+    """
+    student_query = await get_managed_students_query(current_user, db)
+    ids_from_students = set()
+    for row in student_query.with_entities(models.User.class_id).distinct().all():
+        if row[0] is not None:
+            ids_from_students.add(row[0])
+
+    tc_rows = (
+        db.query(models.TeacherClass)
+        .filter(models.TeacherClass.teacher_id == current_user.id)
+        .all()
+    )
+    names_bound = [r.class_name for r in tc_rows]
+    ids_from_bind = []
+    if names_bound:
+        ids_from_bind = [
+            c.id
+            for c in db.query(models.Class).filter(models.Class.name.in_(names_bound)).all()
+        ]
+
+    direct_ids = [
+        c.id
+        for c in db.query(models.Class)
+        .filter(models.Class.teacher_id == current_user.id)
+        .all()
+    ]
+
+    all_ids = ids_from_students | set(ids_from_bind) | set(direct_ids)
+    if not all_ids:
+        return []
+
+    classes = (
+        db.query(models.Class)
+        .filter(models.Class.id.in_(all_ids))
+        .order_by(models.Class.name)
+        .all()
+    )
+    result = []
+    for c in classes:
+        cnt = student_query.filter(models.User.class_id == c.id).count()
+        result.append(
+            {
+                "id": c.id,
+                "name": class_display_name(c),
+                "student_count": cnt,
+            }
+        )
+    return result
+
+
+async def teacher_manages_class_id(
+    current_user: models.User, class_id: int, db: Session
+) -> bool:
+    summaries = await get_managed_class_summaries(current_user, db)
+    return any(s["id"] == class_id for s in summaries)
+
+
 async def get_managed_students_query(current_user: models.User, db: Session):
     """获取教师管辖的学生查询对象（统一逻辑：支持选科、班级管理、直接关联）"""
     # 1. 获取教师选科

@@ -40,10 +40,24 @@
         </view>
       </view>
 
-      <view class="form-item">
-        <text class="label">目标距离 (km)</text>
-        <input class="input" type="digit" v-model="form.distance" placeholder="0.0" />
-      </view>
+      <template v-if="form.type === 'run'">
+        <view class="form-item">
+          <text class="label">目标距离 (km)</text>
+          <input class="input" type="digit" v-model="form.distance" placeholder="例如 3.0" />
+        </view>
+        <view class="form-item vertical compact-hint">
+          <view class="form-item-inner">
+            <text class="label">最低时长 (分钟)</text>
+            <input
+              class="input"
+              type="digit"
+              v-model="form.minDurationMinutes"
+              placeholder="例如 20"
+            />
+          </view>
+          <text class="field-hint">学生单次跑步需同时满足距离与时长下限（与后端自动核验一致）；未填的一项表示不设该下限。</text>
+        </view>
+      </template>
       
       <view class="form-item">
         <text class="label">开始日期</text>
@@ -88,7 +102,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted } from 'vue';
 import { createTeacherTask, request, BASE_URL } from '@/utils/request.js';
 
 const taskTypes = ['run', 'test']; // Simplified to match backend enum/string
@@ -102,6 +116,7 @@ const form = ref({
   type: '',
   typeLabel: '',
   distance: '',
+  minDurationMinutes: '',
   startDate: '',
   deadline: '',
   target: 'all',
@@ -241,15 +256,34 @@ const submitTask = async () => {
   if (form.value.type === 'test' && !form.value.videoUrl) {
     return uni.showToast({ title: '体测任务必须上传示范视频', icon: 'none' });
   }
-  
+
+  const distKm =
+    form.value.type === 'run' ? parseFloat(String(form.value.distance).trim()) : 0;
+  const durMin =
+    form.value.type === 'run' ? parseFloat(String(form.value.minDurationMinutes).trim()) : 0;
+  if (form.value.type === 'run') {
+    const distOk = !Number.isNaN(distKm) && distKm > 0;
+    const durOk = !Number.isNaN(durMin) && durMin > 0;
+    if (!distOk && !durOk) {
+      return uni.showToast({ title: '跑步任务请填写目标距离或最低时长至少一项', icon: 'none' });
+    }
+  }
+
   uni.showLoading({ title: '发布中...' });
-  
+
   try {
+    const minDurationSec =
+      form.value.type === 'run' && !Number.isNaN(durMin) && durMin > 0
+        ? Math.round(durMin * 60)
+        : 0;
+    const minDistanceKm =
+      form.value.type === 'run' && !Number.isNaN(distKm) && distKm > 0 ? distKm : 0;
+
     const payload = {
       title: form.value.title,
       type: form.value.type,
-      min_distance: form.value.type === 'run' ? Number(form.value.distance) : 0,
-      min_duration: 0,
+      min_distance: minDistanceKm,
+      min_duration: minDurationSec,
       min_count: 0,
       starts_at: form.value.startDate ? new Date(form.value.startDate).toISOString() : null,
       deadline: new Date(form.value.deadline).toISOString(),
@@ -305,6 +339,24 @@ const submitTask = async () => {
   flex-direction: column;
   align-items: flex-start;
   gap: 20rpx;
+}
+
+.form-item.vertical.compact-hint {
+  gap: 12rpx;
+}
+
+.form-item-inner {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.field-hint {
+  font-size: 24rpx;
+  color: #999;
+  line-height: 1.5;
+  width: 100%;
 }
 
 .label {

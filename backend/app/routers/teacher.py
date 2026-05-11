@@ -2,12 +2,18 @@ from fastapi import APIRouter, Depends, HTTPException, Body
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func, or_, desc
-from typing import List
+from typing import List, Optional
 import io
 import csv
 from datetime import datetime, timedelta
 from .. import models, schemas, auth
-from ..services.teacher_service import get_teacher_stats_data, get_managed_students_query
+from ..services.teacher_service import (
+    get_teacher_stats_data,
+    get_managed_students_query,
+    get_managed_class_summaries,
+    teacher_manages_class_id,
+    class_display_name,
+)
 from ..services.score_service import calculate_total_score, sunshine_run_filter
 from ..database import get_db
 
@@ -27,9 +33,6 @@ async def _get_teacher_stats_data(current_user: models.User, db: Session):
             "avg_pace": "--", "task_count": 0, "compliance_rate": 0,
             "qualified_rate": 0, "completion_rate": 0
         }
-
-def _legacy_stats_marker():
-    pass
 
 
 @router.get("/stats", response_model=schemas.TeacherStatsOut)
@@ -134,21 +137,248 @@ async def get_weekly_trend(
     
     return trend_data
 
+def _parse_query_datetime(raw: Optional[str]) -> Optional[datetime]:
+    if not raw:
+        return None
+    try:
+        s = raw.strip().replace("Z", "+00:00")
+        return datetime.fromisoformat(s)
+    except Exception:
+        return None
+
+
 @router.get("/classes")
 async def get_teacher_classes(
     current_user: models.User = Depends(auth.get_current_teacher),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-    """返回所有班级（适配前端请求）"""
-    classes = db.query(models.Class).all()
-    results = []
-    for c in classes:
-        results.append({
-            "id": c.id,
-            "name": f"{c.major.name if c.major else ''} {c.name}".strip(),
-            "student_count": len(c.students)
-        })
-    return results
+    """返回当前教师管辖范围内的班级（用于筛选、发布任务等）。"""
+    return await get_managed_class_summaries(current_user, db)
+
+
+@router.get("/available_classes")
+async def get_available_classes_for_bind(
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db),
+):
+    """关联班级弹窗：尚未通过 TeacherClass 绑定到本教师的行政班（全校班级池）。"""
+    bound_names = {
+        r.class_name
+        for r in db.query(models.TeacherClass)
+        .filter(models.TeacherClass.teacher_id == current_user.id)
+        .all()
+    }
+    out = []
+    for c in db.query(models.Class).order_by(models.Class.name).all():
+        if c.name in bound_names:
+            continue
+        out.append(
+            {
+                "id": c.id,
+                "name": class_display_name(c),
+                "student_count": len(c.students or []),
+            }
+        )
+    return out
+
+
+@router.post("/classes/bind")
+async def bind_teacher_classes(
+    body: schemas.ClassBind,
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db),
+):
+    """将行政班关联到当前教师（TeacherClass，按班级名称）。"""
+    for cid in body.class_ids:
+        c = db.query(models.Class).filter(models.Class.id == cid).first()
+        if not c:
+            continue
+        exists = (
+            db.query(models.TeacherClass)
+            .filter(
+                models.TeacherClass.teacher_id == current_user.id,
+                models.TeacherClass.class_name == c.name,
+            )
+            .first()
+        )
+        if not exists:
+            db.add(
+                models.TeacherClass(
+                    teacher_id=current_user.id, class_name=c.name
+                )
+            )
+    db.commit()
+    return {"ok": True}
+
+
+@router.delete("/classes/{class_id}")
+async def unbind_teacher_class(
+    class_id: int,
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db),
+):
+    """解除 TeacherClass 绑定（不删班级与学生数据）。"""
+    c = db.query(models.Class).filter(models.Class.id == class_id).first()
+    if not c:
+        raise HTTPException(status_code=404, detail="班级不存在")
+    row = (
+        db.query(models.TeacherClass)
+        .filter(
+            models.TeacherClass.teacher_id == current_user.id,
+            models.TeacherClass.class_name == c.name,
+        )
+        .first()
+    )
+    if row:
+        db.delete(row)
+        db.commit()
+    return {"ok": True}
+
+
+@router.get("/classes/{class_id}")
+async def get_teacher_class_one(
+    class_id: int,
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db),
+):
+    """班级详情页头部信息。"""
+    if not await teacher_manages_class_id(current_user, class_id, db):
+        raise HTTPException(status_code=404, detail="班级不存在或无权限")
+    c = db.query(models.Class).filter(models.Class.id == class_id).first()
+    if not c:
+        raise HTTPException(status_code=404, detail="班级不存在")
+    student_query = await get_managed_students_query(current_user, db)
+    cnt = student_query.filter(models.User.class_id == class_id).count()
+    return {
+        "id": c.id,
+        "name": class_display_name(c),
+        "student_count": cnt,
+    }
+
+
+@router.get("/classes/{class_id}/stats")
+async def get_teacher_class_stats(
+    class_id: int,
+    task_id: Optional[int] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db),
+):
+    """
+    班级内管辖学生的运动统计。未选任务时统计阳光跑；选择任务时统计该任务下的运动记录。
+    """
+    if not await teacher_manages_class_id(current_user, class_id, db):
+        raise HTTPException(status_code=404, detail="班级不存在或无权限")
+
+    student_query = await get_managed_students_query(current_user, db)
+    students_in_class = student_query.filter(models.User.class_id == class_id).all()
+
+    t_start = _parse_query_datetime(start_date)
+    t_end = _parse_query_datetime(end_date)
+
+    task = None
+    if task_id is not None:
+        task = (
+            db.query(models.Task)
+            .filter(
+                models.Task.id == task_id,
+                models.Task.created_by == current_user.id,
+            )
+            .first()
+        )
+        if not task:
+            raise HTTPException(status_code=404, detail="任务不存在")
+
+    total_distance = 0.0
+    total_activities = 0
+    student_stats = []
+
+    for s in students_in_class:
+        q = db.query(models.Activity).filter(models.Activity.user_id == s.id)
+        if task:
+            q = q.filter(
+                models.Activity.task_id == task.id,
+                models.Activity.source == "task",
+                models.Activity.type == task.type,
+            )
+        else:
+            q = q.filter(sunshine_run_filter())
+        if t_start:
+            q = q.filter(models.Activity.started_at >= t_start)
+        if t_end:
+            q = q.filter(models.Activity.started_at <= t_end)
+
+        acts = q.all()
+        dist_sum = 0.0
+        for a in acts:
+            if a.metrics and a.metrics.distance is not None:
+                dist_sum += float(a.metrics.distance)
+        total_distance += dist_sum
+        total_activities += len(acts)
+        student_stats.append(
+            {
+                "id": s.id,
+                "name": s.name,
+                "distance": dist_sum,
+                "count": len(acts),
+            }
+        )
+
+    return {
+        "total_distance": total_distance,
+        "total_activities": total_activities,
+        "student_stats": student_stats,
+    }
+
+
+@router.post("/classes/{class_id}/students")
+async def add_student_to_teacher_class(
+    class_id: int,
+    payload: dict = Body(...),
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db),
+):
+    """将学生编入指定行政班（须先有班级管辖权限）。"""
+    if not await teacher_manages_class_id(current_user, class_id, db):
+        raise HTTPException(status_code=404, detail="班级不存在或无权限")
+    phone = (payload or {}).get("phone")
+    if not phone:
+        raise HTTPException(status_code=400, detail="请提供手机号")
+    user = (
+        db.query(models.User)
+        .filter(models.User.phone == str(phone).strip(), models.User.role == "student")
+        .first()
+    )
+    if not user:
+        raise HTTPException(status_code=404, detail="未找到该学员")
+    user.class_id = class_id
+    db.commit()
+    db.refresh(user)
+    return {"ok": True, "student_id": user.id}
+
+
+@router.delete("/classes/{class_id}/students/{student_id}")
+async def remove_student_from_teacher_class(
+    class_id: int,
+    student_id: int,
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db),
+):
+    """将学生从行政班中移除（清空 class_id）。"""
+    if not await teacher_manages_class_id(current_user, class_id, db):
+        raise HTTPException(status_code=404, detail="班级不存在或无权限")
+    student_query = await get_managed_students_query(current_user, db)
+    stu = student_query.filter(
+        models.User.id == student_id,
+        models.User.class_id == class_id,
+    ).first()
+    if not stu:
+        raise HTTPException(status_code=404, detail="学员不存在或不在该班")
+    stu.class_id = None
+    db.commit()
+    return {"ok": True}
+
 
 @router.get("/health/requests")
 async def get_health_requests_v2(
@@ -246,15 +476,14 @@ async def get_class_analysis(
     student_count = len(students)
     
     cls_row = db.query(models.Class).filter(models.Class.id == class_id).first()
-    class_name_display = (
-        f"{cls_row.major.name if cls_row and cls_row.major else ''} {cls_row.name if cls_row else ''}".strip()
-        or f"Class_{class_id}"
-    )
+    admin_class_name = (cls_row.name if cls_row else "") or f"Class_{class_id}"
+    major_nm = cls_row.major.name if cls_row and cls_row.major else None
 
     if student_count == 0:
         return {
             "class_id": class_id,
-            "class_name": class_name_display,
+            "class_name": admin_class_name,
+            "major_name": major_nm,
             "student_count": 0,
             "avg_distance": 0.0,
             "avg_duration": 0,
@@ -292,7 +521,8 @@ async def get_class_analysis(
     
     return {
         "class_id": class_id,
-        "class_name": class_name_display,
+        "class_name": admin_class_name,
+        "major_name": major_nm,
         "student_count": student_count,
         "avg_distance": round(avg_distance, 2),
         "avg_duration": avg_duration,
@@ -341,7 +571,8 @@ async def get_class_member_sunshine_details(
                 "user_id": s.id,
                 "student_id": s.student_id,
                 "name": s.name,
-                "class_name": s.class_name,
+                "class_name": s.plain_class_name,
+                "major_name": s.major,
                 "weekly_count": weekly_valid,
                 "total_score": calculate_total_score(int(valid_total)),
             }
@@ -422,6 +653,7 @@ async def get_teacher_students(
     name: str = None,
     student_id: str = None,
     status: str = None,
+    group_name: Optional[str] = None,
     current_user: models.User = Depends(auth.get_current_teacher),
     db: Session = Depends(get_db)
 ):
@@ -437,15 +669,18 @@ async def get_teacher_students(
         query = query.filter(models.User.student_id.contains(student_id))
     if status:
         query = query.filter(models.User.health_status == status)
+    if group_name:
+        query = query.filter(models.User.group_name == group_name)
     
     students = query.offset((page - 1) * size).limit(size).all()
     
-    # 确保返回的对象包含前端需要的 class_name (带专业的)
     result = []
     for s in students:
         s_dict = {k: v for k, v in s.__dict__.items() if not k.startswith("_")}
-        s_dict["class_name"] = s.class_name # 使用我们重构后的带专业的 class_name
-        s_dict["major_name"] = s.major # 专业名称
+        # 与后台管理端一致：class_name=行政班名，major_name=专业
+        s_dict["plain_class_name"] = s.plain_class_name
+        s_dict["class_name"] = s.plain_class_name
+        s_dict["major_name"] = s.major
         result.append(s_dict)
     return result
 
@@ -463,7 +698,8 @@ async def get_teacher_student_detail(
         raise HTTPException(status_code=404, detail="Student not found or no permission")
 
     s_dict = {k: v for k, v in student.__dict__.items() if not k.startswith("_")}
-    s_dict["class_name"] = student.class_name
+    s_dict["plain_class_name"] = student.plain_class_name
+    s_dict["class_name"] = student.plain_class_name
     s_dict["major_name"] = student.major
     s_dict.setdefault("health_requests", [])
     return s_dict
@@ -524,9 +760,11 @@ async def get_invalid_activities(
         results.append(
             schemas.InvalidActivityOut(
                 id=activity.id,
+                user_id=user.id if user else None,
                 student_name=user.name if user else "未知学生",
                 student_id=user.student_id if user else None,
-                class_name=user.class_name,
+                class_name=user.plain_class_name if user else None,
+                major_name=user.major if user else None,
                 fail_reason=activity.fail_reason,
                 distance=metrics.distance if metrics else None,
                 duration=metrics.duration if metrics else None,
@@ -643,6 +881,12 @@ async def create_teacher_task(
     """教师发布任务（与学生端「我的任务」、任务跑步关联）"""
     if task_in.starts_at and task_in.deadline and task_in.starts_at > task_in.deadline:
         raise HTTPException(status_code=400, detail="任务开始时间不能晚于截止时间")
+    if task_in.class_id is not None:
+        if not await teacher_manages_class_id(current_user, task_in.class_id, db):
+            raise HTTPException(
+                status_code=400,
+                detail="任务目标班级不在您的管辖范围内",
+            )
     t = models.Task(
         title=task_in.title,
         type=task_in.type,
@@ -703,6 +947,8 @@ async def get_teacher_tasks(
         query = query.filter(or_(models.Task.deadline == None, models.Task.deadline > now))
     elif status == "ended":
         query = query.filter(models.Task.deadline <= now)
+    elif status == "all":
+        pass
         
     total = query.count()
     tasks = query.offset((page - 1) * size).limit(size).all()
@@ -1104,42 +1350,135 @@ async def get_task_scores(
                 })
     return {"scores": scores}
 
-@router.get("/stats/task-completion")
-async def get_task_completion_stats(
-    current_user: models.User = Depends(auth.get_current_teacher),
-    db: Session = Depends(get_db)
-):
+async def _compute_task_completion_rows(
+    current_user: models.User, db: Session
+) -> List[dict]:
     tasks = db.query(models.Task).filter(models.Task.created_by == current_user.id).all()
     student_query = await get_managed_students_query(current_user, db)
     stats = []
-    managed_student_ids = [u.id for u in student_query.with_entities(models.User.id).all()]
-    
     for task in tasks:
         t_query = student_query
         if task.class_id:
             t_query = t_query.filter(models.User.class_id == task.class_id)
-        
+
         task_students = t_query.all()
         total_students = len(task_students)
         t_student_ids = [s.id for s in task_students]
-        
+
         completed_count = 0
         if t_student_ids:
-            # Fix: Count unique students who have at least one qualified activity for this task
-            completed_count = db.query(func.count(func.distinct(models.Activity.user_id))).join(models.ActivityMetrics).filter(
-                models.Activity.user_id.in_(t_student_ids),
-                models.Activity.type == task.type,
-                models.ActivityMetrics.qualified == True
-            ).scalar() or 0
-            
-        stats.append({
-            "task_id": task.id,
-            "task_title": task.title,
-            "total_students": total_students,
-            "completed_count": completed_count,
-            "completion_rate": round((completed_count / total_students * 100), 2) if total_students > 0 else 0
-        })
-    return {"tasks": stats}
+            completed_count = (
+                db.query(func.count(func.distinct(models.Activity.user_id)))
+                .join(models.ActivityMetrics)
+                .filter(
+                    models.Activity.user_id.in_(t_student_ids),
+                    models.Activity.type == task.type,
+                    models.ActivityMetrics.qualified == True,
+                )
+                .scalar()
+                or 0
+            )
+
+        completion_rate = (
+            round((completed_count / total_students * 100), 2)
+            if total_students > 0
+            else 0
+        )
+        stats.append(
+            {
+                "task_id": task.id,
+                "task_title": task.title,
+                "task_type": task.type,
+                "starts_at": task.starts_at,
+                "deadline": task.deadline,
+                "total_students": total_students,
+                "completed_count": completed_count,
+                "completion_rate": completion_rate,
+            }
+        )
+    return stats
+
+
+@router.get("/stats/task-completion")
+async def get_task_completion_stats(
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db),
+):
+    rows = await _compute_task_completion_rows(current_user, db)
+    return {
+        "tasks": [
+            {
+                "task_id": r["task_id"],
+                "task_title": r["task_title"],
+                "total_students": r["total_students"],
+                "completed_count": r["completed_count"],
+                "completion_rate": r["completion_rate"],
+            }
+            for r in rows
+        ]
+    }
+
+
+@router.get("/export/tasks")
+async def export_teacher_tasks_completion(
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db),
+):
+    """综合管理导出：任务完成情况 JSON（与前端 `res.data` 约定一致）。"""
+    rows = await _compute_task_completion_rows(current_user, db)
+    data = [
+        {
+            "task_id": r["task_id"],
+            "task_title": r["task_title"],
+            "task_type": r["task_type"],
+            "start_time": r["starts_at"].isoformat() if r["starts_at"] else "",
+            "end_time": r["deadline"].isoformat() if r["deadline"] else "",
+            "total_students": r["total_students"],
+            "completed_count": r["completed_count"],
+            "completion_rate": r["completion_rate"],
+        }
+        for r in rows
+    ]
+    return {"data": data}
+
+
+@router.get("/export/scores")
+async def export_teacher_student_scores(
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db),
+):
+    """综合管理导出：管辖学生教师打分汇总（JSON）。"""
+    student_query = await get_managed_students_query(current_user, db)
+    students = student_query.all()
+    data = []
+    for s in students:
+        metrics_rows = (
+            db.query(models.ActivityMetrics)
+            .join(
+                models.Activity,
+                models.Activity.id == models.ActivityMetrics.activity_id,
+            )
+            .filter(
+                models.Activity.user_id == s.id,
+                models.ActivityMetrics.teacher_score.isnot(None),
+            )
+            .all()
+        )
+        vals = [m.teacher_score for m in metrics_rows if m.teacher_score is not None]
+        if not vals:
+            continue
+        data.append(
+            {
+                "student_id": s.student_id or "",
+                "student_name": s.name,
+                "class_name": s.plain_class_name or "",
+                "avg_score": round(sum(vals) / len(vals), 2),
+                "max_score": max(vals),
+                "min_score": min(vals),
+                "score_count": len(vals),
+            }
+        )
+    return {"data": data}
 
 @router.get("/activities/abnormal/v2")
 async def get_abnormal_activities_v2(
@@ -1181,6 +1520,9 @@ async def notify_student(
     student_id: int,
     payload: schemas.StudentNotify,
     current_user: models.User = Depends(auth.get_current_teacher),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
+    student_query = await get_managed_students_query(current_user, db)
+    if not student_query.filter(models.User.id == student_id).first():
+        raise HTTPException(status_code=404, detail="学员不存在或无权限")
     return {"message": "通知已发送", "student_id": student_id, "content": payload.message}

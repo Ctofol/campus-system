@@ -57,6 +57,29 @@ def ensure_health_requests_columns():
                     pass
 
 
+def ensure_tasks_columns():
+    """为旧库补全 tasks 缺失列（starts_at, video_url），与 models.Task 对齐。"""
+    if "sqlite" not in str(engine.url):
+        return
+    with engine.connect() as conn:
+        try:
+            r = conn.execute(text("PRAGMA table_info(tasks)"))
+            cols = [row[1] for row in r]
+        except Exception:
+            return
+        additions = [
+            ("starts_at", "DATETIME"),
+            ("video_url", "TEXT"),
+        ]
+        for col, sql_type in additions:
+            if col not in cols:
+                try:
+                    conn.execute(text(f"ALTER TABLE tasks ADD COLUMN {col} {sql_type}"))
+                    conn.commit()
+                except Exception:
+                    pass
+
+
 # 随机姓氏与名字用字，便于生成中文姓名
 SURNAMES = "李王张刘陈杨赵黄周吴徐孙胡朱高林何郭马罗梁宋郑谢韩唐冯于董萧程曹袁邓许傅沈曾彭吕苏卢蒋蔡贾丁魏薛叶阎余潘杜戴夏钟汪田任姜范方石姚谭廖邹熊金陆郝孔白崔康毛邱秦江史顾侯邵孟龙万段漕钱汤尹黎易常武乔贺赖龚文"
 NAME_CHARS = "伟芳娜敏静丽强磊军洋勇艳杰涛明超秀英华慧巧美琳云飞鑫浩宇凯嘉俊哲晨轩博文"
@@ -86,6 +109,25 @@ INVALID_REASONS = [
 
 def make_name():
     return random.choice(SURNAMES) + "".join(random.choices(NAME_CHARS, k=2))
+
+
+def allocate_unique_student_id(db) -> str:
+    """生成不与 student_profiles / users 冲突的学号（支持脚本多次执行）。"""
+    for _ in range(10000):
+        candidate = f"2025{random.randint(100000, 999999)}"
+        in_profile = (
+            db.query(models.StudentProfile)
+            .filter(models.StudentProfile.student_id == candidate)
+            .first()
+        )
+        in_user = (
+            db.query(models.User)
+            .filter(models.User.student_id == candidate)
+            .first()
+        )
+        if not in_profile and not in_user:
+            return candidate
+    raise RuntimeError("无法在 student_profiles 中分配唯一学号，请检查数据库或执行 --clear")
 
 
 def clear_non_admin(db):
@@ -141,13 +183,11 @@ def ensure_classes(db):
 def seed_profiles(db, name_to_class):
     """为每个班级生成 10-15 名档案，男女比例均衡。返回 list of (StudentProfile, Class)"""
     profiles_with_class = []
-    student_idx = 1
     for cfg in CLASSES_CONFIG:
         cls = name_to_class[cfg["name"]]
         n = random.randint(10, 15)
         for i in range(n):
-            student_id = f"20{random.randint(24, 25)}{student_idx:04d}"
-            student_idx += 1
+            student_id = allocate_unique_student_id(db)
             gender = "male" if random.random() < 0.5 else "female"
             profile = models.StudentProfile(
                 student_id=student_id,
@@ -173,32 +213,32 @@ def activate_students(db, profiles_with_class):
     phone_base = 13800100000
     used_phones = set()
     
-    # 预先确保测试学生账号 13800138000 存在
+    # 预先确保测试学生账号 13800138000 存在（学号与第一份档案一致，避免一人两学号）
     test_student = db.query(models.User).filter(models.User.phone == "13800138000").first()
     if not test_student and profiles_with_class:
         first_profile, first_cls = profiles_with_class[0]
-        # 使用独立的学号避免冲突
-        test_student_id = "20250001"
         test_student = models.User(
             phone="13800138000",
             name=first_profile.full_name,
             password_hash=get_password_hash("123456"),
             role="student",
-            student_id=test_student_id,
+            student_id=first_profile.student_id,
             gender=first_profile.gender,
             class_id=first_cls.id,
             major_id=first_cls.major_id,
-            subject=first_profile.subject
+            subject=first_profile.subject,
         )
         db.add(test_student)
         db.flush()
         first_profile.is_activated = True
         activated.append((test_student, first_profile))
         used_phones.add("13800138000")
-    
-    for i, (profile, cls) in enumerate(profiles_with_class):
-        if i >= n_activate:
+
+    for profile, cls in profiles_with_class:
+        if len(activated) >= n_activate:
             break
+        if test_student and profile.student_id == test_student.student_id:
+            continue
         while True:
             phone = str(phone_base + random.randint(0, 99999))
             if phone not in used_phones and not db.query(models.User).filter(models.User.phone == phone).first():
@@ -519,6 +559,7 @@ def seed_tasks_and_completions(db, activated, teachers, name_to_class):
                     end = start + timedelta(seconds=duration_sec)
                     act = models.Activity(
                         user_id=user.id,
+                        task_id=t.id,
                         type="run",
                         source="task",
                         status="finished",
@@ -541,6 +582,7 @@ def seed_tasks_and_completions(db, activated, teachers, name_to_class):
                     end = start + timedelta(minutes=15)
                     act = models.Activity(
                         user_id=user.id,
+                        task_id=t.id,
                         type="test",
                         source="task",
                         status="finished",
@@ -659,6 +701,7 @@ def main():
 
     ensure_activity_metrics_columns()
     ensure_health_requests_columns()
+    ensure_tasks_columns()
     db = SessionLocal()
     try:
         if args.clear:

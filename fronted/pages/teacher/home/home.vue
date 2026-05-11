@@ -180,7 +180,7 @@ const fetchTeacherStats = async () => {
   }
 };
 
-// 阳光跑趋势：针对当前教师绑定班级的阳光跑统计
+// 阳光跑趋势：针对当前教师管辖学员的阳光跑统计
 const fetchWeeklyTrend = async () => {
   try {
     const res = await request({
@@ -208,7 +208,7 @@ const fetchWeeklyTrend = async () => {
   }
 };
 
-// 跳转到班级阳光跑详情（班级排行看板）
+// 跳转到辖区班级阳光跑排行（按班级展示）
 const goToSunshineBoard = () => {
   uni.navigateTo({
     url: '/pages/teacher/class-rank/class-rank'

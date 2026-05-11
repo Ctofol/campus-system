@@ -12,6 +12,17 @@ import os
 from .database import get_db, engine
 from . import models, schemas, auth
 
+
+def _activity_record_kind(act: models.Activity) -> str:
+    if act.type == "test":
+        return "体测"
+    if act.source == "task":
+        return "任务跑步"
+    if act.type == "run" and (act.source == "free" or act.source is None):
+        return "阳光跑"
+    return "跑步"
+
+
 # 与主库共用，不强制建表（主 backend 已建）
 try:
     models.Base.metadata.create_all(bind=engine)
@@ -100,22 +111,45 @@ def get_dashboard_stats(db: Session = Depends(get_db), current_user: models.User
     }
 
 # Classes
+@app.get("/common/majors")
+def common_majors_list(db: Session = Depends(get_db)):
+    """供管理端新建班级时选择专业（与主库 majors 表一致）。"""
+    rows = db.query(models.Major).order_by(models.Major.name).all()
+    return [{"id": m.id, "name": m.name} for m in rows]
+
+
 @app.get("/admin/classes", response_model=List[schemas.ClassOut])
 def get_classes(db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_admin)):
     classes = db.query(models.Class).all()
     for cls in classes:
-        cls.student_count = db.query(func.count(models.User.id)).filter(models.User.class_id == cls.id).scalar()
+        cls.student_count = db.query(func.count(models.User.id)).filter(models.User.class_id == cls.id).scalar() or 0
+        maj = (
+            db.query(models.Major).filter(models.Major.id == cls.major_id).first()
+            if getattr(cls, "major_id", None)
+            else None
+        )
+        setattr(cls, "major_name", maj.name if maj else None)
     return classes
 
 @app.post("/admin/classes", response_model=schemas.ClassOut)
 def create_class(class_in: schemas.ClassCreate, teacher_id: Optional[int] = None, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_admin)):
     if db.query(models.Class).filter(models.Class.name == class_in.name).first():
         raise HTTPException(status_code=400, detail="Class already exists")
-    new_class = models.Class(name=class_in.name, teacher_id=teacher_id)
+    new_class = models.Class(
+        name=class_in.name,
+        major_id=class_in.major_id,
+        teacher_id=teacher_id,
+    )
     db.add(new_class)
     db.commit()
     db.refresh(new_class)
     new_class.student_count = 0
+    maj = (
+        db.query(models.Major).filter(models.Major.id == new_class.major_id).first()
+        if new_class.major_id
+        else None
+    )
+    setattr(new_class, "major_name", maj.name if maj else None)
     return new_class
 
 @app.delete("/admin/classes/{class_id}")
@@ -134,12 +168,66 @@ def delete_class(class_id: int, db: Session = Depends(get_db), current_user: mod
 @app.get("/admin/users/majors")
 def get_user_majors(db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_admin)):
     rows = (
-        db.query(models.User.major)
-        .filter(models.User.role == "student", models.User.major.isnot(None), models.User.major != "")
+        db.query(models.User.major_name)
+        .filter(
+            models.User.role == "student",
+            models.User.major_name.isnot(None),
+            models.User.major_name != "",
+        )
         .distinct()
         .all()
     )
     return [r[0] for r in rows if r[0]]
+
+
+@app.get("/admin/users/{user_id}/activities")
+def admin_student_activities(
+    user_id: int,
+    page: int = 1,
+    size: int = 20,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_admin),
+):
+    stu = (
+        db.query(models.User)
+        .filter(models.User.id == user_id, models.User.role == "student")
+        .first()
+    )
+    if not stu:
+        raise HTTPException(status_code=404, detail="学生不存在")
+    q = db.query(models.Activity).filter(models.Activity.user_id == user_id)
+    total = q.count()
+    rows = (
+        q.order_by(models.Activity.started_at.desc())
+        .offset((page - 1) * size)
+        .limit(size)
+        .all()
+    )
+    items = []
+    for act in rows:
+        m = (
+            db.query(models.ActivityMetrics)
+            .filter(models.ActivityMetrics.activity_id == act.id)
+            .first()
+        )
+        task_title = None
+        if act.task_id:
+            t = db.query(models.Task).filter(models.Task.id == act.task_id).first()
+            task_title = t.title if t else None
+        items.append(
+            {
+                "record_kind": _activity_record_kind(act),
+                "started_at": act.started_at,
+                "ended_at": act.ended_at,
+                "is_valid": bool(act.is_valid),
+                "distance_km": m.distance if m else None,
+                "duration_sec": m.duration if m else None,
+                "pace": str(m.pace) if m and m.pace is not None else None,
+                "task_title": task_title,
+                "fail_reason": act.fail_reason,
+            }
+        )
+    return {"items": items, "total": total, "page": page, "size": size}
 
 
 @app.get("/admin/users", response_model=List[schemas.UserProfile])
@@ -159,21 +247,24 @@ def get_users(
     if class_id:
         query = query.filter(models.User.class_id == class_id)
     if major:
-        query = query.filter(models.User.major == major)
+        query = query.filter(models.User.major_name == major)
     if class_name:
         query = query.join(models.Class, models.User.class_id == models.Class.id).filter(models.Class.name == class_name)
     users = query.offset(skip).limit(limit).all()
     result = []
     for user in users:
         cls = db.query(models.Class).filter(models.Class.id == user.class_id).first() if user.class_id else None
+        plain = cls.name if cls else None
         result.append({
             "id": user.id,
             "name": user.name,
             "phone": user.phone,
             "role": user.role,
-            "class_name": cls.name if cls else None,
+            "class_name": plain,
+            "plain_class_name": plain,
             "student_id": user.student_id,
             "major": user.major_name,
+            "subject": user.subject,
             "created_at": user.created_at,
         })
     return result
@@ -197,7 +288,7 @@ def create_user(
         role=user_in.role,
         class_id=class_id,
         student_id=student_id,
-        major=major,
+        major_name=major,
     )
     db.add(new_user)
     db.commit()
@@ -208,8 +299,10 @@ def create_user(
         "phone": new_user.phone,
         "role": new_user.role,
         "class_name": None,
+        "plain_class_name": None,
         "student_id": new_user.student_id,
-        "major": new_user.major,
+        "major": new_user.major_name,
+        "subject": new_user.subject,
         "created_at": new_user.created_at,
     }
 
@@ -443,6 +536,38 @@ def update_teacher_classes(
             db.add(models.TeacherClass(teacher_id=teacher_id, class_name=name))
     db.commit()
     return {"teacher_id": teacher_id, "class_names": class_names}
+
+
+@app.get("/admin/teacher-subjects/{teacher_id}")
+def get_teacher_subjects_admin(
+    teacher_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_admin),
+):
+    rows = (
+        db.query(models.TeacherSubject)
+        .filter(models.TeacherSubject.teacher_id == teacher_id)
+        .all()
+    )
+    return [{"name": r.subject_name} for r in rows]
+
+
+@app.post("/admin/teacher-subjects/{teacher_id}")
+def update_teacher_subjects_admin(
+    teacher_id: int,
+    payload: dict,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_admin),
+):
+    names = payload.get("subject_names") or []
+    db.query(models.TeacherSubject).filter(
+        models.TeacherSubject.teacher_id == teacher_id
+    ).delete()
+    for n in names:
+        if n:
+            db.add(models.TeacherSubject(teacher_id=teacher_id, subject_name=str(n)))
+    db.commit()
+    return {"teacher_id": teacher_id, "subject_names": names}
 
 
 @app.get("/admin/sunshine/class-stats")

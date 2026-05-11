@@ -17,7 +17,7 @@
         </view>
       </picker>
       <view class="meta">
-        <text>本页展示已绑定班级内学生的阳光跑积分排行。</text>
+        <text>本页展示您管辖范围内学员的阳光跑积分排行，可按行政班筛选。</text>
       </view>
     </view>
 
@@ -41,7 +41,7 @@
             <text class="id" v-if="item.student_id">学号 {{ item.student_id }}</text>
           </view>
           <view class="meta-line">
-            <text class="class-name">{{ item.class_name || '未分班' }}</text>
+            <text class="class-name">{{ formatClassMajor(item) }}</text>
             <text class="weekly">本周 {{ item.weekly_count || 0 }} 次</text>
           </view>
         </view>
@@ -66,7 +66,15 @@ import { request } from '@/utils/request.js'
 const loading = ref(false)
 const items = ref([])
 
-// 班级筛选（目前接口返回的是所有绑定班级学生，这里预留班级筛选能力）
+/** 专业与行政班分列展示，避免「专业+班级」拼接重复 */
+const formatClassMajor = (item) => {
+  const m = item.major_name
+  const c = item.class_name
+  if (m && c) return `${m} · ${c}`
+  return c || m || '未分班'
+}
+
+// 班级筛选（数据为教师管辖学员；选项由返回列表动态生成）
 const classOptions = ref([{ label: '全部班级', value: 'all' }])
 const currentClassValue = ref('all')
 
@@ -78,7 +86,7 @@ const currentClassLabel = computed(() => {
 const rankedItems = computed(() => {
   let list = items.value || []
   if (currentClassValue.value !== 'all') {
-    list = list.filter(i => i.class_name === currentClassValue.value)
+    list = list.filter(i => formatClassMajor(i) === currentClassValue.value)
   }
   // 后端已按 total_score 排序，这里兜底再排一次
   return [...list].sort((a, b) => (b.total_score || 0) - (a.total_score || 0))
@@ -99,7 +107,7 @@ const fetchData = async () => {
 
     // 构造班级选项
     const classSet = Array.from(
-      new Set(list.map(i => i.class_name).filter(Boolean))
+      new Set(list.map(i => formatClassMajor(i)).filter(Boolean))
     )
     classOptions.value = [
       { label: '全部班级', value: 'all' },

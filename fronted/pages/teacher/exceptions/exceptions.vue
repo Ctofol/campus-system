@@ -44,6 +44,7 @@
             <view class="type-tag" :class="alert.typeClass">{{ alert.typeText }}</view>
             <text class="student-name">{{ alert.studentName }}</text>
             <text class="student-id">{{ alert.studentId }}</text>
+            <text class="student-meta" v-if="alert.classMajor">{{ alert.classMajor }}</text>
           </view>
           <text class="time">{{ alert.time }}</text>
         </view>
@@ -157,6 +158,7 @@ const filteredAlerts = computed(() => {
 const detailVisible = ref(false);
 const selectedAlert = ref({
   id: null,
+  studentUserId: null,
   studentId: '',
   studentName: '',
   startPhoto: '',
@@ -201,13 +203,17 @@ const fetchAbnormalData = async () => {
         const durationSeconds = durationSec != null ? durationSec % 60 : null;
         const durationText = durationSec != null ? `${durationMinutes}分${durationSeconds}秒` : '--';
 
+        const classMajor = [item.major_name, item.class_name].filter(Boolean).join(' · ')
         return {
           id: item.id || item.activity_id,
           type: item.type || 'run',
           typeText,
           typeClass,
+          studentUserId: item.user_id ?? null,
           studentName: item.student_name || '未知学生',
           studentId: item.student_id || '--',
+          classMajor,
+          started_at: item.started_at,
           time: item.started_at ? new Date(item.started_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '--',
           distance: distanceKm,
           distanceText,
@@ -221,12 +227,10 @@ const fetchAbnormalData = async () => {
         };
       });
 
-      // 统计今日新增
-      const today = new Date().toDateString();
+      const todayStr = new Date().toDateString();
       todayCount.value = alerts.value.filter(a => {
-        if (!a.time) return false;
-        const alertDate = new Date(a.time).toDateString();
-        return alertDate === today;
+        if (!a.started_at) return false;
+        return new Date(a.started_at).toDateString() === todayStr;
       }).length;
     }
   } catch (e) {
@@ -254,6 +258,10 @@ const closeDetail = () => {
 const sendCheatWarning = async () => {
   if (!selectedAlert.value || !selectedAlert.value.id) return;
   const alert = selectedAlert.value;
+  if (alert.studentUserId == null) {
+    uni.showToast({ title: '缺少学生用户 ID，无法发送通知', icon: 'none' });
+    return;
+  }
   try {
     await request({
       url: `/teacher/activities/${alert.id}/resolve`,
@@ -264,7 +272,7 @@ const sendCheatWarning = async () => {
     });
 
     await request({
-      url: `/teacher/students/${alert.studentId}/notify`,
+      url: `/teacher/students/${alert.studentUserId}/notify`,
       method: 'POST',
       data: {
         message: `系统检测到您本次阳光跑存在异常（${alert.typeText}），已记为异常记录，如有疑问请联系任课老师。`
@@ -427,6 +435,13 @@ const markAsValid = async () => {
       .student-id {
         font-size: 24rpx;
         color: #999;
+      }
+
+      .student-meta {
+        display: block;
+        font-size: 22rpx;
+        color: #888;
+        margin-top: 6rpx;
       }
     }
 
