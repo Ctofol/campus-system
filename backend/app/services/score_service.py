@@ -1,0 +1,203 @@
+from datetime import datetime, date, timedelta
+from typing import Tuple
+import random
+
+from sqlalchemy import and_, or_
+
+from .. import models, config
+
+
+def sunshine_run_filter():
+    """
+    阳光跑数据口径（与任务跑区分）：
+    - 跑步类型 run
+    - source 为 free 或历史库中为 NULL 的旧记录
+    - 非任务跑（task_id 为空）
+    """
+    return and_(
+        models.Activity.type == "run",
+        or_(models.Activity.source == "free", models.Activity.source.is_(None)),
+        models.Activity.task_id.is_(None),
+    )
+
+
+def verify_activity(user: models.User, activity: models.Activity, db) -> Tuple[bool, str, bool]:
+    """
+    阳光跑自动审核逻辑：
+    - 性别 + 里程：男生 < 2.0km / 女生 < 1.2km 视为无效
+    - 配速区间：3:00 - 10:00 min/km（以分钟/公里的浮点数表示）
+    - 频次限制：同一天内已有一条达标记录，则本次无效
+    - 人脸验证：90% 通过率
+    返回 (is_valid, fail_reason, face_verified)
+    """
+    metrics = activity.metrics
+    if not metrics:
+        return False, "缺少运动数据", False
+
+    distance_km = metrics.distance or 0.0
+
+    # pace 以字符串形式存储，例如 "5.2" 分/公里
+    try:
+        pace_val = float(metrics.pace) if metrics.pace is not None else None
+    except ValueError:
+        pace_val = None
+
+    # 1. 性别 + 里程校验
+    gender = (user.gender or "male").lower()
+    min_dist = config.MIN_DISTANCE_MALE if gender == "male" else config.MIN_DISTANCE_FEMALE
+    if distance_km < min_dist:
+        return False, "里程不足", False
+
+    # 2. 配速区间校验
+    if pace_val is None or pace_val < config.MIN_PACE_MIN_KM or pace_val > config.MAX_PACE_MIN_KM:
+        return False, "配速异常", False
+
+    # 3. 频次限制：当天只允许一条达标记录
+    today: date = datetime.utcnow().date()
+    start = datetime(today.year, today.month, today.day)
+    end = datetime(today.year, today.month, today.day, 23, 59, 59)
+
+    valid_today_count = (
+        db.query(models.Activity)
+        .filter(
+            models.Activity.user_id == user.id,
+            models.Activity.is_valid.is_(True),
+            models.Activity.started_at >= start,
+            models.Activity.started_at <= end,
+        )
+        .filter(sunshine_run_filter())
+        .count()
+    )
+    if valid_today_count > 0:
+        return False, "今日已达标", False
+
+    # 4. 人脸验证：需要起跑+结束两张照片，并模拟 90% 通过率
+    faces = [
+        e for e in activity.evidence
+        if e.evidence_type in ("start_face", "end_face", "camera")
+    ]
+    if len(faces) < 2:
+        return False, "人脸验证失败", False
+
+    face_verified = random.random() > 0.1
+    if not face_verified:
+        return False, "人脸验证失败", False
+
+    return True, "", face_verified
+
+
+def calculate_total_score(valid_count: int) -> int:
+    """
+    阶梯计分规则（学校最新标准）：
+    - 0-10 次：0 分
+    - 11-19 次：第 11 次为 42 分，此后每次 +2 分
+    - 20 次：60 分（及格线）
+    - 21-40 次：每次 +2 分，40 次为 100 分
+    - >40 次：封顶 100 分
+    """
+    if valid_count < config.SCORE_TIER_1_MIN:
+        return 0
+    if valid_count < config.SCORE_TIER_2_MIN:
+        # 11 次为 42 分，每多 1 次 +2 分
+        return config.SCORE_TIER_1_START_VAL + (valid_count - config.SCORE_TIER_1_MIN) * 2
+    if valid_count == config.SCORE_TIER_2_MIN:
+        return config.SCORE_TIER_2_START_VAL
+
+    # > 20
+    score = config.SCORE_TIER_2_START_VAL + (valid_count - config.SCORE_TIER_2_MIN) * 2
+    return min(score, config.SCORE_MAX)
+
+
+def get_sunshine_stats(user: models.User, db):
+    """
+    计算阳光跑看板和详情页所需数据：
+    - total_valid_count: 历史达标次数
+    - today_status: 'not_started' | 'success' | 'failed'
+    - today_fail_reason: 最近一次失败原因（如有）
+    - score / current_score: 阶梯计分
+    - daily_records: 最近7天运动明细
+    - user_gender: 学生性别
+    """
+    # 1. 历史达标次数
+    total_valid_count = (
+        db.query(models.Activity)
+        .filter(
+            models.Activity.user_id == user.id,
+            models.Activity.is_valid.is_(True),
+        )
+        .filter(sunshine_run_filter())
+        .count()
+    )
+
+    score = calculate_total_score(total_valid_count)
+
+    # 2. 今日状态
+    today: date = datetime.utcnow().date()
+    start = datetime(today.year, today.month, today.day)
+    end = datetime(today.year, today.month, today.day, 23, 59, 59)
+
+    today_activities = (
+        db.query(models.Activity)
+        .filter(
+            models.Activity.user_id == user.id,
+            models.Activity.started_at >= start,
+            models.Activity.started_at <= end,
+        )
+        .filter(sunshine_run_filter())
+        .order_by(models.Activity.started_at.desc())
+        .all()
+    )
+
+    today_status = "not_started"
+    today_fail_reason = ""
+
+    if today_activities:
+        # 有任意一条达标则视为成功
+        if any(a.is_valid for a in today_activities):
+            today_status = "success"
+        else:
+            today_status = "failed"
+            # 取最新一条的失败原因
+            latest = today_activities[0]
+            today_fail_reason = latest.fail_reason or ""
+
+    # 3. 最近7天运动明细
+    seven_days_ago: date = today - timedelta(days=6)
+    seven_start = datetime(seven_days_ago.year, seven_days_ago.month, seven_days_ago.day)
+
+    recent_activities = (
+        db.query(models.Activity)
+        .filter(
+            models.Activity.user_id == user.id,
+            models.Activity.started_at >= seven_start,
+        )
+        .filter(sunshine_run_filter())
+        .order_by(models.Activity.started_at.desc())
+        .all()
+    )
+
+    daily_records = []
+    for act in recent_activities:
+        metrics = act.metrics
+        if not metrics:
+            continue
+        daily_records.append({
+            "started_at": act.started_at,
+            "distance": metrics.distance or 0.0,
+            "duration": metrics.duration or 0,
+            "pace": metrics.pace,
+            "is_valid": getattr(act, "is_valid", False),
+            "fail_reason": getattr(act, "fail_reason", None),
+        })
+
+    return {
+        "total_valid_count": total_valid_count,
+        "score": score,
+        "current_score": score,
+        "today_status": today_status,
+        "today_fail_reason": today_fail_reason,
+        "daily_records": daily_records,
+        "user_gender": (user.gender or "male").lower(),
+    }
+
+

@@ -1,0 +1,277 @@
+<template>
+  <view class="container">
+    <!-- 运动基本信息 -->
+    <view class="info-card">
+      <view class="header">
+        <text class="title">{{ headerTitle }}</text>
+        <text class="status completed">{{ headerSubTitle }}</text>
+      </view>
+      <view class="detail-row">
+        <text class="label">类型:</text>
+        <text class="value">{{ activity.type === 'run' ? '跑步' : '体测' }}</text>
+      </view>
+      <view class="detail-row">
+        <text class="label">时间:</text>
+        <text class="value">{{ displayTime }}</text>
+      </view>
+      <view class="detail-row">
+        <text class="label">距离:</text>
+        <text class="value">{{ distanceKm }} 公里</text>
+      </view>
+      <view class="detail-row" v-if="paceText">
+        <text class="label">平均配速:</text>
+        <text class="value">{{ paceText }} 分/公里</text>
+      </view>
+      <view class="detail-row" v-if="stepCount">
+        <text class="label">步数:</text>
+        <text class="value">{{ stepCount }} 步</text>
+      </view>
+      <view class="detail-row" v-if="stepFrequency">
+        <text class="label">步频:</text>
+        <text class="value">{{ stepFrequency }} 步/分钟</text>
+      </view>
+    </view>
+
+    <!-- Map Trajectory（微信折线至少 2 点；仅 1 点时只显示标记、不传折线，避免渲染层 MultiPolyline 崩溃） -->
+    <view class="map-card" v-if="showMap">
+      <text class="section-title">运动轨迹</text>
+      <map 
+        class="map" 
+        :latitude="centerLat" 
+        :longitude="centerLng" 
+        :polyline="polyline"
+        :markers="markers"
+        :enable-zoom="true"
+        :enable-scroll="true"
+      ></map>
+    </view>
+    <view class="no-data-card" v-else-if="!showMap && activity && (activity.status === 'finished' || activity.status === 'completed')">
+        <text class="tip">暂无轨迹数据</text>
+    </view>
+
+    <!-- Video Evidence -->
+    <view class="video-card" v-if="videoUrl">
+      <text class="section-title">视频记录</text>
+      <video :src="videoUrl" class="video" controls></video>
+    </view>
+  </view>
+</template>
+
+<script setup>
+import { ref } from 'vue';
+import { onLoad } from '@dcloudio/uni-app';
+
+const activity = ref({});
+const centerLat = ref(39.909);
+const centerLng = ref(116.397);
+const polyline = ref([]);
+const markers = ref([]);
+const videoUrl = ref('');
+/** 是否展示地图区：≥2 点可走折线；1 点仅标记；0 点不展示（避免传非法 polyline） */
+const showMap = ref(false);
+
+const headerTitle = ref('运动详情');
+const headerSubTitle = ref('');
+const displayTime = ref('');
+const distanceKm = ref('0.00');
+const paceText = ref('');
+const stepCount = ref(0);
+const stepFrequency = ref('');
+
+function normalizeTrajectoryPoints(raw) {
+  if (raw == null) return [];
+  let arr = raw;
+  if (typeof raw === 'string') {
+    try {
+      arr = JSON.parse(raw);
+    } catch {
+      return [];
+    }
+  }
+  if (!Array.isArray(arr)) return [];
+  const out = [];
+  for (const p of arr) {
+    if (!p || typeof p !== 'object') continue;
+    const lat = Number(p.latitude ?? p.lat);
+    const lng = Number(p.longitude ?? p.lng ?? p.lon);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      out.push({ latitude: lat, longitude: lng });
+    }
+  }
+  return out;
+}
+
+onLoad((options) => {
+    if (options.data) {
+        try {
+            const data = JSON.parse(decodeURIComponent(options.data));
+            activity.value = data;
+            
+            // 基础信息
+            if (data.started_at) {
+              const d = new Date(data.started_at);
+              displayTime.value = `${d.getMonth()+1}-${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+            }
+            if (data.metrics) {
+              if (data.metrics.distance != null) {
+                distanceKm.value = Number(data.metrics.distance).toFixed(2);
+              }
+              if (data.metrics.pace != null) {
+                paceText.value = Number(data.metrics.pace).toFixed(1);
+              }
+              if (data.metrics.step_count != null) {
+                stepCount.value = data.metrics.step_count;
+                if (data.metrics.duration) {
+                  const minutes = data.metrics.duration / 60;
+                  if (minutes > 0) {
+                    stepFrequency.value = Math.round(stepCount.value / minutes);
+                  }
+                }
+              }
+            }
+
+            // Process Trajectory（微信 map 折线至少 2 个合法点，否则渲染层报 MultiPolyline / typed array length 错误）
+            let points = [];
+            if (data.trajectory) {
+                points = normalizeTrajectoryPoints(data.trajectory);
+            } else if (data.metrics && data.metrics.trajectory) {
+                points = normalizeTrajectoryPoints(data.metrics.trajectory);
+            }
+
+            polyline.value = [];
+            markers.value = [];
+            showMap.value = false;
+
+            if (points.length >= 2) {
+                polyline.value = [{
+                    points,
+                    color: '#20C997',
+                    width: 4
+                }];
+                centerLat.value = points[0].latitude;
+                centerLng.value = points[0].longitude;
+                markers.value = [
+                    {
+                        id: 0,
+                        latitude: points[0].latitude,
+                        longitude: points[0].longitude,
+                        title: '起点',
+                        iconPath: '/static/location.png',
+                        width: 20,
+                        height: 20
+                    },
+                    {
+                        id: 1,
+                        latitude: points[points.length - 1].latitude,
+                        longitude: points[points.length - 1].longitude,
+                        title: '终点',
+                        iconPath: '/static/location.png',
+                        width: 20,
+                        height: 20
+                    }
+                ];
+                showMap.value = true;
+            } else if (points.length === 1) {
+                centerLat.value = points[0].latitude;
+                centerLng.value = points[0].longitude;
+                markers.value = [
+                    {
+                        id: 0,
+                        latitude: points[0].latitude,
+                        longitude: points[0].longitude,
+                        title: '位置',
+                        iconPath: '/static/location.png',
+                        width: 20,
+                        height: 20
+                    }
+                ];
+                showMap.value = true;
+            }
+            
+            // Process Video
+            if (data.evidence) {
+                // Evidence is usually an array of { type: 'video', url: '...' }
+                // or just a string url if simplified
+                if (Array.isArray(data.evidence)) {
+                    const vid = data.evidence.find((e) => {
+                      if (e == null) return false;
+                      if (typeof e === 'string') return e.endsWith('.mp4');
+                      if (e.type === 'video' && typeof e.url === 'string') return true;
+                      return typeof e.url === 'string' && e.url.endsWith('.mp4');
+                    });
+                    if (vid != null) {
+                      videoUrl.value = typeof vid === 'string' ? vid : (vid.url || '');
+                    }
+                } else if (typeof data.evidence === 'string' && data.evidence.endsWith('.mp4')) {
+                    videoUrl.value = data.evidence;
+                }
+            }
+            
+        } catch (e) {
+            console.error('Parse task detail failed', e);
+        }
+    }
+});
+</script>
+
+<style lang="scss">
+.container {
+  padding: 20rpx;
+  background-color: #f5f7fa;
+  min-height: 100vh;
+}
+.info-card {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 30rpx;
+  margin-bottom: 20rpx;
+  .header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20rpx;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 20rpx;
+    .title { font-size: 36rpx; font-weight: bold; }
+    .status { font-size: 28rpx; color: #666; }
+    .status.completed { color: #20C997; }
+    .status.expired { color: #999; }
+  }
+  .detail-row {
+    display: flex;
+    margin-bottom: 10rpx;
+    font-size: 28rpx;
+    .label { color: #666; width: 160rpx; }
+    .value { color: #333; flex: 1; }
+    .highlight { color: #20C997; font-weight: bold; }
+  }
+}
+.map-card, .video-card, .no-data-card {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 30rpx;
+  margin-bottom: 20rpx;
+  .section-title {
+    font-size: 32rpx;
+    font-weight: bold;
+    margin-bottom: 20rpx;
+    display: block;
+    border-left: 8rpx solid #20C997;
+    padding-left: 16rpx;
+  }
+}
+.map {
+    width: 100%;
+    height: 400rpx;
+    border-radius: 12rpx;
+}
+.video {
+    width: 100%;
+    height: 400rpx;
+    border-radius: 12rpx;
+}
+.no-data-card {
+    text-align: center;
+    color: #999;
+    padding: 40rpx;
+}
+</style>

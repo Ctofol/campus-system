@@ -1,0 +1,37 @@
+flowchart TD
+  subgraph FE["FE（小程序）"]
+    A[sensor_collect<br/>GPS + 加速度计] --> B[fusion_preprocess<br/>精度过滤 / 速度上限 / 距离门限]
+    B --> C[local_features<br/>配速 / 步频 / 轨迹 / 打卡点]
+    B --> D{时序逻辑初检<br/>步频异常 / 位移合理性}
+    D -->|可疑| E[标记待核 + 上传轨迹摘要]
+    D -->|通过| F[上传 metrics + trajectory 摘要]
+  end
+
+  subgraph API["API（FastAPI）"]
+    F --> G["POST /activity/finish"]
+    E --> G
+    G --> H[verify_activity<br/>服务端复核]
+  end
+
+  subgraph SVC["SVC（领域服务）"]
+    H --> I[sequence_validator<br/>时序特征分析]
+    H --> J[physiology_model<br/>强度与短板]
+    I --> K[cheat_risk_score + 证据摘要]
+    J --> L[结构化运动档案]
+    K --> M[audit_log<br/>校验结果留痕]
+    L --> M
+  end
+
+  subgraph DATA["DATA（DB / 对象存储）"]
+    L --> N[(运动档案表)]
+    K --> O[(轨迹与特征对象存储<br/>最小必要保留)]
+    M --> P[(审计与审核记录)]
+  end
+
+  subgraph EXT["EXT（地图 / 算法）"]
+    A -.-> Q[GPS / 地图 SDK]
+    J -.-> R[外部生理学参数库<br/>可选]
+  end
+
+  style M fill:#f9f,stroke:#333
+  style O fill:#eef,stroke:#333

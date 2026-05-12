@@ -1,0 +1,545 @@
+<template>
+  <view class="login-container">
+    <!-- 1. 顶部 Logo 与 标题 -->
+    <view class="header-section">
+      <image class="logo-image" src="/static/lingxiLOGO.png" mode="aspectFit"></image>
+      <text class="app-name">翊晨运动</text>
+      <text class="app-sub-name">Yichen Sports</text>
+    </view>
+
+    <!-- 2. 登录卡片 -->
+    <view class="login-card">
+      <!-- 角色切换 Tab：仅学生端 / 教师端，管理端请使用独立端口访问 -->
+      <view class="role-tabs">
+        <view 
+          class="role-tab" 
+          :class="{active: currentRole === 'student'}" 
+          @click="currentRole = 'student'"
+        >
+          <text>学生端</text>
+        </view>
+        <view 
+          class="role-tab" 
+          :class="{active: currentRole === 'teacher'}" 
+          @click="currentRole = 'teacher'"
+        >
+          <text>教师端</text>
+        </view>
+      </view>
+
+      <!-- 表单区域 -->
+      <view class="form-area">
+        <view class="input-group">
+          <text class="input-label">{{ accountLabel }}</text>
+          <input 
+            class="input-field" 
+            v-model="loginForm.account" 
+            :placeholder="accountPlaceholder"
+            placeholder-class="placeholder-style"
+          />
+        </view>
+        <view class="input-group">
+          <text class="input-label">密码</text>
+          <input 
+            class="input-field" 
+            v-model="loginForm.password" 
+            type="password" 
+            placeholder="请输入密码"
+            placeholder-class="placeholder-style"
+          />
+        </view>
+
+        <!-- 登录按钮 -->
+        <button 
+          class="submit-btn" 
+          :class="{disabled: !canSubmit}" 
+          @click="handleLogin"
+          :loading="loading"
+        >
+          登录
+        </button>
+
+        <!-- 隐私协议勾选 -->
+        <view class="agreement-section">
+          <checkbox-group @change="onAgreementChange">
+            <label class="agreement-label">
+              <checkbox value="agree" :checked="isAgreed" color="#20C997" style="transform:scale(0.7)" />
+              <text class="agreement-text">我已阅读并同意</text>
+            </label>
+          </checkbox-group>
+          <text class="agreement-link" @click="openPrivacy">《用户服务协议》及《隐私政策》</text>
+        </view>
+
+        <view class="footer-links">
+          <text class="link-text" @click="goToRegister">注册新账号</text>
+          <text class="divider">|</text>
+          <text class="link-text" @click="forgotPassword">忘记密码？</text>
+        </view>
+
+        <!-- 快速体验按钮：演示使用 -->
+        <view class="demo-section">
+          <view class="demo-divider">
+            <view class="line"></view>
+            <text class="demo-text">演示账号</text>
+            <view class="line"></view>
+          </view>
+          <button class="demo-btn" @click="handleQuickLogin">
+            一键进入{{ currentRole === 'student' ? '学生' : '教师' }}端
+          </button>
+        </view>
+      </view>
+    </view>
+
+    <!-- 底部版权 -->
+    <view class="copyright">
+      <text>Copyright © 2026 Campus Sports System</text>
+    </view>
+  </view>
+</template>
+
+<script setup>
+import { ref, computed } from 'vue';
+import { login } from '@/utils/request.js';
+
+// 状态管理（仅学生/教师，管理端在独立端口访问）
+const currentRole = ref('student'); // student | teacher
+const loading = ref(false);
+const loginForm = ref({
+  account: '',
+  password: ''
+});
+const isAgreed = ref(false);
+
+const onAgreementChange = (e) => {
+  isAgreed.value = e.detail.value.length > 0;
+};
+
+const openPrivacy = () => {
+  wx.openPrivacyContract({
+    fail: () => {
+      uni.showToast({ title: '暂时无法打开协议', icon: 'none' });
+    }
+  });
+};
+
+// 账号标签与占位符
+const accountLabel = computed(() => {
+  return currentRole.value === 'student' ? '学号 / 手机号' : '工号 / 手机号';
+});
+const accountPlaceholder = computed(() => {
+  return currentRole.value === 'student' ? '请输入学号/手机号' : '请输入工号/手机号';
+});
+
+// 计算属性：是否可提交
+const canSubmit = computed(() => {
+  return loginForm.value.account.length > 0 && loginForm.value.password.length > 0;
+});
+
+// 验证函数
+const validateForm = () => {
+  const { account, password } = loginForm.value;
+  
+  if (password.length < 6) {
+    uni.showToast({ title: '密码长度不能少于6位', icon: 'none' });
+    return false;
+  }
+  return true;
+};
+
+// 登录逻辑
+const handleLogin = async () => {
+  if (!canSubmit.value) return;
+  if (!validateForm()) return;
+
+  // 协议勾选校验
+  if (!isAgreed.value) {
+    uni.showToast({ title: '请勾选同意用户协议', icon: 'none' });
+    return;
+  }
+
+  loading.value = true;
+  
+  try {
+    const res = await login({
+      phone: loginForm.value.account,
+      password: loginForm.value.password
+    });
+    
+    // 校验角色：仅允许学生、教师在此入口登录；管理员请使用管理端
+    if (res.role === 'admin') {
+      uni.showToast({
+        title: '请使用管理端入口登录',
+        icon: 'none'
+      });
+      loading.value = false;
+      return;
+    }
+    if (res.role !== currentRole.value) {
+      uni.showToast({
+        title: '角色不匹配，请切换角色登录',
+        icon: 'none'
+      });
+      loading.value = false;
+      return;
+    }
+
+    // 构造用户信息
+    const userInfo = {
+      userId: res.user_id,
+      role: res.role,
+      name: res.name,
+      phone: loginForm.value.account,
+      // 兼容字段
+      schoolId: '10001', 
+      isPoliceSchool: false
+    };
+
+    // 存储全局状态
+    uni.setStorageSync('token', res.access_token);
+    uni.setStorageSync('userInfo', userInfo);
+    uni.setStorageSync('userRole', res.role);
+
+    uni.showToast({
+      title: '登录成功',
+      icon: 'success'
+    });
+
+    // 学生、教师统一跳转首页
+    setTimeout(() => {
+      uni.reLaunch({ url: '/pages/tab/home' });
+    }, 1000);
+
+  } catch (error) {
+    console.error('Login failed:', error);
+    
+    // 根据错误类型显示不同的提示
+    if (error.type === 'network') {
+      uni.showToast({
+        title: '网络连接失败，请检查网络设置',
+        icon: 'none',
+        duration: 2000
+      });
+    } else if (error.type === 'server') {
+      // 服务器返回的错误信息
+      let errorMsg = error.message;
+      
+      // 针对常见错误提供更友好的提示
+      if (error.statusCode === 400 || error.statusCode === 401) {
+        errorMsg = error.message || '用户名或密码错误';
+      } else if (error.statusCode === 404) {
+        // 登录路由正常不会 404；多为 Nginx 未代理 /api/ 或 BASE_URL 与网关不一致
+        errorMsg = '登录服务不可用，请联系管理员检查接口地址';
+      } else if (error.statusCode === 403) {
+        errorMsg = '账号已被禁用';
+      }
+      
+      uni.showToast({
+        title: errorMsg,
+        icon: 'none',
+        duration: 2000
+      });
+    } else {
+      // 其他未知错误
+      uni.showToast({
+        title: error.message || '登录失败，请重试',
+        icon: 'none',
+        duration: 2000
+      });
+    }
+  } finally {
+    loading.value = false;
+  }
+};
+
+// 跳转注册
+const goToRegister = () => {
+  uni.navigateTo({ url: '/pages/register/register' });
+};
+
+// 忘记密码
+const forgotPassword = () => {
+  uni.showToast({ title: '请联系管理员重置密码', icon: 'none' });
+};
+
+// 快速体验登录
+const handleQuickLogin = () => {
+  if (currentRole.value === 'student') {
+    loginForm.value.account = '13800138000';
+    loginForm.value.password = '123456';
+  } else {
+    loginForm.value.account = '13900139000';
+    loginForm.value.password = '123456';
+  }
+  
+  // 提示正在进入
+  uni.showLoading({ title: '正在进入演示端...' });
+  
+  // 直接调用登录逻辑
+  setTimeout(() => {
+    uni.hideLoading();
+    handleLogin();
+  }, 500);
+};
+</script>
+
+<style scoped>
+.login-container {
+  min-height: 100vh;
+  background-color: #F5F7FA;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 100rpx;
+}
+
+.header-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 60rpx;
+}
+
+.logo-image {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: 24rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 10rpx 20rpx rgba(32, 201, 151, 0.3);
+}
+
+.logo-circle {
+  width: 120rpx;
+  height: 120rpx;
+  background: linear-gradient(135deg, #20C997 0%, #17a2b8 100%);
+  border-radius: 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 24rpx;
+  box-shadow: 0 10rpx 20rpx rgba(32, 201, 151, 0.3);
+}
+
+.logo-text {
+  font-size: 60rpx;
+  color: #fff;
+  font-weight: bold;
+}
+
+.app-name {
+  font-size: 36rpx;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 8rpx;
+}
+
+.app-sub-name {
+  font-size: 20rpx;
+  color: #999;
+  letter-spacing: 2rpx;
+}
+
+.login-card {
+  width: 650rpx;
+  background: #fff;
+  border-radius: 24rpx;
+  box-shadow: 0 4rpx 30rpx rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+}
+
+.role-tabs {
+  display: flex;
+  background: #F8F9FA;
+  border-bottom: 1rpx solid #EEE;
+}
+
+.role-tab {
+  flex: 1;
+  text-align: center;
+  padding: 30rpx 0;
+  font-size: 28rpx;
+  color: #666;
+  position: relative;
+  transition: all 0.3s;
+}
+
+.role-tab.active {
+  color: #20C997;
+  font-weight: bold;
+  background: #fff;
+}
+
+.role-tabs-single {
+  justify-content: center;
+}
+.role-tab-single {
+  font-size: 28rpx;
+  color: #20C997;
+  font-weight: bold;
+  padding: 30rpx 0;
+}
+
+.role-tab.active::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40rpx;
+  height: 6rpx;
+  background: #20C997;
+  border-radius: 0 0 6rpx 6rpx;
+}
+
+.form-area {
+  padding: 40rpx;
+}
+
+.input-group {
+  margin-bottom: 40rpx;
+}
+
+.input-label {
+  display: block;
+  font-size: 26rpx;
+  color: #333;
+  margin-bottom: 16rpx;
+  font-weight: 500;
+}
+
+.input-field {
+  height: 88rpx;
+  background: #F8F9FA;
+  border-radius: 12rpx;
+  padding: 0 24rpx;
+  font-size: 28rpx;
+  color: #333;
+  border: 2rpx solid transparent;
+  transition: all 0.3s;
+}
+
+.input-field:focus {
+  background: #fff;
+  border-color: #20C997;
+}
+
+.placeholder-style {
+  color: #BBB;
+}
+
+.submit-btn {
+  background: linear-gradient(90deg, #20C997, #17a2b8);
+  color: #fff;
+  font-size: 32rpx;
+  font-weight: bold;
+  height: 88rpx;
+  line-height: 88rpx;
+  border-radius: 44rpx;
+  margin-top: 60rpx;
+  box-shadow: 0 10rpx 20rpx rgba(32, 201, 151, 0.3);
+}
+
+.agreement-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 30rpx;
+}
+
+.agreement-label {
+  display: flex;
+  align-items: center;
+}
+
+.agreement-text {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.agreement-link {
+  font-size: 24rpx;
+  color: #20C997;
+  margin-left: 4rpx;
+}
+
+.submit-btn.disabled {
+  background: #E0E0E0;
+  color: #999;
+  box-shadow: none;
+}
+
+.submit-btn::after {
+  border: none;
+}
+
+.footer-links {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 40rpx;
+}
+
+.link-text {
+  font-size: 26rpx;
+  color: #666;
+  padding: 10rpx;
+}
+
+.divider {
+  color: #ddd;
+  margin: 0 10rpx;
+  font-size: 22rpx;
+}
+
+.copyright {
+  margin-top: auto;
+  margin-bottom: 40rpx;
+  font-size: 20rpx;
+  color: #ccc;
+}
+
+/* 演示账号区域样式 */
+.demo-section {
+  margin-top: 50rpx;
+  padding: 20rpx 0;
+}
+
+.demo-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 30rpx;
+}
+
+.demo-divider .line {
+  flex: 1;
+  height: 1rpx;
+  background-color: #EEE;
+}
+
+.demo-text {
+  font-size: 24rpx;
+  color: #BBB;
+  margin: 0 20rpx;
+}
+
+.demo-btn {
+  background: #fff;
+  color: #20C997;
+  font-size: 28rpx;
+  border: 2rpx solid #20C997;
+  height: 80rpx;
+  line-height: 80rpx;
+  border-radius: 40rpx;
+  box-shadow: 0 5rpx 15rpx rgba(32, 201, 151, 0.1);
+}
+
+.demo-btn:active {
+  background: #F0FAF7;
+  transform: translateY(2rpx);
+}
+
+.demo-btn::after {
+  border: none;
+}
+</style>

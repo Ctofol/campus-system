@@ -1,0 +1,437 @@
+{
+  "pages": [
+    {
+      "path": "pages/entry/entry",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "翊晨运动"
+      }
+    },
+    {
+      "path": "pages/tab/home",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "首页"
+      }
+    },
+    {
+      "path": "pages/tab/function",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "运动"
+      }
+    },
+    {
+      "path": "pages/tab/learn",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "课程"
+      }
+    },
+    {
+      "path": "pages/tab/mine",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "我的"
+      }
+    },
+    {
+      "path": "pages/run/run",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "跑步",
+        "enablePullDownRefresh": false
+      }
+    },
+    {
+      "path": "pages/test/test",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "体能测试",
+        "enablePullDownRefresh": false
+      }
+    },
+    {
+      "path": "pages/test-connection/test-connection",
+      "style": {
+        "navigationBarTitleText": "网络连接测试"
+      }
+    },
+    {
+      "path": "pages/login/login",
+      "style": {
+        "navigationBarTitleText": "登录"
+      }
+    },
+    {
+      "path": "pages/register/register",
+      "style": {
+        "navigationBarTitleText": "注册"
+      }
+    },
+    {
+      "path": "pages/result/result",
+      "style": {
+        "navigationBarTitleText": "结算",
+        "enablePullDownRefresh": false
+      }
+    },
+    {
+      "path": "pages/student/tasks/list",
+      "style": {
+        "navigationBarTitleText": "我的任务"
+      }
+    },
+    {
+      "path": "pages/student/task-runs/task-runs",
+      "style": {
+        "navigationBarTitleText": "任务跑步记录"
+      }
+    },
+    {
+      "path": "pages/teacher/tasks/run-detail",
+      "style": {
+        "navigationBarTitleText": "任务运动详情"
+      }
+    },
+    {
+      "path": "pages/sport/free-practice",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "自由练习"
+      }
+    },
+    {
+      "path": "pages/history/history",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "历史任务"
+      }
+    },
+    {
+      "path": "pages/history/detail",
+      "style": {
+        "navigationBarTitleText": "运动详情"
+      }
+    },
+    {
+      "path": "pages/sunshine/detail",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "阳光跑详情"
+      }
+    },
+    {
+      "path": "pages/health/request",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "健康报备"
+      }
+    },
+    {
+      "path": "pages/teacher/home/home",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "教师工作台",
+        "navigationBarBackgroundColor": "#20C997",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/teacher/class-rank/class-rank",
+      "style": {
+        "navigationBarTitleText": "阳光跑班级排行"
+      }
+    },
+    {
+      "path": "pages/teacher/manage/manage",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "综合管理"
+      }
+    },
+    {
+      "path": "pages/teacher/mine/mine",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "个人中心"
+      }
+    },
+    {
+      "path": "pages/teacher/students/students",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "学员管理"
+      }
+    },
+    {
+      "path": "pages/teacher/students/detail",
+      "style": {
+        "navigationBarTitleText": "学员详情"
+      }
+    },
+    {
+      "path": "pages/teacher/tasks/tasks",
+      "style": {
+        "navigationBarTitleText": "任务管理"
+      }
+    },
+    {
+      "path": "pages/teacher/tasks/detail",
+      "style": {
+        "navigationBarTitleText": "任务详情"
+      }
+    },
+    {
+      "path": "pages/teacher/tasks/create",
+      "style": {
+        "navigationBarTitleText": "发布新任务"
+      }
+    },
+    {
+      "path": "pages/teacher/tasks/score",
+      "style": {
+        "navigationBarTitleText": "任务打分"
+      }
+    },
+    {
+      "path": "pages/teacher/exceptions/exceptions",
+      "style": {
+        "navigationBarTitleText": "异常处理"
+      }
+    },
+    {
+      "path": "pages/teacher/profile/edit",
+      "style": {
+        "navigationBarTitleText": "个人信息设置"
+      }
+    },
+    {
+      "path": "pages/teacher/security/security",
+      "style": {
+        "navigationBarTitleText": "账号安全"
+      }
+    },
+    {
+      "path": "pages/teacher/security/change-password",
+      "style": {
+        "navigationBarTitleText": "修改密码"
+      }
+    },
+    {
+      "path": "pages/teacher/notifications/list",
+      "style": {
+        "navigationBarTitleText": "系统通知"
+      }
+    },
+    {
+      "path": "pages/teacher/tests/tests",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "测试监控"
+      }
+    },
+    {
+      "path": "pages/teacher/todos/index",
+      "style": {
+        "navigationBarTitleText": "今日待办"
+      }
+    },
+    {
+      "path": "pages/teacher/class/class-list",
+      "style": {
+        "navigationBarTitleText": "班级管理"
+      }
+    },
+    {
+      "path": "pages/teacher/class/class-detail",
+      "style": {
+        "navigationBarTitleText": "班级详情"
+      }
+    },
+    {
+      "path": "pages/teacher/resources/resources",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "教学资源"
+      }
+    },
+    {
+      "path": "pages/activity/list",
+      "style": {
+        "navigationBarTitleText": "跑团活动"
+      }
+    },
+    {
+      "path": "pages/activity/detail",
+      "style": {
+        "navigationBarTitleText": "活动详情"
+      }
+    },
+    {
+      "path": "pages/mine/edit-profile/edit-profile",
+      "style": {
+        "navigationBarTitleText": "编辑资料"
+      }
+    },
+    {
+      "path": "pages/mine/history-tasks/history-tasks",
+      "style": {
+        "navigationBarTitleText": "历史任务"
+      }
+    },
+    {
+      "path": "pages/admin/dashboard/index",
+      "style": {
+        "navigationBarTitleText": "管理后台"
+      }
+    },
+    {
+      "path": "pages/admin/classes/list",
+      "style": {
+        "navigationBarTitleText": "班级管理"
+      }
+    },
+    {
+      "path": "pages/admin/users/list",
+      "style": {
+        "navigationBarTitleText": "用户管理"
+      }
+    },
+    {
+      "path": "pages/admin/import/index",
+      "style": {
+        "navigationBarTitleText": "批量导入"
+      }
+    },
+    {
+      "path": "pages/common/choose-location/choose-location",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "选择位置"
+      }
+    },
+    {
+      "path": "pages/courses/list",
+      "style": {
+        "navigationBarTitleText": "课程列表"
+      }
+    },
+    {
+      "path": "pages/courses/detail",
+      "style": {
+        "navigationBarTitleText": "课程详情"
+      }
+    },
+    {
+      "path": "pages/courses/player",
+      "style": {
+        "navigationBarTitleText": "视频播放"
+      }
+    },
+    {
+      "path": "pages/courses/create",
+      "style": {
+        "navigationBarTitleText": "创建课程"
+      }
+    },
+    {
+      "path": "pages/courses/edit",
+      "style": {
+        "navigationBarTitleText": "编辑课程"
+      }
+    },
+    {
+      "path": "pages/courses/content-manage",
+      "style": {
+        "navigationBarTitleText": "课程内容管理"
+      }
+    },
+    {
+      "path": "pages/run-group/discover",
+      "style": {
+        "navigationBarTitleText": "跑团发现"
+      }
+    },
+    {
+      "path": "pages/run-group/my",
+      "style": {
+        "navigationBarTitleText": "我的跑团"
+      }
+    },
+    {
+      "path": "pages/run-group/detail",
+      "style": {
+        "navigationBarTitleText": "跑团详情"
+      }
+    },
+    {
+      "path": "pages/run-group/activity-list",
+      "style": {
+        "navigationBarTitleText": "活动列表"
+      }
+    },
+    {
+      "path": "pages/run-group/activity-detail",
+      "style": {
+        "navigationBarTitleText": "活动详情"
+      }
+    },
+    {
+      "path": "pages/run-group/activity-create",
+      "style": {
+        "navigationBarTitleText": "发起活动"
+      }
+    },
+    {
+      "path": "pages/run-group/create-activity",
+      "style": {
+        "navigationBarTitleText": "发布活动"
+      }
+    },
+    {
+      "path": "pages/run-group/rank",
+      "style": {
+        "navigationBarTitleText": "跑团排行榜"
+      }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "翊晨运动",
+    "navigationBarBackgroundColor": "#F8F8F8",
+    "backgroundColor": "#F8F8F8"
+  },
+  "tabBar": {
+    "color": "#999999",
+    "selectedColor": "#20C997",
+    "borderStyle": "black",
+    "backgroundColor": "#ffffff",
+    "list": [
+      {
+        "pagePath": "pages/tab/home",
+        "iconPath": "static/tab/home.png",
+        "selectedIconPath": "static/tab/home-active.png",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/tab/function",
+        "iconPath": "static/tab/function.png",
+        "selectedIconPath": "static/tab/function-active.png",
+        "text": "运动"
+      },
+      {
+        "pagePath": "pages/tab/learn",
+        "iconPath": "static/tab/stats.png",
+        "selectedIconPath": "static/tab/stats-active.png",
+        "text": "课程"
+      },
+      {
+        "pagePath": "pages/tab/mine",
+        "iconPath": "static/tab/mine.png",
+        "selectedIconPath": "static/tab/mine-active.png",
+        "text": "我的"
+      }
+    ]
+  }
+}

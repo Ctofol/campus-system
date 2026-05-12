@@ -1,0 +1,87 @@
+version: '3.8'
+
+services:
+  # 1. 流量网关 (Nginx)
+  nginx:
+    image: nginx:stable-alpine
+    container_name: campus-nginx
+    ports:
+      - "8088:80"
+      - "8443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    depends_on:
+      - campus-frontend-h5
+      - campus-backend
+      - campus-admin-frontend
+      - campus-admin-backend
+    networks:
+      - campus-network
+    restart: always
+
+  # 2. 数据库 (PostgreSQL)
+  db:
+    image: postgres:13
+    container_name: campus-db
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-your_password}
+      - POSTGRES_DB=${POSTGRES_DB:-campus_db}
+      - TZ=Asia/Shanghai
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - campus-network
+    restart: always
+
+  # 3. 学生端业务后台
+  campus-backend:
+    build: ./backend
+    container_name: campus-backend
+    environment:
+      - SQLALCHEMY_DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-your_password}@db:5432/${POSTGRES_DB:-campus_db}
+      - TZ=Asia/Shanghai
+    volumes:
+      - ./backend/uploads:/app/uploads
+    depends_on:
+      - db
+    networks:
+      - campus-network
+    restart: always
+
+  # 4. 管理端业务后台
+  campus-admin-backend:
+    build: ./admin/backend
+    container_name: campus-admin-backend
+    environment:
+      - SQLALCHEMY_DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-your_password}@db:5432/${POSTGRES_DB:-campus_db}
+      - TZ=Asia/Shanghai
+    depends_on:
+      - db
+    networks:
+      - campus-network
+    restart: always
+
+  # 5. 学生端 H5 (静态部署)
+  campus-frontend-h5:
+    build: ./fronted
+    container_name: campus-frontend-h5
+    networks:
+      - campus-network
+    restart: always
+
+  # 6. 管理端前端 (静态部署)
+  campus-admin-frontend:
+    build: ./admin/frontend
+    container_name: campus-admin-frontend
+    networks:
+      - campus-network
+    restart: always
+
+volumes:
+  postgres_data:
+
+networks:
+  campus-network:
+    driver: bridge

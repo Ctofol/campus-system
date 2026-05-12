@@ -1,0 +1,25 @@
+services:
+  # 管理端后端
+  campus-admin-backend:
+    build: 
+      context: /root/campus-system/admin/backend
+    container_name: campus-admin-backend
+    ports:
+      - "8092:8001"
+    environment:
+      - DATABASE_URL=postgresql://postgres:abcd2222@10.0.47.139:5432/campus_db
+      - JWT_SECRET=campus_admin_secret_key_2024
+      - ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=43200
+      - TZ=Asia/Shanghai
+    restart: always
+
+  # 管理端前端
+  campus-admin-frontend:
+    image: nginx:alpine
+    container_name: campus-admin-frontend
+    ports:
+      - "8091:80"
+    volumes:
+      - /root/campus-system/admin/frontend/dist:/usr/share/nginx/html:ro
+    restart: always

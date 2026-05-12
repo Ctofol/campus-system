@@ -1,0 +1,83 @@
+# HBuilderX / Uni-app
+fronted/unpackage/*
+!fronted/unpackage/dist/
+fronted/unpackage/dist/*
+!fronted/unpackage/dist/build/
+fronted/unpackage/dist/build/*
+!fronted/unpackage/dist/build/web/
+.hbuilderx/
+fronted/.hbuilderx/
+
+# Python / Backend
+**/__pycache__/
+*.py[cod]
+*$py.class
+backend/.venv/
+backend/venv/
+backend/.idea/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Uploads (Keep the directory, ignore content)
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment
+.env
+.env.local
+.env.*.local
+!.env.production
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Build artifacts
+# dist/
+# build/
+
+# Kiro AI assistant
+.kiro/
+
+# Duplicate project directory
+campus-system/
+
+# Test scripts (keep in repo for reference)
+# test_video_api.sh
+# test_video_api.bat
+# quick_deploy.sh
+
+# Login response temp file
+login_response.txt
+admin/backend/.venv/
+ 
+# Deployment Certificates
+certs/
+*.pem
+*.key
+*.crt
+*.pfx
+

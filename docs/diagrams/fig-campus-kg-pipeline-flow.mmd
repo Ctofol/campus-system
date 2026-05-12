@@ -1,0 +1,47 @@
+flowchart TD
+  subgraph EXT["EXT：编排与多源"]
+    SRC[多源数据：教务/穿戴/历史体测/标准库]
+    DIFY[Dify 工作流：抽取、对齐、质量门]
+  end
+
+  subgraph FE["FE：教师/管理端"]
+    V1[班级与学生列表]
+    V2[薄弱项与训练关联链视图]
+    V3[个性化训练建议与备考方案草稿]
+  end
+
+  subgraph API["API：FastAPI 接入与中台"]
+    ING[数据接入与实体映射]
+    SNAP[图谱快照与审计元数据]
+  end
+
+  subgraph SVC["SVC：推理与规则"]
+    KG[知识图谱构建与增量更新]
+    GNN[GNN 达标与关联链推理]
+    RULE[阈值与时序规则引擎]
+    ADV[建议合成：规则 + 推理依据]
+  end
+
+  subgraph DATA["DATA：存储"]
+    GDB[("图存储：学生·科目·任务·成绩·标准·关系")]
+    RDB[("RDBMS：明细成绩、任务完成、时间戳")]
+  end
+
+  SRC --> DIFY
+  DIFY --> ING
+  ING --> RDB
+  ING --> KG
+  KG --> GDB
+  KG --> SNAP
+  GDB --> GNN
+  RDB --> RULE
+  GNN --> ADV
+  RULE --> ADV
+  SNAP --> ADV
+  V1 --> V2
+  V2 --> API
+  V3 --> API
+  API --> ING
+  API --> ADV
+  ADV --> V3
+  FE -.->|数据最小化：图谱仅存业务键与脱敏特征<br/>建议附规则版本/快照 ID 留痕| DATA
