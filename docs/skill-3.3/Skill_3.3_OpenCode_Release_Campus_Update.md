@@ -11,8 +11,8 @@
 ### 后端（FastAPI，`campus-backend`）
 
 1. **数据库迁移（按需，拉代码后常见）**  
-   - `backend/db_update_production.py`：补列（如 `activities.task_id`、`tasks.starts_at` 等）；PostgreSQL 下每条 `ALTER` 独立事务。  
-   - **推荐**在容器内：`docker compose exec campus-backend python /app/db_update_production.py`（与线上一致 `DATABASE_URL`）。列已存在会 `[skip]`。
+   - **`backend/setup_database.py`（空白库首建）**：`create_all` + 调用 `db_update_production` + 首个管理员 + 默认 `subject_options`；容器内：`python /app/setup_database.py`。详见 **`docs/skill-3.3/Skill_3.3_Fresh_Database_Setup_Prompt.md`** 粘贴提示词。  
+   - **`backend/db_update_production.py`（已有库仅补列）**：补列（如 `activities.task_id`、`tasks.starts_at` 等）；PostgreSQL 下每条 `ALTER` 独立事务。容器内：`docker compose exec campus-backend python /app/db_update_production.py`。列已存在会 `[skip]`。
 
 2. **教师端**  
    - **`GET /teacher/student-groups`**：返回当前教师管辖学员中已出现的 `group_name`（去重）。**旧镜像未包含该路由时，公网会 404**；部署新后端并重建镜像后，未带 Token 访问应为 **401 JSON**，不是 Nginx HTML 404。  
