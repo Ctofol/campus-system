@@ -55,7 +55,21 @@ const handleImport = async (file, type) => {
   try {
     const fn = type === 'profiles' ? importProfiles : type === 'student' ? importStudents : importTeachers
     const data = await fn(file)
-    ElMessage.success(`导入完成：成功 ${data.success} 条，失败 ${data.failed} 条`)
+    const ok = data.success ?? 0
+    const bad = data.failed ?? 0
+    let msg = `导入完成：成功 ${ok} 条，失败 ${bad} 条`
+    const errs = data.errors || []
+    if (errs.length > 0) {
+      const lines = errs.slice(0, 8).map((e) => `第${e.row}行：${e.error}`)
+      msg += ' — ' + lines.join('；')
+      if (errs.length > 8) msg += `（共 ${errs.length} 条错误）`
+    }
+    ElMessage({
+      message: msg,
+      type: bad ? 'warning' : 'success',
+      duration: bad ? 14000 : 4000,
+      showClose: true
+    })
   } catch (e) {
     ElMessage.error(e?.detail || '导入失败')
   } finally {

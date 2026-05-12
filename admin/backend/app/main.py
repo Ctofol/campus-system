@@ -50,6 +50,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# 挂载管理端前端静态文件
+admin_frontend_path = "/root/campus-system/admin/frontend/dist"
+if os.path.exists(admin_frontend_path):
+    
+    @app.get("/admin/", include_in_schema=False)
+    async def admin_index():
+        from fastapi.responses import FileResponse
+        return FileResponse(os.path.join(admin_frontend_path, "index.html"))
+    
+    @app.get("/admin/{rest:path}", include_in_schema=False)
+    async def admin_spa_handler(rest: str):
+        from fastapi.responses import FileResponse
+        import pathlib
+        from fastapi.staticfiles import StaticFiles
+        full_path = pathlib.Path(admin_frontend_path) / rest
+        if full_path.is_file():
+            return FileResponse(str(full_path))
+        return FileResponse(os.path.join(admin_frontend_path, "index.html"))
+
 # Auth
 @app.post("/auth/login", response_model=schemas.Token)
 def login(user_data: schemas.UserLogin, db: Session = Depends(get_db)):
@@ -629,21 +648,3 @@ def teacher_template(current_user: models.User = Depends(auth.get_current_admin_
     buf.seek(0)
     return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": "attachment; filename=teacher_template.xlsx"})
-
-# 管理端前端静态文件 (放在 API 路由之后，避免拦截 /admin/* API)
-admin_frontend_path = "/root/campus-system/admin/frontend/dist"
-if os.path.exists(admin_frontend_path):
-
-    @app.get("/admin/", include_in_schema=False)
-    async def admin_index():
-        from fastapi.responses import FileResponse
-        return FileResponse(os.path.join(admin_frontend_path, "index.html"))
-
-    @app.get("/admin/{rest:path}", include_in_schema=False)
-    async def admin_spa_handler(rest: str):
-        from fastapi.responses import FileResponse
-        import pathlib
-        full_path = pathlib.Path(admin_frontend_path) / rest
-        if full_path.is_file():
-            return FileResponse(str(full_path))
-        return FileResponse(os.path.join(admin_frontend_path, "index.html"))

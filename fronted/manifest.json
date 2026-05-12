@@ -154,7 +154,8 @@
             "onLocationChange",
             "startLocationUpdate",
             "startLocationUpdateBackground",
-            "chooseLocation"
+            "chooseLocation",
+            "chooseImage"
         ]
     },
     "mp-alipay" : {

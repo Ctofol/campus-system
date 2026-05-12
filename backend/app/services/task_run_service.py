@@ -17,7 +17,9 @@ def student_may_submit_task(student: models.User, task: models.Task) -> Tuple[bo
         return False, "任务尚未开始"
     if task.deadline and task.deadline < now:
         return False, "任务已截止"
-    if task.class_id is not None and student.class_id != task.class_id:
+    if task.class_id is None:
+        return False, "该任务未指派到具体班级，无法提交"
+    if student.class_id != task.class_id:
         return False, "该任务不面向你所在班级"
     return True, ""
 

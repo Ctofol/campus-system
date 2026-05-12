@@ -49,6 +49,8 @@ def create_test_data():
             min_distance=5.0,
             min_duration=30,
             created_by=teacher.id,
+            class_id=student.class_id,
+            target_group="class",
             video_url="uploads/1256f1dd-d1ad-4cbd-b3e5-c4919e53b8dd.webm"
         )
         db.add(run_task)
@@ -59,6 +61,8 @@ def create_test_data():
             type="test",
             description="包含50米跑、立定跳远、仰卧起坐等项目",
             created_by=teacher.id,
+            class_id=student.class_id,
+            target_group="class",
             video_url="uploads/57c61e1f-5307-436e-a39b-89a1f28e1ef0.webm"
         )
         db.add(fitness_task)

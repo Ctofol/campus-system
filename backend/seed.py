@@ -12,6 +12,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from app.database import SessionLocal, engine
 from app import models, auth
+from app.services.student_major_sync import sync_student_majors_from_class
 
 # 与教师端管辖逻辑一致：TeacherSubject（选科）与 TeacherClass（按行政班名称绑定）为 OR 关系
 PE_SUBJECTS = ["篮球", "羽毛球", "乒乓球", "游泳", "网球"]
@@ -144,13 +145,16 @@ def seed_database():
             # Distribute students across classes
             class_idx = i % len(classes)
             
+            cls_obj = classes[class_idx]
             student = models.User(
                 phone=phone,
                 name=student_names[i],
                 role="student",
                 password_hash=auth.get_password_hash("student123"),
                 student_id=student_id,
-                class_id=classes[class_idx].id,
+                class_id=cls_obj.id,
+                major_id=cls_obj.major_id,
+                major_name=major.name,
                 subject=PE_SUBJECTS[i % len(PE_SUBJECTS)],
                 health_status=health_statuses[i],
                 abnormal_reason="请假" if health_statuses[i] == "leave" else ("受伤" if health_statuses[i] == "injured" else None),
@@ -160,6 +164,7 @@ def seed_database():
             students.append(student)
         
         db.commit()
+        sync_student_majors_from_class(db)
         print(f"✅ Created/verified {len(students)} students")
         
         # Refresh all students to get IDs
@@ -269,7 +274,7 @@ def seed_database():
         db.commit()
         print(f"✅ Created health requests for abnormal students")
         
-        # 6. Create Tasks（与学生端 /student/tasks 过滤一致：全校任务 class_id 须为 NULL）
+        # 6. Create Tasks（学生端仅展示 class_id 与本人所在班一致的任务）
         print("\n📋 Creating tasks...")
         tasks_data = [
             {
@@ -279,8 +284,8 @@ def seed_database():
                 "min_duration": 1200,
                 "deadline": datetime.utcnow() + timedelta(days=3),
                 "description": "完成3公里跑步，时长不少于20分钟",
-                "target_group": "all",
-                "class_id": None,
+                "target_group": "class",
+                "class_id": classes[0].id,
             },
             {
                 "title": "体能测试",
@@ -288,8 +293,8 @@ def seed_database():
                 "min_count": 2,
                 "deadline": datetime.utcnow() + timedelta(days=7),
                 "description": "完成2次体能测试",
-                "target_group": "all",
-                "class_id": None,
+                "target_group": "class",
+                "class_id": classes[0].id,
             },
             {
                 "title": "2021级体育1班专项跑步",
@@ -298,7 +303,7 @@ def seed_database():
                 "min_duration": 1200,
                 "deadline": datetime.utcnow() + timedelta(days=5),
                 "description": "仅本班可见的班级任务示例",
-                "target_group": "all",
+                "target_group": "class",
                 "class_id": classes[0].id,
             },
         ]

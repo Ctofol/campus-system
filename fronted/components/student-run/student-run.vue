@@ -137,7 +137,7 @@
       </view>
       <view v-else class="running-box">
         <text class="data">时长：{{duration}}秒 | 已跑：{{(distance/1000).toFixed(2)}}km / 目标：2km</text>
-        <text class="data">剩余：{{((policeTargetDistance - distance)/1000).toFixed(2)}}km | 配速：{{currentPace.toFixed(1)}}分钟/公里</text>
+        <text class="data">剩余：{{(Math.max(0, policeTargetDistance - distance)/1000).toFixed(2)}}km | 配速：{{currentPace.toFixed(1)}}分钟/公里</text>
         <text class="data">心率：{{heartRate}}次/分 | 步数：{{stepCount}}</text>
         <text class="pace-status" :style="{color: currentPace <= policeTargetPace ? 'green' : 'red'}">
           {{currentPace <= policeTargetPace ? '✅ 配速达标' : '❌ 配速未达标'}}
@@ -159,7 +159,7 @@
       </view>
       <view v-else>
         <view v-if="!isRunning" class="start-box">
-          <text class="checkpoint-info">打卡点：{{checkpoint.name}}（需到达10米内）</text>
+          <text class="checkpoint-info">打卡点：{{checkpoint.name}}（到达约 {{ checkpoint.radius || 100 }} 米内可判定为已到达）</text>
           <button @click="startCampusRun" class="start-btn">开始打卡</button>
         </view>
         <view v-else class="running-box">
@@ -434,6 +434,8 @@ const useRoute = (route) => {
 // 1. 地图/打卡点数据
 const locationState = ref('idle'); // idle, locating, success, fail
 let locationRetryTimer = null;
+/** 微信小程序：定位兜底 setTimeout，须在停止跑步与卸载时清除 */
+let wxLocationWatchdogTimer = null;
 
 const checkpointName = ref('');
 const lat = ref(39.909);
@@ -499,11 +501,9 @@ const updateLocationLogic = (newLat, newLng, speed, accuracy) => {
   };
 
   if (isRunning.value) {
-    // 0. Accuracy Filter (Anti-Drift)
-    // Relaxed to 60m for urban/track environments to avoid dropping curve points
-    if (accuracy && accuracy > 60) {
-        // console.log('Dropped weak signal point, accuracy:', accuracy);
-        return; 
+    // 0. Accuracy Filter（精度过严会导致真机大量丢点、里程不涨）
+    if (accuracy != null && accuracy > 120) {
+        return;
     }
 
     // 1. Initial point
@@ -553,16 +553,14 @@ const updateLocationLogic = (newLat, newLng, speed, accuracy) => {
       }
     }
 
-    // Speed check: Max 20m/s (72km/h) - Humanly impossible for running, likely GPS drift
-    // If timeDiff is very small (e.g. duplicate updates), skip
-    if (timeDiff < 0.5) return; 
-    
+    // 若时间间隔过短，多为重复回调，略放宽避免丢点
+    if (timeDiff < 0.35) return;
+
     const calculatedSpeed = d / timeDiff;
 
-    // Filter Logic:
-    // 1. Ignore tiny jitters (d < 1.5m) to keep path smooth and curve accurately (tuned for track)
-    // 2. Ignore teleportation (Speed > 15m/s - ~54km/h)
-    if (d >= 1.5 && calculatedSpeed < 15) {
+    // 1. 略放宽最小位移，便于步行/弱 GPS 仍能累计
+    // 2. 过滤异常「瞬移」
+    if (d >= 0.8 && calculatedSpeed < 15) {
         distance.value += d;
         
         const point = { latitude: newLat, longitude: newLng, timestamp: Date.now(), speed: speed || calculatedSpeed };
@@ -613,6 +611,10 @@ const startRealLocationTracking = () => {
   // #endif
   // #ifdef MP-WEIXIN
   // 息屏/切后台：须 startLocationUpdateBackground + manifest requiredBackgroundModes + 用户授权「使用小程序期间和离开小程序后」
+  if (wxLocationWatchdogTimer) {
+    clearTimeout(wxLocationWatchdogTimer);
+    wxLocationWatchdogTimer = null;
+  }
   mpBackgroundLocationActive = false;
   const registerLocationChange = () => {
     if (locationCallback) uni.offLocationChange(locationCallback);
@@ -625,6 +627,15 @@ const startRealLocationTracking = () => {
   };
   const startPollFallback = () => {
     console.log('startLocationUpdate failed, use polling');
+    try {
+      uni.stopLocationUpdate();
+    } catch (e) {}
+    if (locationCallback) {
+      try {
+        uni.offLocationChange(locationCallback);
+      } catch (e) {}
+      locationCallback = null;
+    }
     uni.showToast({ title: '定位服务兼容模式已启动', icon: 'none' });
     if (h5LocationTimer) clearInterval(h5LocationTimer);
     let preferredType = 'gcj02';
@@ -667,6 +678,15 @@ const startRealLocationTracking = () => {
       startWxForeground();
     }
   });
+  // 部分真机 startLocationUpdate 成功但长时间无 onLocationChange，用轮询兜底
+  wxLocationWatchdogTimer = setTimeout(() => {
+    wxLocationWatchdogTimer = null;
+    if (!isRunning.value || h5LocationTimer) return;
+    if (distance.value < 2 && trajectoryPoints.value.length <= 2) {
+      console.log('WX: watchdog starting location poll fallback');
+      startPollFallback();
+    }
+  }, 4000);
   // #endif
   // #if !defined(H5) && !defined(MP-WEIXIN)
   uni.startLocationUpdate({
@@ -702,12 +722,14 @@ const startRealLocationTracking = () => {
 };
 
 const stopRealLocationTracking = () => {
-  // #ifdef H5
+  if (wxLocationWatchdogTimer) {
+    clearTimeout(wxLocationWatchdogTimer);
+    wxLocationWatchdogTimer = null;
+  }
   if (h5LocationTimer) {
     clearInterval(h5LocationTimer);
     h5LocationTimer = null;
   }
-  // #endif
   // #ifndef H5
   uni.stopLocationUpdate();
   if (locationCallback) {
@@ -765,12 +787,6 @@ uni.$on('onLocationChosen', (res) => {
   processSelectedLocation(res);
 });
 
-onUnmounted(() => {
-  uni.$off('onLocationChosen');
-  stopLocationPolling();
-  if (timer) clearInterval(timer);
-});
-
 // 4. 定位优化（含权限申请+校园围栏）
 const startLocationService = () => {
   getLocation(); // First try
@@ -810,9 +826,14 @@ const onPageHide = () => {
 defineExpose({ onPageShow, onPageHide });
 
 onUnmounted(() => {
+  uni.$off('onLocationChosen');
   stopLocationPolling();
-  if (timer) clearInterval(timer);
+  if (timer) {
+    clearInterval(timer);
+    timer = null;
+  }
   stopStepCount();
+  stopRealLocationTracking();
 });
 
 const getLocation = () => {
@@ -874,9 +895,12 @@ const handleLocationError = (err) => {
   let msg = '定位失败';
   let showSettings = false;
 
-  // Analyze error message
-  const errMsg = err.errMsg || '';
-  if (errMsg.includes('auth') || errMsg.includes('denied') || errMsg.includes('permission')) {
+  // getCurrentLocation 失败时可能是包装对象，真实 errMsg 在 originalErr
+  const raw = err?.originalErr || err;
+  const errMsg = (raw && raw.errMsg) || err?.message || '';
+  if (errMsg.includes('privacy') || errMsg.includes('隐私')) {
+    msg = '需先同意小程序隐私保护指引。请返回首页同意，或重新进入本页后再试。';
+  } else if (errMsg.includes('auth') || errMsg.includes('denied') || errMsg.includes('permission')) {
     msg = '定位权限被拒绝，请去设置开启';
     showSettings = true;
   } else if (errMsg.includes('service') || errMsg.includes('unavailable')) {
@@ -931,27 +955,23 @@ const doGetLocation = async () => {
   // 2. 调用封装的定位方法
   try {
     const res = await getCurrentLocation();
-    if (!isPageActive) return; // Prevent updating state if page inactive
-
-    uni.hideLoading();
+    if (!isPageActive) return;
     if (res.success) {
       handleLocationSuccess(res);
       uni.showToast({ title: '定位成功', icon: 'none' });
       locationState.value = 'success';
     }
   } catch (err) {
-    if (!isPageActive) return; // Prevent updating state if page inactive
-
-    uni.hideLoading();
-    // 如果没有缓存，且定位失败，则显示错误
+    if (!isPageActive) return;
     if (!lastLoc) {
-       handleLocationError(err);
+      handleLocationError(err?.originalErr || err);
     } else {
-       // 有缓存但最新定位失败，提示一下
-       uni.showToast({ title: '刷新定位失败，使用历史位置', icon: 'none' });
-       // 这种情况暂时认为是 fail，因为需要最新位置才能打卡
-       locationState.value = 'fail';
+      // 真机室内/弱 GPS 常失败：有历史位置时仍允许开跑，轨迹会在后续定位更新中纠正
+      uni.showToast({ title: '刷新定位失败，暂用历史位置，请到室外或点击定位按钮重试', icon: 'none', duration: 2800 });
+      locationState.value = 'success';
     }
+  } finally {
+    uni.hideLoading();
   }
 };
 
@@ -970,7 +990,7 @@ const handleRelocate = () => {
     }).catch(err => {
         if (!isPageActive) return;
         uni.hideLoading();
-        handleLocationError(err);
+        handleLocationError(err?.originalErr || err);
     });
 };
 
@@ -1170,14 +1190,19 @@ const switchMode = (mode) => {
     uni.showToast({ title: '任务跑步请使用专项跑页面', icon: 'none' });
     return;
   }
-  // 切换模式时重置所有跑步状态
+  // 切换模式时重置所有跑步状态（含定位监听，避免后台仍回调）
   isRunning.value = false;
   clearInterval(timer);
+  timer = null;
   stopStepCount();
+  stopRealLocationTracking();
   duration.value = 0;
   distance.value = 0;
   stepCount.value = 0;
   heartRate.value = 80;
+  runPolyline.value.points = [];
+  trajectoryPoints.value = [];
+  updateMapPolyline();
   currentMode.value = mode;
 };
 
@@ -1344,6 +1369,7 @@ const initializeRunState = () => {
   distance.value = 0;
   stepCount.value = 0;
   heartRate.value = 80;
+  endFaceUrl.value = null;
   
   // Clear previous trajectory
   runPolyline.value.points = [];
@@ -1361,8 +1387,7 @@ const initializeRunState = () => {
   return true;
 };
 
-// 人脸验证：调用相机/相册拍照并上传，分别记录起跑/结束照片
-// 注意：在微信开发者工具模拟器中，相机/相册能力可能不可用或无权限，会导致直接失败
+// 人脸验证：调用相机/相册拍照并上传，分别记录起跑/结束照片（未完成则不允许开跑/提交）
 const faceVerify = (phase) => {
   return new Promise((resolve) => {
     uni.showModal({
@@ -1385,7 +1410,12 @@ const faceVerify = (phase) => {
           success: async (res) => {
             const filePath = res.tempFilePaths && res.tempFilePaths[0];
             if (!filePath) {
-              uni.showToast({ title: '未获取到照片，请重试', icon: 'none' });
+              uni.showModal({
+                title: '未获取到照片',
+                content: '未完成人脸验证，无法开始或结束本次跑步。请重新拍照。',
+                showCancel: false,
+                confirmText: '知道了'
+              });
               resolve(false);
               return;
             }
@@ -1434,7 +1464,12 @@ const faceVerify = (phase) => {
                 }
               });
             } else {
-              uni.showToast({ title: '拍照/选图失败（模拟器可能不支持），建议真机测试', icon: 'none', duration: 2500 });
+              uni.showModal({
+                title: '拍照或选图失败',
+                content: '请检查相机与相册权限、存储空间是否正常，或稍后重试。未完成人脸验证无法开始或结束跑步。',
+                showCancel: false,
+                confirmText: '知道了'
+              });
             }
             resolve(false);
           }
@@ -1446,6 +1481,11 @@ const faceVerify = (phase) => {
 
 // 普通跑步（无固定目标）
 const startNormalRun = async () => {
+  if (locationState.value !== 'success') {
+    uni.showToast({ title: '定位未成功，请稍候或点击地图旁定位按钮刷新后再试', icon: 'none' });
+    doGetLocation();
+    return;
+  }
   const ok = await faceVerify('start');
   if (!ok) {
     return;
@@ -1453,7 +1493,10 @@ const startNormalRun = async () => {
 
   // Clear navigation line in normal mode to ensure clean map
   navPolyline.value = null;
-  if (!initializeRunState()) return;
+  if (!initializeRunState()) {
+    startFaceUrl.value = null;
+    return;
+  }
 
   uni.removeStorageSync('checkpointReached');
   startRealLocationTracking();
@@ -1466,12 +1509,20 @@ const startNormalRun = async () => {
 
 // 专项训练（固定2000米，按达标配速跑）
 const startPoliceRun = async () => {
+  if (locationState.value !== 'success') {
+    uni.showToast({ title: '定位未成功，请稍候或点击地图旁定位按钮刷新后再试', icon: 'none' });
+    doGetLocation();
+    return;
+  }
   const ok = await faceVerify('start');
   if (!ok) {
     return;
   }
 
-  if (!initializeRunState()) return;
+  if (!initializeRunState()) {
+    startFaceUrl.value = null;
+    return;
+  }
 
   uni.removeStorageSync('policeFinishTip');
   startRealLocationTracking();
@@ -1489,12 +1540,20 @@ const startPoliceRun = async () => {
 
 // 校园打卡
 const startCampusRun = async () => {
+  if (locationState.value !== 'success') {
+    uni.showToast({ title: '定位未成功，请稍候或点击地图旁定位按钮刷新后再试', icon: 'none' });
+    doGetLocation();
+    return;
+  }
   const ok = await faceVerify('start');
   if (!ok) {
     return;
   }
 
-  if (!initializeRunState()) return;
+  if (!initializeRunState()) {
+    startFaceUrl.value = null;
+    return;
+  }
 
   isReach.value = false;
   uni.removeStorageSync('checkpointReached');
@@ -1504,6 +1563,55 @@ const startCampusRun = async () => {
     duration.value += 1;
     updateHeartRate();
   }, 1000);
+};
+
+// 结束跑步时若用户取消人脸验证：恢复计时、计步与定位（避免已停表却无法继续跑）
+const resumeRunAfterEndFaceCancelled = () => {
+  isRunning.value = true;
+  clearInterval(timer);
+  if (currentMode.value === 'police') {
+    timer = setInterval(() => {
+      duration.value += 1;
+      updateHeartRate();
+      if (distance.value >= policeTargetDistance.value && !uni.getStorageSync('policeFinishTip')) {
+        uni.showToast({ title: `已完成 ${(policeTargetDistance.value / 1000).toFixed(2)} 公里目标！`, icon: 'success' });
+        uni.setStorageSync('policeFinishTip', '1');
+      }
+    }, 1000);
+  } else {
+    timer = setInterval(() => {
+      duration.value += 1;
+      updateHeartRate();
+    }, 1000);
+  }
+  startStepCount();
+  startRealLocationTracking();
+};
+
+// 提交跑步记录并跳转结算页
+const redirectToRunResult = () => {
+  uni.redirectTo({
+    url: '/pages/result/result?useStorage=true',
+    fail: (err) => {
+      console.error('Navigate failed:', err);
+      uni.showToast({ title: '页面跳转失败', icon: 'none' });
+    }
+  });
+};
+
+const submitCurrentRunToServer = async (runData) => {
+  uni.showLoading({ title: '正在核验运动数据...' });
+  try {
+    const res = await submitActivity(runData);
+    uni.hideLoading();
+    console.log('Submit success:', res);
+    uni.setStorageSync('tempRunResult', res);
+    redirectToRunResult();
+    return res;
+  } catch (e) {
+    uni.hideLoading();
+    throw e;
+  }
 };
 
 // 11. 结束跑步（统一逻辑）
@@ -1526,6 +1634,17 @@ const stopRun = async () => {
   // 结束前进行一次人脸验证拍照
   const faceOk = await faceVerify('end');
   if (!faceOk) {
+    resumeRunAfterEndFaceCancelled();
+    return;
+  }
+
+  if (!endFaceUrl.value) {
+    uni.showModal({
+      title: '验证异常',
+      content: '未获取到终点人脸照片，请再次点击结束并完成拍照。',
+      showCancel: false
+    });
+    resumeRunAfterEndFaceCancelled();
     return;
   }
 
@@ -1570,42 +1689,30 @@ const stopRun = async () => {
   }
 
   try {
-    uni.showLoading({ title: '正在核验运动数据...' });
-    const res = await submitActivity(runData);
-    uni.hideLoading();
-    console.log('Submit success:', res);
-    
-    // 使用后端返回的数据（含校验结果）作为结算页展示源
-    uni.setStorageSync('tempRunResult', res);
-    
-    // 使用 reLaunch 确保清理页面栈，或者 redirectTo
-    uni.redirectTo({
-      url: '/pages/result/result?useStorage=true',
-      fail: (err) => {
-        console.error('Navigate failed:', err);
-        uni.showToast({ title: '页面跳转失败', icon: 'none' });
-      }
-    });
+    await submitCurrentRunToServer(runData);
   } catch (error) {
-    uni.hideLoading();
     console.error('Submit failed:', error);
+    const msg = error?.message || error?.detail || String(error) || '网络或服务器错误，请重试';
     uni.showModal({
       title: '提交失败',
-      content: error.message || error.detail || '网络或服务器错误，请重试',
+      content: msg,
       confirmText: '重试',
       cancelText: '强制结束',
       success: (modalRes) => {
-         if (modalRes.confirm) {
-            // User wants to retry - do nothing, they can click stop again
-         } else if (modalRes.cancel) {
-            // Force stop - jump to home or result without saving?
-            // Let's jump to result but maybe with local data only?
-            // Or just back to home
-            uni.showToast({ title: '已强制结束', icon: 'none' });
-            setTimeout(() => {
-               uni.reLaunch({ url: '/pages/tab/home' });
-            }, 800);
-         }
+        if (modalRes.confirm) {
+          submitCurrentRunToServer(runData).catch((e2) => {
+            uni.showToast({
+              title: e2?.message || e2?.detail || '重试失败，请稍后再试',
+              icon: 'none',
+              duration: 2500
+            });
+          });
+        } else if (modalRes.cancel) {
+          uni.showToast({ title: '已强制结束', icon: 'none' });
+          setTimeout(() => {
+            uni.reLaunch({ url: '/pages/tab/home' });
+          }, 800);
+        }
       }
     });
   }

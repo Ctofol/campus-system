@@ -96,6 +96,14 @@ class ClassBase(BaseModel):
 
 class ClassCreate(ClassBase):
     major_id: int
+    teacher_id: Optional[int] = None
+
+
+class ClassTeacherUpdate(BaseModel):
+    """更新班级绑定教师；teacher_id 为 null 表示解除绑定。"""
+
+    teacher_id: Optional[int] = None
+
 
 class ClassBind(BaseModel):
     class_ids: List[int]
@@ -105,6 +113,7 @@ class ClassOut(ClassBase):
     major_id: int
     major_name: Optional[str] = None
     teacher_id: Optional[int] = None
+    teacher_name: Optional[str] = None
     student_count: int = 0
     created_at: Optional[datetime] = None
     
@@ -118,6 +127,21 @@ class MajorOut(BaseModel):
     class Config:
         from_attributes = True
 
+
+class SubjectOptionOut(BaseModel):
+    id: int
+    name: str
+    sort_order: int = 0
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class SubjectOptionCreate(BaseModel):
+    name: str
+
+
 class TeacherSubjectBase(BaseModel):
     subject_name: str
 
@@ -128,6 +152,11 @@ class TeacherSubjectOut(TeacherSubjectBase):
 
     class Config:
         from_attributes = True
+
+
+class TeacherBoundStudentsAdd(BaseModel):
+    student_user_ids: List[int]
+
 
 class StudentInfo(UserBase):
     id: int
@@ -270,7 +299,8 @@ class TaskCreate(BaseModel):
     starts_at: Optional[datetime] = None  # 未到该时间学生不可提交
     deadline: Optional[datetime] = None
     description: Optional[str] = None
-    target_group: Optional[str] = "all"
+    # 教师发布接口要求 class_id 非空；学生端仅按 class_id 匹配所在班展示任务
+    target_group: Optional[str] = "class"
     class_id: Optional[int] = None
     video_url: Optional[str] = None  # 体测任务视频URL（第二阶段新增）
 

@@ -106,18 +106,51 @@ const initCharts = () => {
 
   if (pieRef.value) {
     pieChart = echarts.init(pieRef.value)
-    const list = majorActivity.value.filter(m => m.valid_runs > 0)
+    const raw = majorActivity.value || []
+    const slices = raw
+      .map((m) => ({
+        value: Math.max(0, Number(m.valid_runs) || 0),
+        name: m.major || '未知专业',
+      }))
+      .filter((d) => d.value > 0)
+    const pieData =
+      slices.length > 0
+        ? slices
+        : [{ value: 1, name: '暂无有效跑步记录', itemStyle: { color: '#dcdfe6' } }]
+
     pieChart.setOption({
-      tooltip: { trigger: 'item' },
-      series: [{
-        name: '活跃度',
-        type: 'pie',
-        radius: ['40%', '70%'],
-        avoidLabelOverlap: false,
-        itemStyle: { borderRadius: 10, borderColor: '#fff', borderWidth: 2 },
-        label: { show: false },
-        data: list.map(m => ({ value: m.valid_runs, name: m.major }))
-      }]
+      color: [
+        '#5470c6',
+        '#91cc75',
+        '#fac858',
+        '#ee6666',
+        '#73c0de',
+        '#3ba272',
+        '#fc8452',
+        '#9a60b4',
+        '#ea7ccc',
+      ],
+      tooltip: { trigger: 'item', formatter: '{b}<br/>有效跑步：{c} 次 ({d}%)' },
+      legend: slices.length > 0 ? { type: 'scroll', bottom: 0, textStyle: { fontSize: 11 } } : { show: false },
+      series: [
+        {
+          name: '活跃度',
+          type: 'pie',
+          radius: ['42%', '68%'],
+          center: ['50%', '46%'],
+          avoidLabelOverlap: true,
+          itemStyle: { borderRadius: 6, borderColor: '#fff', borderWidth: 2 },
+          label: { show: slices.length > 0 && slices.length <= 8, formatter: '{b}\n{c}次' },
+          emphasis: {
+            itemStyle: {
+              shadowBlur: 10,
+              shadowOffsetX: 0,
+              shadowColor: 'rgba(0, 0, 0, 0.2)',
+            },
+          },
+          data: pieData,
+        },
+      ],
     })
   }
 }

@@ -6,40 +6,41 @@
 
 ## 本次更新摘要（给人类与模型对齐用）
 
-### 后端（FastAPI，`campus-backend` 或等价服务名）
+> 以下为 **master 近期累积能力** 的发布对齐说明；以仓库当前代码为准。
 
-1. **数据库迁移**（必做一次）  
-   - 仓库 `backend/db_update_production.py` 会补列（含 `activities.task_id`、`tasks.starts_at` 等）。  
-   - **PostgreSQL**：每条 `ALTER` 已改为独立事务，避免「列已存在」导致后续语句 `InFailedSqlTransaction`。  
-   - **推荐**在 `campus-backend` 容器内执行：`python /app/db_update_production.py`（与线上一致 `DATABASE_URL`）。  
-   - 若列已存在，脚本会 `[skip]`，属正常。
+### 后端（FastAPI，`campus-backend`）
 
-2. **管理端 API**（主后端 `/manage`，非独立 admin 容器时与小程序同域 `/api`）  
-   - 新增：`GET /manage/users/{user_id}/activities` — 管理员查看某学生的运动记录（阳光跑 / 任务跑 / 体测归类）。
+1. **数据库迁移（按需，拉代码后常见）**  
+   - `backend/db_update_production.py`：补列（如 `activities.task_id`、`tasks.starts_at` 等）；PostgreSQL 下每条 `ALTER` 独立事务。  
+   - **推荐**在容器内：`docker compose exec campus-backend python /app/db_update_production.py`（与线上一致 `DATABASE_URL`）。列已存在会 `[skip]`。
 
-3. **任务**  
-   - `POST /teacher/tasks` 等支持 `starts_at`；未到开始时间学生不可提交任务跑（`student_may_submit_task`）。  
-   - 学生任务列表可能出现状态 `not_started`。
+2. **教师端**  
+   - **`GET /teacher/student-groups`**：返回当前教师管辖学员中已出现的 `group_name`（去重）。**旧镜像未包含该路由时，公网会 404**；部署新后端并重建镜像后，未带 Token 访问应为 **401 JSON**，不是 Nginx HTML 404。  
+   - **任务**：创建任务须绑定教师管辖的 **班级**（`class_id`），列表完成率/人数与详情口径对齐（`teacher.py` / `teacher_service.py`）。  
+   - **学员列表**：`GET /teacher/students` 与统计共用 `get_managed_students_query`。
 
-4. **阳光跑口径**  
-   - `score_service.sunshine_run_filter()`：`type=run` 且 `(source=free OR source IS NULL)` 且 `task_id IS NULL`，与任务跑区分。教师统计、核验、导出等已按此过滤（具体以当前 `teacher.py` / `teacher_service.py` / `score_service.py` 为准）。
+3. **学生端**  
+   - 任务列表、提交校验等与 `class_id` / `starts_at` 一致（见 `student.py`、`task_run_service.py`）。
 
-5. **注册**（`/auth/register`）  
-   - 学生：**档案激活**（学号+姓名对档案）；专业班级以档案为准；选科可填，优先于档案空值。  
-   - 仅允许 `student` / `teacher`；密码至少 6 位等校验加强。
+4. **管理端 `/manage`**  
+   - 控制台「专业活跃度」等聚合依赖班级 `major_id`；创建用户时补 `major_name`（见 `admin.py`）。  
+   - 若有 `GET /manage/users/{id}/activities` 等能力，以当前 `admin.py` 为准。
+
+5. **数据与种子**  
+   - `backend/app/services/student_major_sync.py`：`sync_student_majors_from_class`，用于学生专业与行政班专业对齐；`seed.py` / 灌数脚本可能已调用，**生产一次性纠偏需备份后**再在相同 DB 环境下执行。
 
 ### 前端
 
-- **Uni-app**：任务跑、阳光跑结果分区、注册页与任务开始时间等（随仓库 `fronted/`）。  
-- **PC 管理端**（`admin/frontend`）：学生列表「运动记录」弹窗，需重新 `npm run build` 并把 `dist` 部署到线上管理静态资源（若当前架构是主后端挂载 `admin/frontend/dist`）。
+- **Uni-app（`fronted/`）**：教师学员页小组筛选与 `currentGroupName` 等修复；任务创建页仅可选管辖班级；跑步/人脸与隐私相关页（`student-run.vue`、`run.vue`、`manifest.json` 等）。发**正式版/体验版**前请重新发行小程序。  
+- **PC 管理端（`admin/frontend`）**：看板、班级/用户/科目等；部署静态资源需 `npm run build` 后同步 `dist`（依实际 Nginx 挂载）。
 
 ### 部署顺序建议
 
-1. 备份数据库（至少 SQLite 文件或 mysqldump，视环境而定）。  
-2. `git pull` 到目标分支。  
-3. **先** `python db_update_production.py`（或等价迁移），再 **`docker compose up -d --build`** 后端，避免旧代码写新列失败。  
-4. 若使用 Nginx `/api/` 反代，无需为本次单独改 location（无新路径前缀）；若有独立管理前端静态目录，需更新 `dist`。  
-5. 抽测：`GET /manage/users/{student_id}/activities`（需 admin Token）、学生/教师登录、发带 `starts_at` 的任务、小程序注册流程。
+1. 备份数据库。  
+2. `git pull` 目标分支。  
+3. 按需执行 `db_update_production.py`，再 **`docker compose up -d --build campus-backend`**（代码在镜像内时 **仅 restart 不会更新 Python**）。  
+4. 按需重建管理端前后端 / H5 / nginx 服务（见根目录 `docker-compose.yml`）。  
+5. 验证：`POST /api/auth/login` 非 5xx；**`GET /api/teacher/student-groups` 无 Token 为 401 JSON（非 404 HTML）**；教师学员列表、发任务、管理端看板抽测。
 
 ---
 
@@ -76,10 +77,11 @@ TOUCH_HOST_NGINX=no
 本次业务上下文（必读）
 ================================================================================
 - 新增列：activities.task_id、tasks.starts_at 等由 backend/db_update_production.py 自动 ALTER；跑过一次即可。
-- 新接口：GET /manage/users/{user_id}/activities（管理员 JWT）。
-- 学生任务状态可能含 not_started（任务 starts_at 未到）。
+- 教师端新路由：GET /teacher/student-groups（旧镜像会 404；新镜像无 Token 应为 401 JSON）。
+- 管理端：用户创建写 major_name；看板专业活跃度依赖班级 major_id。
+- 学生任务状态可能含 not_started（任务 starts_at 未到）；任务创建须 class_id。
 - 阳光跑统计与任务跑区分依赖 task_id + source；旧数据 source 可能为 NULL，后端已兼容。
-- 注册：学生档案激活；前端注册成功后会写 token 跳转首页。
+- 可选数据纠偏：app.services.student_major_sync.sync_student_majors_from_class（生产须备份）。
 
 ================================================================================
 执行步骤（按顺序）
@@ -102,6 +104,8 @@ curl -sS -o /dev/null -w "%{http_code}" -X POST "https://DOMAIN/api/auth/login" 
   -H "Content-Type: application/json" \
   -d '{"phone":"00000000000","password":"x"}' 
 # 预期非 5xx（常见 401 JSON）
+curl -sS -o /dev/null -w "student_groups=%{http_code}\n" "https://DOMAIN/api/teacher/student-groups" || true
+# 预期 401（路由已部署）；若为 404 且非 JSON，说明后端镜像未更新或反代错误
 
 ================================================================================
 交付物
@@ -160,11 +164,13 @@ DOMAIN=campus.gzyichenai.com
    curl -sS -o /dev/null -w "api_root=%{http_code}\n" "https://campus.gzyichenai.com/api/" || true
    curl -sS -o /dev/null -w "login=%{http_code}\n" -X POST "https://campus.gzyichenai.com/api/auth/login" \
      -H "Content-Type: application/json" -d '{"phone":"0","password":"x"}' || true
+   curl -sS -o /dev/null -w "student_groups=%{http_code}\n" "https://campus.gzyichenai.com/api/teacher/student-groups" || true
+   # student_groups 期望 401（JSON）；404 表示路由未进新镜像
 
 ================================================================================
 交付物
 ================================================================================
-- 执行的命令摘要、git 最新一行、db_update 末尾是否 [done]、compose ps、三步 curl 状态码。
+- 执行的命令摘要、git 最新一行、db_update 末尾是否 [done]、compose ps、含 student_groups 的 curl 状态码。
 - 失败时：docker compose logs --tail=60 相关服务名 + 错误关键词。
 
 【说明】仓库 master 已含：fronted/nginx.conf 上游 campus-backend、admin/backend Dockerfile PyPI 镜像、db_update 按列独立事务；拉取后重建即可，一般无需再手改 sed / 手补列。

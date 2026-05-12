@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, and_
 from typing import List
 from datetime import datetime, timedelta
 from .. import models, schemas, auth
@@ -53,12 +52,7 @@ async def get_student_summary(
     else:
         pending_tasks = (
             db.query(models.Task)
-            .filter(
-                or_(
-                    models.Task.class_id == current_user.class_id,
-                    and_(models.Task.target_group == "all", models.Task.class_id.is_(None)),
-                )
-            )
+            .filter(models.Task.class_id == current_user.class_id)
             .filter(models.Task.deadline >= datetime.utcnow())
             .count()
         )
@@ -131,12 +125,11 @@ async def get_student_tasks(
             "size": size
         }
     
-    query = db.query(models.Task).filter(
-        or_(
-            models.Task.class_id == current_user.class_id,
-            and_(models.Task.target_group == "all", models.Task.class_id.is_(None)),
-        )
-    ).order_by(models.Task.deadline.asc())
+    query = (
+        db.query(models.Task)
+        .filter(models.Task.class_id == current_user.class_id)
+        .order_by(models.Task.deadline.asc())
+    )
 
     total = query.count()
     tasks = query.offset((page - 1) * size).limit(size).all()
@@ -216,10 +209,7 @@ def get_student_task_detail(
     if current_user.class_id is None:
         raise HTTPException(status_code=403, detail="未分班，无法领取任务")
 
-    allowed = (task.class_id == current_user.class_id) or (
-        task.target_group == "all" and task.class_id is None
-    )
-    if not allowed:
+    if task.class_id != current_user.class_id:
         raise HTTPException(status_code=403, detail="无权查看该任务")
 
     may, hint = student_may_submit_task(current_user, task)

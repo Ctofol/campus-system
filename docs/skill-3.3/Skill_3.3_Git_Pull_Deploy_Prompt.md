@@ -98,6 +98,7 @@ RUN_NGINX=no
 2. 若业务涉及健康报备附件且库未迁移，可按 DEPLOYMENT_GUIDE.md 运行：
    python add_health_attachments.py
 3. 若两项都不适用：在交付物中写明「本次未执行 DB 脚本及原因」。
+4. **专业字段纠偏（可选，非每次必跑）**：若历史数据学生 `major_id`/`major_name` 与行政班 `classes.major_id` 不一致、管理端/小程序「专业」列异常，可在与线上一致的数据库环境下执行仓库内 `backend/app/services/student_major_sync.py` 提供的 `sync_student_majors_from_class`（具体入口以 `backend/seed.py` 或运维脚本为准）；执行前务必备份库。
 
 ================================================================================
 任务 3 — 重启后端（二选一，按实际环境执行）
@@ -125,7 +126,10 @@ RUN_NGINX=no
 在服务器或可访问公网的机器执行（将域名与路径按实际替换）：
 1. curl -si -X POST "https://{{DOMAIN}}/api/auth/login" -H "Content-Type: application/json" -d '{"phone":"t","password":"t"}' | head -n 15
    期望：非静态站 HTML 404；可为 401/422/400 等 JSON 业务响应。
-2. 若用户提供了具体失败接口与 Token，可再测 GET/POST 该 URL，记录 HTTP 状态与响应体前几行（勿把真实 Token 写进持久化日志外泄）。
+2. **教师端路由是否已随本次镜像上线（排 404）**：`curl -si "https://{{DOMAIN}}/api/teacher/student-groups" | head -n 12`
+   - **未带 Token**：正常应为 **HTTP 401** 且 `Content-Type` 含 `application/json`（FastAPI 鉴权拒绝）。
+   - 若得到 **HTTP 404** 且响应体像 **Nginx 默认页 / HTML**，多为 **反代未打到当前后端** 或 **容器仍为旧镜像**（请回到任务 3 确认已 `docker compose up -d --build` 对应服务）。
+3. 若用户提供了具体失败接口与 Token，可再测 GET/POST 该 URL，记录 HTTP 状态与响应体前几行（勿把真实 Token 写进持久化日志外泄）。
 
 ================================================================================
 交付物（你必须输出）
@@ -134,7 +138,8 @@ RUN_NGINX=no
 2. 执行了任务 2 的哪几条、命令与关键输出摘要。
 3. 重启方式（Docker 或 systemd）与容器/unit 状态。
 4. curl 验证结果（状态码 + 是否 JSON/HTML）。
-5. 若未完成某步：阻塞原因与用户需补充的最少信息（compose 路径、服务名、unit 名、域名）。
+5. `student-groups` 一步的 HTTP 状态（401 正常 / 404 需重建或排查反代）。
+6. 若未完成某步：阻塞原因与用户需补充的最少信息（compose 路径、服务名、unit 名、域名）。
 
 若 git pull 产生冲突：停止自动覆盖，列出冲突文件，请用户在本机解决后再发布。
 ```

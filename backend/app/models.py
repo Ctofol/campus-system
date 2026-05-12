@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Float
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Float, UniqueConstraint
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from .database import Base
@@ -70,7 +70,15 @@ class User(Base):
 
     @property
     def major(self):
-        return self.major_rel.name if self.major_rel else self.major_name
+        if self.major_rel:
+            return self.major_rel.name
+        if self.major_name:
+            return self.major_name
+        # 有行政班但缺少 major_id / major_name 的旧数据：从班级绑定的专业推断
+        cls = self.student_class
+        if cls and cls.major:
+            return cls.major.name
+        return None
 
     @property
     def plain_class_name(self):
@@ -113,6 +121,18 @@ class TeacherSubject(Base):
     subject_name = Column(String, nullable=False) # 如 "篮球"
 
     teacher = relationship("User", back_populates="teacher_subjects")
+
+
+class SubjectOption(Base):
+    """全校可选体育专项（管理端维护）；教师管辖选科、档案/注册选科建议与此一致。"""
+
+    __tablename__ = "subject_options"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, nullable=False, index=True)
+    sort_order = Column(Integer, default=0, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
 
 class Activity(Base):
     __tablename__ = "activities"
@@ -375,3 +395,23 @@ class TeacherClass(Base):
     class_name = Column(String, nullable=False)
 
     teacher = relationship("User", foreign_keys=[teacher_id])
+
+
+class TeacherStudent(Base):
+    """
+    管理员为教师显式绑定的学员（学生用户 id）。
+    与管辖选科、行政班、Class.teacher_id 并存，合并进教师端管辖学生查询。
+    """
+
+    __tablename__ = "teacher_students"
+    __table_args__ = (
+        UniqueConstraint("teacher_id", "student_user_id", name="uq_teacher_student_user"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    teacher_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    student_user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    teacher = relationship("User", foreign_keys=[teacher_id])
+    student = relationship("User", foreign_keys=[student_user_id])

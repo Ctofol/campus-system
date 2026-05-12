@@ -4,6 +4,7 @@ import Dashboard from '../views/Dashboard.vue'
 import Classes from '../views/Classes.vue'
 import Users from '../views/Users.vue'
 import Import from '../views/Import.vue'
+import Subjects from '../views/Subjects.vue'
 import Layout from '../views/Layout.vue'
 
 const routes = [
@@ -16,6 +17,7 @@ const routes = [
       { path: 'dashboard', component: Dashboard, meta: { title: '控制台' } },
       { path: 'classes', component: Classes, meta: { title: '班级管理' } },
       { path: 'users', component: Users, meta: { title: '账号管理' } },
+      { path: 'subjects', component: Subjects, meta: { title: '选科管理' } },
       { path: 'import', component: Import, meta: { title: '批量导入' } },
     ]
   }
