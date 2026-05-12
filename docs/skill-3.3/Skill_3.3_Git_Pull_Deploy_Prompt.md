@@ -158,5 +158,6 @@ RUN_NGINX=no
 |------|------------|
 | Nginx `/api/` 示例 | `remote_nginx.conf` |
 | 生产库列补丁 | `backend/db_update_production.py` |
+| **空白库首建**（表+管理员+默认选科） | `backend/setup_database.py`；粘贴提示词见 `Skill_3.3_Fresh_Database_Setup_Prompt.md` |
 | 健康报备附件迁移 | `backend/add_health_attachments.py`、`DEPLOYMENT_GUIDE.md` |
 | Compose 学生端 API 服务名 | 根目录 `docker-compose.yml` → `campus-backend` |
