@@ -685,6 +685,26 @@ async def get_teacher_students(
     return result
 
 
+@router.get("/student-groups")
+async def list_teacher_student_groups(
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db),
+):
+    """当前管辖学员里已出现过的小组名（去重），供筛选与分组；可与前端默认常用名合并。"""
+    student_query = await get_managed_students_query(current_user, db)
+    rows = (
+        student_query.with_entities(models.User.group_name)
+        .filter(models.User.group_name.isnot(None))
+        .distinct()
+        .all()
+    )
+    names = sorted(
+        {str(r[0]).strip() for r in rows if r and r[0] and str(r[0]).strip()},
+        key=lambda x: x.lower(),
+    )
+    return {"names": names}
+
+
 @router.get("/students/{student_id}", response_model=schemas.StudentDetail)
 async def get_teacher_student_detail(
     student_id: int,
@@ -881,12 +901,16 @@ async def create_teacher_task(
     """教师发布任务（与学生端「我的任务」、任务跑步关联）"""
     if task_in.starts_at and task_in.deadline and task_in.starts_at > task_in.deadline:
         raise HTTPException(status_code=400, detail="任务开始时间不能晚于截止时间")
-    if task_in.class_id is not None:
-        if not await teacher_manages_class_id(current_user, task_in.class_id, db):
-            raise HTTPException(
-                status_code=400,
-                detail="任务目标班级不在您的管辖范围内",
-            )
+    if task_in.class_id is None:
+        raise HTTPException(
+            status_code=400,
+            detail="必须选择任务指派的行政班。教师任务仅面向本人管辖范围内的班级，不支持面向全校发布。",
+        )
+    if not await teacher_manages_class_id(current_user, task_in.class_id, db):
+        raise HTTPException(
+            status_code=400,
+            detail="任务目标班级不在您的管辖范围内",
+        )
     t = models.Task(
         title=task_in.title,
         type=task_in.type,
@@ -896,7 +920,7 @@ async def create_teacher_task(
         starts_at=task_in.starts_at,
         deadline=task_in.deadline,
         description=task_in.description,
-        target_group=task_in.target_group or "all",
+        target_group=task_in.target_group or "class",
         class_id=task_in.class_id,
         video_url=task_in.video_url,
         created_by=current_user.id,
@@ -937,10 +961,6 @@ async def get_teacher_tasks(
     db: Session = Depends(get_db)
 ):
     """获取该教师发布的任务及其统计（统一管理逻辑）"""
-    student_query = await get_managed_students_query(current_user, db)
-    managed_student_ids = [u.id for u in student_query.with_entities(models.User.id).all()]
-    managed_student_count = len(managed_student_ids)
-
     query = db.query(models.Task).filter(models.Task.created_by == current_user.id)
     now = datetime.utcnow()
     if status == "active":
@@ -955,8 +975,15 @@ async def get_teacher_tasks(
     
     result = []
     for task in tasks:
+        # 与 GET /tasks/{task_id} 一致：仅统计「本任务指派班级 ∩ 教师管辖」的学生人数与完成人数
+        t_query = await get_managed_students_query(current_user, db)
+        if task.class_id is not None:
+            t_query = t_query.filter(models.User.class_id == task.class_id)
+        task_student_ids = [u.id for u in t_query.with_entities(models.User.id).all()]
+        total_for_task = len(task_student_ids)
+
         completed_count = 0
-        if managed_student_ids:
+        if task_student_ids:
             completed_count = (
                 db.query(func.count(func.distinct(models.Activity.user_id)))
                 .filter(
@@ -964,7 +991,7 @@ async def get_teacher_tasks(
                     models.Activity.source == "task",
                     models.Activity.type == task.type,
                     models.Activity.is_valid.is_(True),
-                    models.Activity.user_id.in_(managed_student_ids),
+                    models.Activity.user_id.in_(task_student_ids),
                 )
                 .scalar()
                 or 0
@@ -977,7 +1004,8 @@ async def get_teacher_tasks(
             "description": task.description,
             "starts_at": task.starts_at,
             "deadline": task.deadline,
-            "total_students": managed_student_count,
+            "class_id": task.class_id,
+            "total_students": total_for_task,
             "completed_count": completed_count,
             "status": "ongoing" if not task.deadline or task.deadline > now else "ended"
         })

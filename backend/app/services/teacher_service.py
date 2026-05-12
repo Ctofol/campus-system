@@ -91,7 +91,15 @@ async def get_managed_students_query(current_user: models.User, db: Session):
         models.TeacherClass.teacher_id == current_user.id
     ).all()
     class_names = [r.class_name for r in tc_rows]
-    
+
+    # 4. 管理员显式绑定的学员（teacher_students）
+    explicit_student_ids = [
+        r[0]
+        for r in db.query(models.TeacherStudent.student_user_id)
+        .filter(models.TeacherStudent.teacher_id == current_user.id)
+        .all()
+    ]
+
     # 构建过滤条件
     conditions = []
     if subjects:
@@ -103,6 +111,8 @@ async def get_managed_students_query(current_user: models.User, db: Session):
         bound_class_ids = [c.id for c in db.query(models.Class).filter(models.Class.name.in_(class_names)).all()]
         if bound_class_ids:
             conditions.append(models.User.class_id.in_(bound_class_ids))
+    if explicit_student_ids:
+        conditions.append(models.User.id.in_(explicit_student_ids))
             
     base_query = db.query(models.User).filter(models.User.role == "student")
     

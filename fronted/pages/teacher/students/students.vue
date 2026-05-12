@@ -35,7 +35,7 @@
       <view class="tools-section">
         <view class="search-bar">
            <text class="search-icon">🔍</text>
-           <input v-model="keyword" class="search-input" placeholder="搜索姓名/学号..." confirm-type="search" @confirm="loadStudents" />
+           <input v-model="keyword" class="search-input" placeholder="搜索姓名/学号..." confirm-type="search" @confirm="onSearchConfirm" />
         </view>
         
         <view class="filters-bar">
@@ -47,7 +47,7 @@
           </picker>
           <picker mode="selector" :range="groupOptions" @change="onGroupChange" class="filter-item">
              <view class="picker-box">
-              <text class="picker-text">{{ currentGroupName || '全部小组' }}</text>
+              <text class="picker-text">{{ groupPickerLabel }}</text>
               <text class="picker-icon">▼</text>
             </view>
           </picker>
@@ -235,6 +235,8 @@ const students = ref([]);
 const pendingRequests = ref([]);
 const pendingExceptionCount = ref(0);
 const keyword = ref('');
+/** 小组筛选：空字符串表示不按组过滤；须与 groupPickerLabel、loadStudents 同步声明 */
+const currentGroupName = ref('');
 
 // Pagination
 const page = ref(1);
@@ -257,9 +259,41 @@ const statusOptions = ['全部状态', '正常', '请假', '受伤', '异常'];
 const currentStatusLabel = ref('');
 const currentStatusValue = ref(null);
 
-const rawGroupOptions = ['体能A组', '体能B组', '康复组'];
-const groupOptions = ['全部小组', ...rawGroupOptions];
-const currentGroupName = ref('');
+const DEFAULT_TEACHER_GROUPS = ['体能A组', '体能B组', '康复组'];
+
+/** 与后端 /teacher/student-groups 返回的已有分组名合并（默认组在前，其余按拼音序） */
+function mergeTeacherGroupNames(apiNames) {
+  const seen = new Set(DEFAULT_TEACHER_GROUPS);
+  const extra = [];
+  for (const n of apiNames || []) {
+    const t = String(n || '').trim();
+    if (!t || seen.has(t)) continue;
+    seen.add(t);
+    extra.push(t);
+  }
+  extra.sort((a, b) => a.localeCompare(b, 'zh-CN'));
+  return [...DEFAULT_TEACHER_GROUPS, ...extra];
+}
+
+const teacherGroupNames = ref([...DEFAULT_TEACHER_GROUPS]);
+
+const groupOptions = computed(() => ['全部小组', ...teacherGroupNames.value]);
+
+const groupPickerLabel = computed(() => {
+  const g = currentGroupName.value;
+  return g && String(g).trim() ? g : '全部小组';
+});
+
+async function loadTeacherGroups() {
+  try {
+    const res = await request({ url: '/teacher/student-groups', method: 'GET' });
+    const apiNames = res && res.names ? res.names : [];
+    teacherGroupNames.value = mergeTeacherGroupNames(apiNames);
+  } catch (e) {
+    // 线上旧后端可能未部署该接口（404），仅用默认组名即可，勿阻塞学员列表
+    teacherGroupNames.value = [...DEFAULT_TEACHER_GROUPS];
+  }
+}
 
 // Computed
 const filteredStudents = computed(() => {
@@ -298,6 +332,10 @@ const loadStats = async () => {
   }
 };
 
+const onSearchConfirm = () => {
+  loadStudents(true);
+};
+
 const loadStudents = async (reset = false) => {
   if (reset) {
     page.value = 1;
@@ -321,9 +359,10 @@ const loadStudents = async (reset = false) => {
       method: 'GET',
       data: params
     });
-    
+    const list = Array.isArray(res) ? res : [];
+
     // Process data
-    const newStudents = res.map(s => {
+    const newStudents = list.map(s => {
       const className = s.class_name || s.plain_class_name || '未分配';
       
       let statusLabel = '正常';
@@ -387,6 +426,7 @@ onShow(() => {
   }
   
   loadStats(); // Load statistics first
+  loadTeacherGroups();
   loadClasses().then(() => {
     loadStudents(true);
   });
@@ -409,11 +449,12 @@ const onClassChange = (e) => {
 };
 
 const onGroupChange = (e) => {
-  const idx = e.detail.value;
-  if (idx == 0) {
+  const idx = Number(e.detail.value);
+  const opts = groupOptions.value;
+  if (idx === 0) {
     currentGroupName.value = '';
   } else {
-    currentGroupName.value = groupOptions[idx];
+    currentGroupName.value = opts[idx] || '';
   }
   loadStudents(true);
 };
@@ -463,24 +504,69 @@ const toggleSelectAll = () => {
 };
 
 // Batch Actions
+const MAX_GROUP_SHEET = 5; // 与「新建小组」合计≤6 条，兼容微信小程序 actionSheet 上限
+
+function promptNewGroupName() {
+  return new Promise((resolve) => {
+    uni.showModal({
+      title: '新建小组',
+      editable: true,
+      placeholderText: '请输入小组名称',
+      success: (res) => {
+        if (res.confirm && res.content) {
+          resolve(String(res.content).trim());
+        } else {
+          resolve(null);
+        }
+      },
+      fail: () => resolve(null)
+    });
+  });
+}
+
+async function applyGroupToStudents(studentIds, groupName) {
+  const name = String(groupName || '').trim();
+  if (!name) {
+    uni.showToast({ title: '小组名称不能为空', icon: 'none' });
+    return;
+  }
+  if (name.length > 40) {
+    uni.showToast({ title: '名称过长（最多40字）', icon: 'none' });
+    return;
+  }
+  await request('/teacher/students/bulk-update', {
+    method: 'POST',
+    data: {
+      student_ids: studentIds,
+      group_name: name
+    }
+  });
+}
+
 const batchGroup = () => {
   if (selectedIds.value.length === 0) return uni.showToast({ title: '请先选择学员', icon: 'none' });
+  const names = teacherGroupNames.value;
+  const sheetItems = names.slice(0, MAX_GROUP_SHEET);
+  sheetItems.push('新建小组…');
   uni.showActionSheet({
-    itemList: rawGroupOptions,
+    itemList: sheetItems,
     success: async (res) => {
-      const groupName = rawGroupOptions[res.tapIndex];
+      const idx = res.tapIndex;
+      let groupName = null;
+      if (idx === sheetItems.length - 1) {
+        groupName = await promptNewGroupName();
+      } else {
+        groupName = sheetItems[idx];
+      }
+      if (!groupName) return;
       try {
-        await request('/teacher/students/bulk-update', {
-          method: 'POST',
-          data: {
-            student_ids: selectedIds.value,
-            group_name: groupName
-          }
-        });
+        await applyGroupToStudents(selectedIds.value, groupName);
         uni.showToast({ title: '批量分组成功', icon: 'success' });
+        await loadTeacherGroups();
         loadStudents(true);
         toggleBatchMode();
       } catch (e) {
+        console.error(e);
         uni.showToast({ title: '操作失败', icon: 'none' });
       }
     }
@@ -599,17 +685,33 @@ const editStudent = (stu) => {
         }
       } else {
         // Change group
-         uni.showActionSheet({
-            itemList: rawGroupOptions,
-            success: async (r2) => {
-               await request(`/teacher/students/${stu.id}`, {
-                 method: 'PUT',
-                 data: { group_name: rawGroupOptions[r2.tapIndex] }
-               });
-               uni.showToast({ title: '已更新', icon: 'success' });
-               loadStudents(true);
+        const names = teacherGroupNames.value;
+        const sheetItems = names.slice(0, MAX_GROUP_SHEET);
+        sheetItems.push('新建小组…');
+        uni.showActionSheet({
+          itemList: sheetItems,
+          success: async (r2) => {
+            let groupName = null;
+            if (r2.tapIndex === sheetItems.length - 1) {
+              groupName = await promptNewGroupName();
+            } else {
+              groupName = sheetItems[r2.tapIndex];
             }
-         });
+            if (!groupName) return;
+            try {
+              await request(`/teacher/students/${stu.id}`, {
+                method: 'PUT',
+                data: { group_name: groupName }
+              });
+              uni.showToast({ title: '已更新', icon: 'success' });
+              await loadTeacherGroups();
+              loadStudents(true);
+            } catch (e) {
+              console.error(e);
+              uni.showToast({ title: '更新失败', icon: 'none' });
+            }
+          }
+        });
       }
     }
   });

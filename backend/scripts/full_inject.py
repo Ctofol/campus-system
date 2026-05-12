@@ -187,9 +187,19 @@ def inject_data():
 
             student_counter += 1
 
-    # 9. Create some universal tasks
+    # 9. Create class-scoped tasks (与教师端发布规则一致：须指定 class_id)
     print("Creating tasks...")
     for t in teacher_objs:
+        tc_row = (
+            db.query(models.TeacherClass)
+            .filter(models.TeacherClass.teacher_id == t.id)
+            .first()
+        )
+        if not tc_row:
+            continue
+        cls_row = db.query(models.Class).filter(models.Class.name == tc_row.class_name).first()
+        if not cls_row:
+            continue
         task = models.Task(
             title=f"{random.choice(subjects)}专项训练",
             type="run",
@@ -197,8 +207,8 @@ def inject_data():
             min_duration=600,
             deadline=datetime.utcnow() + timedelta(days=7),
             description="请按时完成本周训练任务",
-            target_group="all",
-            class_id=None,
+            target_group="class",
+            class_id=cls_row.id,
             created_by=t.id,
         )
         db.add(task)

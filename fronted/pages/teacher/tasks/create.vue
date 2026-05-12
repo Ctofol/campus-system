@@ -79,14 +79,20 @@
         </picker>
       </view>
 
-      <view class="form-item">
-        <text class="label">指派对象</text>
+      <view class="form-item" v-if="classes.length > 0">
+        <text class="label">指派班级</text>
         <picker mode="selector" :range="groupLabels" @change="onGroupChange">
           <view class="picker-box">
-            <text>{{ form.targetLabel || '全员' }}</text>
+            <text>{{ form.targetLabel || '请选择班级' }}</text>
             <text class="arrow">→</text>
           </view>
         </picker>
+      </view>
+      <view v-else class="form-item vertical compact-hint">
+        <text class="label">指派班级</text>
+        <text class="field-hint">
+          您尚无管辖范围内的行政班（需在教师端绑定班级或管理学员所在班级）。任务只能发布到这些班级，不能面向全员。
+        </text>
       </view>
 
       <view class="form-item vertical">
@@ -107,8 +113,8 @@ import { createTeacherTask, request, BASE_URL } from '@/utils/request.js';
 
 const taskTypes = ['run', 'test']; // Simplified to match backend enum/string
 const taskTypeLabels = ['跑步任务', '体能测试']; // Display labels
-const groupOptions = ref(['all']);
-const groupLabels = ref(['全员']);
+const groupOptions = ref([]);
+const groupLabels = ref([]);
 const classes = ref([]);
 
 const form = ref({
@@ -119,8 +125,8 @@ const form = ref({
   minDurationMinutes: '',
   startDate: '',
   deadline: '',
-  target: 'all',
-  targetLabel: '全员',
+  target: null,
+  targetLabel: '',
   description: '',
   videoUrl: '',  // 第二阶段新增：视频URL
   videoFile: null  // 临时存储视频文件
@@ -133,10 +139,17 @@ onMounted(() => {
 const fetchClasses = async () => {
   try {
     const res = await request({ url: '/teacher/classes' });
-    classes.value = res;
-    // Update group options
-    groupLabels.value = ['全员', ...res.map(c => `班级: ${c.name}`)];
-    groupOptions.value = ['all', ...res.map(c => c.id)];
+    const list = Array.isArray(res) ? res : [];
+    classes.value = list;
+    groupLabels.value = list.map((c) => `${c.name}（${c.student_count ?? 0}人）`);
+    groupOptions.value = list.map((c) => c.id);
+    if (list.length > 0) {
+      form.value.target = list[0].id;
+      form.value.targetLabel = groupLabels.value[0];
+    } else {
+      form.value.target = null;
+      form.value.targetLabel = '';
+    }
   } catch (e) {
     console.error('Fetch classes failed', e);
   }
@@ -163,7 +176,7 @@ const onDateChange = (e) => {
 };
 
 const onGroupChange = (e) => {
-  const index = e.detail.value;
+  const index = Number(e.detail.value);
   form.value.target = groupOptions.value[index];
   form.value.targetLabel = groupLabels.value[index];
 };
@@ -257,6 +270,10 @@ const submitTask = async () => {
     return uni.showToast({ title: '体测任务必须上传示范视频', icon: 'none' });
   }
 
+  if (!classes.value.length || form.value.target == null || form.value.target === '') {
+    return uni.showToast({ title: '请选择管辖范围内的指派班级', icon: 'none' });
+  }
+
   const distKm =
     form.value.type === 'run' ? parseFloat(String(form.value.distance).trim()) : 0;
   const durMin =
@@ -288,8 +305,8 @@ const submitTask = async () => {
       starts_at: form.value.startDate ? new Date(form.value.startDate).toISOString() : null,
       deadline: new Date(form.value.deadline).toISOString(),
       description: form.value.description,
-      target_group: form.value.target === 'all' ? 'all' : null,
-      class_id: typeof form.value.target === 'number' ? form.value.target : null,
+      target_group: 'class',
+      class_id: Number(form.value.target),
       video_url: form.value.videoUrl || null  // 第二阶段新增：视频URL
     };
     

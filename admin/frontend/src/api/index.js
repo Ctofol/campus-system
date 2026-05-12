@@ -27,6 +27,7 @@ export const getDashboardStats = () => api.get('/manage/dashboard/stats')
 export const getMajors = () => api.get('/common/majors')
 export const getClasses = () => api.get('/manage/classes')
 export const createClass = (data) => api.post('/manage/classes', data)
+export const patchClass = (id, data) => api.patch(`/manage/classes/${id}`, data)
 export const deleteClass = (id) => api.delete(`/manage/classes/${id}`)
 export const getUsers = (params) => api.get('/manage/users', { params })
 export const getStudentActivities = (userId, params) =>
@@ -50,5 +51,15 @@ export const deleteUser = (id) => api.delete(`/manage/users/${id}`)
 export const resetPassword = (id) => api.post(`/manage/users/${id}/reset-password`)
 export const getTeacherSubjects = (id) => api.get(`/manage/teacher-subjects/${id}`)
 export const updateTeacherSubjects = (id, data) => api.post(`/manage/teacher-subjects/${id}`, data)
+export const getTeacherBoundStudents = (teacherId) =>
+  api.get(`/manage/teachers/${teacherId}/bound-students`)
+export const addTeacherBoundStudents = (teacherId, data) =>
+  api.post(`/manage/teachers/${teacherId}/bound-students`, data)
+export const removeTeacherBoundStudent = (teacherId, studentUserId) =>
+  api.delete(`/manage/teachers/${teacherId}/bound-students/${studentUserId}`)
+
+export const getSubjects = () => api.get('/manage/subjects')
+export const createSubject = (data) => api.post('/manage/subjects', data)
+export const deleteSubject = (id) => api.delete(`/manage/subjects/${id}`)
 
 export default api

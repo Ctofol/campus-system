@@ -17,6 +17,7 @@ from sqlalchemy import text
 from app.database import SessionLocal, engine
 from app import models
 from app.auth import get_password_hash
+from app.services.student_major_sync import sync_student_majors_from_class
 
 
 def ensure_activity_metrics_columns():
@@ -84,13 +85,13 @@ def ensure_tasks_columns():
 SURNAMES = "李王张刘陈杨赵黄周吴徐孙胡朱高林何郭马罗梁宋郑谢韩唐冯于董萧程曹袁邓许傅沈曾彭吕苏卢蒋蔡贾丁魏薛叶阎余潘杜戴夏钟汪田任姜范方石姚谭廖邹熊金陆郝孔白崔康毛邱秦江史顾侯邵孟龙万段漕钱汤尹黎易常武乔贺赖龚文"
 NAME_CHARS = "伟芳娜敏静丽强磊军洋勇艳杰涛明超秀英华慧巧美琳云飞鑫浩宇凯嘉俊哲晨轩博文"
 
-# 5 个班级，3 个专业
+# 5 个班级，3 个专业（Major.name 与档案、注册校验一致，须用规范全称）
 CLASSES_CONFIG = [
     {"name": "信息安全1区", "major": "信息安全"},
     {"name": "信息安全2区", "major": "信息安全"},
     {"name": "网络安全1区", "major": "网络安全"},
-    {"name": "数警1区", "major": "数警"},
-    {"name": "数警2区", "major": "数警"},
+    {"name": "数警1区", "major": "数据警务技术"},
+    {"name": "数警2区", "major": "数据警务技术"},
 ]
 
 # 教师及其管辖班级（班级名称）
@@ -138,6 +139,7 @@ def clear_non_admin(db):
     db.query(models.ActivityEvidence).delete()
     db.query(models.Activity).delete()
     db.query(models.TeacherClass).delete()
+    db.query(models.TeacherStudent).delete()
     db.query(models.TeacherSubject).delete()
     db.query(models.HealthRequest).delete()
     db.query(models.Task).delete()
@@ -160,7 +162,7 @@ def clear_non_admin(db):
 
 
 def ensure_classes(db):
-    """创建 5 个班级，返回 name -> Class 映射"""
+    """创建 5 个班级，返回 name -> Class 映射；已存在的班级也会按配置校正 major_id。"""
     name_to_class = {}
     for cfg in CLASSES_CONFIG:
         # Link to Major
@@ -169,12 +171,14 @@ def ensure_classes(db):
             major = models.Major(name=cfg["major"])
             db.add(major)
             db.flush()
-            
+
         c = db.query(models.Class).filter(models.Class.name == cfg["name"]).first()
         if not c:
             c = models.Class(name=cfg["name"], major_id=major.id)
             db.add(c)
             db.flush()
+        elif c.major_id != major.id:
+            c.major_id = major.id
         name_to_class[cfg["name"]] = c
     db.commit()
     return name_to_class
@@ -226,6 +230,7 @@ def activate_students(db, profiles_with_class):
             gender=first_profile.gender,
             class_id=first_cls.id,
             major_id=first_cls.major_id,
+            major_name=first_profile.major,
             subject=first_profile.subject,
         )
         db.add(test_student)
@@ -253,7 +258,8 @@ def activate_students(db, profiles_with_class):
             gender=profile.gender,
             class_id=cls.id,
             major_id=cls.major_id,
-            subject=profile.subject
+            major_name=profile.major,
+            subject=profile.subject,
         )
         db.add(user)
         db.flush()
@@ -527,7 +533,7 @@ def seed_tasks_and_completions(db, activated, teachers, name_to_class):
                     min_count=None,
                     deadline=deadline,
                     description="完成至少 2km，时长不少于约 25 分钟。",
-                    target_group="all",
+                    target_group="class",
                     class_id=class_id,
                     created_by=teacher.id,
                 )
@@ -540,7 +546,7 @@ def seed_tasks_and_completions(db, activated, teachers, name_to_class):
                     min_count=random.randint(20, 40),
                     deadline=deadline,
                     description="完成规定次数。",
-                    target_group="all",
+                    target_group="class",
                     class_id=class_id,
                     created_by=teacher.id,
                 )
@@ -717,6 +723,7 @@ def main():
 
         print("创建班级...")
         name_to_class = ensure_classes(db)
+        sync_student_majors_from_class(db)
         print("生成学生档案...")
         profiles_with_class = seed_profiles(db, name_to_class)
         n_students = len(profiles_with_class)
@@ -738,6 +745,7 @@ def main():
         pending_acts = seed_pending_review_activities(db, activated, name_to_class, teachers)
         print("生成待处理请假...")
         pending_leave = seed_health_requests_pending(db, activated)
+        sync_student_majors_from_class(db)
 
         print("\n" + "=" * 50)
         print("已成功模拟 {} 名学生，{} 条跑步记录，{} 个异常案例。".format(

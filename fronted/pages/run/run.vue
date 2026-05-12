@@ -4,6 +4,8 @@
     <view v-else-if="role === 'teacher'" class="teacher-placeholder">
       <text>教师端无跑步功能，请使用管理端</text>
     </view>
+    <!-- 与首页一致：微信隐私合规模块，未同意时 getLocation/选图等会失败 -->
+    <privacy-popup />
   </view>
 </template>
 
@@ -11,6 +13,7 @@
 import { ref } from 'vue';
 import { onShow, onLoad } from '@dcloudio/uni-app';
 import StudentRun from '@/components/student-run/student-run.vue';
+import PrivacyPopup from '@/components/privacy-popup/privacy-popup.vue';
 
 const role = ref('student');
 const studentRunRef = ref(null);
