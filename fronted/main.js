@@ -1,5 +1,10 @@
 import App from './App'
 
+// #ifdef MP-WEIXIN
+import { initWeixinPrivacyListener } from '@/utils/wechat-privacy.js'
+initWeixinPrivacyListener()
+// #endif
+
 // #ifndef VUE3
 import Vue from 'vue'
 import './uni.promisify.adaptor'

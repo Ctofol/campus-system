@@ -4,16 +4,13 @@
     <view v-else-if="role === 'teacher'" class="teacher-placeholder">
       <text>教师端无跑步功能，请使用管理端</text>
     </view>
-    <!-- 与首页一致：微信隐私合规模块，未同意时 getLocation/选图等会失败 -->
-    <privacy-popup />
   </view>
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, nextTick } from 'vue';
 import { onShow, onLoad } from '@dcloudio/uni-app';
 import StudentRun from '@/components/student-run/student-run.vue';
-import PrivacyPopup from '@/components/privacy-popup/privacy-popup.vue';
 
 const role = ref('student');
 const studentRunRef = ref(null);
@@ -24,17 +21,22 @@ onLoad((options) => {
   runLaunchOptions.value = options || {};
 });
 
+/** 子组件 ref 在首帧可能未就绪：nextTick + 短重试，避免从未触发 onPageShow（定位/概览不初始化） */
+const invokeStudentRunShow = (attempt = 0) => {
+  if (role.value !== 'student') return;
+  nextTick(() => {
+    if (studentRunRef.value?.onPageShow) {
+      studentRunRef.value.onPageShow(runLaunchOptions.value || {});
+    } else if (attempt < 12) {
+      setTimeout(() => invokeStudentRunShow(attempt + 1), 50);
+    }
+  });
+};
+
 onShow(() => {
   const userRole = uni.getStorageSync('userRole') || uni.getStorageSync('role');
   if (userRole) role.value = userRole;
-
-  if (role.value === 'student') {
-     setTimeout(() => {
-       if (studentRunRef.value) {
-         studentRunRef.value.onPageShow(runLaunchOptions.value || {});
-       }
-     }, 50);
-  }
+  invokeStudentRunShow(0);
 });
 </script>
 

@@ -21,17 +21,17 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
+import { bindWeixinPrivacyUI } from '@/utils/wechat-privacy.js';
 
 const showPopup = ref(false);
 let resolvePrivacyAuthorization = null;
 
 onMounted(() => {
-  if (wx.onNeedPrivacyAuthorization) {
-    wx.onNeedPrivacyAuthorization(resolve => {
-      showPopup.value = true;
-      resolvePrivacyAuthorization = resolve;
-    });
-  }
+  // 监听在 main.js 已注册；此处只绑定 UI，避免晚于子页首次 getLocation
+  bindWeixinPrivacyUI((resolve) => {
+    showPopup.value = true;
+    resolvePrivacyAuthorization = resolve;
+  });
 });
 
 const openPrivacyContract = () => {
