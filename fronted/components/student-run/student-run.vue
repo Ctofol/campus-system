@@ -511,6 +511,18 @@ const getDistance = (lat1, lng1, lat2, lng2) => {
   return R * c; // Distance in meters
 };
 
+/** 从回调对象或数值中取水平精度（米），用于冷启动防漂移；不用于整段丢弃点 */
+const getHorizontalAccuracyM = (accuracyOrRes) => {
+  if (accuracyOrRes == null) return NaN;
+  if (typeof accuracyOrRes === 'number') {
+    return Number.isFinite(accuracyOrRes) ? accuracyOrRes : NaN;
+  }
+  const a = accuracyOrRes.accuracy;
+  const h = accuracyOrRes.horizontalAccuracy;
+  const n = a != null ? Number(a) : h != null ? Number(h) : NaN;
+  return Number.isFinite(n) ? n : NaN;
+};
+
 // Unified location update logic
 const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
   lat.value = newLat;
@@ -554,7 +566,7 @@ const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
     // 瞬时速度（m/s）：与是否计入总里程解耦，用于界面速度/配速；微信 onLocationChange 的 speed 常为 -1
     const spNum = typeof speed === 'number' && !Number.isNaN(speed) ? speed : -1;
     const calcSp = timeDiff > 0.001 ? d / timeDiff : 0;
-    const runGpsSpeedWarmup = duration.value < 12 && distance.value < 25;
+    const runGpsSpeedWarmup = duration.value < 18 && distance.value < 35;
     if (!runGpsSpeedWarmup) {
       if (spNum >= 0 && spNum < 22) {
         currentSpeed.value = spNum;
@@ -594,22 +606,40 @@ const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
     if (timeDiff < 0.35) return;
 
     const calculatedSpeed = d / timeDiff;
+    const accM = getHorizontalAccuracyM(accuracyOrRes);
+    /** 开跑后约 50s 内 GPS 常抖动出「未动却有里程」；单区间位移封顶，超出只纠偏末点、不计里程 */
+    const coldPhase = duration.value < 50;
+    const maxStepM = Math.min(22, Math.max(1.2, timeDiff * 7.5));
+    let minD = coldPhase ? 0.55 : 0.4;
+    if (Number.isFinite(accM) && accM > 10) {
+      minD = Math.max(minD, Math.min(accM * 0.18, coldPhase ? 8 : 5));
+    } else if (coldPhase) {
+      minD = Math.max(minD, 1.15);
+    }
+    const maxSpeedCold = 5.2;
+    if (coldPhase && (calculatedSpeed > maxSpeedCold || d > maxStepM)) {
+      const last = trajectoryPoints.value[trajectoryPoints.value.length - 1];
+      last.latitude = newLat;
+      last.longitude = newLng;
+      last.timestamp = Date.now();
+      const pts = runPolyline.value.points;
+      if (pts.length) {
+        pts[pts.length - 1] = { latitude: newLat, longitude: newLng };
+      }
+      updateMapPolyline();
+      return;
+    }
 
-    // 1. 略放宽最小位移，便于步行/弱 GPS 仍能累计
-    // 2. 过滤异常「瞬移」
-    if (d >= 0.35 && calculatedSpeed < 18) {
+    if (d >= minD && calculatedSpeed < 18) {
         distance.value += d;
-        
+
         const point = { latitude: newLat, longitude: newLng, timestamp: Date.now(), speed: speed || calculatedSpeed };
         trajectoryPoints.value.push(point);
-        
-        // Update Blue Line Points
+
         runPolyline.value.points.push({ latitude: newLat, longitude: newLng });
-        
-        // Force Map Update
+
         updateMapPolyline();
 
-        // Update progress
         if (currentMode.value === 'normal') {
            normalProgress.value = Math.min(100, ((distance.value/1000) / dailyTarget.value) * 100);
         } else if (currentMode.value === 'police') {
@@ -637,7 +667,7 @@ const startRealLocationTracking = () => {
            const dt = (Date.now() - lastTs) / 1000;
            if (dt > 0) speedVal = d / dt;
         }
-        const runGpsSpeedWarmup = duration.value < 12 && distance.value < 25;
+        const runGpsSpeedWarmup = duration.value < 18 && distance.value < 35;
         currentSpeed.value = runGpsSpeedWarmup ? 0 : speedVal;
 
         updateLocationLogic(newLat, newLng, speedVal, res);
@@ -918,21 +948,21 @@ const currentPace = computed(() => {
   if (overall > 0 && overall < 999) return overall;
   return 0;
 });
-// 实时速度 (km/h)：开跑后短时内不展示 GPS 推算值，避免刚启动就显示 2～3km/h 的抖动
+// 实时速度 (km/h)：开跑后短时内不展示 GPS 推算值，避免漂移/抖动造成「未跑已有速度」
 const currentSpeedKmh = computed(() => {
   if (!isRunning.value) return '0.0';
-  if (duration.value < 12 && distance.value < 20) {
+  if (duration.value < 18 && distance.value < 35) {
     return '0.0';
   }
   const v = currentSpeed.value * 3.6;
   if (v < 0.2) return '0.0';
   return v.toFixed(1);
 });
-// 平均速度 (km/h)：短时内同样置 0，与瞬时速度展示策略一致
+// 平均速度 (km/h)：里程尚短或开跑不久时置 0，避免「速度 0 但平均 3km/h」与漂移里程不一致
 const avgSpeedKmh = computed(() => {
   if (!isRunning.value) return '0.0';
-  if (duration.value < 10 || duration.value === 0) return '0.0';
-  if (distance.value < 3) return '0.0';
+  if (duration.value < 12 || duration.value === 0) return '0.0';
+  if (duration.value < 50 && distance.value < 40) return '0.0';
   return ((distance.value / 1000) / (duration.value / 3600)).toFixed(1);
 });
 
@@ -989,18 +1019,50 @@ onUnmounted(() => {
 
 const getLocation = () => {
   // #ifdef MP-WEIXIN
-  uni.authorize({
-    scope: 'scope.userLocation',
-    success: () => {
-      doGetLocation();
+  /** 冷启动时立刻 getLocation 常无回调；授权/已授权后 nextTick + 短延迟再拉取，与「重进小程序就好」同类问题 */
+  const scheduleWxInitialLocate = () => {
+    nextTick(() => {
+      setTimeout(() => {
+        if (!isPageActive) return;
+        doGetLocation();
+      }, 340);
+    });
+  };
+  uni.getSetting({
+    success: (st) => {
+      const granted = st.authSetting && st.authSetting['scope.userLocation'] === true;
+      if (granted) {
+        scheduleWxInitialLocate();
+        return;
+      }
+      uni.authorize({
+        scope: 'scope.userLocation',
+        success: () => scheduleWxInitialLocate(),
+        fail: () => {
+          uni.showModal({
+            title: '权限申请',
+            content: '需要定位权限才能使用打卡/跑步功能，请前往设置开启',
+            confirmText: '去设置',
+            success: (res) => {
+              if (res.confirm) uni.openSetting();
+            }
+          });
+        }
+      });
     },
     fail: () => {
-      uni.showModal({
-        title: '权限申请',
-        content: '需要定位权限才能使用打卡/跑步功能，请前往设置开启',
-        confirmText: '去设置',
-        success: (res) => {
-          if (res.confirm) uni.openSetting();
+      uni.authorize({
+        scope: 'scope.userLocation',
+        success: () => scheduleWxInitialLocate(),
+        fail: () => {
+          uni.showModal({
+            title: '权限申请',
+            content: '需要定位权限才能使用打卡/跑步功能，请前往设置开启',
+            confirmText: '去设置',
+            success: (res) => {
+              if (res.confirm) uni.openSetting();
+            }
+          });
         }
       });
     }
@@ -1083,6 +1145,23 @@ const handleLocationError = (err) => {
 };
 
 const doGetLocation = async () => {
+  const raceGetLocation = () => {
+    const locateMs = 22000;
+    return Promise.race([
+      getCurrentLocation(),
+      new Promise((_, reject) => {
+        setTimeout(() => {
+          reject({
+            success: false,
+            type: 'timeout',
+            message: '定位超时',
+            originalErr: { errMsg: 'getLocation:fail outer timeout' }
+          });
+        }, locateMs);
+      })
+    ]);
+  };
+
   // 1. 优先使用缓存 (提升首屏速度)
   const lastLoc = uni.getStorageSync('lastLocation');
   if (lastLoc) {
@@ -1097,31 +1176,31 @@ const doGetLocation = async () => {
       width: 30,
       height: 30
     }];
-    // 有缓存不算完全成功，仍需获取最新定位，但状态暂不置为 fail
   } else {
     uni.showLoading({ title: '定位中...' });
   }
 
   locationState.value = 'locating';
 
-  // 2. 调用封装的定位方法（外层超时：极少数机型 uni.getLocation 长期不回调，避免永远「定位中」）
-  const locateMs = 26000;
   try {
-    const res = await Promise.race([
-      getCurrentLocation(),
-      new Promise((_, reject) => {
-        setTimeout(() => {
-          reject({
-            success: false,
-            type: 'timeout',
-            message: '定位超时',
-            originalErr: { errMsg: 'getLocation:fail outer timeout' }
-          });
-        }, locateMs);
-      })
-    ]);
+    let res;
+    // #ifdef MP-WEIXIN
+    try {
+      res = await raceGetLocation();
+    } catch (e1) {
+      if (isPageActive) {
+        await new Promise((r) => setTimeout(r, 520));
+        res = await raceGetLocation();
+      } else {
+        throw e1;
+      }
+    }
+    // #endif
+    // #ifndef MP-WEIXIN
+    res = await raceGetLocation();
+    // #endif
+
     if (!isPageActive) {
-      // 例：校园模式跳转选点页触发 onHide，若仍 return 且不更新状态，会永远卡在 locating
       if (res && res.success) {
         handleLocationSuccess(res);
         locationState.value = 'success';
@@ -1133,10 +1212,12 @@ const doGetLocation = async () => {
       }
       return;
     }
-    if (res.success) {
+    if (res && res.success) {
       handleLocationSuccess(res);
       uni.showToast({ title: '定位成功', icon: 'none' });
       locationState.value = 'success';
+    } else {
+      throw res || { originalErr: { errMsg: 'getLocation:fail unknown' } };
     }
   } catch (err) {
     if (!isPageActive) {
@@ -1396,13 +1477,13 @@ const switchMode = (mode) => {
 };
 
 // 8. 步数统计（加速度传感器）
-// 计步逻辑：简单的波峰波谷或者阈值判定+防抖
+// 计步：波峰 + 防抖。部分机型/环境下返回的是「不含重力」的线性加速度（静止接近 0），若再强行归一到 1g 会永远达不到阈值；故用「含重力时 |模长−1g|」与「纯线性时模长」统一的 m/s² 强度信号。
     let isStepActive = false;
     let lastStepTime = 0;
-    const STEP_THRESHOLD_UP = 1.12; // 合加速度峰值（约当量 g），原 1.25 过高导致归一化后峰值达不到、步数长期为 0
-    const STEP_THRESHOLD_DOWN = 0.93;
-    const MIN_STEP_INTERVAL = 300; // 最小间隔 ms
-    const RESET_TIMEOUT = 1500; // 强制复位超时 (ms)
+    const STEP_SIGNAL_UP_MS2 = 1.05;
+    const STEP_SIGNAL_DOWN_MS2 = 0.48;
+    const MIN_STEP_INTERVAL = 260;
+    const RESET_TIMEOUT = 1500;
 
     // 启动步数统计 - 带重试机制
     const startStepCount = (retryCount = 0) => {
@@ -1447,10 +1528,14 @@ const switchMode = (mode) => {
           }
         }
         accelerometerCallback = (res) => {
-          // 合加速度模长统一换算为「约当量 g」，避免原先「>5 才除 9.8」时静止模长≈9.8 被除后约 1.0、峰值难超 1.25 导致不计步
           const mag = Math.sqrt(res.x * res.x + res.y * res.y + res.z * res.z);
-          let g = mag / 9.80665;
-          if (!Number.isFinite(g) || g < 0.2) g = 1;
+          if (!Number.isFinite(mag)) return;
+          let signal;
+          if (mag >= 4.2) {
+            signal = Math.abs(mag - 9.80665);
+          } else {
+            signal = mag;
+          }
 
           const now = Date.now();
 
@@ -1458,14 +1543,14 @@ const switchMode = (mode) => {
             isStepActive = false;
           }
 
-          if (!isStepActive && g > STEP_THRESHOLD_UP) {
+          if (!isStepActive && signal > STEP_SIGNAL_UP_MS2) {
             if (now - lastStepTime > MIN_STEP_INTERVAL) {
               stepCount.value += 1;
-              console.log('👣 步数+1，当前步数:', stepCount.value, 'g≈', g.toFixed(2));
+              console.log('👣 步数+1', stepCount.value, 'signal≈', signal.toFixed(2), 'mag≈', mag.toFixed(2));
               lastStepTime = now;
               isStepActive = true;
             }
-          } else if (isStepActive && g < STEP_THRESHOLD_DOWN) {
+          } else if (isStepActive && signal < STEP_SIGNAL_DOWN_MS2) {
             isStepActive = false;
           }
         };
@@ -1478,11 +1563,6 @@ const switchMode = (mode) => {
         success: () => {
           console.log('✅ 加速度传感器启动成功');
           bindAccelerometerListener();
-          uni.showToast({
-            title: '步数统计已启动',
-            icon: 'none',
-            duration: 1500
-          });
           isStepActive = false;
           lastStepTime = Date.now();
         },

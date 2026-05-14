@@ -892,43 +892,57 @@ async def export_running_grades(
     return StreamingResponse(output, headers=headers)
 
 
-@router.post("/tasks", response_model=schemas.TaskOut)
+@router.post("/tasks", response_model=List[schemas.TaskOut])
 async def create_teacher_task(
     task_in: schemas.TaskCreate,
     current_user: models.User = Depends(auth.get_current_teacher),
     db: Session = Depends(get_db),
 ):
-    """教师发布任务（与学生端「我的任务」、任务跑步关联）"""
+    """教师发布任务（与学生端「我的任务」、任务跑步关联）。支持多班 class_ids，返回创建的任务列表。"""
     if task_in.starts_at and task_in.deadline and task_in.starts_at > task_in.deadline:
         raise HTTPException(status_code=400, detail="任务开始时间不能晚于截止时间")
-    if task_in.class_id is None:
-        raise HTTPException(
-            status_code=400,
-            detail="必须选择任务指派的行政班。教师任务仅面向本人管辖范围内的班级，不支持面向全校发布。",
-        )
-    if not await teacher_manages_class_id(current_user, task_in.class_id, db):
-        raise HTTPException(
-            status_code=400,
-            detail="任务目标班级不在您的管辖范围内",
-        )
-    t = models.Task(
-        title=task_in.title,
-        type=task_in.type,
-        min_distance=task_in.min_distance,
-        min_duration=task_in.min_duration,
-        min_count=task_in.min_count,
-        starts_at=task_in.starts_at,
-        deadline=task_in.deadline,
-        description=task_in.description,
-        target_group=task_in.target_group or "class",
-        class_id=task_in.class_id,
-        video_url=task_in.video_url,
-        created_by=current_user.id,
+    raw_ids = (
+        [int(x) for x in task_in.class_ids if x is not None]
+        if task_in.class_ids
+        else []
     )
-    db.add(t)
+    if raw_ids:
+        target_ids = list(dict.fromkeys(raw_ids))
+    elif task_in.class_id is not None:
+        target_ids = [int(task_in.class_id)]
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="必须选择任务指派的行政班（可勾选多个班级一次发布）。教师任务仅面向本人管辖范围内的班级。",
+        )
+    for cid in target_ids:
+        if not await teacher_manages_class_id(current_user, cid, db):
+            raise HTTPException(
+                status_code=400,
+                detail=f"任务目标班级（id={cid}）不在您的管辖范围内",
+            )
+    created: List[models.Task] = []
+    for cid in target_ids:
+        t = models.Task(
+            title=task_in.title,
+            type=task_in.type,
+            min_distance=task_in.min_distance,
+            min_duration=task_in.min_duration,
+            min_count=task_in.min_count,
+            starts_at=task_in.starts_at,
+            deadline=task_in.deadline,
+            description=task_in.description,
+            target_group=task_in.target_group or "class",
+            class_id=cid,
+            video_url=task_in.video_url,
+            created_by=current_user.id,
+        )
+        db.add(t)
+        created.append(t)
     db.commit()
-    db.refresh(t)
-    return t
+    for t in created:
+        db.refresh(t)
+    return created
 
 
 @router.delete("/tasks/{task_id}")
