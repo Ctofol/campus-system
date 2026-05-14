@@ -299,9 +299,10 @@ class TaskCreate(BaseModel):
     starts_at: Optional[datetime] = None  # 未到该时间学生不可提交
     deadline: Optional[datetime] = None
     description: Optional[str] = None
-    # 教师发布接口要求 class_id 非空；学生端仅按 class_id 匹配所在班展示任务
+    # 教师发布：指定 class_id 单班，或 class_ids 多班（同一任务内容复制到各班）；优先使用非空的 class_ids
     target_group: Optional[str] = "class"
     class_id: Optional[int] = None
+    class_ids: Optional[List[int]] = None
     video_url: Optional[str] = None  # 体测任务视频URL（第二阶段新增）
 
 class TaskOut(TaskCreate):

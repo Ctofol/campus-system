@@ -79,14 +79,12 @@
         </picker>
       </view>
 
-      <view class="form-item" v-if="classes.length > 0">
+      <view class="form-item" v-if="classes.length > 0" @click="showClassSheet = true">
         <text class="label">指派班级</text>
-        <picker mode="selector" :range="groupLabels" @change="onGroupChange">
-          <view class="picker-box">
-            <text>{{ form.targetLabel || '请选择班级' }}</text>
-            <text class="arrow">→</text>
-          </view>
-        </picker>
+        <view class="picker-box">
+          <text class="picker-summary">{{ classSelectionSummary }}</text>
+          <text class="arrow">→</text>
+        </view>
       </view>
       <view v-else class="form-item vertical compact-hint">
         <text class="label">指派班级</text>
@@ -104,18 +102,44 @@
     <view class="footer-btn">
       <button class="submit-btn" @click="submitTask">发布任务</button>
     </view>
+
+    <!-- 多选班级：支持全选，一次向所选班级发布相同任务 -->
+    <view v-if="showClassSheet" class="class-sheet-mask" @click.self="showClassSheet = false">
+      <view class="class-sheet" @click.stop>
+        <view class="class-sheet-head">
+          <text class="sheet-link" @click="toggleSelectAllClasses">{{ allClassesSelected ? '取消全选' : '全选' }}</text>
+          <text class="sheet-title">指派班级</text>
+          <text class="sheet-link primary" @click="showClassSheet = false">完成</text>
+        </view>
+        <scroll-view scroll-y class="class-sheet-body">
+          <view
+            v-for="c in classes"
+            :key="c.id"
+            class="class-sheet-row"
+            @click="toggleClassId(c.id)"
+          >
+            <checkbox
+              :checked="selectedClassIds.includes(c.id)"
+              color="#20C997"
+              style="transform: scale(0.85)"
+            />
+            <text class="class-sheet-name">{{ formatClassRow(c) }}</text>
+          </view>
+        </scroll-view>
+      </view>
+    </view>
   </view>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { createTeacherTask, request, BASE_URL } from '@/utils/request.js';
 
 const taskTypes = ['run', 'test']; // Simplified to match backend enum/string
 const taskTypeLabels = ['跑步任务', '体能测试']; // Display labels
-const groupOptions = ref([]);
-const groupLabels = ref([]);
 const classes = ref([]);
+const selectedClassIds = ref([]);
+const showClassSheet = ref(false);
 
 const form = ref({
   title: '',
@@ -125,8 +149,6 @@ const form = ref({
   minDurationMinutes: '',
   startDate: '',
   deadline: '',
-  target: null,
-  targetLabel: '',
   description: '',
   videoUrl: '',  // 第二阶段新增：视频URL
   videoFile: null  // 临时存储视频文件
@@ -136,27 +158,59 @@ onMounted(() => {
   fetchClasses();
 });
 
+const formatClassRow = (c) => `${c.name}（${c.student_count ?? 0}人）`;
+
+const classSelectionSummary = computed(() => {
+  const list = classes.value;
+  const ids = selectedClassIds.value;
+  if (!list.length) return '暂无管辖班级';
+  if (!ids.length) return '请至少选择一个班级';
+  const picked = list.filter((c) => ids.includes(c.id));
+  const n = picked.length;
+  const totalPeople = picked.reduce((s, c) => s + (Number(c.student_count) || 0), 0);
+  if (n === list.length) return `已全选 ${n} 个班（约 ${totalPeople} 人）`;
+  if (n === 1) return `${formatClassRow(picked[0])}（约 ${totalPeople} 人）`;
+  const head = picked
+    .slice(0, 2)
+    .map((c) => formatClassRow(c))
+    .join('、');
+  return n > 2 ? `${head} 等 ${n} 个班（约 ${totalPeople} 人）` : `${head}（约 ${totalPeople} 人）`;
+});
+
+const allClassesSelected = computed(
+  () => classes.value.length > 0 && selectedClassIds.value.length === classes.value.length
+);
+
+const toggleClassId = (id) => {
+  const i = selectedClassIds.value.indexOf(id);
+  if (i >= 0) {
+    selectedClassIds.value = selectedClassIds.value.filter((x) => x !== id);
+  } else {
+    selectedClassIds.value = [...selectedClassIds.value, id];
+  }
+};
+
+const toggleSelectAllClasses = () => {
+  if (allClassesSelected.value) {
+    selectedClassIds.value = [];
+  } else {
+    selectedClassIds.value = classes.value.map((c) => c.id);
+  }
+};
+
 const fetchClasses = async () => {
   try {
     const res = await request({ url: '/teacher/classes' });
     const list = Array.isArray(res) ? res : [];
     classes.value = list;
-    groupLabels.value = list.map((c) => `${c.name}（${c.student_count ?? 0}人）`);
-    groupOptions.value = list.map((c) => c.id);
-    if (list.length > 0) {
-      form.value.target = list[0].id;
-      form.value.targetLabel = groupLabels.value[0];
-    } else {
-      form.value.target = null;
-      form.value.targetLabel = '';
-    }
+    selectedClassIds.value = list.map((c) => c.id);
   } catch (e) {
     console.error('Fetch classes failed', e);
   }
 };
 
 const onTypeChange = (e) => {
-  const index = e.detail.value;
+  const index = Number(e.detail.value);
   form.value.type = taskTypes[index];
   form.value.typeLabel = taskTypeLabels[index];
   
@@ -173,12 +227,6 @@ const onStartDateChange = (e) => {
 
 const onDateChange = (e) => {
   form.value.deadline = e.detail.value;
-};
-
-const onGroupChange = (e) => {
-  const index = Number(e.detail.value);
-  form.value.target = groupOptions.value[index];
-  form.value.targetLabel = groupLabels.value[index];
 };
 
 // 第二阶段新增：视频上传功能
@@ -270,8 +318,8 @@ const submitTask = async () => {
     return uni.showToast({ title: '体测任务必须上传示范视频', icon: 'none' });
   }
 
-  if (!classes.value.length || form.value.target == null || form.value.target === '') {
-    return uni.showToast({ title: '请选择管辖范围内的指派班级', icon: 'none' });
+  if (!classes.value.length || !selectedClassIds.value.length) {
+    return uni.showToast({ title: '请在「指派班级」中至少选择一个班级', icon: 'none' });
   }
 
   const distKm =
@@ -306,14 +354,18 @@ const submitTask = async () => {
       deadline: new Date(form.value.deadline).toISOString(),
       description: form.value.description,
       target_group: 'class',
-      class_id: Number(form.value.target),
+      class_ids: [...selectedClassIds.value],
       video_url: form.value.videoUrl || null  // 第二阶段新增：视频URL
     };
-    
-    await createTeacherTask(payload);
-    
+
+    const created = await createTeacherTask(payload);
+    const n = Array.isArray(created) ? created.length : 1;
+
     uni.hideLoading();
-    uni.showToast({ title: '任务发布成功', icon: 'success' });
+    uni.showToast({
+      title: n > 1 ? `已向 ${n} 个班级发布相同任务` : '任务发布成功',
+      icon: 'success'
+    });
     
     setTimeout(() => {
       uni.navigateBack();
@@ -397,6 +449,14 @@ const submitTask = async () => {
   gap: 10rpx;
   font-size: 30rpx;
   color: #666;
+}
+
+.picker-summary {
+  flex: 1;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .arrow {
@@ -501,5 +561,72 @@ const submitTask = async () => {
   border-radius: 40rpx;
   font-size: 32rpx;
   font-weight: bold;
+}
+
+.class-sheet-mask {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 1000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.class-sheet {
+  width: 100%;
+  max-height: 70vh;
+  background: #fff;
+  border-radius: 24rpx 24rpx 0 0;
+  padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+}
+
+.class-sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 28rpx 32rpx;
+  border-bottom: 1px solid #eee;
+}
+
+.sheet-title {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #333;
+}
+
+.sheet-link {
+  font-size: 28rpx;
+  color: #666;
+  padding: 8rpx;
+}
+
+.sheet-link.primary {
+  color: #20c997;
+  font-weight: 600;
+}
+
+.class-sheet-body {
+  max-height: 56vh;
+  padding: 16rpx 0 32rpx;
+}
+
+.class-sheet-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 24rpx 32rpx;
+  border-bottom: 1px solid #f5f5f5;
+}
+
+.class-sheet-name {
+  flex: 1;
+  font-size: 30rpx;
+  color: #333;
 }
 </style>

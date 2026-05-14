@@ -8,14 +8,21 @@ export const getCurrentLocation = (options = {}) => {
       type: 'gcj02', // 默认 gcj02，兼容性好
       isHighAccuracy: true, // 开启高精度
       timeout: 8000, // 超时 8秒
-      altitude: true, // 传入 true 会返回高度信息，由于获取高度需要较高精确度，会减慢接口返回速度
+      highAccuracyExpireTime: 5000, // 高精度定位超时时间(ms)，增加到5秒
+      // 高度会拖慢真机 getLocation，易导致轮询兜底超时、里程不涨；跑步里程不依赖海拔
+      altitude: false,
       ...options
     };
+    // #ifdef MP-WEIXIN
+    // 开发者工具/弱网模拟器上 8s 易 timeout，跑步辅助轮询会整段拿不到点
+    if (options.timeout == null) config.timeout = 20000;
+    if (options.highAccuracyExpireTime == null) config.highAccuracyExpireTime = 12000;
+    // #endif
 
     uni.getLocation({
       type: config.type,
       isHighAccuracy: config.isHighAccuracy,
-      highAccuracyExpireTime: 5000, // 高精度定位超时时间(ms)，增加到5秒
+      highAccuracyExpireTime: config.highAccuracyExpireTime,
       altitude: config.altitude,
       timeout: config.timeout,
       success: (res) => {
@@ -35,20 +42,20 @@ export const getCurrentLocation = (options = {}) => {
         // 错误分析
         let errorType = 'system'; // system, permission, timeout
         let errorMsg = '定位失败';
-        
+
         const errMsg = err.errMsg || '';
         const errCode = err.code || 0; // uni-app docs say errCode is sometimes available
 
         // 权限判断 (App/小程序)
         if (
-          errMsg.includes('auth') || 
-          errMsg.includes('denied') || 
+          errMsg.includes('auth') ||
+          errMsg.includes('denied') ||
           errMsg.includes('permission') ||
           errCode === 12 // App端 12: lacking permission
         ) {
           errorType = 'permission';
           errorMsg = '定位权限被拒绝，请前往设置开启';
-        } 
+        }
         // 超时判断
         else if (errMsg.includes('timeout')) {
           errorType = 'timeout';
@@ -56,11 +63,10 @@ export const getCurrentLocation = (options = {}) => {
         }
         // 系统服务判断
         else if (errMsg.includes('service') || errMsg.includes('unavailable')) {
-            errorType = 'system';
-            errorMsg = '定位服务不可用，请检查手机GPS开关';
-        }
-        else {
-             errorMsg = `定位失败: ${errMsg}`;
+          errorType = 'system';
+          errorMsg = '定位服务不可用，请检查手机GPS开关';
+        } else {
+          errorMsg = `定位失败: ${errMsg}`;
         }
 
         reject({
@@ -73,4 +79,3 @@ export const getCurrentLocation = (options = {}) => {
     });
   });
 };
-

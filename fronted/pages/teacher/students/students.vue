@@ -23,7 +23,7 @@
         </view>
         <view class="stat-item warn">
           <text class="stat-num">{{ abnormal }}</text>
-          <text class="stat-label">异常</text>
+          <text class="stat-label">档案异常</text>
         </view>
         <view class="stat-item success">
           <text class="stat-num">{{ normal }}</text>
@@ -243,6 +243,8 @@ const page = ref(1);
 const pageSize = 20;
 const hasMore = ref(true);
 const isLoading = ref(false);
+/** onShow 等场景下连续触发 loadStudents(true) 时，避免「先清空列表再因 isLoading 直接 return」导致列表一直为空 */
+const studentsReloadQueued = ref(false);
 
 // Total counts from server
 const totalCount = ref(0);
@@ -337,13 +339,16 @@ const onSearchConfirm = () => {
 };
 
 const loadStudents = async (reset = false) => {
+  if (reset && isLoading.value) {
+    studentsReloadQueued.value = true;
+    return;
+  }
+  if (!reset && (!hasMore.value || isLoading.value)) return;
   if (reset) {
     page.value = 1;
     hasMore.value = true;
     students.value = [];
   }
-  if (!hasMore.value || isLoading.value) return;
-  
   isLoading.value = true;
   try {
     const params = {
@@ -393,6 +398,10 @@ const loadStudents = async (reset = false) => {
     uni.showToast({ title: '加载失败', icon: 'none' });
   } finally {
     isLoading.value = false;
+    if (studentsReloadQueued.value) {
+      studentsReloadQueued.value = false;
+      loadStudents(true);
+    }
   }
 };
 
@@ -437,8 +446,8 @@ onShow(() => {
 
 // Events
 const onClassChange = (e) => {
-  const idx = e.detail.value;
-  if (idx == 0) {
+  const idx = Number(e.detail.value);
+  if (idx === 0) {
     currentClassName.value = '';
     currentClassId.value = null;
   } else {
@@ -460,13 +469,13 @@ const onGroupChange = (e) => {
 };
 
 const onStatusChange = (e) => {
-  const idx = e.detail.value;
+  const idx = Number(e.detail.value);
   currentStatusLabel.value = statusOptions[idx];
-  if (idx == 0) currentStatusValue.value = null;
-  else if (idx == 1) currentStatusValue.value = 'normal';
-  else if (idx == 2) currentStatusValue.value = 'leave';
-  else if (idx == 3) currentStatusValue.value = 'injured';
-  else if (idx == 4) currentStatusValue.value = 'abnormal';
+  if (idx === 0) currentStatusValue.value = null;
+  else if (idx === 1) currentStatusValue.value = 'normal';
+  else if (idx === 2) currentStatusValue.value = 'leave';
+  else if (idx === 3) currentStatusValue.value = 'injured';
+  else if (idx === 4) currentStatusValue.value = 'abnormal';
   loadStudents(true);
 };
 
