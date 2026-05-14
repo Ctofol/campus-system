@@ -177,7 +177,7 @@
 
 <script setup>
 // 统一导入规范
-import { ref, computed, onUnmounted, onMounted } from 'vue';
+import { ref, computed, onUnmounted, onMounted, nextTick } from 'vue';
 import AiChatRobot from '@/components/ai-chat-robot/ai-chat-robot.vue';
 import { submitActivity, getCheckpoints, checkIn, uploadFile, getStudentTaskDetail } from '@/utils/request.js';
 import { getCurrentLocation } from '@/utils/location.js';
@@ -445,13 +445,18 @@ const useRoute = (route) => {
 
 // 1. 地图/打卡点数据
 const locationState = ref('idle'); // idle, locating, success, fail
+/** 最近一次「可开跑」的定位是否来自缓存兜底（真 GPS 未成功），便于提示用户刷新以免里程长期为 0 */
+const lastLocationFixWasStale = ref(false);
 let locationRetryTimer = null;
 /** 微信小程序：定位兜底 setTimeout，须在停止跑步与卸载时清除 */
 let wxLocationWatchdogTimer = null;
+/** 微信小程序：是否已成功开启后台持续定位（与 startLocationUpdateBackground 状态同步） */
+let mpBackgroundLocationActive = false;
 /** 微信真机 map 页 onLocationChange 常不回调：与持续定位并行 2s getLocation，驱动时长/里程 */
 let wxRunAssistTimer = null;
 const clearWxRunAssistTimer = () => {
   if (wxRunAssistTimer != null) {
+    clearTimeout(wxRunAssistTimer);
     clearInterval(wxRunAssistTimer);
     wxRunAssistTimer = null;
   }
@@ -506,18 +511,6 @@ const getDistance = (lat1, lng1, lat2, lng2) => {
   return R * c; // Distance in meters
 };
 
-/** 微信 onLocationChange 可能给 accuracy 或 horizontalAccuracy；合并为米 */
-const resolveLocationAccuracy = (resOrAccuracy) => {
-  if (resOrAccuracy == null) return NaN;
-  if (typeof resOrAccuracy === 'number') {
-    return Number.isFinite(resOrAccuracy) ? resOrAccuracy : NaN;
-  }
-  const a = resOrAccuracy.accuracy;
-  const h = resOrAccuracy.horizontalAccuracy;
-  const n = a != null ? Number(a) : h != null ? Number(h) : NaN;
-  return Number.isFinite(n) ? n : NaN;
-};
-
 // Unified location update logic
 const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
   lat.value = newLat;
@@ -534,11 +527,7 @@ const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
 
   if (isRunning.value) {
     syncRunElapsedDisplay();
-    // 0. 精度过滤：过严会导致真机全程不计里程；前几点先放行，后续再拦明显坏点
-    const accM = resolveLocationAccuracy(accuracyOrRes);
-    if (Number.isFinite(accM) && accM > 500 && trajectoryPoints.value.length > 4) {
-      return;
-    }
+    // 不再按 horizontalAccuracy 整段丢弃回调：弱信号下常 >100m，丢弃后里程永远不涨；异常位移已由 d / calculatedSpeed 约束
 
     // 1. Initial point
     if (trajectoryPoints.value.length === 0) {
@@ -565,10 +554,15 @@ const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
     // 瞬时速度（m/s）：与是否计入总里程解耦，用于界面速度/配速；微信 onLocationChange 的 speed 常为 -1
     const spNum = typeof speed === 'number' && !Number.isNaN(speed) ? speed : -1;
     const calcSp = timeDiff > 0.001 ? d / timeDiff : 0;
-    if (spNum >= 0 && spNum < 22) {
-      currentSpeed.value = spNum;
-    } else if (timeDiff >= 0.12 && calcSp > 0.06 && calcSp < 18) {
-      currentSpeed.value = calcSp;
+    const runGpsSpeedWarmup = duration.value < 12 && distance.value < 25;
+    if (!runGpsSpeedWarmup) {
+      if (spNum >= 0 && spNum < 22) {
+        currentSpeed.value = spNum;
+      } else if (timeDiff >= 0.12 && calcSp > 0.06 && calcSp < 18) {
+        currentSpeed.value = calcSp;
+      }
+    } else {
+      currentSpeed.value = 0;
     }
 
     // Checkpoint logic - 修复：移出里程过滤逻辑，确保静止时也能刷新距离
@@ -643,8 +637,9 @@ const startRealLocationTracking = () => {
            const dt = (Date.now() - lastTs) / 1000;
            if (dt > 0) speedVal = d / dt;
         }
-        currentSpeed.value = speedVal;
-        
+        const runGpsSpeedWarmup = duration.value < 12 && distance.value < 25;
+        currentSpeed.value = runGpsSpeedWarmup ? 0 : speedVal;
+
         updateLocationLogic(newLat, newLng, speedVal, res);
         lastTs = Date.now();
     }).catch(err => {
@@ -680,56 +675,68 @@ const startRealLocationTracking = () => {
       locationCallback = null;
     }
     uni.showToast({ title: '定位服务兼容模式已启动', icon: 'none' });
-    if (h5LocationTimer) clearInterval(h5LocationTimer);
+    if (h5LocationTimer) {
+      clearTimeout(h5LocationTimer);
+      clearInterval(h5LocationTimer);
+      h5LocationTimer = null;
+    }
     let preferredType = 'gcj02';
-    const doPoll = () => {
-      getCurrentLocation({ type: preferredType }).then((res) => {
-        updateLocationLogic(res.latitude, res.longitude, res.speed || 0, res);
-      }).catch((err) => {
-        console.error(`Polling fallback failed for ${preferredType}`, err);
-        if (preferredType === 'gcj02') {
-          preferredType = 'wgs84';
-          doPoll();
-        }
-      });
+    const pollTick = () => {
+      if (!isRunning.value) return;
+      syncRunElapsedDisplay();
+      updateHeartRate();
+      tickPoliceFinishHint();
+      getCurrentLocation({ type: preferredType })
+        .then((res) => {
+          updateLocationLogic(res.latitude, res.longitude, res.speed || 0, res);
+        })
+        .catch((err) => {
+          console.error(`Polling fallback failed for ${preferredType}`, err);
+          if (preferredType === 'gcj02') {
+            preferredType = 'wgs84';
+          }
+        })
+        .finally(() => {
+          if (!isRunning.value) return;
+          h5LocationTimer = setTimeout(pollTick, 2000);
+        });
     };
-    h5LocationTimer = setInterval(doPoll, 2000);
-    doPoll();
+    h5LocationTimer = setTimeout(pollTick, 0);
   };
-  const startWxForeground = () => {
-    mpBackgroundLocationActive = false;
-    uni.startLocationUpdate({
-      success: () => registerLocationChange(),
-      fail: startPollFallback
-    });
-  };
-  // 微信要求：先 startLocationUpdate（前台持续定位），再 startLocationUpdateBackground；否则部分真机 onLocationChange 不回调、里程一直为 0
-  uni.authorize({
-    scope: 'scope.userLocationBackground',
-    success: () => {
-      uni.startLocationUpdate({
+  /** 须在 startLocationUpdate 成功之后再调 startLocationUpdateBackground；禁止先卡「后台定位授权」再开前台，否则部分真机全程无 onLocationChange、里程/计时为 0 */
+  const tryStartWxBackgroundAfterForeground = () => {
+    try {
+      uni.authorize({
+        scope: 'scope.userLocationBackground',
         success: () => {
           uni.startLocationUpdateBackground({
             type: 'gcj02',
             success: () => {
               mpBackgroundLocationActive = true;
               uni.showToast({ title: '已开启后台定位，息屏可继续记录', icon: 'none', duration: 2000 });
-              registerLocationChange();
             },
             fail: () => {
               mpBackgroundLocationActive = false;
               uni.showToast({ title: '后台定位未开启，前台仍会记录轨迹', icon: 'none', duration: 2200 });
-              registerLocationChange();
             }
           });
         },
-        fail: () => startPollFallback()
+        fail: () => {
+          mpBackgroundLocationActive = false;
+          uni.showToast({ title: '未开后台定位时息屏可能暂停，可在设置中开启', icon: 'none', duration: 2600 });
+        }
       });
-    },
-    fail: () => {
-      uni.showToast({ title: '未开后台定位时息屏可能暂停，可在设置中开启', icon: 'none', duration: 2600 });
-      startWxForeground();
+    } catch (e) {
+      mpBackgroundLocationActive = false;
+      console.warn('tryStartWxBackgroundAfterForeground', e);
     }
+  };
+  uni.startLocationUpdate({
+    success: () => {
+      registerLocationChange();
+      tryStartWxBackgroundAfterForeground();
+    },
+    fail: () => startPollFallback()
   });
   // 部分真机 startLocationUpdate 成功但长时间无 onLocationChange，用轮询兜底
   wxLocationWatchdogTimer = setTimeout(() => {
@@ -741,16 +748,26 @@ const startRealLocationTracking = () => {
       startPollFallback();
     }
   }, 4000);
-  // 与 onLocationChange 并行：map 页定时器易被节流，仅靠回调可能永远不更新界面
+  // 与 onLocationChange 并行：map 页 setInterval 常被节流到停表，用 setTimeout 递归；每拍先同步墙钟时长，避免仅靠跑步时钟时界面一直 0
   clearWxRunAssistTimer();
   const wxAssistTick = () => {
     if (!isRunning.value) return;
-    getCurrentLocation({ type: 'gcj02' }).then((res) => {
-      updateLocationLogic(res.latitude, res.longitude, res.speed, res);
-    }).catch(() => {});
+    syncRunElapsedDisplay();
+    updateHeartRate();
+    tickPoliceFinishHint();
+    getCurrentLocation({ type: 'gcj02' })
+      .then((res) => {
+        updateLocationLogic(res.latitude, res.longitude, res.speed || 0, res);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!isRunning.value) return;
+        // startPollFallback 已切到 h5LocationTimer 轮询时，勿再挂 wx 辅助定时器，避免双通道重复
+        if (h5LocationTimer) return;
+        wxRunAssistTimer = setTimeout(wxAssistTick, 2000);
+      });
   };
   wxAssistTick();
-  wxRunAssistTimer = setInterval(wxAssistTick, 2000);
   // #endif
   // #if !defined(H5) && !defined(MP-WEIXIN)
   uni.startLocationUpdate({
@@ -790,10 +807,22 @@ const stopRealLocationTracking = () => {
   }
   clearWxRunAssistTimer();
   if (h5LocationTimer) {
+    clearTimeout(h5LocationTimer);
     clearInterval(h5LocationTimer);
     h5LocationTimer = null;
   }
   // #ifndef H5
+  // #ifdef MP-WEIXIN
+  // 未关闭后台持续定位时，部分机型第二次 startLocationUpdate 异常、全程无点（时长/里程一直 0）
+  if (mpBackgroundLocationActive) {
+    try {
+      uni.stopLocationUpdateBackground({ complete: () => {} });
+    } catch (e) {
+      console.warn('stopLocationUpdateBackground', e);
+    }
+    mpBackgroundLocationActive = false;
+  }
+  // #endif
   uni.stopLocationUpdate();
   if (locationCallback) {
     uni.offLocationChange(locationCallback);
@@ -889,16 +918,21 @@ const currentPace = computed(() => {
   if (overall > 0 && overall < 999) return overall;
   return 0;
 });
-// 实时速度 (km/h)：不再依赖「已跑距离>0」，弱 GPS 下由位移/时间推算的 currentSpeed 也可展示
+// 实时速度 (km/h)：开跑后短时内不展示 GPS 推算值，避免刚启动就显示 2～3km/h 的抖动
 const currentSpeedKmh = computed(() => {
   if (!isRunning.value) return '0.0';
+  if (duration.value < 12 && distance.value < 20) {
+    return '0.0';
+  }
   const v = currentSpeed.value * 3.6;
   if (v < 0.2) return '0.0';
   return v.toFixed(1);
 });
-// 平均速度 (km/h)
+// 平均速度 (km/h)：短时内同样置 0，与瞬时速度展示策略一致
 const avgSpeedKmh = computed(() => {
-  if (duration.value === 0) return 0;
+  if (!isRunning.value) return '0.0';
+  if (duration.value < 10 || duration.value === 0) return '0.0';
+  if (distance.value < 3) return '0.0';
   return ((distance.value / 1000) / (duration.value / 3600)).toFixed(1);
 });
 
@@ -980,6 +1014,7 @@ const getLocation = () => {
 };
 
 const handleLocationSuccess = (res) => {
+  lastLocationFixWasStale.value = false;
   lat.value = res.latitude;
   lng.value = res.longitude;
   
@@ -1069,21 +1104,54 @@ const doGetLocation = async () => {
 
   locationState.value = 'locating';
 
-  // 2. 调用封装的定位方法
+  // 2. 调用封装的定位方法（外层超时：极少数机型 uni.getLocation 长期不回调，避免永远「定位中」）
+  const locateMs = 26000;
   try {
-    const res = await getCurrentLocation();
-    if (!isPageActive) return;
+    const res = await Promise.race([
+      getCurrentLocation(),
+      new Promise((_, reject) => {
+        setTimeout(() => {
+          reject({
+            success: false,
+            type: 'timeout',
+            message: '定位超时',
+            originalErr: { errMsg: 'getLocation:fail outer timeout' }
+          });
+        }, locateMs);
+      })
+    ]);
+    if (!isPageActive) {
+      // 例：校园模式跳转选点页触发 onHide，若仍 return 且不更新状态，会永远卡在 locating
+      if (res && res.success) {
+        handleLocationSuccess(res);
+        locationState.value = 'success';
+      } else if (lastLoc) {
+        lastLocationFixWasStale.value = true;
+        locationState.value = 'success';
+      } else {
+        locationState.value = 'idle';
+      }
+      return;
+    }
     if (res.success) {
       handleLocationSuccess(res);
       uni.showToast({ title: '定位成功', icon: 'none' });
       locationState.value = 'success';
     }
   } catch (err) {
-    if (!isPageActive) return;
+    if (!isPageActive) {
+      if (lastLoc) {
+        lastLocationFixWasStale.value = true;
+        locationState.value = 'success';
+      } else {
+        locationState.value = 'fail';
+      }
+      return;
+    }
     if (!lastLoc) {
       handleLocationError(err?.originalErr || err);
     } else {
-      // 真机室内/弱 GPS 常失败：有历史位置时仍允许开跑，轨迹会在后续定位更新中纠正
+      lastLocationFixWasStale.value = true;
       uni.showToast({ title: '刷新定位失败，暂用历史位置，请到室外或点击定位按钮重试', icon: 'none', duration: 2800 });
       locationState.value = 'success';
     }
@@ -1331,8 +1399,8 @@ const switchMode = (mode) => {
 // 计步逻辑：简单的波峰波谷或者阈值判定+防抖
     let isStepActive = false;
     let lastStepTime = 0;
-    const STEP_THRESHOLD_UP = 1.25; // 上升阈值 (g) - 调高以减少误触
-    const STEP_THRESHOLD_DOWN = 1.05; // 下降/重置阈值 (g) - 确保能复位
+    const STEP_THRESHOLD_UP = 1.12; // 合加速度峰值（约当量 g），原 1.25 过高导致归一化后峰值达不到、步数长期为 0
+    const STEP_THRESHOLD_DOWN = 0.93;
     const MIN_STEP_INTERVAL = 300; // 最小间隔 ms
     const RESET_TIMEOUT = 1500; // 强制复位超时 (ms)
 
@@ -1379,11 +1447,10 @@ const switchMode = (mode) => {
           }
         }
         accelerometerCallback = (res) => {
-          let acceleration = Math.sqrt(res.x * res.x + res.y * res.y + res.z * res.z);
-
-          if (acceleration > 5) {
-            acceleration = acceleration / 9.8;
-          }
+          // 合加速度模长统一换算为「约当量 g」，避免原先「>5 才除 9.8」时静止模长≈9.8 被除后约 1.0、峰值难超 1.25 导致不计步
+          const mag = Math.sqrt(res.x * res.x + res.y * res.y + res.z * res.z);
+          let g = mag / 9.80665;
+          if (!Number.isFinite(g) || g < 0.2) g = 1;
 
           const now = Date.now();
 
@@ -1391,14 +1458,14 @@ const switchMode = (mode) => {
             isStepActive = false;
           }
 
-          if (!isStepActive && acceleration > STEP_THRESHOLD_UP) {
+          if (!isStepActive && g > STEP_THRESHOLD_UP) {
             if (now - lastStepTime > MIN_STEP_INTERVAL) {
               stepCount.value += 1;
-              console.log('👣 步数+1，当前步数:', stepCount.value, '加速度:', acceleration.toFixed(2));
+              console.log('👣 步数+1，当前步数:', stepCount.value, 'g≈', g.toFixed(2));
               lastStepTime = now;
               isStepActive = true;
             }
-          } else if (isStepActive && acceleration < STEP_THRESHOLD_DOWN) {
+          } else if (isStepActive && g < STEP_THRESHOLD_DOWN) {
             isStepActive = false;
           }
         };
@@ -1461,6 +1528,22 @@ const stopStepCount = () => {
   accelerometerCallback = null;
 };
 
+/**
+ * 人脸拍照 / chooseMedia 刚结束时，部分微信真机需过一小段再调 startLocationUpdate，否则 onLocationChange 不回调（步数、墙钟、里程均不涨）。
+ * 测试反馈「第一次拍照后开始跑步统计不工作；点结束跑步再取消后正常」即典型时序问题。
+ */
+const beginRunTrackingAfterFaceDefer = () => {
+  const go = () => {
+    if (!isRunning.value) return;
+    startRealLocationTracking();
+    startStepCount();
+    scheduleRunClock();
+  };
+  nextTick(() => {
+    setTimeout(go, 280);
+  });
+};
+
 // 9. 心率更新+预警
 const updateHeartRate = () => {
   heartRate.value = 80 + Math.floor(duration.value / 10);
@@ -1489,6 +1572,7 @@ const initializeRunState = () => {
   distance.value = 0;
   stepCount.value = 0;
   heartRate.value = 80;
+  currentSpeed.value = 0;
   endFaceUrl.value = null;
   
   // Clear previous trajectory
@@ -1653,6 +1737,13 @@ const startNormalRun = async () => {
     doGetLocation();
     return;
   }
+  if (lastLocationFixWasStale.value) {
+    uni.showToast({
+      title: '当前为历史定位，建议先点地图旁「定位」刷新或到室外再跑，以免里程统计偏晚',
+      icon: 'none',
+      duration: 3200
+    });
+  }
   const ok = await faceVerify('start');
   if (!ok) {
     return;
@@ -1666,9 +1757,7 @@ const startNormalRun = async () => {
   }
 
   uni.removeStorageSync('checkpointReached');
-  startRealLocationTracking();
-  startStepCount();
-  scheduleRunClock();
+  beginRunTrackingAfterFaceDefer();
 };
 
 // 专项训练（固定2000米，按达标配速跑）
@@ -1677,6 +1766,13 @@ const startPoliceRun = async () => {
     uni.showToast({ title: '定位未成功，请稍候或点击地图旁定位按钮刷新后再试', icon: 'none' });
     doGetLocation();
     return;
+  }
+  if (lastLocationFixWasStale.value) {
+    uni.showToast({
+      title: '当前为历史定位，建议先点地图旁「定位」刷新或到室外再跑，以免里程统计偏晚',
+      icon: 'none',
+      duration: 3200
+    });
   }
   const ok = await faceVerify('start');
   if (!ok) {
@@ -1689,9 +1785,7 @@ const startPoliceRun = async () => {
   }
 
   uni.removeStorageSync('policeFinishTip');
-  startRealLocationTracking();
-  startStepCount();
-  scheduleRunClock();
+  beginRunTrackingAfterFaceDefer();
 };
 
 // 校园打卡
@@ -1700,6 +1794,13 @@ const startCampusRun = async () => {
     uni.showToast({ title: '定位未成功，请稍候或点击地图旁定位按钮刷新后再试', icon: 'none' });
     doGetLocation();
     return;
+  }
+  if (lastLocationFixWasStale.value) {
+    uni.showToast({
+      title: '当前为历史定位，建议先点地图旁「定位」刷新或到室外再跑，以免里程统计偏晚',
+      icon: 'none',
+      duration: 3200
+    });
   }
   const ok = await faceVerify('start');
   if (!ok) {
@@ -1713,9 +1814,7 @@ const startCampusRun = async () => {
 
   isReach.value = false;
   uni.removeStorageSync('checkpointReached');
-  startRealLocationTracking();
-  startStepCount();
-  scheduleRunClock();
+  beginRunTrackingAfterFaceDefer();
 };
 
 // 结束跑步时若用户取消人脸验证：恢复计时、计步与定位（避免已停表却无法继续跑）
@@ -1724,9 +1823,7 @@ const resumeRunAfterEndFaceCancelled = () => {
   runSegmentStartMs.value = Date.now();
   isRunning.value = true;
   clearRunTickTimer();
-  scheduleRunClock();
-  startStepCount();
-  startRealLocationTracking();
+  beginRunTrackingAfterFaceDefer();
 };
 
 // 提交跑步记录并跳转结算页
