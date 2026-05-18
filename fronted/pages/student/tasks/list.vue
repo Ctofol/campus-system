@@ -156,7 +156,8 @@ const startTaskRun = (item) => {
   if (item.min_duration && km > 0) {
     pace = (Number(item.min_duration) / 60) / km;
   }
-  const url = `/pages/run/run?mode=police&target=${targetMeters}&pace=${pace.toFixed(2)}&taskId=${item.id}&taskTitle=${encodeURIComponent(item.title)}&taskType=run`;
+  const taskDesc = encodeURIComponent(item.description || '');
+  const url = `/pages/run/run?mode=police&target=${targetMeters}&pace=${pace.toFixed(2)}&taskId=${item.id}&taskTitle=${encodeURIComponent(item.title)}&taskType=run&taskDescription=${taskDesc}&taskMinDurationSec=${Number(item.min_duration) || 0}&taskMinDistanceKm=${km}`;
   closeModal();
   uni.navigateTo({ url });
 };

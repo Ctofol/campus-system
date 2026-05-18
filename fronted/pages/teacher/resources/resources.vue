@@ -71,7 +71,7 @@
         </view>
         <view class="resource-actions">
           <button class="action-btn edit" @click.stop="editResource(resource)">编辑</button>
-          <button class="action-btn manage" @click.stop="manageContent(resource)">内容</button>
+          <button class="action-btn manage" @click.stop="manageContent(resource)">数据</button>
           <button 
             class="action-btn publish" 
             @click.stop="togglePublish(resource)"
@@ -185,7 +185,7 @@ const editResource = (resource) => {
 
 const manageContent = (resource) => {
   uni.navigateTo({
-    url: `/pages/courses/content-manage?courseId=${resource.id}`
+    url: `/pages/courses/detail?id=${resource.id}`
   });
 };
 

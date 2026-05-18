@@ -306,6 +306,15 @@ const onPageShow = (options = {}) => {
       }
       taskRunLocked.value = true;
       currentMode.value = 'police';
+      if (options.taskTitle) {
+        teacherRunTask.value = decodeURIComponent(options.taskTitle);
+      }
+      taskDescription.value = options.taskDescription ? decodeURIComponent(options.taskDescription) : '';
+      taskMinDurationSec.value = Number(options.taskMinDurationSec || options.minDuration || 0) || 0;
+      const routeDistanceKm = Number(options.taskMinDistanceKm || options.minDistance || 0);
+      if (routeDistanceKm > 0) {
+        policeTargetDistance.value = Math.round(routeDistanceKm * 1000);
+      }
       loadTaskRequirements(taskId.value);
     } else {
       taskRunLocked.value = false;
@@ -454,6 +463,12 @@ let wxLocationWatchdogTimer = null;
 let mpBackgroundLocationActive = false;
 /** 微信真机 map 页 onLocationChange 常不回调：与持续定位并行 2s getLocation，驱动时长/里程 */
 let wxRunAssistTimer = null;
+/** 跑步中 GPS 指数平滑状态，减轻小程序端轨迹锯齿与严重偏移抖动 */
+let runLocationSmooth = null;
+/** 已被里程逻辑接纳的有效轨迹点数，用于判断 GPS 速度显示是否进入稳定阶段 */
+let gpsAcceptedPointCount = 0;
+/** 最近一次原始定位采样：用于去重和抑制并行回调导致的静止抖动 */
+let lastRawLocationSample = null;
 const clearWxRunAssistTimer = () => {
   if (wxRunAssistTimer != null) {
     clearTimeout(wxRunAssistTimer);
@@ -511,6 +526,23 @@ const getDistance = (lat1, lng1, lat2, lng2) => {
   return R * c; // Distance in meters
 };
 
+/**
+ * 轨迹折线几何长度（米）：相邻点 Haversine 之和，单段封顶抑制单点飞点。
+ * 提交前与 `distance` 对齐，减轻端上滤波过严导致「界面/地图与其它软件更接近 2km，但上报不足 2km → 阳光跑里程不足」。
+ */
+const computeTrajectoryPathLengthM = (points) => {
+  if (!points || points.length < 2) return 0;
+  let s = 0;
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1];
+    const b = points[i];
+    if (a == null || b == null || a.latitude == null || b.latitude == null) continue;
+    const seg = getDistance(a.latitude, a.longitude, b.latitude, b.longitude);
+    s += Math.min(seg, 65);
+  }
+  return s;
+};
+
 /** 从回调对象或数值中取水平精度（米），用于冷启动防漂移；不用于整段丢弃点 */
 const getHorizontalAccuracyM = (accuracyOrRes) => {
   if (accuracyOrRes == null) return NaN;
@@ -523,14 +555,89 @@ const getHorizontalAccuracyM = (accuracyOrRes) => {
   return Number.isFinite(n) ? n : NaN;
 };
 
+const hasReliableGpsMovement = () => {
+  return gpsAcceptedPointCount >= 3 || distance.value >= 28 || currentSpeed.value >= 1.15;
+};
+
+const estimateStepsByDistance = (distanceM) => {
+  if (!Number.isFinite(distanceM) || distanceM < 6) return 0;
+  const strideLengthM = currentMode.value === 'police' ? 0.72 : 0.78;
+  return Math.floor(distanceM / strideLengthM);
+};
+
+const maybeEstimateStepsFromDistance = () => {
+  if (!isRunning.value) return;
+  const estimatedSteps = estimateStepsByDistance(distance.value);
+  if (estimatedSteps > stepCount.value) {
+    stepCount.value = estimatedSteps;
+  }
+};
+
 // Unified location update logic
 const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
-  lat.value = newLat;
-  lng.value = newLng;
+  const nowTs = Date.now();
+  if (
+    isRunning.value &&
+    lastRawLocationSample &&
+    lastRawLocationSample.latitude != null &&
+    lastRawLocationSample.longitude != null
+  ) {
+    const rawDt = (nowTs - lastRawLocationSample.timestamp) / 1000;
+    const rawD = getDistance(
+      lastRawLocationSample.latitude,
+      lastRawLocationSample.longitude,
+      newLat,
+      newLng
+    );
+    if (rawDt < 0.9 && rawD < 0.7) {
+      return;
+    }
+  }
+  lastRawLocationSample = { latitude: newLat, longitude: newLng, timestamp: nowTs };
+
+  let workLat = newLat;
+  let workLng = newLng;
+  if (isRunning.value) {
+    const lastTrackPoint = trajectoryPoints.value[trajectoryPoints.value.length - 1];
+    const rawDistanceToLast = lastTrackPoint
+      ? getDistance(lastTrackPoint.latitude, lastTrackPoint.longitude, newLat, newLng)
+      : 0;
+    const smoothAlpha = rawDistanceToLast > 10 ? 0.82 : 0.68;
+    const suspiciousLargeJump = rawDistanceToLast > (hasReliableGpsMovement() ? 35 : 12);
+    if (!runLocationSmooth && trajectoryPoints.value.length > 0) {
+      const p0 = trajectoryPoints.value[trajectoryPoints.value.length - 1];
+      runLocationSmooth = { lat: p0.latitude, lng: p0.longitude };
+    }
+    if (!runLocationSmooth) {
+      runLocationSmooth = { lat: newLat, lng: newLng };
+    } else if (suspiciousLargeJump) {
+      const deltaLat = newLat - runLocationSmooth.lat;
+      const deltaLng = newLng - runLocationSmooth.lng;
+      const deltaDist = Math.max(rawDistanceToLast, 0.0001);
+      const cappedMoveM = hasReliableGpsMovement() ? 8 : 3.2;
+      const ratio = Math.min(1, cappedMoveM / deltaDist);
+      runLocationSmooth = {
+        lat: runLocationSmooth.lat + deltaLat * ratio,
+        lng: runLocationSmooth.lng + deltaLng * ratio
+      };
+    } else {
+      runLocationSmooth = {
+        lat: runLocationSmooth.lat + smoothAlpha * (newLat - runLocationSmooth.lat),
+        lng: runLocationSmooth.lng + smoothAlpha * (newLng - runLocationSmooth.lng)
+      };
+    }
+    workLat = runLocationSmooth.lat;
+    workLng = runLocationSmooth.lng;
+  } else {
+    runLocationSmooth = null;
+  }
+
+  lat.value = isRunning.value ? workLat : newLat;
+  lng.value = isRunning.value ? workLng : newLng;
   markers.value[0] = {
     id: 0,
-    latitude: newLat,
-    longitude: newLng,
+    latitude: lat.value,
+    longitude: lng.value,
     title: '我的位置',
     iconPath: '/static/location.png',
     width: 30,
@@ -543,14 +650,14 @@ const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
 
     // 1. Initial point
     if (trajectoryPoints.value.length === 0) {
-        const point = { latitude: newLat, longitude: newLng, timestamp: Date.now(), speed: speed || currentSpeed.value };
+        const point = { latitude: workLat, longitude: workLng, timestamp: nowTs, speed: speed || currentSpeed.value };
         trajectoryPoints.value.push(point);
-        runPolyline.value.points.push({ latitude: newLat, longitude: newLng });
+        runPolyline.value.points.push({ latitude: workLat, longitude: workLng });
         updateMapPolyline();
         
         // 修复：第一个点也需要计算打卡点距离
         if (currentMode.value === 'campus' && checkpoint.value.lat) {
-          distanceToCheckpoint.value = Math.floor(getDistance(newLat, newLng, checkpoint.value.lat, checkpoint.value.lng));
+          distanceToCheckpoint.value = Math.floor(getDistance(workLat, workLng, checkpoint.value.lat, checkpoint.value.lng));
           if (distanceToCheckpoint.value <= (checkpoint.value.radius || 100)) { 
              isReach.value = true;
           }
@@ -560,13 +667,13 @@ const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
 
     // 2. Subsequent points
     const lastPoint = trajectoryPoints.value[trajectoryPoints.value.length - 1];
-    const d = getDistance(lastPoint.latitude, lastPoint.longitude, newLat, newLng);
-    const timeDiff = (Date.now() - lastPoint.timestamp) / 1000; // seconds
+    const d = getDistance(lastPoint.latitude, lastPoint.longitude, workLat, workLng);
+    const timeDiff = (nowTs - lastPoint.timestamp) / 1000; // seconds
 
     // 瞬时速度（m/s）：与是否计入总里程解耦，用于界面速度/配速；微信 onLocationChange 的 speed 常为 -1
     const spNum = typeof speed === 'number' && !Number.isNaN(speed) ? speed : -1;
     const calcSp = timeDiff > 0.001 ? d / timeDiff : 0;
-    const runGpsSpeedWarmup = duration.value < 18 && distance.value < 35;
+    const runGpsSpeedWarmup = !hasReliableGpsMovement() && duration.value < 15 && distance.value < 28;
     if (!runGpsSpeedWarmup) {
       if (spNum >= 0 && spNum < 22) {
         currentSpeed.value = spNum;
@@ -579,17 +686,17 @@ const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
 
     // Checkpoint logic - 修复：移出里程过滤逻辑，确保静止时也能刷新距离
     if (currentMode.value === 'campus' && checkpoint.value.lat) {
-      distanceToCheckpoint.value = Math.floor(getDistance(newLat, newLng, checkpoint.value.lat, checkpoint.value.lng));
+      distanceToCheckpoint.value = Math.floor(getDistance(workLat, workLng, checkpoint.value.lat, checkpoint.value.lng));
       // Tolerance increased to 100m as requested for better user experience
       if (distanceToCheckpoint.value <= (checkpoint.value.radius || 100)) { 
         isReach.value = true;
         if (!uni.getStorageSync('checkpointReached')) {
            if (checkpoint.value.id) {
-             checkIn({ lat: newLat, lng: newLng, checkpoint_id: checkpoint.value.id })
+             checkIn({ lat: workLat, lng: workLng, checkpoint_id: checkpoint.value.id })
                .then(res => {
                  if (res.success) {
                    uni.showToast({ title: '打卡成功！', icon: 'success' });
-                   checkinRecords.value.push({ checkpoint_id: checkpoint.value.id, time: new Date().toISOString(), lat: newLat, lng: newLng });
+                   checkinRecords.value.push({ checkpoint_id: checkpoint.value.id, time: new Date().toISOString(), lat: workLat, lng: workLng });
                  }
                }).catch(() => {});
            } else {
@@ -609,34 +716,52 @@ const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
     const accM = getHorizontalAccuracyM(accuracyOrRes);
     /** 开跑后约 50s 内 GPS 常抖动出「未动却有里程」；单区间位移封顶，超出只纠偏末点、不计里程 */
     const coldPhase = duration.value < 50;
+    /** 步数长期为 0 时仅靠 GPS 易累计假里程（漂移）；在出现真实步频前持续收紧（有步数后自动解除） */
+    const tightenNoSteps = stepCount.value === 0 && duration.value >= 15 && duration.value < 120 && distance.value < 400;
+    const driftTight = coldPhase || tightenNoSteps;
+
     const maxStepM = Math.min(22, Math.max(1.2, timeDiff * 7.5));
+    let maxStepGate = maxStepM;
+    let maxSpeedCold = 5.2;
+    if (tightenNoSteps) {
+      maxSpeedCold = Math.min(maxSpeedCold, 2.35);
+      maxStepGate = Math.min(maxStepGate, 5.8, timeDiff * 2.3);
+    }
+
     let minD = coldPhase ? 0.55 : 0.4;
     if (Number.isFinite(accM) && accM > 10) {
       minD = Math.max(minD, Math.min(accM * 0.18, coldPhase ? 8 : 5));
     } else if (coldPhase) {
       minD = Math.max(minD, 1.15);
     }
-    const maxSpeedCold = 5.2;
-    if (coldPhase && (calculatedSpeed > maxSpeedCold || d > maxStepM)) {
-      const last = trajectoryPoints.value[trajectoryPoints.value.length - 1];
-      last.latitude = newLat;
-      last.longitude = newLng;
-      last.timestamp = Date.now();
-      const pts = runPolyline.value.points;
-      if (pts.length) {
-        pts[pts.length - 1] = { latitude: newLat, longitude: newLng };
-      }
-      updateMapPolyline();
+    if (tightenNoSteps) {
+      minD = Math.max(minD, 3.5);
+    }
+
+    if (driftTight && (calculatedSpeed > maxSpeedCold || d > maxStepGate)) {
       return;
     }
 
-    if (d >= minD && calculatedSpeed < 18) {
-        distance.value += d;
+    if (
+      stepCount.value === 0 &&
+      duration.value >= 15 &&
+      timeDiff <= 2.6 &&
+      d < 3.8 &&
+      calculatedSpeed < 1.45
+    ) {
+      currentSpeed.value = 0;
+      return;
+    }
 
-        const point = { latitude: newLat, longitude: newLng, timestamp: Date.now(), speed: speed || calculatedSpeed };
+    const maxSpeedForDistance = tightenNoSteps ? 2.55 : 18;
+    if (d >= minD && calculatedSpeed < maxSpeedForDistance) {
+        distance.value += d;
+        gpsAcceptedPointCount += 1;
+
+        const point = { latitude: workLat, longitude: workLng, timestamp: nowTs, speed: speed || calculatedSpeed };
         trajectoryPoints.value.push(point);
 
-        runPolyline.value.points.push({ latitude: newLat, longitude: newLng });
+        runPolyline.value.points.push({ latitude: workLat, longitude: workLng });
 
         updateMapPolyline();
 
@@ -645,6 +770,7 @@ const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
         } else if (currentMode.value === 'police') {
            policeProgress.value = Math.min(100, (distance.value / policeTargetDistance.value) * 100);
         }
+        maybeEstimateStepsFromDistance();
     }
   }
 };
@@ -667,7 +793,7 @@ const startRealLocationTracking = () => {
            const dt = (Date.now() - lastTs) / 1000;
            if (dt > 0) speedVal = d / dt;
         }
-        const runGpsSpeedWarmup = duration.value < 18 && distance.value < 35;
+        const runGpsSpeedWarmup = !hasReliableGpsMovement() && duration.value < 15 && distance.value < 28;
         currentSpeed.value = runGpsSpeedWarmup ? 0 : speedVal;
 
         updateLocationLogic(newLat, newLng, speedVal, res);
@@ -859,6 +985,8 @@ const stopRealLocationTracking = () => {
     locationCallback = null;
   }
   // #endif
+  runLocationSmooth = null;
+  lastRawLocationSample = null;
 };
 
 // 2. 跑步核心配置
@@ -948,21 +1076,25 @@ const currentPace = computed(() => {
   if (overall > 0 && overall < 999) return overall;
   return 0;
 });
-// 实时速度 (km/h)：开跑后短时内不展示 GPS 推算值，避免漂移/抖动造成「未跑已有速度」
+// 实时速度 (km/h)：开跑后短时内不展示 GPS 推算值；无步数且里程可疑时不展示，抑制静止漂移
 const currentSpeedKmh = computed(() => {
   if (!isRunning.value) return '0.0';
-  if (duration.value < 18 && distance.value < 35) {
+  if (duration.value < 12 && distance.value < 20) {
+    return '0.0';
+  }
+  if (!hasReliableGpsMovement() && currentSpeed.value < 0.2) {
     return '0.0';
   }
   const v = currentSpeed.value * 3.6;
   if (v < 0.2) return '0.0';
   return v.toFixed(1);
 });
-// 平均速度 (km/h)：里程尚短或开跑不久时置 0，避免「速度 0 但平均 3km/h」与漂移里程不一致
+// 平均速度 (km/h)：里程尚短或开跑不久时置 0；无步数时暂不展示平均速度，避免与漂移里程一起误导
 const avgSpeedKmh = computed(() => {
   if (!isRunning.value) return '0.0';
   if (duration.value < 12 || duration.value === 0) return '0.0';
   if (duration.value < 50 && distance.value < 40) return '0.0';
+  if (!hasReliableGpsMovement() && distance.value < 40) return '0.0';
   return ((distance.value / 1000) / (duration.value / 3600)).toFixed(1);
 });
 
@@ -1472,6 +1604,9 @@ const switchMode = (mode) => {
   heartRate.value = 80;
   runPolyline.value.points = [];
   trajectoryPoints.value = [];
+  runLocationSmooth = null;
+  gpsAcceptedPointCount = 0;
+  lastRawLocationSample = null;
   updateMapPolyline();
   currentMode.value = mode;
 };
@@ -1480,9 +1615,11 @@ const switchMode = (mode) => {
 // 计步：波峰 + 防抖。部分机型/环境下返回的是「不含重力」的线性加速度（静止接近 0），若再强行归一到 1g 会永远达不到阈值；故用「含重力时 |模长−1g|」与「纯线性时模长」统一的 m/s² 强度信号。
     let isStepActive = false;
     let lastStepTime = 0;
-    const STEP_SIGNAL_UP_MS2 = 1.05;
-    const STEP_SIGNAL_DOWN_MS2 = 0.48;
-    const MIN_STEP_INTERVAL = 260;
+    let accelMagPrev = null;
+    /** 上阈值：一次明显冲击（含晃手机）应能超过；下阈值须低于上阈值，且不宜过低，否则噪声下无法回落、会卡死只能计 1 步 */
+    const STEP_SIGNAL_UP_MS2 = 0.48;
+    const STEP_SIGNAL_DOWN_MS2 = 0.42;
+    const MIN_STEP_INTERVAL = 160;
     const RESET_TIMEOUT = 1500;
 
     // 启动步数统计 - 带重试机制
@@ -1516,10 +1653,11 @@ const switchMode = (mode) => {
     // 带重试的启动传感器：仅在 start 成功后再注册监听，避免失败重试时重复 on 导致冲突；降采样提高部分机型/微信环境兼容性
     const startAccelerometerWithRetry = (retryCount) => {
       const MAX_RETRIES = 3;
-      const intervals = ['ui', 'normal', 'game'];
+      const intervals = ['game', 'normal', 'ui'];
       const interval = intervals[Math.min(retryCount, intervals.length - 1)];
 
       const bindAccelerometerListener = () => {
+        accelMagPrev = null;
         if (accelerometerCallback) {
           try {
             uni.offAccelerometerChange(accelerometerCallback);
@@ -1530,12 +1668,14 @@ const switchMode = (mode) => {
         accelerometerCallback = (res) => {
           const mag = Math.sqrt(res.x * res.x + res.y * res.y + res.z * res.z);
           if (!Number.isFinite(mag)) return;
-          let signal;
-          if (mag >= 4.2) {
-            signal = Math.abs(mag - 9.80665);
-          } else {
-            signal = mag;
+          // 含重力：|模长−1g|；弱模长：用线性强度。摇晃时模长常仍接近 1g，必须叠加帧间变化量才能稳定触发
+          const gravOrLin = mag >= 3.5 ? Math.abs(mag - 9.80665) : mag;
+          let jerk = 0;
+          if (accelMagPrev != null) {
+            jerk = Math.abs(mag - accelMagPrev);
           }
+          accelMagPrev = mag;
+          const signal = Math.max(gravOrLin, jerk * 0.92);
 
           const now = Date.now();
 
@@ -1564,6 +1704,7 @@ const switchMode = (mode) => {
           console.log('✅ 加速度传感器启动成功');
           bindAccelerometerListener();
           isStepActive = false;
+          accelMagPrev = null;
           lastStepTime = Date.now();
         },
         fail: (err) => {
@@ -1606,6 +1747,8 @@ const stopStepCount = () => {
   uni.stopAccelerometer();
   uni.offAccelerometerChange(accelerometerCallback);
   accelerometerCallback = null;
+  accelMagPrev = null;
+  isStepActive = false;
 };
 
 /**
@@ -1620,7 +1763,7 @@ const beginRunTrackingAfterFaceDefer = () => {
     scheduleRunClock();
   };
   nextTick(() => {
-    setTimeout(go, 280);
+    setTimeout(go, 400);
   });
 };
 
@@ -1654,10 +1797,13 @@ const initializeRunState = () => {
   heartRate.value = 80;
   currentSpeed.value = 0;
   endFaceUrl.value = null;
+  gpsAcceptedPointCount = 0;
   
   // Clear previous trajectory
   runPolyline.value.points = [];
   trajectoryPoints.value = [];
+  runLocationSmooth = null;
+  lastRawLocationSample = null;
   
   // Add start point immediately to avoid delay in drawing line
   if (lat.value && lng.value) {
@@ -1772,7 +1918,7 @@ const faceVerify = (phase) => {
         uni.chooseMedia({
           count: 1,
           mediaType: ['image'],
-          sourceType: ['camera', 'album'],
+          sourceType: ['camera'],
           sizeType: ['compressed'],
           success: (res) => {
             const f = res.tempFiles && res.tempFiles[0];
@@ -1783,7 +1929,7 @@ const faceVerify = (phase) => {
             uni.chooseImage({
               count: 1,
               sizeType: ['compressed'],
-              sourceType: ['camera', 'album'],
+              sourceType: ['camera'],
               success: (res2) => {
                 const path = res2.tempFilePaths && res2.tempFilePaths[0] ? res2.tempFilePaths[0] : '';
                 uploadChosen(path);
@@ -1797,7 +1943,7 @@ const faceVerify = (phase) => {
         uni.chooseImage({
           count: 1,
           sizeType: ['compressed'],
-          sourceType: ['camera', 'album'],
+          sourceType: ['camera'],
           success: (res) => {
             const path = res.tempFilePaths && res.tempFilePaths[0] ? res.tempFilePaths[0] : '';
             uploadChosen(path);
@@ -2001,9 +2147,21 @@ const stopRun = async () => {
     return;
   }
 
-  const distKm = distance.value / 1000;
+  const filtM = distance.value;
+  /** 非任务跑：上报里程与轨迹几何长对齐（防滤波偏低）；任务跑仍以端上累计为准，避免与任务规则冲突 */
+  let reportM = filtM;
+  if (!taskId.value && trajectoryPoints.value.length >= 2) {
+    const trajM = computeTrajectoryPathLengthM(trajectoryPoints.value);
+    const relaxedTraj = trajM * 0.94;
+    reportM = Math.max(filtM, Math.min(relaxedTraj, filtM * 1.28));
+  }
+  const distKm = reportM / 1000;
+  const durSec = Math.max(duration.value, 1);
+  const paceFromDist = distKm > 1e-6 ? (durSec / 60) / distKm : Number(currentPace.value) || 0;
+  const paceStr = Number.isFinite(paceFromDist) && paceFromDist > 0 ? paceFromDist.toFixed(1) : String(currentPace.value || '0');
+  const reportedStepCount = Math.max(stepCount.value, estimateStepsByDistance(reportM));
   const durOk = !taskMinDurationSec.value || duration.value >= taskMinDurationSec.value;
-  const distOk = !policeTargetDistance.value || distance.value >= policeTargetDistance.value;
+  const distOk = !policeTargetDistance.value || reportM >= policeTargetDistance.value;
   const taskMetPreview = !taskId.value || (distOk && durOk);
 
   const runData = {
@@ -2014,8 +2172,8 @@ const stopRun = async () => {
     metrics: {
       distance: distKm,
       duration: duration.value,
-      pace: currentPace.value.toFixed(1),
-      step_count: stepCount.value,
+      pace: paceStr,
+      step_count: reportedStepCount,
       count: currentMode.value === 'police' ? 1 : null,
       qualified: taskId.value ? taskMetPreview : (currentMode.value === 'police' ? currentPace.value <= policeTargetPace.value : false),
       trajectory: JSON.stringify(trajectoryPoints.value),
@@ -2309,9 +2467,11 @@ const buildHistory = (records) => {
 /* 地图 */
 .map {
   width: 100%;
-  height: 300rpx;
-  border-radius: 10rpx;
-  margin-bottom: 20rpx;
+  height: 460rpx;
+  min-height: 360rpx;
+  border-radius: 16rpx;
+  margin-bottom: 24rpx;
+  overflow: hidden;
 }
 /* 模式切换（三选一） */
 .mode-switch {

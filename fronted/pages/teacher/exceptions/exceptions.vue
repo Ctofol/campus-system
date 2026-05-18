@@ -40,13 +40,17 @@
         @click="openDetail(alert)"
       >
         <view class="card-header">
-          <view class="header-left">
-            <view class="type-tag" :class="alert.typeClass">{{ alert.typeText }}</view>
-            <text class="student-name">{{ alert.studentName }}</text>
-            <text class="student-id">{{ alert.studentId }}</text>
+          <view class="header-main">
+            <view class="header-top">
+              <view class="type-tag" :class="alert.typeClass">{{ alert.typeText }}</view>
+              <text class="time">{{ alert.time }}</text>
+            </view>
+            <view class="header-student">
+              <text class="student-name">{{ alert.studentName }}</text>
+              <text class="student-id">{{ alert.studentId }}</text>
+            </view>
             <text class="student-meta" v-if="alert.classMajor">{{ alert.classMajor }}</text>
           </view>
-          <text class="time">{{ alert.time }}</text>
         </view>
 
         <view class="card-body">
@@ -140,7 +144,7 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
-import { request } from '@/utils/request.js';
+import { request, resolveMediaUrl } from '@/utils/request.js';
 
 const currentFilter = ref('all');
 const alerts = ref([]);
@@ -221,8 +225,8 @@ const fetchAbnormalData = async () => {
           durationText,
           pace: item.pace || '--',
           description: reason,
-          startPhoto: item.start_photo_url || item.start_photo || '',
-          endPhoto: item.end_photo_url || item.end_photo || '',
+          startPhoto: item.start_photo_url ? resolveMediaUrl(item.start_photo_url) : (item.start_photo ? resolveMediaUrl(item.start_photo) : ''),
+          endPhoto: item.end_photo_url ? resolveMediaUrl(item.end_photo_url) : (item.end_photo ? resolveMediaUrl(item.end_photo) : ''),
           level
         };
       });
@@ -403,51 +407,65 @@ const markAsValid = async () => {
   box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.05);
 
   .card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    display: block;
     margin-bottom: 24rpx;
     padding-bottom: 20rpx;
     border-bottom: 1px solid #f0f0f0;
 
-    .header-left {
+    .header-main {
+      min-width: 0;
+    }
+
+    .header-top {
       display: flex;
       align-items: center;
+      justify-content: space-between;
       gap: 16rpx;
+      margin-bottom: 14rpx;
+    }
 
-      .type-tag {
-        font-size: 22rpx;
-        padding: 4rpx 12rpx;
-        border-radius: 6rpx;
-        color: #fff;
+    .header-student {
+      display: flex;
+      align-items: center;
+      gap: 12rpx;
+      flex-wrap: wrap;
+      margin-bottom: 8rpx;
+    }
 
-        &.tag-red { background: #ff4d4f; }
-        &.tag-orange { background: #faad14; }
-        &.tag-blue { background: #1890ff; }
-      }
+    .type-tag {
+      font-size: 22rpx;
+      padding: 4rpx 12rpx;
+      border-radius: 6rpx;
+      color: #fff;
 
-      .student-name {
-        font-size: 30rpx;
-        font-weight: 500;
-        color: #333;
-      }
+      &.tag-red { background: #ff4d4f; }
+      &.tag-orange { background: #faad14; }
+      &.tag-blue { background: #1890ff; }
+    }
 
-      .student-id {
-        font-size: 24rpx;
-        color: #999;
-      }
+    .student-name {
+      font-size: 30rpx;
+      font-weight: 500;
+      color: #333;
+      min-width: 0;
+    }
 
-      .student-meta {
-        display: block;
-        font-size: 22rpx;
-        color: #888;
-        margin-top: 6rpx;
-      }
+    .student-id {
+      font-size: 24rpx;
+      color: #999;
+    }
+
+    .student-meta {
+      display: block;
+      font-size: 22rpx;
+      color: #888;
+      line-height: 1.5;
     }
 
     .time {
       font-size: 24rpx;
       color: #999;
+      flex-shrink: 0;
     }
   }
 

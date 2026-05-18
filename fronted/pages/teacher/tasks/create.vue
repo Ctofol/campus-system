@@ -97,6 +97,84 @@
         <text class="label">任务说明</text>
         <textarea class="textarea" v-model="form.description" placeholder="请输入任务的具体要求和注意事项..." />
       </view>
+
+      <view class="form-item vertical">
+        <view class="form-item-inner">
+          <text class="label">同步课程资料</text>
+          <switch :checked="attachCourse" @change="attachCourse = !!$event.detail.value" color="#20C997" />
+        </view>
+        <text class="field-hint">发布任务时可同时生成配套课程，学生在课程页直接查看资料。</text>
+      </view>
+
+      <view v-if="attachCourse" class="course-section">
+        <view class="course-section-head">
+          <text class="course-section-title">配套课程</text>
+          <text class="course-section-tip">课程管理页主要看数据，内容在这里一次配好。</text>
+        </view>
+
+        <view class="form-item">
+          <text class="label">课程标题</text>
+          <input class="input" v-model="courseForm.title" @blur="syncCourseDefaults" placeholder="默认沿用任务标题" />
+        </view>
+
+        <view class="form-item">
+          <text class="label">课程分类</text>
+          <picker mode="selector" :range="courseCategoryOptions" range-key="label" @change="onCourseCategoryChange">
+            <view class="picker-box">
+              <text>{{ selectedCourseCategoryLabel }}</text>
+              <text class="arrow">→</text>
+            </view>
+          </picker>
+        </view>
+
+        <view class="form-item vertical">
+          <view class="form-item-inner">
+            <text class="label">课程封面</text>
+            <button class="mini-btn" @click="uploadCourseCover">{{ courseForm.cover_url ? '重新上传' : '上传封面' }}</button>
+          </view>
+          <image v-if="courseForm.cover_url" class="course-cover-preview" :src="getCourseCoverUrl(courseForm.cover_url)" mode="aspectFill"></image>
+        </view>
+
+        <view class="form-item vertical">
+          <view class="form-item-inner">
+            <text class="label">公开课程</text>
+            <switch :checked="courseForm.is_public" @change="courseForm.is_public = !!$event.detail.value" color="#20C997" />
+          </view>
+        </view>
+
+        <view class="content-block" v-for="(content, idx) in courseForm.contents" :key="idx">
+          <view class="content-block-head">
+            <text class="content-block-title">内容 {{ idx + 1 }}</text>
+            <text class="content-remove" @click="removeCourseContent(idx)">删除</text>
+          </view>
+          <view class="form-item">
+            <text class="label">标题</text>
+            <input class="input" v-model="content.title" placeholder="例如：动作示范 / 任务说明" />
+          </view>
+          <view class="form-item">
+            <text class="label">类型</text>
+            <picker mode="selector" :range="['视频','链接','文件']" @change="onCourseContentTypeChange(idx, $event)">
+              <view class="picker-box">
+                <text>{{ getCourseContentTypeLabel(content.content_type) }}</text>
+                <text class="arrow">→</text>
+              </view>
+            </picker>
+          </view>
+          <view class="form-item vertical" v-if="content.content_type === 'video'">
+            <view class="form-item-inner">
+              <text class="label">视频地址</text>
+              <button class="mini-btn" @click="uploadCourseVideo(idx)">{{ content.content_url ? '重新上传' : '上传视频' }}</button>
+            </view>
+            <text class="field-hint" v-if="content.content_url">{{ content.content_url }}</text>
+          </view>
+          <view class="form-item vertical" v-else>
+            <text class="label">{{ content.content_type === 'link' ? '链接地址' : '文件地址' }}</text>
+            <input class="input input-left" v-model="content.content_url" :placeholder="content.content_type === 'link' ? '粘贴网页链接' : '粘贴文件 URL'" />
+          </view>
+        </view>
+
+        <button class="add-content-btn" @click="addCourseContent">新增课程内容</button>
+      </view>
     </view>
 
     <view class="footer-btn">
@@ -133,7 +211,7 @@
 
 <script setup>
 import { ref, onMounted, computed } from 'vue';
-import { createTeacherTask, request, BASE_URL } from '@/utils/request.js';
+import { createTeacherTask, request, BASE_URL, uploadFile } from '@/utils/request.js';
 
 const taskTypes = ['run', 'test']; // Simplified to match backend enum/string
 const taskTypeLabels = ['跑步任务', '体能测试']; // Display labels
@@ -153,6 +231,22 @@ const form = ref({
   videoUrl: '',  // 第二阶段新增：视频URL
   videoFile: null  // 临时存储视频文件
 });
+
+const attachCourse = ref(true);
+const courseForm = ref({
+  title: '',
+  category: 'fitness',
+  cover_url: '',
+  is_public: true,
+  contents: [
+    { title: '任务说明', content_type: 'link', content_url: '', duration: 0 }
+  ]
+});
+const courseCategoryOptions = [
+  { label: '体能课', value: 'fitness' },
+  { label: '技能课', value: 'skill' },
+  { label: '理论课', value: 'theory' }
+];
 
 onMounted(() => {
   fetchClasses();
@@ -180,6 +274,11 @@ const classSelectionSummary = computed(() => {
 const allClassesSelected = computed(
   () => classes.value.length > 0 && selectedClassIds.value.length === classes.value.length
 );
+
+const selectedCourseCategoryLabel = computed(() => {
+  const hit = courseCategoryOptions.find((item) => item.value === courseForm.value.category);
+  return hit ? hit.label : '请选择课程分类';
+});
 
 const toggleClassId = (id) => {
   const i = selectedClassIds.value.indexOf(id);
@@ -227,6 +326,99 @@ const onStartDateChange = (e) => {
 
 const onDateChange = (e) => {
   form.value.deadline = e.detail.value;
+};
+
+const onCourseCategoryChange = (e) => {
+  const idx = Number(e.detail.value);
+  const picked = courseCategoryOptions[idx];
+  courseForm.value.category = picked ? picked.value : 'fitness';
+};
+
+const syncCourseDefaults = () => {
+  if (!courseForm.value.title) {
+    courseForm.value.title = form.value.title || '';
+  }
+};
+
+const addCourseContent = () => {
+  courseForm.value.contents.push({
+    title: '',
+    content_type: 'link',
+    content_url: '',
+    duration: 0
+  });
+};
+
+const removeCourseContent = (idx) => {
+  courseForm.value.contents.splice(idx, 1);
+  if (!courseForm.value.contents.length) {
+    addCourseContent();
+  }
+};
+
+const onCourseContentTypeChange = (idx, e) => {
+  const values = ['video', 'link', 'document'];
+  const nextType = values[Number(e.detail.value)] || 'link';
+  const row = courseForm.value.contents[idx];
+  row.content_type = nextType;
+  row.content_url = '';
+  row.duration = 0;
+};
+
+const uploadCourseCover = () => {
+  uni.chooseImage({
+    count: 1,
+    sizeType: ['compressed'],
+    sourceType: ['album', 'camera'],
+    success: async (res) => {
+      const filePath = res.tempFilePaths && res.tempFilePaths[0];
+      if (!filePath) return;
+      uni.showLoading({ title: '上传中..', mask: true });
+      try {
+        const uploadRes = await uploadFile(filePath, 'image');
+        courseForm.value.cover_url = uploadRes.url;
+        uni.hideLoading();
+        uni.showToast({ title: '封面已上传', icon: 'success' });
+      } catch (e) {
+        uni.hideLoading();
+        uni.showToast({ title: '封面上传失败', icon: 'none' });
+      }
+    }
+  });
+};
+
+const uploadCourseVideo = (idx) => {
+  uni.chooseVideo({
+    sourceType: ['camera', 'album'],
+    maxDuration: 300,
+    camera: 'back',
+    success: async (res) => {
+      const filePath = res.tempFilePath;
+      if (!filePath) return;
+      uni.showLoading({ title: '上传中..', mask: true });
+      try {
+        const uploadRes = await uploadFile(filePath, 'video');
+        courseForm.value.contents[idx].content_url = uploadRes.url;
+        courseForm.value.contents[idx].duration = Math.round(Number(res.duration) || 0);
+        uni.hideLoading();
+        uni.showToast({ title: '视频已上传', icon: 'success' });
+      } catch (e) {
+        uni.hideLoading();
+        uni.showToast({ title: '视频上传失败', icon: 'none' });
+      }
+    }
+  });
+};
+
+const getCourseContentTypeLabel = (type) => {
+  if (type === 'video') return '视频';
+  if (type === 'document') return '文件';
+  return '链接';
+};
+
+const getCourseCoverUrl = (url) => {
+  if (!url) return '';
+  return url.startsWith('http') ? url : `${BASE_URL}${url}`;
 };
 
 // 第二阶段新增：视频上传功能
@@ -303,6 +495,47 @@ const deleteVideo = () => {
   });
 };
 
+const createAttachedCourseIfNeeded = async () => {
+  if (!attachCourse.value) return null;
+
+  const courseTitle = (courseForm.value.title || form.value.title || '').trim();
+  const contents = (courseForm.value.contents || [])
+    .map((item, index) => ({
+      title: (item.title || '').trim(),
+      content_type: item.content_type || 'link',
+      content_url: (item.content_url || '').trim(),
+      duration: Number(item.duration) || 0,
+      order: index + 1
+    }))
+    .filter((item) => item.title && item.content_url);
+
+  if (!courseTitle || !contents.length) {
+    return null;
+  }
+
+  const createdCourse = await request({
+    url: '/courses/',
+    method: 'POST',
+    data: {
+      title: courseTitle,
+      description: form.value.description,
+      cover_url: courseForm.value.cover_url || null,
+      category: courseForm.value.category || 'fitness',
+      is_public: courseForm.value.is_public
+    }
+  });
+
+  for (const item of contents) {
+    await request({
+      url: `/courses/${createdCourse.id}/contents`,
+      method: 'POST',
+      data: item
+    });
+  }
+
+  return createdCourse;
+};
+
 const submitTask = async () => {
   // 验证必填项
   if (!form.value.title || !form.value.type || !form.value.deadline) {
@@ -359,11 +592,12 @@ const submitTask = async () => {
     };
 
     const created = await createTeacherTask(payload);
+    await createAttachedCourseIfNeeded();
     const n = Array.isArray(created) ? created.length : 1;
 
     uni.hideLoading();
     uni.showToast({
-      title: n > 1 ? `已向 ${n} 个班级发布相同任务` : '任务发布成功',
+      title: attachCourse.value ? '任务和课程资料已发布' : (n > 1 ? `已向 ${n} 个班级发布相同任务` : '任务发布成功'),
       icon: 'success'
     });
     
@@ -441,6 +675,11 @@ const submitTask = async () => {
   color: #333;
 }
 
+.input-left {
+  text-align: left;
+  width: 100%;
+}
+
 .picker-box {
   flex: 1;
   display: flex;
@@ -472,6 +711,82 @@ const submitTask = async () => {
   border-radius: 8rpx;
   font-size: 28rpx;
   box-sizing: border-box;
+}
+
+.course-section {
+  margin-top: 10rpx;
+  padding: 24rpx;
+  background: #f7fbfa;
+  border-radius: 16rpx;
+}
+
+.course-section-head {
+  margin-bottom: 16rpx;
+}
+
+.course-section-title {
+  font-size: 30rpx;
+  color: #333;
+  font-weight: 700;
+  display: block;
+  margin-bottom: 8rpx;
+}
+
+.course-section-tip {
+  font-size: 24rpx;
+  color: #7a7a7a;
+  line-height: 1.5;
+}
+
+.mini-btn {
+  margin: 0;
+  min-width: 160rpx;
+  height: 60rpx;
+  line-height: 60rpx;
+  border-radius: 30rpx;
+  background: #20C997;
+  color: #fff;
+  font-size: 24rpx;
+}
+
+.course-cover-preview {
+  width: 100%;
+  height: 220rpx;
+  border-radius: 12rpx;
+  background: #eef3f2;
+}
+
+.content-block {
+  margin-top: 18rpx;
+  background: #fff;
+  border-radius: 14rpx;
+  padding: 0 20rpx 16rpx;
+}
+
+.content-block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20rpx 0 10rpx;
+}
+
+.content-block-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #333;
+}
+
+.content-remove {
+  font-size: 24rpx;
+  color: #e03131;
+}
+
+.add-content-btn {
+  margin-top: 20rpx;
+  background: #e8faf4;
+  color: #12b886;
+  border-radius: 30rpx;
+  font-size: 26rpx;
 }
 
 /* 第二阶段新增：视频上传样式 */

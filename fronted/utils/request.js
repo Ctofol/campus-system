@@ -84,8 +84,24 @@ export const request = (...args) => {
             reject({ type: 'auth', message: '登录已过期', data: res.data });
           }
         } else {
-          // 其他错误 - 不在这里显示toast，让调用方处理
-          const errorMessage = res.data.detail || res.data.message || '请求失败';
+          let errorMessage = '请求失败';
+          try {
+            const d = res.data;
+            if (d && typeof d === 'object' && !Array.isArray(d)) {
+              const det = d.detail;
+              if (typeof det === 'string') {
+                errorMessage = det;
+              } else if (Array.isArray(det)) {
+                errorMessage = det
+                  .map((x) => (x && (x.msg || x.message)) || JSON.stringify(x))
+                  .join('; ');
+              } else if (typeof d.message === 'string') {
+                errorMessage = d.message;
+              }
+            } else if (typeof d === 'string' && d.length < 240) {
+              errorMessage = d;
+            }
+          } catch (_) {}
           reject({ type: 'server', statusCode: res.statusCode, message: errorMessage, data: res.data });
         }
       },
@@ -425,6 +441,13 @@ export const leaveRunGroup = () => {
   return request({
     url: '/run-group/leave',
     method: 'POST'
+  });
+};
+
+export const deleteRunGroup = () => {
+  return request({
+    url: '/run-group/current',
+    method: 'DELETE'
   });
 };
 

@@ -42,6 +42,7 @@
         </view>
         
         <button class="leave-btn" @click="handleLeave" v-if="myRole !== 'creator'">退出跑团</button>
+        <button class="delete-btn" @click="handleDeleteGroup" v-else>删除跑团</button>
       </view>
       
       <!-- Tab 栏 -->
@@ -100,7 +101,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import { getMyRunGroup, leaveRunGroup, getGroupMembers, getGroupActivities } from '@/utils/request.js';
+import { getMyRunGroup, leaveRunGroup, deleteRunGroup, getGroupMembers, getGroupActivities } from '@/utils/request.js';
 
 const hasJoined = ref(false);
 const myGroup = ref(null);
@@ -152,6 +153,27 @@ const handleLeave = async () => {
         } catch (e) {
           uni.showToast({ title: e.detail || '退出失败', icon: 'none' });
         }
+      }
+    }
+  });
+};
+
+const handleDeleteGroup = async () => {
+  uni.showModal({
+    title: '确认删除',
+    content: '删除后跑团成员、活动和报名记录都会一起清空，且无法恢复。',
+    confirmColor: '#e03131',
+    success: async (res) => {
+      if (!res.confirm) return;
+      try {
+        await deleteRunGroup();
+        uni.showToast({ title: '跑团已删除', icon: 'success' });
+        hasJoined.value = false;
+        myGroup.value = null;
+        members.value = [];
+        activities.value = [];
+      } catch (e) {
+        uni.showToast({ title: e.message || e.detail || '删除失败', icon: 'none' });
       }
     }
   });
@@ -337,6 +359,17 @@ onMounted(() => {
   border-radius: 30rpx;
   font-size: 26rpx;
   border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.delete-btn {
+  width: 100%;
+  padding: 20rpx;
+  margin-top: 16rpx;
+  background: rgba(224, 49, 49, 0.22);
+  color: #fff;
+  border-radius: 30rpx;
+  font-size: 26rpx;
+  border: 1px solid rgba(255, 255, 255, 0.45);
 }
 
 .tab-bar {
