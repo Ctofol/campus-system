@@ -673,15 +673,28 @@ async def get_teacher_students(
         query = query.filter(models.User.group_name == group_name)
     
     students = query.offset((page - 1) * size).limit(size).all()
-    
-    result = []
+
+    # 显式构造 Pydantic 模型，禁止把 SQLAlchemy __dict__（含 _sa_*、未序列化 relationship）直接返回，
+    # 否则部分数据/机型下响应校验失败 → 500，小程序仅提示「加载失败」、列表为空。
+    result: List[schemas.StudentDetail] = []
     for s in students:
-        s_dict = {k: v for k, v in s.__dict__.items() if not k.startswith("_")}
-        # 与后台管理端一致：class_name=行政班名，major_name=专业
-        s_dict["plain_class_name"] = s.plain_class_name
-        s_dict["class_name"] = s.plain_class_name
-        s_dict["major_name"] = s.major
-        result.append(s_dict)
+        result.append(
+            schemas.StudentDetail(
+                id=s.id,
+                phone=s.phone or "",
+                name=s.name or "未命名",
+                role=s.role or "student",
+                class_id=s.class_id,
+                student_id=s.student_id,
+                health_status=s.health_status or "normal",
+                abnormal_reason=s.abnormal_reason,
+                group_name=s.group_name,
+                health_requests=[],
+                plain_class_name=s.plain_class_name,
+                major_name=s.major,
+                class_name=s.plain_class_name,
+            )
+        )
     return result
 
 
@@ -765,17 +778,23 @@ async def get_invalid_activities(
         cls = getattr(user, "student_class", None)
         metrics = activity.metrics
 
-        # 提取起跑 / 终点照片（按 evidence.id 顺序取前两个 camera 证据）
+        # 提取起跑 / 终点照片，兼容旧的 camera 证据和新的 start_face / end_face 证据
         start_photo_url = None
         end_photo_url = None
         sorted_evidence = sorted(activity.evidence, key=lambda e: e.id or 0)
         for ev in sorted_evidence:
-            if ev.evidence_type == "camera":
+            if ev.evidence_type == "start_face":
+                start_photo_url = ev.data_ref
+            elif ev.evidence_type == "end_face":
+                end_photo_url = ev.data_ref
+            elif ev.evidence_type == "camera":
                 if not start_photo_url:
                     start_photo_url = ev.data_ref
                 elif not end_photo_url:
                     end_photo_url = ev.data_ref
-                    break
+
+            if start_photo_url and end_photo_url:
+                break
 
         results.append(
             schemas.InvalidActivityOut(
@@ -1153,6 +1172,22 @@ async def get_teacher_task_run_detail(
             "scored_by": metrics.scored_by,
         }
 
+    start_photo_url = None
+    end_photo_url = None
+    sorted_evidence = sorted(act.evidence or [], key=lambda e: e.id or 0)
+    for ev in sorted_evidence:
+        if ev.evidence_type == "start_face":
+            start_photo_url = ev.data_ref
+        elif ev.evidence_type == "end_face":
+            end_photo_url = ev.data_ref
+        elif ev.evidence_type == "camera":
+            if not start_photo_url:
+                start_photo_url = ev.data_ref
+            elif not end_photo_url:
+                end_photo_url = ev.data_ref
+        if start_photo_url and end_photo_url:
+            break
+
     return {
         "activity": {
             "id": act.id,
@@ -1165,6 +1200,8 @@ async def get_teacher_task_run_detail(
             "is_valid": act.is_valid,
             "fail_reason": act.fail_reason,
             "status": act.status,
+            "start_photo_url": start_photo_url,
+            "end_photo_url": end_photo_url,
         },
         "student": {
             "id": stu.id if stu else act.user_id,

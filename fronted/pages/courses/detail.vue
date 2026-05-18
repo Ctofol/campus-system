@@ -52,9 +52,9 @@
           <view class="content-index">{{ index + 1 }}</view>
           <view class="content-info">
             <text class="content-title">{{ content.title }}</text>
-            <text class="content-duration">{{ formatDuration(content.duration) }}</text>
+            <text class="content-duration">{{ getContentMeta(content) }}</text>
           </view>
-          <text class="content-icon">▶️</text>
+          <text class="content-icon">{{ getContentIcon(content) }}</text>
         </view>
         
         <!-- 空状态 -->
@@ -231,10 +231,55 @@ const handleEnroll = async () => {
 
 const playContent = (content) => {
   if (!content.content_url) {
-    uni.showToast({ title: '暂无视频内容', icon: 'none' });
+    uni.showToast({ title: '暂无内容地址', icon: 'none' });
     return;
   }
-  
+
+  if (content.content_type === 'video') {
+    uni.navigateTo({
+      url: `/pages/courses/player?contentId=${content.id}&courseId=${courseId.value}`
+    });
+    return;
+  }
+
+  const fullUrl = resolveMediaUrl(content.content_url);
+  if (content.content_type === 'document') {
+    uni.downloadFile({
+      url: fullUrl,
+      success: (res) => {
+        if (res.statusCode >= 200 && res.statusCode < 300 && res.tempFilePath) {
+          uni.openDocument({
+            filePath: res.tempFilePath,
+            showMenu: true,
+            fail: () => {
+              uni.showToast({ title: '文档打开失败', icon: 'none' });
+            }
+          });
+        } else {
+          uni.showToast({ title: '文档下载失败', icon: 'none' });
+        }
+      },
+      fail: () => {
+        uni.showToast({ title: '文档下载失败', icon: 'none' });
+      }
+    });
+    return;
+  }
+
+  if (content.content_type === 'link') {
+    // #ifdef H5
+    window.open(fullUrl, '_blank');
+    return;
+    // #endif
+    uni.setClipboardData({
+      data: fullUrl,
+      success: () => {
+        uni.showToast({ title: '链接已复制', icon: 'none' });
+      }
+    });
+    return;
+  }
+
   uni.navigateTo({
     url: `/pages/courses/player?contentId=${content.id}&courseId=${courseId.value}`
   });
@@ -255,6 +300,27 @@ const formatDuration = (seconds) => {
   if (!seconds) return '--';
   const minutes = Math.floor(seconds / 60);
   return `${minutes}分钟`;
+};
+
+const getContentMeta = (content) => {
+  if (!content) return '--';
+  if (content.content_type === 'video') {
+    return formatDuration(content.duration);
+  }
+  if (content.content_type === 'document') {
+    return '文档资料';
+  }
+  if (content.content_type === 'link') {
+    return '外部链接';
+  }
+  return '课程内容';
+};
+
+const getContentIcon = (content) => {
+  if (!content) return '▶';
+  if (content.content_type === 'document') return '文';
+  if (content.content_type === 'link') return '链';
+  return '▶';
 };
 
 onLoad((options) => {

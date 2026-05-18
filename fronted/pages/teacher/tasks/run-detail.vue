@@ -34,6 +34,22 @@
       </view>
     </view>
 
+    <view class="photo-card">
+      <text class="section-title">人脸对比</text>
+      <view class="photo-grid">
+        <view class="photo-item">
+          <text class="photo-label">跑前</text>
+          <image v-if="startPhotoUrl" class="photo-img" :src="startPhotoUrl" mode="aspectFill" />
+          <view v-else class="photo-placeholder">暂无照片</view>
+        </view>
+        <view class="photo-item">
+          <text class="photo-label">跑后</text>
+          <image v-if="endPhotoUrl" class="photo-img" :src="endPhotoUrl" mode="aspectFill" />
+          <view v-else class="photo-placeholder">暂无照片</view>
+        </view>
+      </view>
+    </view>
+
     <view class="map-card" v-if="showMap">
       <text class="section-title">运动轨迹</text>
       <map
@@ -55,7 +71,7 @@
 <script setup>
 import { ref } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
-import { getTeacherTaskRunDetail } from '@/utils/request.js';
+import { getTeacherTaskRunDetail, resolveMediaUrl } from '@/utils/request.js';
 
 const activity = ref({});
 const student = ref({});
@@ -68,6 +84,8 @@ const centerLng = ref(116.397);
 const polyline = ref([]);
 const markers = ref([]);
 const showMap = ref(false);
+const startPhotoUrl = ref('');
+const endPhotoUrl = ref('');
 
 function normalizeTrajectoryPoints(raw) {
   if (raw == null) return [];
@@ -100,6 +118,8 @@ onLoad(async (options) => {
     activity.value = res.activity || {};
     student.value = res.student || {};
     metrics.value = res.metrics || null;
+    startPhotoUrl.value = activity.value.start_photo_url ? resolveMediaUrl(activity.value.start_photo_url) : '';
+    endPhotoUrl.value = activity.value.end_photo_url ? resolveMediaUrl(activity.value.end_photo_url) : '';
 
     if (activity.value.started_at) {
       const d = new Date(activity.value.started_at);
@@ -233,6 +253,40 @@ onLoad(async (options) => {
     margin-bottom: 16rpx;
     display: block;
   }
+}
+.photo-card {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 30rpx;
+  margin-bottom: 20rpx;
+}
+.photo-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20rpx;
+}
+.photo-item {
+  display: flex;
+  flex-direction: column;
+}
+.photo-label {
+  font-size: 26rpx;
+  color: #666;
+  margin-bottom: 12rpx;
+}
+.photo-img,
+.photo-placeholder {
+  width: 100%;
+  height: 220rpx;
+  border-radius: 12rpx;
+  background: #f3f4f6;
+}
+.photo-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #999;
+  font-size: 24rpx;
 }
 .map {
   width: 100%;

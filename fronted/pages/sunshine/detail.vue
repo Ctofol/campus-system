@@ -22,6 +22,20 @@
               </view>
             </view>
           </view>
+          <view class="circle-legend">
+            <view class="legend-item">
+              <view class="legend-dot pass"></view>
+              <text>及格 {{ passCount }}</text>
+            </view>
+            <view class="legend-item">
+              <view class="legend-dot extra"></view>
+              <text>加分 {{ bonusCount }}</text>
+            </view>
+            <view class="legend-item">
+              <view class="legend-dot rest"></view>
+              <text>待完成 {{ remainingCount }}</text>
+            </view>
+          </view>
           <view class="core-info">
             <view class="row">
               <text class="label">当前积分</text>
@@ -149,13 +163,21 @@ const stats = ref({
 });
 
 const circleStyle = computed(() => {
-  const max = 20;
-  const percent = Math.min(1, (stats.value.total_valid_count || 0) / max);
-  const deg = 360 * percent;
+  const total = Math.max(Number(stats.value.total_valid_count) || 0, 0);
+  const pass = Math.min(total, 20);
+  const extra = Math.max(Math.min(total - 20, 20), 0);
+  const remain = Math.max(20 - pass, 0);
+  const passDeg = (pass / 40) * 360;
+  const extraDeg = (extra / 40) * 360;
+  const remainDeg = (remain / 40) * 360;
   return {
-    backgroundImage: `conic-gradient(#20C997 ${deg}deg, #e5f7f3 ${deg}deg 360deg)`
+    backgroundImage: `conic-gradient(#20C997 0deg ${passDeg}deg, #ffb020 ${passDeg}deg ${passDeg + extraDeg}deg, #dcefe9 ${passDeg + extraDeg}deg ${passDeg + extraDeg + remainDeg}deg, #8b5cf6 ${passDeg + extraDeg + remainDeg}deg 360deg)`
   };
 });
+
+const passCount = computed(() => Math.min(Number(stats.value.total_valid_count) || 0, 20));
+const bonusCount = computed(() => Math.max(Math.min((Number(stats.value.total_valid_count) || 0) - 20, 20), 0));
+const remainingCount = computed(() => Math.max(20 - passCount.value, 0));
 
 const progressText = computed(() => {
   const count = stats.value.total_valid_count || 0;
@@ -267,6 +289,35 @@ onMounted(() => {
   width: 200rpx;
   height: 200rpx;
   margin-right: 30rpx;
+}
+.circle-legend {
+  width: 170rpx;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10rpx;
+  margin-right: 24rpx;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  font-size: 22rpx;
+  color: #666;
+}
+.legend-dot {
+  width: 14rpx;
+  height: 14rpx;
+  border-radius: 50%;
+  margin-right: 10rpx;
+}
+.legend-dot.pass {
+  background: #20C997;
+}
+.legend-dot.extra {
+  background: #ffb020;
+}
+.legend-dot.rest {
+  background: #dcefe9;
 }
 .circle-outer {
   width: 200rpx;

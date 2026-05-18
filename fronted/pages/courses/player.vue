@@ -2,7 +2,7 @@
   <view class="player-page">
     <!-- 视频播放器 -->
     <video
-      v-if="videoUrl"
+      v-if="contentType === 'video' && videoUrl"
       :src="videoUrl"
       class="video-player"
       controls
@@ -14,8 +14,15 @@
       @ended="onVideoEnded"
       @error="onVideoError"
     ></video>
-    <view v-else class="video-placeholder">
+    <view v-else-if="contentType === 'video'" class="video-placeholder">
       <text class="placeholder-text">{{ loadError || '加载视频中…' }}</text>
+    </view>
+    <view v-else class="resource-panel">
+      <text class="resource-title">{{ contentType === 'document' ? '文档资料' : '外部链接' }}</text>
+      <text class="resource-url">{{ resourceUrl || '暂无可访问地址' }}</text>
+      <button class="resource-btn" @click="openResource">
+        {{ contentType === 'document' ? '打开文档' : '打开链接' }}
+      </button>
     </view>
     
     <!-- 课程信息 -->
@@ -58,6 +65,8 @@ import { request, resolveMediaUrl } from '@/utils/request.js';
 const contentId = ref(null);
 const currentContentId = ref(null);
 const videoUrl = ref('');
+const contentType = ref('video');
+const resourceUrl = ref('');
 const contentTitle = ref('');
 const contentDesc = ref('');
 const lastPosition = ref(0);
@@ -79,14 +88,25 @@ const loadContent = async (id) => {
     currentContentId.value = res.id;
     contentTitle.value = res.title;
     contentDesc.value = res.description || '';
-    
+    contentType.value = res.content_type || 'video';
+
     if (res.content_url) {
-      videoUrl.value = resolveMediaUrl(res.content_url);
+      const fullUrl = resolveMediaUrl(res.content_url);
+      resourceUrl.value = fullUrl;
+      if (contentType.value === 'video') {
+        videoUrl.value = fullUrl;
+      } else {
+        videoUrl.value = '';
+      }
     } else {
-      loadError.value = '暂无视频地址';
+      loadError.value = contentType.value === 'video' ? '暂无视频地址' : '暂无内容地址';
     }
-    
-    loadProgress(id);
+
+    if (contentType.value === 'video') {
+      loadProgress(id);
+    } else {
+      lastPosition.value = 0;
+    }
     
   } catch (e) {
     console.error('Failed to load content:', e);
@@ -191,6 +211,39 @@ const switchContent = (content) => {
   loadContent(content.id);
 };
 
+const openResource = () => {
+  if (!resourceUrl.value) {
+    uni.showToast({ title: '暂无可访问地址', icon: 'none' });
+    return;
+  }
+  if (contentType.value === 'document') {
+    uni.downloadFile({
+      url: resourceUrl.value,
+      success: (res) => {
+        if (res.statusCode >= 200 && res.statusCode < 300 && res.tempFilePath) {
+          uni.openDocument({
+            filePath: res.tempFilePath,
+            showMenu: true,
+            fail: () => uni.showToast({ title: '文档打开失败', icon: 'none' })
+          });
+        } else {
+          uni.showToast({ title: '文档下载失败', icon: 'none' });
+        }
+      },
+      fail: () => uni.showToast({ title: '文档下载失败', icon: 'none' })
+    });
+    return;
+  }
+  // #ifdef H5
+  window.open(resourceUrl.value, '_blank');
+  return;
+  // #endif
+  uni.setClipboardData({
+    data: resourceUrl.value,
+    success: () => uni.showToast({ title: '链接已复制', icon: 'none' })
+  });
+};
+
 const formatDuration = (seconds) => {
   if (!seconds) return '--';
   const minutes = Math.floor(seconds / 60);
@@ -243,6 +296,38 @@ onUnload(() => {
   width: 100%;
   height: 450rpx;
   background: #000;
+}
+.resource-panel {
+  width: 100%;
+  min-height: 280rpx;
+  background: #111;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 32rpx;
+  box-sizing: border-box;
+}
+.resource-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  margin-bottom: 16rpx;
+}
+.resource-url {
+  font-size: 24rpx;
+  line-height: 1.5;
+  color: #cbd5e1;
+  word-break: break-all;
+}
+.resource-btn {
+  margin-top: 24rpx;
+  width: 240rpx;
+  height: 72rpx;
+  line-height: 72rpx;
+  border-radius: 36rpx;
+  background: #20C997;
+  color: #fff;
+  font-size: 28rpx;
 }
 
 .content-info {

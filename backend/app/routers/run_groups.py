@@ -329,6 +329,50 @@ async def leave_run_group(
     return {"success": True, "message": "退出成功"}
 
 
+@router.delete("/current")
+async def delete_current_run_group(
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    """删除当前创建的跑团及其关联数据，仅创建者可操作。"""
+    member = db.query(models.RunGroupMember).filter(
+        models.RunGroupMember.user_id == current_user.id
+    ).first()
+
+    if not member or not member.group:
+        raise HTTPException(status_code=404, detail="您还未加入任何跑团")
+
+    if member.role != "creator":
+        raise HTTPException(status_code=403, detail="只有跑团创建者可以删除跑团")
+
+    group = member.group
+    group_id = group.id
+
+    activity_ids = [
+        row[0]
+        for row in db.query(models.RunGroupActivity.id).filter(
+            models.RunGroupActivity.group_id == group_id
+        ).all()
+    ]
+
+    if activity_ids:
+        db.query(models.RunGroupActivityApplication).filter(
+            models.RunGroupActivityApplication.activity_id.in_(activity_ids)
+        ).delete(synchronize_session=False)
+        db.query(models.RunGroupActivity).filter(
+            models.RunGroupActivity.id.in_(activity_ids)
+        ).delete(synchronize_session=False)
+
+    db.query(models.RunGroupMember).filter(
+        models.RunGroupMember.group_id == group_id
+    ).delete(synchronize_session=False)
+
+    db.delete(group)
+    db.commit()
+
+    return {"success": True, "message": "跑团已删除"}
+
+
 @router.post("/activity/cancel")
 async def cancel_activity_application(
     activity_id: int,
