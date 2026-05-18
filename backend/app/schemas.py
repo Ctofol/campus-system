@@ -50,7 +50,7 @@ class UserProfile(BaseModel):
     major_id: Optional[int] = None
     subject: Optional[str] = None
     group_name: Optional[str] = None
-    health_status: str
+    health_status: Optional[str] = "normal"
     signature: Optional[str] = None
     avatar_url: Optional[str] = None
     created_at: Optional[datetime] = None
@@ -446,7 +446,7 @@ class HealthRequestOut(HealthRequestCreate):
 
 class StudentDetail(StudentInfo):
     student_id: Optional[str] = None
-    health_status: str = "normal"
+    health_status: Optional[str] = "normal"
     abnormal_reason: Optional[str] = None
     group_name: Optional[str] = None
     health_requests: List[HealthRequestOut] = []

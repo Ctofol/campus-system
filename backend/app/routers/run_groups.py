@@ -2,6 +2,8 @@
 Run Group Router (跑团联盟)
 """
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import Response
+import json
 from sqlalchemy.orm import Session
 from sqlalchemy import func, extract
 from typing import List
@@ -170,7 +172,7 @@ async def get_run_groups(
 
 # ==================== 活动管理 ====================
 
-@router.get("/activity/list", response_model=schemas.RunGroupActivityListResponse)
+@router.get("/activity/list")
 async def get_activities(
     page: int = 1,
     size: int = 10,
@@ -189,12 +191,11 @@ async def get_activities(
         models.RunGroupActivity.activity_time.desc()
     ).offset((page - 1) * size).limit(size).all()
     
-    return {
-        "items": activities,
-        "total": total,
-        "page": page,
-        "size": size
-    }
+    items = [schemas.RunGroupActivityOut.model_validate(a).model_dump(mode="json") for a in activities]
+    return Response(
+        content=json.dumps({"items": items, "total": total, "page": page, "size": size}, ensure_ascii=False, allow_nan=False),
+        media_type="application/json"
+    )
 
 
 @router.post("/activity/create", response_model=schemas.RunGroupActivityOut)

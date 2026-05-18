@@ -50,25 +50,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 挂载管理端前端静态文件
-admin_frontend_path = "/root/campus-system/admin/frontend/dist"
-if os.path.exists(admin_frontend_path):
-    
-    @app.get("/admin/", include_in_schema=False)
-    async def admin_index():
-        from fastapi.responses import FileResponse
-        return FileResponse(os.path.join(admin_frontend_path, "index.html"))
-    
-    @app.get("/admin/{rest:path}", include_in_schema=False)
-    async def admin_spa_handler(rest: str):
-        from fastapi.responses import FileResponse
-        import pathlib
-        from fastapi.staticfiles import StaticFiles
-        full_path = pathlib.Path(admin_frontend_path) / rest
-        if full_path.is_file():
-            return FileResponse(str(full_path))
-        return FileResponse(os.path.join(admin_frontend_path, "index.html"))
-
 # Auth
 @app.post("/auth/login", response_model=schemas.Token)
 def login(user_data: schemas.UserLogin, db: Session = Depends(get_db)):
@@ -572,59 +553,60 @@ def update_teacher_subjects_admin(
 
 @app.get("/admin/sunshine/class-stats")
 def get_sunshine_class_stats(db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_admin)):
-    try:
-        classes = db.query(models.Class).all()
-        class_stats = []
-        for cls in classes:
-            students = db.query(models.User).filter(models.User.class_id == cls.id, models.User.role == "student").all()
-            total_count = len(students)
-            total_valid_runs = 0
-            scores = []
-            passed_20_count = 0
-            for u in students:
-                valid_count = (
-                    db.query(models.Activity)
-                    .filter(models.Activity.user_id == u.id, models.Activity.type == "run", models.Activity.is_valid.is_(True))
-                    .count()
-                )
-                total_valid_runs += valid_count
-                scores.append(_sunshine_score(valid_count))
-                if valid_count >= 20:
-                    passed_20_count += 1
-            avg_score = round(sum(scores) / len(scores), 2) if scores else 0
-            pass_rate = round((passed_20_count / total_count) * 100, 1) if total_count else 0
-            class_stats.append({
-                "class_id": cls.id,
-                "class_name": cls.name,
-                "total_count": total_count,
-                "total_valid_runs": total_valid_runs,
-                "avg_score": avg_score,
-                "pass_rate": pass_rate,
-                "passed_20_count": passed_20_count,
-            })
-        majors_q = (
-            db.query(models.User.major_name)
-            .filter(models.User.role == "student", models.User.major_name.isnot(None), models.User.major_name != "")
-            .distinct()
-            .all()
+    from collections import defaultdict
+
+    per_student = (
+        db.query(
+            models.User.class_id,
+            models.User.major_name,
+            func.coalesce(func.count(models.Activity.id), 0).label("valid_count"),
         )
-        major_activity = []
-        for (major_name,) in majors_q:
-            if not major_name:
-                continue
-            users_in_major = db.query(models.User).filter(models.User.role == "student", models.User.major_name == major_name).all()
-            total_valid = sum(
-                db.query(models.Activity)
-                .filter(models.Activity.user_id == u.id, models.Activity.type == "run", models.Activity.is_valid.is_(True))
-                .count()
-                for u in users_in_major
-            )
-            major_activity.append({"major": major_name, "valid_runs": total_valid})
-        return {"class_stats": class_stats, "major_activity": major_activity}
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
+        .outerjoin(
+            models.Activity,
+            db.and_(
+                models.Activity.user_id == models.User.id,
+                models.Activity.type == "run",
+                models.Activity.is_valid.is_(True),
+            ),
+        )
+        .filter(models.User.role == "student")
+        .group_by(models.User.id, models.User.class_id, models.User.major_name)
+        .all()
+    )
+
+    class_agg = defaultdict(lambda: {"total_count": 0, "total_valid_runs": 0, "scores": [], "passed_20_count": 0})
+    major_agg = defaultdict(int)
+
+    for class_id, major_name, valid_count in per_student:
+        d = class_agg[class_id]
+        d["total_count"] += 1
+        d["total_valid_runs"] += valid_count
+        score = _sunshine_score(valid_count)
+        d["scores"].append(score)
+        if valid_count >= 20:
+            d["passed_20_count"] += 1
+
+        if major_name:
+            major_agg[major_name] += valid_count
+
+    classes = db.query(models.Class).all()
+    class_stats = []
+    for cls in classes:
+        d = class_agg.get(cls.id, {"total_count": 0, "total_valid_runs": 0, "scores": [], "passed_20_count": 0})
+        avg_score = round(sum(d["scores"]) / len(d["scores"]), 2) if d["scores"] else 0
+        pass_rate = round((d["passed_20_count"] / d["total_count"]) * 100, 1) if d["total_count"] else 0
+        class_stats.append({
+            "class_id": cls.id,
+            "class_name": cls.name,
+            "total_count": d["total_count"],
+            "total_valid_runs": d["total_valid_runs"],
+            "avg_score": avg_score,
+            "pass_rate": pass_rate,
+            "passed_20_count": d["passed_20_count"],
+        })
+
+    major_activity = [{"major": m, "valid_runs": c} for m, c in sorted(major_agg.items())]
+    return {"class_stats": class_stats, "major_activity": major_activity}
 
 
 @app.get("/admin/import/template/students")
@@ -648,3 +630,22 @@ def teacher_template(current_user: models.User = Depends(auth.get_current_admin_
     buf.seek(0)
     return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": "attachment; filename=teacher_template.xlsx"})
+
+# 管理端前端静态文件 (放在 API 路由之后，避免拦截 /admin/* API)
+admin_frontend_path = "/root/campus-system/admin/frontend/dist"
+if os.path.exists(admin_frontend_path):
+
+    @app.get("/admin/", include_in_schema=False)
+    async def admin_index():
+        from fastapi.responses import FileResponse
+        return FileResponse(os.path.join(admin_frontend_path, "index.html"))
+
+    @app.get("/admin/{rest:path}", include_in_schema=False)
+    async def admin_spa_handler(rest: str):
+        from fastapi.responses import FileResponse
+        import pathlib
+        from fastapi.staticfiles import StaticFiles
+        full_path = pathlib.Path(admin_frontend_path) / rest
+        if full_path.is_file():
+            return FileResponse(str(full_path))
+        return FileResponse(os.path.join(admin_frontend_path, "index.html"))
