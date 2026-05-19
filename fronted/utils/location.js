@@ -15,8 +15,8 @@ export const getCurrentLocation = (options = {}) => {
     };
     // #ifdef MP-WEIXIN
     // 开发者工具/弱网模拟器上 8s 易 timeout，跑步辅助轮询会整段拿不到点
-    if (options.timeout == null) config.timeout = 20000;
-    if (options.highAccuracyExpireTime == null) config.highAccuracyExpireTime = 12000;
+    if (options.timeout == null) config.timeout = 22000;
+    if (options.highAccuracyExpireTime == null) config.highAccuracyExpireTime = 14000;
     // #endif
 
     uni.getLocation({

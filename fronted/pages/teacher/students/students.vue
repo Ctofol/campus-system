@@ -364,7 +364,7 @@ const loadStudents = async (reset = false) => {
       method: 'GET',
       data: params
     });
-    const list = Array.isArray(res) ? res : [];
+    const list = Array.isArray(res) ? res : (res && Array.isArray(res.items) ? res.items : []);
 
     // Process data
     const newStudents = list.map(s => {
@@ -395,7 +395,15 @@ const loadStudents = async (reset = false) => {
     
   } catch (e) {
     console.error(e);
-    uni.showToast({ title: '加载失败', icon: 'none' });
+    let msg = '加载失败';
+    if (e && typeof e.message === 'string' && e.message.trim()) {
+      msg = e.message.trim();
+    } else if (e && e.data) {
+      const d = e.data.detail;
+      if (typeof d === 'string') msg = d;
+      else if (Array.isArray(d) && d[0] && d[0].msg) msg = String(d[0].msg);
+    }
+    uni.showToast({ title: msg.length > 40 ? msg.slice(0, 40) + '…' : msg, icon: 'none', duration: 3800 });
   } finally {
     isLoading.value = false;
     if (studentsReloadQueued.value) {

@@ -59,16 +59,10 @@
       :min-scale="3"
       :max-scale="20"
       scale="16"
-      :show-location="true"
+      :show-location="locationState === 'success'"
     >
        <cover-view class="location-status-bar" :style="{ display: locationState === 'success' ? 'none' : 'flex' }">
          {{ locationStatusText }}
-       </cover-view>
-
-       <cover-view class="map-controls">
-         <cover-view class="control-btn" @click="handleRelocate">
-           <cover-image src="/static/location.png" class="control-icon" />
-         </cover-view>
        </cover-view>
     </map>
 
@@ -101,14 +95,24 @@
 
     <!-- 4. 专项测试计划 / 任务要求 -->
     <view v-if="currentMode === 'police'" class="police-plan">
-      <text class="plan-title">{{ taskRunLocked ? '📋 本次任务要求' : '🎯 专项体能训练' }}</text>
-      <view class="plan-info">
-        <text class="info-item">目标距离：<span class="highlight">{{policeTargetDistance/1000}}公里</span></text>
-        <text class="info-item" v-if="taskMinDurationSec > 0">最低时长：<span class="highlight">{{Math.floor(taskMinDurationSec/60)}}分{{taskMinDurationSec%60}}秒</span></text>
-        <text class="info-item">参考配速：<span class="highlight">{{policeTargetPace}}分钟/公里</span>（展示用，达标以任务距离/时长为准）</text>
-        <text class="info-item task-desc" v-if="taskRunLocked && taskDescription">{{ taskDescription }}</text>
-      </view>
+  <text class="plan-title">{{ taskRunLocked ? '本次任务要求' : '专项体能训练' }}</text>
+  <view class="plan-info">
+    <view class="info-item">
+      <text>最低距离：</text>
+      <text class="highlight">{{ (policeTargetDistance / 1000).toFixed(1) }} 公里</text>
     </view>
+    <view class="info-item" v-if="taskMinDurationSec > 0">
+      <text>最低时长：</text>
+      <text class="highlight">{{ Math.floor(taskMinDurationSec / 60) }} 分 {{ taskMinDurationSec % 60 }} 秒</text>
+    </view>
+    <view class="info-item">
+      <text>参考配速：</text>
+      <text class="highlight">{{ policeTargetPace }} 分钟/公里</text>
+      <text>（展示用，达标以任务距离/时长为准）</text>
+    </view>
+    <text class="info-item task-desc" v-if="taskRunLocked && taskDescription">{{ taskDescription }}</text>
+  </view>
+</view>
 
     <!-- 5. 普通跑步 -->
     <view v-if="currentMode === 'normal'" class="run-mode-box">
@@ -345,10 +349,13 @@ const onPageShow = (options = {}) => {
       console.error('Failed to load checkpoints', err);
     });
 
-    checkpoint.value = uni.getStorageSync('checkpoint') || {};
-    if (checkpoint.value.name) {
-      addCheckpointMarker(checkpoint.value.lat, checkpoint.value.lng, checkpoint.value.name);
-    }
+    checkpoint.value = {};
+    checkpointName.value = '';
+    checkpointMarker.value = null;
+    navPolyline.value = null;
+    uni.removeStorageSync('checkpoint');
+    refreshMarkers();
+    updateMapPolyline();
     const records = getStoredRunRecordsList();
     const today = new Date();
     const dayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
@@ -469,6 +476,122 @@ let runLocationSmooth = null;
 let gpsAcceptedPointCount = 0;
 /** 最近一次原始定位采样：用于去重和抑制并行回调导致的静止抖动 */
 let lastRawLocationSample = null;
+let lastStepDetectedAt = 0;
+let lastStrongStepMotionAt = 0;
+let lastGpsMotionAt = 0;
+let stepBurstCount = 0;
+let gpsMotionBurstCount = 0;
+
+const resetRunMotionEvidence = () => {
+  lastStepDetectedAt = 0;
+  lastStrongStepMotionAt = 0;
+  lastGpsMotionAt = 0;
+  stepBurstCount = 0;
+  gpsMotionBurstCount = 0;
+};
+
+const hasRecentStepMotion = () => lastStepDetectedAt > 0 && (Date.now() - lastStepDetectedAt) < 4500;
+const hasStrongStepMotion = () => lastStrongStepMotionAt > 0 && (Date.now() - lastStrongStepMotionAt) < 6500;
+const hasRecentGpsMotionEvidence = () => lastGpsMotionAt > 0 && (Date.now() - lastGpsMotionAt) < 7000;
+const hasTrustedRunMotion = () => hasStrongStepMotion() || hasRecentGpsMotionEvidence();
+
+const noteStepMotion = (now) => {
+  const gap = lastStepDetectedAt > 0 ? now - lastStepDetectedAt : Infinity;
+  if (gap >= 260 && gap <= 1600) {
+    stepBurstCount += 1;
+  } else {
+    stepBurstCount = 1;
+  }
+  lastStepDetectedAt = now;
+  if (stepBurstCount >= 2) {
+    lastStrongStepMotionAt = now;
+  }
+};
+
+const noteGpsMotion = (now, segmentDistanceM, speedMps, accuracyM) => {
+  const goodAccuracy = !Number.isFinite(accuracyM) || accuracyM <= 35;
+  const speedOk = speedMps >= 0.95 && speedMps <= 5.8;
+  const distanceOk = segmentDistanceM >= 3.2;
+  if (goodAccuracy && speedOk && distanceOk) {
+    gpsMotionBurstCount += 1;
+    if (gpsMotionBurstCount >= 2) {
+      lastGpsMotionAt = now;
+    }
+    return;
+  }
+  if (Number.isFinite(accuracyM) && accuracyM > 60) {
+    gpsMotionBurstCount = 0;
+  } else {
+    gpsMotionBurstCount = Math.max(0, gpsMotionBurstCount - 1);
+  }
+};
+
+const classifyMotionTier = ({ speedMps, distanceM, timeDiffS, trustedMotion, recentStepMotion, accuracyM }) => {
+  const reliableAccuracy = !Number.isFinite(accuracyM) || accuracyM <= 35;
+  const stepBacked = trustedMotion || recentStepMotion;
+  const segmentDistance = Number.isFinite(distanceM) ? distanceM : 0;
+  const segmentSpeed = Number.isFinite(speedMps) ? speedMps : 0;
+  const dt = Number.isFinite(timeDiffS) ? timeDiffS : 0;
+
+  if (stepBacked && reliableAccuracy && segmentSpeed >= 2.75 && segmentDistance >= Math.max(6.5, dt * 1.7)) {
+    return 'fast_run';
+  }
+  if (stepBacked && segmentSpeed >= 1.75 && segmentDistance >= Math.max(4.2, dt * 1.15)) {
+    return 'jog';
+  }
+  if (stepBacked && segmentSpeed >= 0.7 && segmentDistance >= Math.max(2.2, dt * 0.45)) {
+    return 'walk';
+  }
+  if (!stepBacked && reliableAccuracy && segmentSpeed >= 2.2 && segmentDistance >= Math.max(6.5, dt * 1.8)) {
+    return 'jog';
+  }
+  if (!stepBacked && reliableAccuracy && segmentSpeed >= 1.1 && segmentDistance >= Math.max(4.5, dt * 0.9)) {
+    return 'walk';
+  }
+  return 'unknown';
+};
+
+const getMotionTierConfig = (tier, { coldPhase, weakGpsSignal, earlyMotionStrict, tightenNoSteps }) => {
+  const configs = {
+    walk: {
+      minDistance: weakGpsSignal ? 3.8 : 2.2,
+      maxSpeed: 2.45,
+      minSpeed: 0.65,
+      maxStepDistance: weakGpsSignal ? 9.5 : 12,
+      requiresTrustedMotion: earlyMotionStrict || tightenNoSteps
+    },
+    jog: {
+      minDistance: weakGpsSignal ? 4.8 : 3.8,
+      maxSpeed: 4.9,
+      minSpeed: 1.45,
+      maxStepDistance: weakGpsSignal ? 14 : 18,
+      requiresTrustedMotion: false
+    },
+    fast_run: {
+      minDistance: weakGpsSignal ? 6.2 : 5.2,
+      maxSpeed: 7.2,
+      minSpeed: 2.6,
+      maxStepDistance: weakGpsSignal ? 20 : 24,
+      requiresTrustedMotion: false
+    },
+    unknown: {
+      minDistance: weakGpsSignal ? 6.5 : 4.8,
+      maxSpeed: tightenNoSteps ? 2.2 : 3.2,
+      minSpeed: 0.9,
+      maxStepDistance: weakGpsSignal ? 6.5 : 8.5,
+      requiresTrustedMotion: true
+    }
+  };
+
+  const base = configs[tier] || configs.unknown;
+  const coldBump = coldPhase ? 1 : 0;
+  return {
+    ...base,
+    minDistance: base.minDistance + coldBump,
+    maxSpeed: coldPhase && tier === 'walk' ? Math.min(base.maxSpeed, 2.1) : base.maxSpeed,
+    maxStepDistance: coldPhase ? Math.max(4.5, base.maxStepDistance - 1.5) : base.maxStepDistance
+  };
+};
 const clearWxRunAssistTimer = () => {
   if (wxRunAssistTimer != null) {
     clearTimeout(wxRunAssistTimer);
@@ -481,6 +604,29 @@ const checkpointName = ref('');
 const lat = ref(39.909);
 const lng = ref(116.397);
 const markers = ref([]);
+const checkpointMarker = ref(null);
+
+const createCurrentLocationMarker = (latitude, longitude) => ({
+  id: 0,
+  latitude,
+  longitude,
+  title: '当前位置',
+  iconPath: '/static/location.png',
+  width: 38,
+  height: 38,
+  anchor: {
+    x: 0.5,
+    y: 1
+  }
+});
+
+const refreshMarkers = () => {
+  const nextMarkers = [];
+  if (checkpointMarker.value) {
+    nextMarkers.push({ ...checkpointMarker.value });
+  }
+  markers.value = nextMarkers;
+};
 
 // Separate line states for better management
 const runPolyline = ref({
@@ -566,11 +712,7 @@ const estimateStepsByDistance = (distanceM) => {
 };
 
 const maybeEstimateStepsFromDistance = () => {
-  if (!isRunning.value) return;
-  const estimatedSteps = estimateStepsByDistance(distance.value);
-  if (estimatedSteps > stepCount.value) {
-    stepCount.value = estimatedSteps;
-  }
+  return;
 };
 
 // Unified location update logic
@@ -634,15 +776,7 @@ const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
 
   lat.value = isRunning.value ? workLat : newLat;
   lng.value = isRunning.value ? workLng : newLng;
-  markers.value[0] = {
-    id: 0,
-    latitude: lat.value,
-    longitude: lng.value,
-    title: '我的位置',
-    iconPath: '/static/location.png',
-    width: 30,
-    height: 30
-  };
+  refreshMarkers();
 
   if (isRunning.value) {
     syncRunElapsedDisplay();
@@ -717,16 +851,27 @@ const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
     /** 开跑后约 50s 内 GPS 常抖动出「未动却有里程」；单区间位移封顶，超出只纠偏末点、不计里程 */
     const coldPhase = duration.value < 50;
     /** 步数长期为 0 时仅靠 GPS 易累计假里程（漂移）；在出现真实步频前持续收紧（有步数后自动解除） */
-    const tightenNoSteps = stepCount.value === 0 && duration.value >= 15 && duration.value < 120 && distance.value < 400;
+    const recentStepMotion = hasRecentStepMotion();
+    const trustedMotion = hasTrustedRunMotion();
+    const tightenNoSteps = stepCount.value === 0 && !trustedMotion && duration.value >= 12 && duration.value < 180 && distance.value < 500;
     const driftTight = coldPhase || tightenNoSteps;
-
-    const maxStepM = Math.min(22, Math.max(1.2, timeDiff * 7.5));
-    let maxStepGate = maxStepM;
-    let maxSpeedCold = 5.2;
-    if (tightenNoSteps) {
-      maxSpeedCold = Math.min(maxSpeedCold, 2.35);
-      maxStepGate = Math.min(maxStepGate, 5.8, timeDiff * 2.3);
-    }
+    const weakGpsSignal = Number.isFinite(accM) && accM > 45;
+    const veryWeakGpsSignal = Number.isFinite(accM) && accM > 80;
+    const earlyMotionStrict = !trustedMotion && duration.value >= 8 && duration.value < 150 && distance.value < 500;
+    const motionTier = classifyMotionTier({
+      speedMps: calculatedSpeed,
+      distanceM: d,
+      timeDiffS: timeDiff,
+      trustedMotion,
+      recentStepMotion,
+      accuracyM: accM
+    });
+    const tierConfig = getMotionTierConfig(motionTier, {
+      coldPhase,
+      weakGpsSignal,
+      earlyMotionStrict,
+      tightenNoSteps
+    });
 
     let minD = coldPhase ? 0.55 : 0.4;
     if (Number.isFinite(accM) && accM > 10) {
@@ -734,29 +879,68 @@ const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
     } else if (coldPhase) {
       minD = Math.max(minD, 1.15);
     }
-    if (tightenNoSteps) {
-      minD = Math.max(minD, 3.5);
-    }
+    minD = Math.max(minD, tierConfig.minDistance);
+
+    const maxStepGate = Math.min(Math.max(1.2, timeDiff * 7.5), tierConfig.maxStepDistance);
+    const maxSpeedCold = driftTight ? Math.min(5.2, tierConfig.maxSpeed) : tierConfig.maxSpeed;
 
     if (driftTight && (calculatedSpeed > maxSpeedCold || d > maxStepGate)) {
       return;
     }
 
+    if (veryWeakGpsSignal && !recentStepMotion && !trustedMotion) {
+      currentSpeed.value = 0;
+      return;
+    }
+
     if (
       stepCount.value === 0 &&
+      !trustedMotion &&
       duration.value >= 15 &&
       timeDiff <= 2.6 &&
-      d < 3.8 &&
-      calculatedSpeed < 1.45
+      d < Math.max(6, tierConfig.minDistance + 1.2) &&
+      calculatedSpeed < Math.max(1.8, tierConfig.minSpeed + 0.2)
     ) {
       currentSpeed.value = 0;
       return;
     }
 
-    const maxSpeedForDistance = tightenNoSteps ? 2.55 : 18;
-    if (d >= minD && calculatedSpeed < maxSpeedForDistance) {
+    if (
+      earlyMotionStrict &&
+      timeDiff <= 3.2 &&
+      d < Math.max(8, tierConfig.minDistance + 2.2) &&
+      calculatedSpeed < Math.max(2.4, tierConfig.minSpeed + 0.7)
+    ) {
+      currentSpeed.value = 0;
+      return;
+    }
+
+    if (
+      earlyMotionStrict &&
+      weakGpsSignal &&
+      d < Math.max(12, tierConfig.minDistance + 3.8) &&
+      calculatedSpeed < Math.max(3.2, tierConfig.minSpeed + 1.2)
+    ) {
+      currentSpeed.value = 0;
+      return;
+    }
+
+    const maxSpeedForDistance = driftTight ? Math.min(tierConfig.maxSpeed, motionTier === 'fast_run' ? 5.8 : tierConfig.maxSpeed) : Math.max(tierConfig.maxSpeed, 7.8);
+    if (d >= minD && calculatedSpeed >= tierConfig.minSpeed && calculatedSpeed < maxSpeedForDistance) {
+        const gpsLooksGood = (!Number.isFinite(accM) || accM <= 28) && calculatedSpeed >= 1.1 && d >= 4.5;
+        const canTrustThisSegment = trustedMotion || recentStepMotion || gpsLooksGood || gpsAcceptedPointCount >= 4;
+        const trustedByTier = !tierConfig.requiresTrustedMotion || trustedMotion || recentStepMotion;
+        if (!trustedByTier && duration.value >= 8 && distance.value < 600) {
+          currentSpeed.value = 0;
+          return;
+        }
+        if (!canTrustThisSegment && duration.value >= 10 && distance.value < 600) {
+          currentSpeed.value = 0;
+          return;
+        }
         distance.value += d;
         gpsAcceptedPointCount += 1;
+        noteGpsMotion(nowTs, d, calculatedSpeed, accM);
 
         const point = { latitude: workLat, longitude: workLng, timestamp: nowTs, speed: speed || calculatedSpeed };
         trajectoryPoints.value.push(point);
@@ -1215,15 +1399,7 @@ const handleLocationSuccess = (res) => {
   // Cache location for faster load next time
   uni.setStorageSync('lastLocation', { lat: res.latitude, lng: res.longitude });
 
-  markers.value = [{
-    id: 0,
-    latitude: res.latitude,
-    longitude: res.longitude,
-    title: '我的位置',
-    iconPath: '/static/location.png',
-    width: 30,
-    height: 30
-  }];
+  refreshMarkers();
   // 校园围栏（仅校园打卡用）
   const campusLatMin = 39.90;
   const campusLatMax = 39.92;
@@ -1299,15 +1475,7 @@ const doGetLocation = async () => {
   if (lastLoc) {
     lat.value = lastLoc.lat;
     lng.value = lastLoc.lng;
-    markers.value = [{
-      id: 0,
-      latitude: lastLoc.lat,
-      longitude: lastLoc.lng,
-      title: '我的位置',
-      iconPath: '/static/location.png',
-      width: 30,
-      height: 30
-    }];
+    refreshMarkers();
   } else {
     uni.showLoading({ title: '定位中...' });
   }
@@ -1571,15 +1739,20 @@ const handleMapSelect = () => {
 
 // 6. 添加打卡点标记
 const addCheckpointMarker = (lat, lng, name) => {
-  markers.value.push({
+  checkpointMarker.value = {
     id: 1,
     latitude: lat,
     longitude: lng,
     title: name,
     iconPath: '/static/checkpoint.png',
-    width: 40,
-    height: 40
-  });
+    width: 34,
+    height: 34,
+    anchor: {
+      x: 0.5,
+      y: 1
+    }
+  };
+  refreshMarkers();
 };
 
 // 7. 切换跑步模式（普通/警务/校园）
@@ -1607,6 +1780,25 @@ const switchMode = (mode) => {
   runLocationSmooth = null;
   gpsAcceptedPointCount = 0;
   lastRawLocationSample = null;
+  resetRunMotionEvidence();
+  if (mode === 'campus' && checkpoint.value && checkpoint.value.lat && checkpoint.value.lng) {
+    checkpointMarker.value = {
+      id: 1,
+      latitude: checkpoint.value.lat,
+      longitude: checkpoint.value.lng,
+      title: checkpoint.value.name,
+      iconPath: '/static/checkpoint.png',
+      width: 34,
+      height: 34,
+      anchor: {
+        x: 0.5,
+        y: 1
+      }
+    };
+  } else {
+    checkpointMarker.value = null;
+  }
+  refreshMarkers();
   updateMapPolyline();
   currentMode.value = mode;
 };
@@ -1616,11 +1808,13 @@ const switchMode = (mode) => {
     let isStepActive = false;
     let lastStepTime = 0;
     let accelMagPrev = null;
+    let accelBaseline = null;
+    let linearMagPrev = 0;
     /** 上阈值：一次明显冲击（含晃手机）应能超过；下阈值须低于上阈值，且不宜过低，否则噪声下无法回落、会卡死只能计 1 步 */
-    const STEP_SIGNAL_UP_MS2 = 0.48;
-    const STEP_SIGNAL_DOWN_MS2 = 0.42;
-    const MIN_STEP_INTERVAL = 160;
-    const RESET_TIMEOUT = 1500;
+    const STEP_SIGNAL_UP_MS2 = 0.24;
+    const STEP_SIGNAL_DOWN_MS2 = 0.10;
+    const MIN_STEP_INTERVAL = 220;
+    const RESET_TIMEOUT = 900;
 
     // 启动步数统计 - 带重试机制
     const startStepCount = (retryCount = 0) => {
@@ -1658,6 +1852,8 @@ const switchMode = (mode) => {
 
       const bindAccelerometerListener = () => {
         accelMagPrev = null;
+        accelBaseline = null;
+        linearMagPrev = 0;
         if (accelerometerCallback) {
           try {
             uni.offAccelerometerChange(accelerometerCallback);
@@ -1669,13 +1865,13 @@ const switchMode = (mode) => {
           const mag = Math.sqrt(res.x * res.x + res.y * res.y + res.z * res.z);
           if (!Number.isFinite(mag)) return;
           // 含重力：|模长−1g|；弱模长：用线性强度。摇晃时模长常仍接近 1g，必须叠加帧间变化量才能稳定触发
-          const gravOrLin = mag >= 3.5 ? Math.abs(mag - 9.80665) : mag;
-          let jerk = 0;
-          if (accelMagPrev != null) {
-            jerk = Math.abs(mag - accelMagPrev);
-          }
+          accelBaseline = accelBaseline == null ? mag : (accelBaseline * 0.82 + mag * 0.18);
+          const gravOrLin = mag >= 3.5 ? Math.abs(mag - accelBaseline) : mag;
+          const jerk = accelMagPrev != null ? Math.abs(mag - accelMagPrev) : 0;
           accelMagPrev = mag;
-          const signal = Math.max(gravOrLin, jerk * 0.92);
+          const linearMag = gravOrLin;
+          const signal = Math.max(linearMag * 0.95, jerk * 0.75, Math.abs(linearMag - linearMagPrev) * 1.1);
+          linearMagPrev = linearMag;
 
           const now = Date.now();
 
@@ -1687,6 +1883,7 @@ const switchMode = (mode) => {
             if (now - lastStepTime > MIN_STEP_INTERVAL) {
               stepCount.value += 1;
               console.log('👣 步数+1', stepCount.value, 'signal≈', signal.toFixed(2), 'mag≈', mag.toFixed(2));
+              noteStepMotion(now);
               lastStepTime = now;
               isStepActive = true;
             }
@@ -1705,6 +1902,9 @@ const switchMode = (mode) => {
           bindAccelerometerListener();
           isStepActive = false;
           accelMagPrev = null;
+          accelBaseline = null;
+          linearMagPrev = 0;
+          resetRunMotionEvidence();
           lastStepTime = Date.now();
         },
         fail: (err) => {
@@ -1743,11 +1943,17 @@ const switchMode = (mode) => {
     };
 
 const stopStepCount = () => {
-  if (!accelerometerCallback) return;
+  if (!accelerometerCallback) {
+    resetRunMotionEvidence();
+    return;
+  }
   uni.stopAccelerometer();
   uni.offAccelerometerChange(accelerometerCallback);
   accelerometerCallback = null;
   accelMagPrev = null;
+  accelBaseline = null;
+  linearMagPrev = 0;
+  resetRunMotionEvidence();
   isStepActive = false;
 };
 
@@ -1798,6 +2004,7 @@ const initializeRunState = () => {
   currentSpeed.value = 0;
   endFaceUrl.value = null;
   gpsAcceptedPointCount = 0;
+  resetRunMotionEvidence();
   
   // Clear previous trajectory
   runPolyline.value.points = [];
@@ -2159,7 +2366,7 @@ const stopRun = async () => {
   const durSec = Math.max(duration.value, 1);
   const paceFromDist = distKm > 1e-6 ? (durSec / 60) / distKm : Number(currentPace.value) || 0;
   const paceStr = Number.isFinite(paceFromDist) && paceFromDist > 0 ? paceFromDist.toFixed(1) : String(currentPace.value || '0');
-  const reportedStepCount = Math.max(stepCount.value, estimateStepsByDistance(reportM));
+  const reportedStepCount = stepCount.value;
   const durOk = !taskMinDurationSec.value || duration.value >= taskMinDurationSec.value;
   const distOk = !policeTargetDistance.value || reportM >= policeTargetDistance.value;
   const taskMetPreview = !taskId.value || (distOk && durOk);
@@ -2509,13 +2716,15 @@ const buildHistory = (records) => {
 }
 .plan-info {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: space-around;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12rpx;
 }
 .info-item {
   font-size: 26rpx;
   color: #666;
-  margin: 5rpx 10rpx;
+  margin: 0;
+  line-height: 1.6;
 }
 .highlight {
   color: #d81e06;
