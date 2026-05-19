@@ -75,6 +75,46 @@ const progressTimer = ref(null);
 const currentTime = ref(0);
 const loadError = ref('');
 
+const truncateUrl = (url, max = 120) => {
+  if (!url) return '';
+  return url.length > max ? `${url.slice(0, max)}...` : url;
+};
+
+const copyExternalLink = (url) => {
+  uni.setClipboardData({
+    data: url,
+    success: () => uni.showToast({ title: '链接已复制', icon: 'none' })
+  });
+};
+
+const openExternalLink = (url) => {
+  if (!url) {
+    uni.showToast({ title: '暂无可访问地址', icon: 'none' });
+    return;
+  }
+
+  if (/^https?:\/\//i.test(url)) {
+    uni.showModal({
+      title: '打开外部链接',
+      content: `即将打开：\n${truncateUrl(url)}`,
+      confirmText: '打开',
+      cancelText: '复制链接',
+      success: (res) => {
+        if (res.confirm) {
+          uni.navigateTo({
+            url: `/pages/common/webview?url=${encodeURIComponent(url)}`
+          });
+        } else if (res.cancel) {
+          copyExternalLink(url);
+        }
+      }
+    });
+    return;
+  }
+
+  copyExternalLink(url);
+};
+
 const loadContent = async (id) => {
   videoUrl.value = '';
   loadError.value = '';
@@ -238,10 +278,7 @@ const openResource = () => {
   window.open(resourceUrl.value, '_blank');
   return;
   // #endif
-  uni.setClipboardData({
-    data: resourceUrl.value,
-    success: () => uni.showToast({ title: '链接已复制', icon: 'none' })
-  });
+  openExternalLink(resourceUrl.value);
 };
 
 const formatDuration = (seconds) => {

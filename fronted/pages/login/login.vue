@@ -161,7 +161,7 @@ const handleLogin = async () => {
   
   try {
     const res = await login({
-      phone: loginForm.value.account,
+      account: loginForm.value.account.trim(),
       password: loginForm.value.password
     });
     
@@ -188,7 +188,8 @@ const handleLogin = async () => {
       userId: res.user_id,
       role: res.role,
       name: res.name,
-      phone: loginForm.value.account,
+      account: loginForm.value.account.trim(),
+      phone: /^\d{11}$/.test(loginForm.value.account.trim()) ? loginForm.value.account.trim() : '',
       // 兼容字段
       schoolId: '10001', 
       isPoliceSchool: false

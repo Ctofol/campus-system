@@ -203,24 +203,28 @@
     {
       "path": "pages/teacher/profile/edit",
       "style": {
+        "navigationStyle": "custom",
         "navigationBarTitleText": "个人信息设置"
       }
     },
     {
       "path": "pages/teacher/security/security",
       "style": {
+        "navigationStyle": "custom",
         "navigationBarTitleText": "账号安全"
       }
     },
     {
       "path": "pages/teacher/security/change-password",
       "style": {
+        "navigationStyle": "custom",
         "navigationBarTitleText": "修改密码"
       }
     },
     {
       "path": "pages/teacher/notifications/list",
       "style": {
+        "navigationStyle": "custom",
         "navigationBarTitleText": "系统通知"
       }
     },
@@ -312,6 +316,12 @@
       }
     },
     {
+      "path": "pages/common/webview",
+      "style": {
+        "navigationBarTitleText": "外部链接"
+      }
+    },
+    {
       "path": "pages/courses/list",
       "style": {
         "navigationBarTitleText": "课程列表"
@@ -344,6 +354,7 @@
     {
       "path": "pages/courses/content-manage",
       "style": {
+        "navigationStyle": "custom",
         "navigationBarTitleText": "课程内容管理"
       }
     },

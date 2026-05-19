@@ -50,7 +50,7 @@
             <view class="sunshine-info">
               <view class="score-row">
                 <text class="score-label">当前积分</text>
-                <text class="score-value">{{ sunshine.score }} 分</text>
+                <text class="score-value">{{ sunshine.current_score || sunshine.score }} 分</text>
               </view>
               <view class="status-row">
                 <text class="status-label">今日状态</text>
@@ -113,17 +113,22 @@ const totalStats = ref({
 
 const sunshine = ref({
   total_valid_count: 0,
+  current_score: 0,
   score: 0,
   today_status: 'not_started',
   today_fail_reason: ''
 });
 
 const circleStyle = computed(() => {
-  const max = 20;
-  const percent = Math.min(1, (sunshine.value.total_valid_count || 0) / max);
-  const deg = 360 * percent;
+  const total = Math.max(Number(sunshine.value.total_valid_count) || 0, 0);
+  const pass = Math.min(total, 20);
+  const extra = Math.max(Math.min(total - 20, 20), 0);
+  const remain = Math.max(20 - pass, 0);
+  const passDeg = (pass / 40) * 360;
+  const extraDeg = (extra / 40) * 360;
+  const remainDeg = (remain / 40) * 360;
   return {
-    backgroundImage: `conic-gradient(#20C997 ${deg}deg, #e5f7f3 ${deg}deg 360deg)`
+    background: `conic-gradient(#20C997 0deg ${passDeg}deg, #ffb020 ${passDeg}deg ${passDeg + extraDeg}deg, #dcefe9 ${passDeg + extraDeg}deg ${passDeg + extraDeg + remainDeg}deg, #8b5cf6 ${passDeg + extraDeg + remainDeg}deg 360deg)`
   };
 });
 
@@ -176,6 +181,7 @@ const fetchSunshineStats = async () => {
     const res = await getSunshineStats();
     sunshine.value = {
       total_valid_count: res.total_valid_count || 0,
+      current_score: res.current_score || res.score || 0,
       score: res.score || 0,
       today_status: res.today_status || 'not_started',
       today_fail_reason: res.today_fail_reason || ''
