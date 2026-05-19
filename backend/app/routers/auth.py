@@ -140,11 +140,16 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=schemas.Token)
 def login(user_data: schemas.UserLogin, db: Session = Depends(get_db)):
-    user = db.query(models.User).filter(models.User.phone == user_data.phone).first()
+    account = (user_data.account or user_data.phone or "").strip()
+    if not account:
+        raise HTTPException(status_code=400, detail="Account is required")
+    user = db.query(models.User).filter(models.User.phone == account).first()
+    if not user:
+        user = db.query(models.User).filter(models.User.student_id == account).first()
     if not user or not auth.verify_password(user_data.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect phone or password",
+            detail="Incorrect account or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
     

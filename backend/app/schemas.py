@@ -19,7 +19,8 @@ class UserCreate(UserBase):
     subject: str | None = None
 
 class UserLogin(BaseModel):
-    phone: str
+    account: Optional[str] = None
+    phone: Optional[str] = None
     password: str
 
 class Token(BaseModel):
