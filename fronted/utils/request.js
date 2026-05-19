@@ -117,10 +117,20 @@ export const request = (...args) => {
 
 // Auth
 export const login = (data) => {
+  const payload = {
+    ...data
+  };
+  const normalizedAccount = payload.account != null ? String(payload.account).trim() : '';
+  if (normalizedAccount) {
+    payload.account = normalizedAccount;
+    if (!payload.phone) {
+      payload.phone = normalizedAccount;
+    }
+  }
   return request({
     url: '/auth/login',
     method: 'POST',
-    data
+    data: payload
   });
 };
 
