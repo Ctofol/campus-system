@@ -112,7 +112,9 @@ import {
   deleteRunGroup,
   getGroupMembers,
   getGroupActivities,
-  resolveMediaUrl
+  resolveMediaUrl,
+  getStoredToken,
+  isAuthError
 } from '@/utils/request.js';
 
 const joinedGroups = ref([]);
@@ -141,6 +143,7 @@ const selectGroup = (groupId) => {
 };
 
 const loadMyGroups = async () => {
+  if (!getStoredToken()) return;
   try {
     const res = await getMyRunGroups();
     joinedGroups.value = Array.isArray(res) ? res : [];
@@ -154,7 +157,7 @@ const loadMyGroups = async () => {
       activeGroupId.value = joinedGroups.value[0].id;
     }
   } catch (e) {
-    console.log('加载跑团信息失败:', e);
+    if (isAuthError(e)) return;
     joinedGroups.value = [];
     activeGroupId.value = null;
     resetTabData();

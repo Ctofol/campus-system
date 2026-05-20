@@ -4,7 +4,7 @@
  * 兼容主流后端框架（Java/Node.js/Python等）
  */
 
-import { BASE_URL } from './request.js';
+import { BASE_URL, handleSessionExpired } from './request.js';
 
 /**
  * 文件类型配置
@@ -146,19 +146,12 @@ export function uploadFile(filePath, fileType = 'image', options = {}) {
                 });
               }
             } else if (res.statusCode === 401) {
-              // Token失效
-              uni.removeStorageSync('token');
-              uni.removeStorageSync('userInfo');
-              reject({ 
-                type: 'auth', 
+              handleSessionExpired();
+              reject({
+                type: 'auth',
                 statusCode: 401,
-                message: '登录已过期，请重新登录' 
+                message: '登录已过期，请重新登录'
               });
-              
-              // 跳转登录页
-              setTimeout(() => {
-                uni.reLaunch({ url: '/pages/login/login' });
-              }, 1500);
             } else if (res.statusCode === 413) {
               reject({ 
                 type: 'server', 

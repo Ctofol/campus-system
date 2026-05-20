@@ -44,7 +44,10 @@
       <view class="section-card todo-section">
         <view class="section-header">
           <text class="section-title">今日待办</text>
-          <text class="section-more" @click="goToTodos">全部 →</text>
+          <view class="section-more link-more" @click="goToTodos">
+            <text>全部</text>
+            <view class="link-arrow" />
+          </view>
         </view>
         <view class="todo-list" v-if="todos.length > 0">
           <view class="todo-item" v-for="(todo, index) in todos.slice(0, 3)" :key="index" @click="handleTodoClick(todo)">
@@ -491,6 +494,7 @@ const handleResolveAlert = (index) => {
 .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30rpx; }
 .section-title { font-size: 34rpx; font-weight: bold; color: #333; }
 .section-more { font-size: 26rpx; color: #20C997; padding: 10rpx 0; }
+.section-more .link-arrow { border-color: #20c997; }
 
 .overview-chart { display: flex; justify-content: space-around; }
 .chart-col { text-align: center; }

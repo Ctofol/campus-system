@@ -2,21 +2,16 @@
   <view class="edit-profile-page">
     <view class="form-section">
       <view class="form-item avatar-item">
-        <text class="label">头像</text>
-        <!-- #ifdef MP-WEIXIN -->
-        <button class="avatar-trigger" open-type="chooseAvatar" @chooseavatar="handleChooseAvatar">
-          <view class="avatar-preview">
+        <view class="avatar-row">
+          <text class="label">头像</text>
+          <view class="avatar-preview" @click="chooseAvatar">
             <image :src="avatarUrl" mode="aspectFill" class="avatar-img" />
-            <text class="change-text">点击更换</text>
+            <view class="change-copy">
+              <text class="change-text">点击更换</text>
+              <text class="change-sub">相册 / 拍照</text>
+            </view>
           </view>
-        </button>
-        <!-- #endif -->
-        <!-- #ifndef MP-WEIXIN -->
-        <view class="avatar-preview" @click="chooseAvatar">
-          <image :src="avatarUrl" mode="aspectFill" class="avatar-img" />
-          <text class="change-text">点击更换</text>
         </view>
-        <!-- #endif -->
       </view>
 
       <view class="form-item">
@@ -44,6 +39,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { request, uploadFile, resolveMediaUrl } from '@/utils/request.js';
+import { pickAvatarFromAlbum } from '@/utils/avatar-picker.js';
 
 const avatarUrl = ref('/static/avatar.png');
 const saving = ref(false);
@@ -88,21 +84,13 @@ const uploadAvatar = async (filePath) => {
   }
 };
 
-const chooseAvatar = () => {
-  uni.chooseImage({
-    count: 1,
-    sizeType: ['compressed'],
-    sourceType: ['album', 'camera'],
-    success: async (res) => {
-      const filePath = res.tempFilePaths && res.tempFilePaths[0];
-      await uploadAvatar(filePath);
-    }
-  });
-};
-
-const handleChooseAvatar = async (event) => {
-  const filePath = event?.detail?.avatarUrl;
-  await uploadAvatar(filePath);
+const chooseAvatar = async () => {
+  try {
+    const filePath = await pickAvatarFromAlbum();
+    await uploadAvatar(filePath);
+  } catch (e) {
+    // 已在 pickAvatarFromAlbum 内提示隐私配置
+  }
 };
 
 const saveProfile = async () => {
@@ -189,7 +177,20 @@ onMounted(() => {
 }
 
 .avatar-item {
-  min-height: 160rpx;
+  flex-direction: column;
+  align-items: stretch;
+  padding-top: 28rpx;
+  padding-bottom: 28rpx;
+}
+
+.avatar-row {
+  display: flex;
+  align-items: center;
+}
+
+.avatar-item .label {
+  align-self: flex-start;
+  padding-top: 36rpx;
 }
 
 .signature-item {
@@ -225,10 +226,25 @@ onMounted(() => {
 
 .avatar-preview {
   flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 20rpx;
+  gap: 24rpx;
+  padding-right: 200rpx;
+  box-sizing: border-box;
+}
+
+.change-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6rpx;
+}
+
+.change-sub {
+  font-size: 22rpx;
+  color: #999;
 }
 
 .avatar-trigger {

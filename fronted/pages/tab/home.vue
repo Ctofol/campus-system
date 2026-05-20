@@ -16,14 +16,20 @@ import { ref, nextTick } from 'vue';
 import { onShow, onHide } from '@dcloudio/uni-app';
 import StudentHome from '@/components/student-home/student-home.vue';
 import TeacherHome from '@/components/teacher-home/teacher-home.vue';
+import { getStoredToken } from '@/utils/request.js';
 
 const role = ref(uni.getStorageSync('userRole') || 'student');
 const studentHomeRef = ref(null);
 const teacherHomeRef = ref(null);
 
 onShow(() => {
+  if (!getStoredToken()) {
+    uni.reLaunch({ url: '/pages/login/login' });
+    return;
+  }
+
   role.value = uni.getStorageSync('userRole') || 'student';
-  
+
   if (role.value === 'teacher') {
     uni.setTabBarItem({
       index: 1,
