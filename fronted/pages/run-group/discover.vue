@@ -1,69 +1,75 @@
 ﻿<template>
   <view class="discover-page">
     <view class="navbar">
-      <text class="back-btn" @click="goBack" v-if="showCreateForm">鈫?/text>
-      <text class="title">{{ showCreateForm ? '鍒涘缓璺戝洟' : '璺戝洟鍙戠幇' }}</text>
-      <text class="rank-btn" @click="goToRank" v-if="!showCreateForm">鎺掕姒?/text>
+      <text class="back-btn" @click="goBack" v-if="showCreateForm">←</text>
+      <text class="title">{{ showCreateForm ? '创建跑团' : '跑团发现' }}</text>
+      <text class="rank-btn" @click="goToRank" v-if="!showCreateForm">排行榜</text>
     </view>
-    
-    <!-- 鍒涘缓璺戝洟琛ㄥ崟 -->
+
     <view class="create-form" v-if="showCreateForm">
-      <view class="form-item">
-        <text class="label">璺戝洟鍚嶇О</text>
-        <input class="input" v-model="formData.name" placeholder="璇疯緭鍏ヨ窇鍥㈠悕绉? maxlength="20" />
+      <view class="form-item avatar-item">
+        <text class="label">跑团头像</text>
+        <view class="avatar-picker" @click="chooseGroupAvatar">
+          <image class="avatar-preview" :src="avatarPreview" mode="aspectFill" />
+          <text class="avatar-text">点击上传</text>
+        </view>
       </view>
-      
+
       <view class="form-item">
-        <text class="label">璺戝洟绠€浠?/text>
-        <textarea 
-          class="textarea" 
-          v-model="formData.description" 
-          placeholder="璇疯緭鍏ヨ窇鍥㈢畝浠? 
+        <text class="label">跑团名称</text>
+        <input class="input" v-model="formData.name" placeholder="请输入跑团名称" maxlength="20" />
+      </view>
+
+      <view class="form-item">
+        <text class="label">跑团简介</text>
+        <textarea
+          class="textarea"
+          v-model="formData.description"
+          placeholder="请输入跑团简介"
           maxlength="200"
         />
       </view>
-      
-      <button class="submit-btn" @click="handleCreate">鍒涘缓璺戝洟</button>
+
+      <button class="submit-btn" @click="handleCreate">创建跑团</button>
     </view>
-    
-    <!-- 璺戝洟鍒楄〃 -->
-    <scroll-view 
+
+    <scroll-view
       v-else
-      scroll-y 
+      scroll-y
       class="group-list"
       @scrolltolower="loadMore"
       refresher-enabled
       :refresher-triggered="refreshing"
       @refresherrefresh="onRefresh"
     >
-      <view 
-        class="group-card" 
-        v-for="(group, index) in groups" 
+      <view
+        class="group-card"
+        v-for="(group, index) in groups"
         :key="group.id"
         @click="goToDetail(group.id)"
       >
         <view class="rank-badge" v-if="index < 3" :class="'rank-' + (index + 1)">
           <text>No.{{ index + 1 }}</text>
         </view>
-        <image class="avatar" :src="group.avatar || '/static/default-avatar.png'" mode="aspectFill" />
+        <image class="avatar" :src="groupAvatar(group.avatar)" mode="aspectFill" />
         <view class="info">
           <text class="name">{{ group.name }}</text>
-          <text class="desc">{{ group.description || '鏆傛棤鎻忚堪' }}</text>
-          <text class="stats">{{ group.member_count }}浜?路 {{ (group.total_mileage || 0).toFixed(1) }}km</text>
+          <text class="desc">{{ group.description || '暂无描述' }}</text>
+          <text class="stats">{{ group.member_count }}人 · {{ (group.total_mileage || 0).toFixed(1) }}km</text>
         </view>
-        <button class="join-btn" @click.stop="handleJoin(group.id)">鍔犲叆</button>
+        <button class="join-btn" @click.stop="handleJoin(group.id)">加入</button>
       </view>
-      
+
       <view class="loading" v-if="loading">
-        <text>鍔犺浇涓?..</text>
+        <text>加载中...</text>
       </view>
-      
+
       <view class="no-more" v-if="!loading && noMore">
-        <text>娌℃湁鏇村浜?/text>
+        <text>没有更多了</text>
       </view>
-      
+
       <view class="empty" v-if="!loading && groups.length === 0">
-        <text>鏆傛棤璺戝洟</text>
+        <text>暂无跑团</text>
       </view>
     </scroll-view>
   </view>
@@ -72,7 +78,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
-import { getRunGroups, joinRunGroup, createRunGroup } from '@/utils/request.js';
+import { getRunGroups, joinRunGroup, createRunGroup, uploadFile, resolveMediaUrl } from '@/utils/request.js';
 
 const groups = ref([]);
 const page = ref(1);
@@ -80,13 +86,19 @@ const loading = ref(false);
 const refreshing = ref(false);
 const noMore = ref(false);
 const showCreateForm = ref(false);
+const avatarPreview = ref('/static/default-avatar.png');
 const formData = ref({
   name: '',
-  description: ''
+  description: '',
+  avatar: ''
 });
 
+const groupAvatar = (avatar) => {
+  if (!avatar) return '/static/default-avatar.png';
+  return resolveMediaUrl(avatar);
+};
+
 onLoad((options) => {
-  // 妫€鏌ユ槸鍚︽槸鍒涘缓妯″紡
   if (options.action === 'create') {
     showCreateForm.value = true;
   }
@@ -94,34 +106,33 @@ onLoad((options) => {
 
 const loadGroups = async (refresh = false) => {
   if (loading.value) return;
-  
+
   if (refresh) {
     page.value = 1;
     noMore.value = false;
   }
-  
+
   loading.value = true;
-  
+
   try {
     const res = await getRunGroups({
       page: page.value,
       size: 20
     });
-    
-    // 鏁版嵁楠岃瘉锛氱‘淇濊繑鍥炵殑鏄湁鏁堟暟缁?
-    const validGroups = Array.isArray(res) ? res.filter(g => g && g.id) : [];
-    
+
+    const validGroups = Array.isArray(res) ? res.filter((g) => g && g.id) : [];
+
     if (refresh) {
       groups.value = validGroups;
     } else {
       groups.value.push(...validGroups);
     }
-    
+
     if (validGroups.length < 20) {
       noMore.value = true;
     }
   } catch (e) {
-    uni.showToast({ title: '鍔犺浇澶辫触', icon: 'none' });
+    uni.showToast({ title: '加载失败', icon: 'none' });
   } finally {
     loading.value = false;
     refreshing.value = false;
@@ -140,47 +151,60 @@ const loadMore = () => {
   }
 };
 
+const chooseGroupAvatar = () => {
+  uni.chooseImage({
+    count: 1,
+    sizeType: ['compressed'],
+    sourceType: ['album', 'camera'],
+    success: async (res) => {
+      const filePath = res.tempFilePaths && res.tempFilePaths[0];
+      if (!filePath) return;
+      try {
+        uni.showLoading({ title: '上传中...' });
+        const uploadResult = await uploadFile(filePath, 'image');
+        formData.value.avatar = uploadResult.url;
+        avatarPreview.value = resolveMediaUrl(uploadResult.url);
+      } catch (e) {
+        uni.showToast({ title: '上传失败', icon: 'none' });
+      } finally {
+        uni.hideLoading();
+      }
+    }
+  });
+};
+
 const handleJoin = async (groupId) => {
   try {
-    console.log('灏濊瘯鍔犲叆璺戝洟:', groupId);
     const res = await joinRunGroup(groupId);
-    console.log('鍔犲叆璺戝洟鍝嶅簲:', res);
-    
     if (res && res.joinStatus) {
-      uni.showToast({ title: '鍔犲叆鎴愬姛', icon: 'success' });
-      // 鍒锋柊椤甸潰鎴栬烦杞埌鎴戠殑璺戝洟
+      uni.showToast({ title: '加入成功', icon: 'success' });
       setTimeout(() => {
         uni.redirectTo({ url: '/pages/run-group/my' });
       }, 1500);
     } else {
-      const message = res?.message || '鍔犲叆澶辫触';
-      uni.showToast({ title: message, icon: 'none' });
+      uni.showToast({ title: res?.message || '加入失败', icon: 'none' });
     }
   } catch (e) {
-    console.error('鍔犲叆璺戝洟澶辫触:', e);
-    const errorMsg = e.message || e.detail || '加入失败，请重试';
-    uni.showToast({ title: errorMsg, icon: 'none' });
+    uni.showToast({ title: e.message || e.detail || '加入失败，请重试', icon: 'none' });
   }
 };
 
 const handleCreate = async () => {
   if (!formData.value.name) {
-    uni.showToast({ title: '璇疯緭鍏ヨ窇鍥㈠悕绉?, icon: 'none' });
+    uni.showToast({ title: '请输入跑团名称', icon: 'none' });
     return;
   }
-  
+
   if (!formData.value.description) {
-    uni.showToast({ title: '璇疯緭鍏ヨ窇鍥㈢畝浠?, icon: 'none' });
+    uni.showToast({ title: '请输入跑团简介', icon: 'none' });
     return;
   }
-  
+
   try {
-    uni.showLoading({ title: '鍒涘缓涓?..' });
+    uni.showLoading({ title: '创建中...' });
     await createRunGroup(formData.value);
     uni.hideLoading();
-    uni.showToast({ title: '鍒涘缓鎴愬姛', icon: 'success' });
-    
-    // 璺宠浆鍒版垜鐨勮窇鍥㈤〉闈?
+    uni.showToast({ title: '创建成功', icon: 'success' });
     setTimeout(() => {
       uni.redirectTo({ url: '/pages/run-group/my' });
     }, 1500);
@@ -192,7 +216,12 @@ const handleCreate = async () => {
 
 const goBack = () => {
   showCreateForm.value = false;
-  // 杩斿洖鍚庨噸鏂板姞杞借窇鍥㈠垪琛?
+  formData.value = {
+    name: '',
+    description: '',
+    avatar: ''
+  };
+  avatarPreview.value = '/static/default-avatar.png';
   loadGroups(true);
 };
 
@@ -220,7 +249,7 @@ onMounted(() => {
 .navbar {
   position: sticky;
   top: 0;
-  background: #20C997;
+  background: #20c997;
   padding: 20rpx 30rpx;
   display: flex;
   justify-content: space-between;
@@ -231,7 +260,6 @@ onMounted(() => {
 .back-btn {
   font-size: 36rpx;
   color: #fff;
-  cursor: pointer;
 }
 
 .title {
@@ -271,6 +299,7 @@ onMounted(() => {
   border-radius: 16rpx;
   font-size: 28rpx;
   border: 2rpx solid #e0e0e0;
+  box-sizing: border-box;
 }
 
 .textarea {
@@ -281,12 +310,13 @@ onMounted(() => {
   border-radius: 16rpx;
   font-size: 28rpx;
   border: 2rpx solid #e0e0e0;
+  box-sizing: border-box;
 }
 
 .submit-btn {
   width: 100%;
   padding: 28rpx;
-  background: #20C997;
+  background: #20c997;
   color: #fff;
   border-radius: 50rpx;
   font-size: 32rpx;
@@ -322,15 +352,15 @@ onMounted(() => {
 }
 
 .rank-1 {
-  background: linear-gradient(135deg, #FFD700, #FFA500);
+  background: linear-gradient(135deg, #ffd700, #ffa500);
 }
 
 .rank-2 {
-  background: linear-gradient(135deg, #C0C0C0, #808080);
+  background: linear-gradient(135deg, #c0c0c0, #808080);
 }
 
 .rank-3 {
-  background: linear-gradient(135deg, #CD7F32, #8B4513);
+  background: linear-gradient(135deg, #cd7f32, #8b4513);
 }
 
 .avatar {
@@ -365,20 +395,44 @@ onMounted(() => {
   color: #666;
 }
 
+.avatar-picker {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+  padding: 24rpx 28rpx;
+  background: #fff;
+  border-radius: 18rpx;
+}
+
+.avatar-preview {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 60rpx;
+  background: #f1f5f9;
+  border: 2rpx solid #e2e8f0;
+}
+
+.avatar-text {
+  font-size: 26rpx;
+  color: #20c997;
+  font-weight: 600;
+}
+
 .join-btn {
   padding: 12rpx 30rpx;
-  background: #20C997;
+  background: #20c997;
   color: #fff;
   border-radius: 30rpx;
   font-size: 24rpx;
   border: none;
 }
 
-.loading, .no-more, .empty {
+.loading,
+.no-more,
+.empty {
   text-align: center;
   padding: 40rpx;
   color: #999;
   font-size: 24rpx;
 }
 </style>
-

@@ -26,7 +26,7 @@
 
       <view class="group-card">
         <view class="card-header">
-          <image class="avatar" :src="activeGroup.avatar || '/static/default-avatar.png'" mode="aspectFill" />
+          <image class="avatar" :src="activeGroupAvatar" mode="aspectFill" />
           <view class="header-info">
             <text class="name">{{ activeGroup.name }}</text>
             <view class="role-badge">
@@ -106,7 +106,14 @@
 
 <script setup>
 import { computed, ref, onMounted } from 'vue';
-import { getMyRunGroups, leaveRunGroup, deleteRunGroup, getGroupMembers, getGroupActivities } from '@/utils/request.js';
+import {
+  getMyRunGroups,
+  leaveRunGroup,
+  deleteRunGroup,
+  getGroupMembers,
+  getGroupActivities,
+  resolveMediaUrl
+} from '@/utils/request.js';
 
 const joinedGroups = ref([]);
 const activeGroupId = ref(null);
@@ -115,6 +122,11 @@ const members = ref([]);
 const activities = ref([]);
 
 const activeGroup = computed(() => joinedGroups.value.find(group => group.id === activeGroupId.value) || null);
+
+const activeGroupAvatar = computed(() => {
+  if (!activeGroup.value?.avatar) return '/static/default-avatar.png';
+  return resolveMediaUrl(activeGroup.value.avatar);
+});
 
 const resetTabData = () => {
   members.value = [];

@@ -11,7 +11,7 @@
       <!-- 1. 账号主页（顶部） -->
       <view class="user-header">
         <view class="avatar-box">
-          <image class="avatar" src="/static/avatar.png" mode="aspectFill"></image>
+          <image class="avatar" :src="avatarUrl" mode="aspectFill"></image>
           <button class="edit-avatar" @click="gotoUserProfile">编辑资料</button>
         </view>
         <view class="user-info">
@@ -156,9 +156,10 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import { request, getStudentTaskRunHistory } from '@/utils/request.js';
+import { request, getStudentTaskRunHistory, resolveMediaUrl } from '@/utils/request.js';
 
 const statusBarHeight = ref(20);
+const avatarUrl = ref('/static/avatar.png');
 
 const userName = ref('同学');
 const userType = ref('学生');
@@ -286,10 +287,11 @@ const fetchUserProfile = async () => {
             method: 'GET'
         });
         if (res) {
-            if (res.name) userName.value = res.name;
-            if (res.class_name) className.value = res.class_name;
-            
-            // Update storage
+        if (res.name) userName.value = res.name;
+        if (res.class_name) className.value = res.class_name;
+        avatarUrl.value = res.avatar_url ? resolveMediaUrl(res.avatar_url) : '/static/avatar.png';
+        
+        // Update storage
             let currentUser = uni.getStorageSync('userInfo');
             if (typeof currentUser === 'string') {
                 try { currentUser = JSON.parse(currentUser); } catch(e) { currentUser = {}; }
@@ -318,6 +320,7 @@ const onPageShow = () => {
     if (u) {
         if(u.name) userName.value = u.name;
         if(u.class_name) className.value = u.class_name;
+        avatarUrl.value = u.avatar_url ? resolveMediaUrl(u.avatar_url) : '/static/avatar.png';
     }
   }
   

@@ -167,7 +167,7 @@ const handleSave = async () => {
     return;
   }
 
-  if (!/^1\\d{10}$/.test(phone)) {
+  if (!/^1\d{10}$/.test(phone)) {
     uni.showToast({ title: '手机号格式不正确', icon: 'none' });
     return;
   }
