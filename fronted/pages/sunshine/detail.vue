@@ -111,7 +111,7 @@
             <text class="col">每多跑 1 次 +2 分</text>
           </view>
           <view class="table-row key">
-            <text class="col">&gt; 40 次</text>
+            <text class="col">40 次以上</text>
             <text class="col">100 分</text>
             <text class="col">满分封顶</text>
           </view>

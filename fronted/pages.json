@@ -397,13 +397,22 @@
     {
       "path": "pages/run-group/activity-create",
       "style": {
-        "navigationBarTitleText": "发起活动"
+        "navigationBarTitleText": "发起活动",
+        "disableScroll": true,
+        "mp-weixin": {
+          "disableScroll": true
+        }
       }
     },
     {
       "path": "pages/run-group/create-activity",
       "style": {
-        "navigationBarTitleText": "发布活动"
+        "navigationBarTitleText": "发布活动",
+        "navigationStyle": "custom",
+        "disableScroll": true,
+        "mp-weixin": {
+          "disableScroll": true
+        }
       }
     },
     {

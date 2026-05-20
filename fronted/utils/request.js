@@ -19,6 +19,36 @@ try {
 
 export const BASE_URL = baseUrl;
 
+/** 避免多个接口同时 401 时重复弹 Toast、重复 reLaunch */
+let sessionRedirecting = false;
+
+export function getStoredToken() {
+  const t = uni.getStorageSync('token');
+  return t ? String(t).trim() : '';
+}
+
+export function isAuthError(err) {
+  return !!(err && (err.type === 'auth' || err.statusCode === 401));
+}
+
+/** 登录过期或未登录：清缓存并跳转登录页（全局只处理一次） */
+export function handleSessionExpired(message = '登录已过期，请重新登录') {
+  if (sessionRedirecting) return;
+  sessionRedirecting = true;
+  uni.removeStorageSync('token');
+  uni.removeStorageSync('userInfo');
+  uni.removeStorageSync('userRole');
+  uni.showToast({ title: message, icon: 'none', duration: 2000 });
+  setTimeout(() => {
+    uni.reLaunch({
+      url: '/pages/login/login',
+      complete: () => {
+        sessionRedirecting = false;
+      }
+    });
+  }, 600);
+}
+
 /** 静态资源（/uploads 等）在站点根路径，不在 /api 下；勿用 BASE_URL 直接拼接 */
 export function resolveMediaUrl(pathOrUrl) {
   if (pathOrUrl == null || pathOrUrl === '') return '';
@@ -39,48 +69,47 @@ export const request = (...args) => {
   }
   
   return new Promise((resolve, reject) => {
-    // 获取 Token
-    const token = uni.getStorageSync('token');
-    
+    const url = options.url || '';
+    const isLoginRequest = url.indexOf('/auth/login') !== -1;
+    const isRegisterRequest = url.indexOf('/auth/register') !== -1;
+    const isPublicAuth = isLoginRequest || isRegisterRequest;
+    const token = getStoredToken();
+
+    if (!isPublicAuth && !token) {
+      handleSessionExpired('请先登录');
+      reject({ type: 'auth', message: '未登录' });
+      return;
+    }
+
     // 组装 Header
     const header = {
       'Content-Type': 'application/json',
       ...(options.header || {})
     };
-    
+
     if (token) {
       header['Authorization'] = `Bearer ${token}`;
     }
 
     uni.request({
-      url: `${BASE_URL}${options.url}`,
+      url: `${BASE_URL}${url}`,
       method: options.method || 'GET',
       data: options.data || {},
       header: header,
       timeout: typeof options.timeout === 'number' ? options.timeout : 60000,
       success: (res) => {
+        if (res.statusCode === 204) {
+          resolve(null);
+          return;
+        }
         if (res.statusCode >= 200 && res.statusCode < 300) {
           resolve(res.data);
         } else if (res.statusCode === 401) {
-          const isLoginRequest = (options.url || '').indexOf('/auth/login') !== -1;
           if (isLoginRequest) {
-            // 登录接口 401 = 账号或密码错误，交给登录页显示
             const msg = (res.data && res.data.detail) ? res.data.detail : '用户名或密码错误';
             reject({ type: 'server', statusCode: 401, message: msg, data: res.data });
           } else {
-            // 其他接口 401 = Token 失效
-            uni.removeStorageSync('token');
-            uni.removeStorageSync('userInfo');
-            uni.removeStorageSync('userRole');
-            uni.showToast({
-              title: '登录已过期，请重新登录',
-              icon: 'none'
-            });
-            setTimeout(() => {
-              uni.reLaunch({
-                url: '/pages/login/login'
-              });
-            }, 1500);
+            handleSessionExpired();
             reject({ type: 'auth', message: '登录已过期', data: res.data });
           }
         } else {
@@ -286,19 +315,8 @@ export const uploadFile = (filePath, fileType = 'image') => {
             resolve(res.data);
           }
         } else if (res.statusCode === 401) {
-          // Token 失效，跳转登录
-          uni.removeStorageSync('token');
-          uni.removeStorageSync('userInfo');
-          uni.showToast({
-            title: '登录已过期，请重新登录',
-            icon: 'none'
-          });
-          setTimeout(() => {
-            uni.reLaunch({
-              url: '/pages/login/login'
-            });
-          }, 1500);
-          reject(res);
+          handleSessionExpired();
+          reject({ type: 'auth', statusCode: 401, message: '登录已过期' });
         } else {
           let errorMsg = '上传失败';
           try {

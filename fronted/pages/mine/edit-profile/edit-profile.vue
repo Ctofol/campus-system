@@ -2,26 +2,16 @@
   <view class="edit-profile-page">
     <view class="form-section">
       <view class="form-item avatar-item">
-        <text class="label">头像</text>
-        <!-- #ifdef MP-WEIXIN -->
-        <button
-          class="avatar-trigger"
-          open-type="chooseAvatar"
-          @chooseavatar="handleChooseAvatar"
-        >
-          <view class="avatar-preview">
+        <view class="avatar-row">
+          <text class="label">头像</text>
+          <view class="avatar-preview" @click="chooseAvatar">
             <image :src="avatarUrl" mode="aspectFill" class="avatar-img" />
-            <text class="change-text">点击更换</text>
+            <view class="change-copy">
+              <text class="change-text">点击更换</text>
+              <text class="change-sub">相册 / 拍照</text>
+            </view>
           </view>
-        </button>
-        <!-- #endif -->
-        <!-- #ifndef MP-WEIXIN -->
-        <view class="avatar-preview" @click="chooseAvatar">
-          <image :src="avatarUrl" mode="aspectFill" class="avatar-img" />
-          <text class="change-text">点击更换</text>
         </view>
-        <!-- #endif -->
-        <text class="arrow">></text>
       </view>
 
       <view class="form-item">
@@ -75,6 +65,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { request, uploadFile, resolveMediaUrl } from '@/utils/request.js';
+import { pickAvatarFromAlbum } from '@/utils/avatar-picker.js';
 
 const avatarUrl = ref('/static/avatar.png');
 const saving = ref(false);
@@ -119,16 +110,13 @@ const loadUserProfile = async () => {
   }
 };
 
-const chooseAvatar = () => {
-  uni.chooseImage({
-    count: 1,
-    sizeType: ['compressed'],
-    sourceType: ['album', 'camera'],
-    success: async (res) => {
-      const tempFilePath = res.tempFilePaths[0];
-      await uploadAvatar(tempFilePath);
-    }
-  });
+const chooseAvatar = async () => {
+  try {
+    const tempFilePath = await pickAvatarFromAlbum();
+    await uploadAvatar(tempFilePath);
+  } catch (e) {
+    // 已在 pickAvatarFromAlbum 内提示隐私配置
+  }
 };
 
 const uploadAvatar = async (filePath) => {
@@ -145,12 +133,6 @@ const uploadAvatar = async (filePath) => {
     console.error('Upload failed:', e);
     uni.showToast({ title: '上传失败', icon: 'none' });
   }
-};
-
-const handleChooseAvatar = async (event) => {
-  const filePath = event?.detail?.avatarUrl;
-  if (!filePath) return;
-  await uploadAvatar(filePath);
 };
 
 const handleSave = async () => {
@@ -247,7 +229,20 @@ const handleSave = async () => {
 }
 
 .avatar-item {
-  min-height: 160rpx;
+  flex-direction: column;
+  align-items: stretch;
+  padding-top: 28rpx;
+  padding-bottom: 28rpx;
+}
+
+.avatar-row {
+  display: flex;
+  align-items: center;
+}
+
+.avatar-item .label {
+  align-self: flex-start;
+  padding-top: 36rpx;
 }
 
 .signature-item {
@@ -295,10 +290,26 @@ const handleSave = async () => {
 
 .avatar-preview {
   flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 20rpx;
+  gap: 24rpx;
+  /* 避开微信右上角胶囊，避免文字被遮挡 */
+  padding-right: 200rpx;
+  box-sizing: border-box;
+}
+
+.change-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6rpx;
+}
+
+.change-sub {
+  font-size: 22rpx;
+  color: #999;
 }
 
 .avatar-trigger {
@@ -325,12 +336,6 @@ const handleSave = async () => {
 .change-text {
   font-size: 24rpx;
   color: #20c997;
-}
-
-.arrow {
-  margin-left: 10rpx;
-  font-size: 30rpx;
-  color: #c7c7c7;
 }
 
 .button-section {
