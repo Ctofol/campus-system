@@ -1,12 +1,12 @@
-<template>
+﻿<template>
   <view class="run">
     <!-- Custom Navigation Bar -->
     <view class="custom-navbar" :style="{paddingTop: statusBarHeight + 'px'}">
       <view class="navbar-content">
         <view class="navbar-left" @click="goBack">
-          <text class="back-icon">←</text>
+          <text class="back-icon">鈫?/text>
         </view>
-        <text class="navbar-title">跑步</text>
+        <text class="navbar-title">璺戞</text>
         <view class="navbar-right"></view>
       </view>
     </view>
@@ -21,32 +21,33 @@
     
     <!-- AI Robot Float Button -->
     <view class="ai-float-btn" @click="openAiRobot" v-if="isRunning || distance > 0">
-      <text class="ai-btn-icon">🤖</text>
-      <text class="ai-btn-text">AI助手</text>
+      <text class="ai-btn-icon">馃</text>
+      <text class="ai-btn-text">AI鍔╂墜</text>
     </view>
 
-    <!-- 1. 搜索打卡点（仅校园打卡用） -->
+    <!-- 1. 鎼滅储鎵撳崱鐐癸紙浠呮牎鍥墦鍗＄敤锛?-->
     <view class="search-bar" v-if="currentMode === 'campus'">
-      <input 
-        v-model="checkpointName" 
-        placeholder="输入校园打卡点（如：操场/跑道）"
-        class="search-input"
-      />
-      <!-- Map Select Button -->
-      <view class="map-select-btn" @click="handleMapSelect">
-        <text class="map-icon">🗺️</text>
+      <view class="map-select-panel">
+        <view class="map-select-btn" @click="handleMapSelect">
+          <text class="map-icon">📍</text>
+          <view class="map-select-copy">
+            <text class="map-select-title">选择校园打卡点</text>
+            <text class="map-select-desc">点这里从地图上选位置</text>
+          </view>
+          <text class="map-select-arrow">></text>
+        </view>
+        <text class="map-select-hint">选点后会自动匹配最近的有效打卡点</text>
       </view>
-      <button @click="searchCheckpoint" class="search-btn">搜索</button>
     </view>
 
-    <!-- 2. 地图展示 -->
+    <!-- 2. 鍦板浘灞曠ず -->
     <view class="overview-card">
-      <text class="overview-title">今日跑步概览</text>
+      <text class="overview-title">浠婃棩璺戞姒傝</text>
       <view class="overview-meta">
-        <text>次数：{{ todayRunCount }}</text>
-        <text>里程：{{ todayRunDistance }} km</text>
+        <text>娆℃暟锛歿{ todayRunCount }}</text>
+        <text>閲岀▼锛歿{ todayRunDistance }} km</text>
       </view>
-      <text v-if="teacherRunTask" class="task-tip">教师任务：{{ teacherRunTask }}</text>
+      <text v-if="teacherRunTask" class="task-tip">鏁欏笀浠诲姟锛歿{ teacherRunTask }}</text>
     </view>
     <map 
       v-if="isMapReady"
@@ -66,121 +67,145 @@
        </cover-view>
     </map>
 
-    <!-- 2.5 推荐路线（新增） -->
+    <!-- 2.5 鎺ㄨ崘璺嚎锛堟柊澧烇級 -->
     <view class="routes-card" v-if="currentMode === 'normal'">
       <view class="card-header" @click="toggleRoutes">
-        <text class="card-title">🏃 推荐路线</text>
-        <text class="card-toggle">{{ showRoutes ? '收起' : '展开' }}</text>
+        <text class="card-title">馃弮 鎺ㄨ崘璺嚎</text>
+        <text class="card-toggle">{{ showRoutes ? '鏀惰捣' : '灞曞紑' }}</text>
       </view>
       <view class="routes-list" v-if="showRoutes">
         <view class="route-item" v-for="(route, idx) in recommendRoutes" :key="idx" @click="useRoute(route)">
           <view class="route-info">
             <text class="route-name">{{ route.name }}</text>
-            <text class="route-meta">{{ route.distance }}km · {{ route.difficulty }}</text>
+            <text class="route-meta">{{ route.distance }}km 路 {{ route.difficulty }}</text>
           </view>
-          <text class="route-action">去跑步 ></text>
+          <text class="route-action">鍘昏窇姝?></text>
         </view>
       </view>
     </view>
 
-    <!-- 3. 核心跑步模式切换（任务跑锁定为「专项测试」中间页） -->
+    <!-- 3. 鏍稿績璺戞妯″紡鍒囨崲锛堜换鍔¤窇閿佸畾涓恒€屼笓椤规祴璇曘€嶄腑闂撮〉锛?-->
     <view class="mode-switch" v-if="!taskRunLocked">
-      <text class="mode-item" :class="{active: currentMode === 'normal'}" @click="switchMode('normal')">普通跑步</text>
-      <text class="mode-item" :class="{active: currentMode === 'police'}" @click="switchMode('police')">专项测试</text>
-      <text class="mode-item" :class="{active: currentMode === 'campus'}" @click="switchMode('campus')">校园打卡</text>
+      <text class="mode-item" :class="{active: currentMode === 'normal'}" @click="switchMode('normal')">鏅€氳窇姝?/text>
+      <text class="mode-item" :class="{active: currentMode === 'police'}" @click="switchMode('police')">涓撻」娴嬭瘯</text>
+      <text class="mode-item" :class="{active: currentMode === 'campus'}" @click="switchMode('campus')">鏍″洯鎵撳崱</text>
     </view>
     <view v-else class="task-mode-hint">
-      <text class="task-mode-hint-text">📋 任务跑步（专项跑）· 已锁定模式</text>
+      <text class="task-mode-hint-text">馃搵 浠诲姟璺戞锛堜笓椤硅窇锛壜?宸查攣瀹氭ā寮?/text>
     </view>
 
-    <!-- 4. 专项测试计划 / 任务要求 -->
+    <!-- 4. 涓撻」娴嬭瘯璁″垝 / 浠诲姟瑕佹眰 -->
     <view v-if="currentMode === 'police'" class="police-plan">
-  <text class="plan-title">{{ taskRunLocked ? '本次任务要求' : '专项体能训练' }}</text>
+  <text class="plan-title">{{ taskRunLocked ? '鏈浠诲姟瑕佹眰' : '涓撻」浣撹兘璁粌' }}</text>
   <view class="plan-info">
     <view class="info-item">
-      <text>最低距离：</text>
-      <text class="highlight">{{ (policeTargetDistance / 1000).toFixed(1) }} 公里</text>
+      <text>鏈€浣庤窛绂伙細</text>
+      <text class="highlight">{{ (policeTargetDistance / 1000).toFixed(1) }} 鍏噷</text>
     </view>
     <view class="info-item" v-if="taskMinDurationSec > 0">
-      <text>最低时长：</text>
-      <text class="highlight">{{ Math.floor(taskMinDurationSec / 60) }} 分 {{ taskMinDurationSec % 60 }} 秒</text>
+      <text>鏈€浣庢椂闀匡細</text>
+      <text class="highlight">{{ Math.floor(taskMinDurationSec / 60) }} 鍒?{{ taskMinDurationSec % 60 }} 绉?/text>
     </view>
     <view class="info-item">
-      <text>参考配速：</text>
-      <text class="highlight">{{ policeTargetPace }} 分钟/公里</text>
-      <text>（展示用，达标以任务距离/时长为准）</text>
+      <text>鍙傝€冮厤閫燂細</text>
+      <text class="highlight">{{ policeTargetPace }} 鍒嗛挓/鍏噷</text>
+      <text>锛堝睍绀虹敤锛岃揪鏍囦互浠诲姟璺濈/鏃堕暱涓哄噯锛?/text>
     </view>
     <text class="info-item task-desc" v-if="taskRunLocked && taskDescription">{{ taskDescription }}</text>
   </view>
 </view>
 
-    <!-- 5. 普通跑步 -->
+    <!-- 5. 鏅€氳窇姝?-->
     <view v-if="currentMode === 'normal'" class="run-mode-box">
       <view v-if="!isRunning" class="start-box">
-        <text class="tip">无地点/距离限制，自由记录跑步轨迹</text>
-        <button @click="startNormalRun" class="start-btn">开始跑步</button>
+        <text class="tip">鏃犲湴鐐?璺濈闄愬埗锛岃嚜鐢辫褰曡窇姝ヨ建杩?/text>
+        <button @click="startNormalRun" class="start-btn">寮€濮嬭窇姝?/button>
       </view>
       <view v-else class="running-box">
-        <text class="data">时长：{{duration}}秒 | 已跑：{{((distance || 0)/1000).toFixed(2)}}km | 速度：{{currentSpeedKmh}}km/h</text>
-        <text class="data">步数：{{stepCount}} | 心率：{{heartRate}}次/分 | 平均速度：{{avgSpeedKmh}}km/h</text>
+        <text class="data">鏃堕暱锛歿{duration}}绉?| 宸茶窇锛歿{((distance || 0)/1000).toFixed(2)}}km | 閫熷害锛歿{currentSpeedKmh}}km/h</text>
+        <text class="data">姝ユ暟锛歿{stepCount}} | 蹇冪巼锛歿{heartRate}}娆?鍒?| 骞冲潎閫熷害锛歿{avgSpeedKmh}}km/h</text>
         <view class="progress-wrap">
           <view class="progress-bar">
             <view class="progress-fill" :style="{width: normalProgress + '%'}"></view>
           </view>
-          <text class="progress-text">已跑 {{((distance || 0)/1000).toFixed(2)}} km</text>
+          <text class="progress-text">宸茶窇 {{((distance || 0)/1000).toFixed(2)}} km</text>
         </view>
-        <button @click="stopRun" class="stop-btn">结束跑步</button>
+        <button @click="stopRun" class="stop-btn">缁撴潫璺戞</button>
       </view>
     </view>
 
-    <!-- 6. 专项跑步（按2000米目标跑） -->
+    <!-- 6. 涓撻」璺戞锛堟寜2000绫崇洰鏍囪窇锛?-->
     <view v-if="currentMode === 'police'" class="run-mode-box">
       <view v-if="!isRunning" class="start-box">
-        <text class="tip">按课程要求完成2000米跑，自动校验配速是否达标</text>
-        <button @click="startPoliceRun" class="start-btn">开始专项训练</button>
+        <text class="tip">鎸夎绋嬭姹傚畬鎴?000绫宠窇锛岃嚜鍔ㄦ牎楠岄厤閫熸槸鍚﹁揪鏍?/text>
+        <button @click="startPoliceRun" class="start-btn">寮€濮嬩笓椤硅缁?/button>
       </view>
       <view v-else class="running-box">
-        <text class="data">时长：{{duration}}秒 | 已跑：{{(distance/1000).toFixed(2)}}km / 目标：2km</text>
-        <text class="data">剩余：{{(Math.max(0, policeTargetDistance - distance)/1000).toFixed(2)}}km | 配速：{{currentPace.toFixed(1)}}分钟/公里</text>
-        <text class="data">心率：{{heartRate}}次/分 | 步数：{{stepCount}}</text>
+        <text class="data">鏃堕暱锛歿{duration}}绉?| 宸茶窇锛歿{(distance/1000).toFixed(2)}}km / 鐩爣锛?km</text>
+        <text class="data">鍓╀綑锛歿{(Math.max(0, policeTargetDistance - distance)/1000).toFixed(2)}}km | 閰嶉€燂細{{currentPace.toFixed(1)}}鍒嗛挓/鍏噷</text>
+        <text class="data">蹇冪巼锛歿{heartRate}}娆?鍒?| 姝ユ暟锛歿{stepCount}}</text>
         <text class="pace-status" :style="{color: currentPace <= policeTargetPace ? 'green' : 'red'}">
-          {{currentPace <= policeTargetPace ? '✅ 配速达标' : '❌ 配速未达标'}}
+          {{currentPace <= policeTargetPace ? '鉁?閰嶉€熻揪鏍? : '鉂?閰嶉€熸湭杈炬爣'}}
         </text>
-        <!-- 达到目标距离自动提示 -->
-        <text class="finish-tip" v-if="distance >= policeTargetDistance">🎉 已完成2000米目标！</text>
+        <!-- 杈惧埌鐩爣璺濈鑷姩鎻愮ず -->
+        <text class="finish-tip" v-if="distance >= policeTargetDistance">馃帀 宸插畬鎴?000绫崇洰鏍囷紒</text>
         <view class="progress-wrap">
           <view class="progress-bar"><view class="progress-fill" :style="{width: policeProgress + '%'}"></view></view>
-          <text class="progress-text">专项目标 2 km · 完成 {{(distance/1000).toFixed(2)}} km</text>
+          <text class="progress-text">涓撻」鐩爣 2 km 路 瀹屾垚 {{(distance/1000).toFixed(2)}} km</text>
         </view>
-        <button @click="stopRun" class="stop-btn">结束训练</button>
+        <button @click="stopRun" class="stop-btn">缁撴潫璁粌</button>
       </view>
     </view>
 
-    <!-- 7. 校园打卡 -->
+    <!-- 7. 鏍″洯鎵撳崱 -->
     <view v-if="currentMode === 'campus'" class="run-mode-box">
       <view v-if="!checkpoint.name" class="no-checkpoint">
-        <text class="tip">请先搜索校园打卡点</text>
+        <text class="tip">璇峰厛鎼滅储鏍″洯鎵撳崱鐐?/text>
       </view>
       <view v-else>
         <view v-if="!isRunning" class="start-box">
-          <text class="checkpoint-info">打卡点：{{checkpoint.name}}（到达约 {{ checkpoint.radius || 100 }} 米内可判定为已到达）</text>
-          <button @click="startCampusRun" class="start-btn">开始打卡</button>
+          <text class="checkpoint-info">鎵撳崱鐐癸細{{checkpoint.name}}锛堝埌杈剧害 {{ checkpoint.radius || 100 }} 绫冲唴鍙垽瀹氫负宸插埌杈撅級</text>
+          <button @click="startCampusRun" class="start-btn">寮€濮嬫墦鍗?/button>
         </view>
         <view v-else class="running-box">
-          <text class="data">时长：{{duration}}秒 | 距打卡点：{{distanceToCheckpoint}}米 | 步数：{{stepCount}} | 心率：{{heartRate}}次/分</text>
+          <text class="data">鏃堕暱锛歿{duration}}绉?| 璺濇墦鍗＄偣锛歿{distanceToCheckpoint}}绫?| 姝ユ暟锛歿{stepCount}} | 蹇冪巼锛歿{heartRate}}娆?鍒?/text>
           <text class="reach-status" :style="{color: isReach ? 'green' : 'red'}">
-            {{isReach ? '✅ 已到达打卡点' : '❌ 未到达打卡点'}}
+            {{isReach ? '鉁?宸插埌杈炬墦鍗＄偣' : '鉂?鏈埌杈炬墦鍗＄偣'}}
           </text>
-          <button @click="stopRun" class="stop-btn">结束打卡</button>
+          <button @click="stopRun" class="stop-btn">缁撴潫鎵撳崱</button>
         </view>
       </view>
     </view>
     
+    <view v-if="showFaceCamera" class="face-camera-mask">
+      <!-- #ifdef MP-WEIXIN -->
+      <camera
+        id="faceCamera"
+        class="face-camera-view"
+        device-position="front"
+        flash="off"
+        @initdone="handleFaceCameraReady"
+        @error="handleFaceCameraError"
+      />
+      <!-- #endif -->
+      <view class="face-camera-panel">
+        <text class="face-camera-title">{{ faceCapturePhase === 'end' ? '缁撴潫浜鸿劯楠岃瘉' : '寮€濮嬩汉鑴搁獙璇? }}</text>
+        <text class="face-camera-tip">璇锋瑙嗛暅澶存媿鎽勶紝鎷嶇収鍚庝細鐩存帴涓婁紶鐢ㄤ簬鏈璺戞楠岃瘉</text>
+        <text v-if="faceCameraErrorText" class="face-camera-error">{{ faceCameraErrorText }}</text>
+        <view class="face-camera-actions">
+          <button class="face-camera-cancel" @click="cancelFaceCamera">鍙栨秷</button>
+          <button class="face-camera-shoot" :disabled="faceCameraBusy" @click="captureFaceFromInlineCamera">
+            {{ faceCameraBusy ? '涓婁紶涓?..' : '鎷嶇収涓婁紶' }}
+          </button>
+        </view>
+      </view>
+    </view>
+
   </view>
 </template>
 
 <script setup>
-// 统一导入规范
+// 缁熶竴瀵煎叆瑙勮寖
 import { ref, computed, onUnmounted, onMounted, nextTick } from 'vue';
 import AiChatRobot from '@/components/ai-chat-robot/ai-chat-robot.vue';
 import { submitActivity, getCheckpoints, checkIn, uploadFile, getStudentTaskDetail } from '@/utils/request.js';
@@ -191,24 +216,24 @@ const statusBarHeight = ref(20);
 
 const isMapReady = ref(false);
 
-// 返回按钮
+// 杩斿洖鎸夐挳
 const goBack = () => {
   uni.navigateBack({
     delta: 1
   });
 };
 
-// 组件挂载时获取状态栏高度
+// 缁勪欢鎸傝浇鏃惰幏鍙栫姸鎬佹爮楂樺害
 onMounted(() => {
   const sys = uni.getSystemInfoSync();
   statusBarHeight.value = sys.statusBarHeight || 20;
   
-  // 延迟加载地图，防止容器未就绪导致的渲染错误
+  // 寤惰繜鍔犺浇鍦板浘锛岄槻姝㈠鍣ㄦ湭灏辩华瀵艰嚧鐨勬覆鏌撻敊璇?
   setTimeout(() => {
     isMapReady.value = true;
   }, 500);
   
-  // 初始化交给父页 onShow 调用 onPageShow（带 options）；此处不再调用，避免与父页 50ms 后的调用形成「先空后实」被防抖误吞
+  // 鍒濆鍖栦氦缁欑埗椤?onShow 璋冪敤 onPageShow锛堝甫 options锛夛紱姝ゅ涓嶅啀璋冪敤锛岄伩鍏嶄笌鐖堕〉 50ms 鍚庣殑璋冪敤褰㈡垚銆屽厛绌哄悗瀹炪€嶈闃叉姈璇悶
 });
 
 // AI Robot Logic
@@ -224,11 +249,11 @@ const openAiRobot = () => {
   showAiRobot.value = true;
 };
 
-// 页面显示逻辑 (替代 onShow)
+// 椤甸潰鏄剧ず閫昏緫 (鏇夸唬 onShow)
 let isPageActive = false;
 let lastShowTime = 0;
 
-/** 父页 onLoad 传入的启动参数（有 taskId 等时不可被「空 onShow」防抖掉） */
+/** 鐖堕〉 onLoad 浼犲叆鐨勫惎鍔ㄥ弬鏁帮紙鏈?taskId 绛夋椂涓嶅彲琚€岀┖ onShow銆嶉槻鎶栨帀锛?*/
 const hasMeaningfulRunPageOptions = (opt) => {
   if (!opt || typeof opt !== 'object') return false;
   return !!(
@@ -245,7 +270,7 @@ const hasMeaningfulRunPageOptions = (opt) => {
 const onPageShow = (options = {}) => {
     const now = Date.now();
     const forceTask = options && (options.taskId || options.task_id);
-    // 仅跳过「短时间内重复且无路由参数」的抖动；带 taskId/mode 的第二次调用必须执行（否则任务跑、路由参数丢失）
+    // 浠呰烦杩囥€岀煭鏃堕棿鍐呴噸澶嶄笖鏃犺矾鐢卞弬鏁般€嶇殑鎶栧姩锛涘甫 taskId/mode 鐨勭浜屾璋冪敤蹇呴』鎵ц锛堝惁鍒欎换鍔¤窇銆佽矾鐢卞弬鏁颁涪澶憋級
     if (!forceTask && now - lastShowTime < 500 && !hasMeaningfulRunPageOptions(options)) {
         return;
     }
@@ -253,13 +278,13 @@ const onPageShow = (options = {}) => {
 
     isPageActive = true;
     
-    // 更新状态栏高度
+    // 鏇存柊鐘舵€佹爮楂樺害
     const sys = uni.getSystemInfoSync();
     statusBarHeight.value = sys.statusBarHeight || 20;
 
-    // 强制设置导航栏标题和颜色 (虽然是组件，但如果需要动态修改父容器导航栏，也可以保留)
+    // 寮哄埗璁剧疆瀵艰埅鏍忔爣棰樺拰棰滆壊 (铏界劧鏄粍浠讹紝浣嗗鏋滈渶瑕佸姩鎬佷慨鏀圭埗瀹瑰櫒瀵艰埅鏍忥紝涔熷彲浠ヤ繚鐣?
     uni.setNavigationBarTitle({
-      title: '跑步'
+      title: '璺戞'
     });
     uni.setNavigationBarColor({
       frontColor: '#ffffff',
@@ -268,22 +293,22 @@ const onPageShow = (options = {}) => {
     
     const role = uni.getStorageSync('userRole') || uni.getStorageSync('role');
     if (role === 'teacher') {
-      uni.showToast({ title: '该功能仅对学生开放', icon: 'none' });
-      // 注意：这里可能需要父组件配合跳转，或者直接使用 uni.switchTab
+      uni.showToast({ title: '璇ュ姛鑳戒粎瀵瑰鐢熷紑鏀?, icon: 'none' });
+      // 娉ㄦ剰锛氳繖閲屽彲鑳介渶瑕佺埗缁勪欢閰嶅悎璺宠浆锛屾垨鑰呯洿鎺ヤ娇鐢?uni.switchTab
       setTimeout(() => {
-        // 假设 teacher home 也是 tab 页
+        // 鍋囪 teacher home 涔熸槸 tab 椤?
         uni.switchTab({ url: '/pages/tab/home' }); // Correct path to home tab
       }, 800);
       return;
     }
 
-    // 根据性别自动设置普通跑步目标里程
+    // 鏍规嵁鎬у埆鑷姩璁剧疆鏅€氳窇姝ョ洰鏍囬噷绋?
     const userInfo = uni.getStorageSync('userInfo');
     if (userInfo) {
       try {
         const userObj = typeof userInfo === 'string' ? JSON.parse(userInfo) : userInfo;
         const gender = userObj.gender;
-        if (gender === 'male' || gender === '男') {
+        if (gender === 'male' || gender === '鐢?) {
           dailyTarget.value = 3;
         } else {
           dailyTarget.value = 2;
@@ -293,7 +318,7 @@ const onPageShow = (options = {}) => {
       }
     }
 
-    // 处理参数 (合并 onLoad 逻辑)
+    // 澶勭悊鍙傛暟 (鍚堝苟 onLoad 閫昏緫)
     if (options.mode) {
       currentMode.value = options.mode;
     }
@@ -331,7 +356,7 @@ const onPageShow = (options = {}) => {
       teacherRunTask.value = decodeURIComponent(options.taskTitle);
     }
     if (options.course) {
-      uni.showToast({ title: `开始课程：${options.course}`, icon: 'none' });
+      uni.showToast({ title: `寮€濮嬭绋嬶細${options.course}`, icon: 'none' });
     }
 
     const targetMode = uni.getStorageSync('runMode');
@@ -344,9 +369,10 @@ const onPageShow = (options = {}) => {
     
     // Load Checkpoints for Campus Mode
     getCheckpoints().then(data => {
-      availableCheckpoints.value = data;
+      availableCheckpoints.value = Array.isArray(data) ? data : [];
     }).catch(err => {
       console.error('Failed to load checkpoints', err);
+      availableCheckpoints.value = [];
     });
 
     checkpoint.value = {};
@@ -390,6 +416,12 @@ const onPageShow = (options = {}) => {
 const taskRunLocked = ref(false);
 const taskDescription = ref('');
 const taskMinDurationSec = ref(0);
+const showFaceCamera = ref(false);
+const faceCapturePhase = ref('start');
+const faceCameraBusy = ref(false);
+const faceCameraErrorText = ref('');
+let faceCameraResolve = null;
+let faceCameraContext = null;
 
 const loadTaskRequirements = async (tid) => {
   if (!tid) return;
@@ -413,11 +445,11 @@ const loadTaskRequirements = async (tid) => {
     }
   } catch (e) {
     console.error(e);
-    uni.showToast({ title: '加载任务要求失败', icon: 'none' });
+    uni.showToast({ title: '鍔犺浇浠诲姟瑕佹眰澶辫触', icon: 'none' });
   }
 };
 
-// 暴露给父组件 (Merged below)
+// 鏆撮湶缁欑埗缁勪欢 (Merged below)
 // defineExpose({
 //   onPageShow
 // });
@@ -425,7 +457,7 @@ const loadTaskRequirements = async (tid) => {
 const handleShareToTeacher = (card) => {
   // Save shared report to storage for teacher to see (mock)
   const report = {
-    studentName: uni.getStorageSync('userInfo')?.name || '学员',
+    studentName: uni.getStorageSync('userInfo')?.name || '瀛﹀憳',
     time: new Date().toLocaleString(),
     card: card
   };
@@ -436,7 +468,7 @@ const handleShareToTeacher = (card) => {
   uni.setStorageSync('mockSharedReports', sharedReports);
 };
 
-// 概览与任务提示
+// 姒傝涓庝换鍔℃彁绀?
 const todayRunCount = ref(0);
 const todayRunDistance = ref(0);
 const teacherRunTask = ref('');
@@ -445,36 +477,37 @@ const normalProgress = ref(0);
 const policeProgress = ref(0);
 const historyList = ref([]);
 
-// 新增数据
+// 鏂板鏁版嵁
 const showRoutes = ref(false);
 const recommendRoutes = ref([
-  { name: '环校外圈跑', distance: 5.2, difficulty: '中等' },
-  { name: '湖畔林荫道', distance: 3.0, difficulty: '简单' },
-  { name: '体育场冲刺', distance: 1.5, difficulty: '困难' }
+  { name: '鐜牎澶栧湀璺?, distance: 5.2, difficulty: '涓瓑' },
+  { name: '婀栫晹鏋楄崼閬?, distance: 3.0, difficulty: '绠€鍗? },
+  { name: '浣撹偛鍦哄啿鍒?, distance: 1.5, difficulty: '鍥伴毦' }
 ]);
 const toggleRoutes = () => showRoutes.value = !showRoutes.value;
 const availableCheckpoints = ref([]);
 const useRoute = (route) => {
-  uni.showToast({ title: `已加载路线：${route.name}`, icon: 'none' });
+  uni.showToast({ title: `宸插姞杞借矾绾匡細${route.name}`, icon: 'none' });
   dailyTarget.value = route.distance;
 };
 
-// 1. 地图/打卡点数据
+// 1. 鍦板浘/鎵撳崱鐐规暟鎹?
 const locationState = ref('idle'); // idle, locating, success, fail
-/** 最近一次「可开跑」的定位是否来自缓存兜底（真 GPS 未成功），便于提示用户刷新以免里程长期为 0 */
+/** 鏈€杩戜竴娆°€屽彲寮€璺戙€嶇殑瀹氫綅鏄惁鏉ヨ嚜缂撳瓨鍏滃簳锛堢湡 GPS 鏈垚鍔燂級锛屼究浜庢彁绀虹敤鎴峰埛鏂颁互鍏嶉噷绋嬮暱鏈熶负 0 */
 const lastLocationFixWasStale = ref(false);
 let locationRetryTimer = null;
-/** 微信小程序：定位兜底 setTimeout，须在停止跑步与卸载时清除 */
+let locationPromise = null;
+/** 寰俊灏忕▼搴忥細瀹氫綅鍏滃簳 setTimeout锛岄』鍦ㄥ仠姝㈣窇姝ヤ笌鍗歌浇鏃舵竻闄?*/
 let wxLocationWatchdogTimer = null;
-/** 微信小程序：是否已成功开启后台持续定位（与 startLocationUpdateBackground 状态同步） */
+/** 寰俊灏忕▼搴忥細鏄惁宸叉垚鍔熷紑鍚悗鍙版寔缁畾浣嶏紙涓?startLocationUpdateBackground 鐘舵€佸悓姝ワ級 */
 let mpBackgroundLocationActive = false;
-/** 微信真机 map 页 onLocationChange 常不回调：与持续定位并行 2s getLocation，驱动时长/里程 */
+/** 寰俊鐪熸満 map 椤?onLocationChange 甯镐笉鍥炶皟锛氫笌鎸佺画瀹氫綅骞惰 2s getLocation锛岄┍鍔ㄦ椂闀?閲岀▼ */
 let wxRunAssistTimer = null;
-/** 跑步中 GPS 指数平滑状态，减轻小程序端轨迹锯齿与严重偏移抖动 */
+/** 璺戞涓?GPS 鎸囨暟骞虫粦鐘舵€侊紝鍑忚交灏忕▼搴忕杞ㄨ抗閿娇涓庝弗閲嶅亸绉绘姈鍔?*/
 let runLocationSmooth = null;
-/** 已被里程逻辑接纳的有效轨迹点数，用于判断 GPS 速度显示是否进入稳定阶段 */
+/** 宸茶閲岀▼閫昏緫鎺ョ撼鐨勬湁鏁堣建杩圭偣鏁帮紝鐢ㄤ簬鍒ゆ柇 GPS 閫熷害鏄剧ず鏄惁杩涘叆绋冲畾闃舵 */
 let gpsAcceptedPointCount = 0;
-/** 最近一次原始定位采样：用于去重和抑制并行回调导致的静止抖动 */
+/** 鏈€杩戜竴娆″師濮嬪畾浣嶉噰鏍凤細鐢ㄤ簬鍘婚噸鍜屾姂鍒跺苟琛屽洖璋冨鑷寸殑闈欐鎶栧姩 */
 let lastRawLocationSample = null;
 let lastStepDetectedAt = 0;
 let lastStrongStepMotionAt = 0;
@@ -510,8 +543,8 @@ const noteStepMotion = (now) => {
 
 const noteGpsMotion = (now, segmentDistanceM, speedMps, accuracyM) => {
   const goodAccuracy = !Number.isFinite(accuracyM) || accuracyM <= 35;
-  const speedOk = speedMps >= 0.95 && speedMps <= 5.8;
-  const distanceOk = segmentDistanceM >= 3.2;
+  const speedOk = speedMps >= 0.8 && speedMps <= 5.8;
+  const distanceOk = segmentDistanceM >= 2.4;
   if (goodAccuracy && speedOk && distanceOk) {
     gpsMotionBurstCount += 1;
     if (gpsMotionBurstCount >= 2) {
@@ -542,10 +575,10 @@ const classifyMotionTier = ({ speedMps, distanceM, timeDiffS, trustedMotion, rec
   if (stepBacked && segmentSpeed >= 0.7 && segmentDistance >= Math.max(2.2, dt * 0.45)) {
     return 'walk';
   }
-  if (!stepBacked && reliableAccuracy && segmentSpeed >= 2.2 && segmentDistance >= Math.max(6.5, dt * 1.8)) {
+  if (!stepBacked && reliableAccuracy && segmentSpeed >= 1.6 && segmentDistance >= Math.max(4.8, dt * 1.25)) {
     return 'jog';
   }
-  if (!stepBacked && reliableAccuracy && segmentSpeed >= 1.1 && segmentDistance >= Math.max(4.5, dt * 0.9)) {
+  if (!stepBacked && reliableAccuracy && segmentSpeed >= 0.85 && segmentDistance >= Math.max(3.2, dt * 0.65)) {
     return 'walk';
   }
   return 'unknown';
@@ -558,7 +591,7 @@ const getMotionTierConfig = (tier, { coldPhase, weakGpsSignal, earlyMotionStrict
       maxSpeed: 2.45,
       minSpeed: 0.65,
       maxStepDistance: weakGpsSignal ? 9.5 : 12,
-      requiresTrustedMotion: earlyMotionStrict || tightenNoSteps
+      requiresTrustedMotion: weakGpsSignal && (earlyMotionStrict || tightenNoSteps)
     },
     jog: {
       minDistance: weakGpsSignal ? 4.8 : 3.8,
@@ -575,11 +608,11 @@ const getMotionTierConfig = (tier, { coldPhase, weakGpsSignal, earlyMotionStrict
       requiresTrustedMotion: false
     },
     unknown: {
-      minDistance: weakGpsSignal ? 6.5 : 4.8,
-      maxSpeed: tightenNoSteps ? 2.2 : 3.2,
-      minSpeed: 0.9,
-      maxStepDistance: weakGpsSignal ? 6.5 : 8.5,
-      requiresTrustedMotion: true
+      minDistance: weakGpsSignal ? 5.4 : 3.6,
+      maxSpeed: tightenNoSteps ? 2.8 : 3.6,
+      minSpeed: 0.8,
+      maxStepDistance: weakGpsSignal ? 8.5 : 10.5,
+      requiresTrustedMotion: weakGpsSignal || tightenNoSteps
     }
   };
 
@@ -610,7 +643,7 @@ const createCurrentLocationMarker = (latitude, longitude) => ({
   id: 0,
   latitude,
   longitude,
-  title: '当前位置',
+  title: '褰撳墠浣嶇疆',
   iconPath: '/static/location.png',
   width: 38,
   height: 38,
@@ -622,6 +655,9 @@ const createCurrentLocationMarker = (latitude, longitude) => ({
 
 const refreshMarkers = () => {
   const nextMarkers = [];
+  if (Number.isFinite(lat.value) && Number.isFinite(lng.value)) {
+    nextMarkers.push(createCurrentLocationMarker(lat.value, lng.value));
+  }
   if (checkpointMarker.value) {
     nextMarkers.push({ ...checkpointMarker.value });
   }
@@ -646,7 +682,7 @@ const checkinRecords = ref([]); // Store successful check-ins
 const updateMapPolyline = () => {
   const lines = [];
   // 1. Add running trajectory (Blue)
-  // 微信小程序地层图层非常严苛，points必须要>=2个点才会生成路线，空数组反而会报错崩溃
+  // 寰俊灏忕▼搴忓湴灞傚浘灞傞潪甯镐弗鑻涳紝points蹇呴』瑕?=2涓偣鎵嶄細鐢熸垚璺嚎锛岀┖鏁扮粍鍙嶈€屼細鎶ラ敊宕╂簝
   if (runPolyline.value.points && runPolyline.value.points.length >= 2) {
     // Using spread to update reference for better performance in long runs
     lines.push({ ...runPolyline.value, points: [...runPolyline.value.points] });
@@ -673,8 +709,8 @@ const getDistance = (lat1, lng1, lat2, lng2) => {
 };
 
 /**
- * 轨迹折线几何长度（米）：相邻点 Haversine 之和，单段封顶抑制单点飞点。
- * 提交前与 `distance` 对齐，减轻端上滤波过严导致「界面/地图与其它软件更接近 2km，但上报不足 2km → 阳光跑里程不足」。
+ * 杞ㄨ抗鎶樼嚎鍑犱綍闀垮害锛堢背锛夛細鐩搁偦鐐?Haversine 涔嬪拰锛屽崟娈靛皝椤舵姂鍒跺崟鐐归鐐广€?
+ * 鎻愪氦鍓嶄笌 `distance` 瀵归綈锛屽噺杞荤涓婃护娉㈣繃涓ュ鑷淬€岀晫闈?鍦板浘涓庡叾瀹冭蒋浠舵洿鎺ヨ繎 2km锛屼絾涓婃姤涓嶈冻 2km 鈫?闃冲厜璺戦噷绋嬩笉瓒炽€嶃€?
  */
 const computeTrajectoryPathLengthM = (points) => {
   if (!points || points.length < 2) return 0;
@@ -689,7 +725,7 @@ const computeTrajectoryPathLengthM = (points) => {
   return s;
 };
 
-/** 从回调对象或数值中取水平精度（米），用于冷启动防漂移；不用于整段丢弃点 */
+/** 浠庡洖璋冨璞℃垨鏁板€间腑鍙栨按骞崇簿搴︼紙绫筹級锛岀敤浜庡喎鍚姩闃叉紓绉伙紱涓嶇敤浜庢暣娈典涪寮冪偣 */
 const getHorizontalAccuracyM = (accuracyOrRes) => {
   if (accuracyOrRes == null) return NaN;
   if (typeof accuracyOrRes === 'number') {
@@ -712,7 +748,15 @@ const estimateStepsByDistance = (distanceM) => {
 };
 
 const maybeEstimateStepsFromDistance = () => {
-  return;
+  const estimatedSteps = estimateStepsByDistance(distance.value);
+  if (estimatedSteps <= 0) return;
+  const now = Date.now();
+  const sensorLooksMissing =
+    !lastStrongStepMotionAt ||
+    (now - lastStrongStepMotionAt > 12000 && distance.value >= 30);
+  if (stepCount.value === 0 || (sensorLooksMissing && estimatedSteps > stepCount.value + 8)) {
+    stepCount.value = estimatedSteps;
+  }
 };
 
 // Unified location update logic
@@ -780,7 +824,7 @@ const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
 
   if (isRunning.value) {
     syncRunElapsedDisplay();
-    // 不再按 horizontalAccuracy 整段丢弃回调：弱信号下常 >100m，丢弃后里程永远不涨；异常位移已由 d / calculatedSpeed 约束
+    // 涓嶅啀鎸?horizontalAccuracy 鏁存涓㈠純鍥炶皟锛氬急淇″彿涓嬪父 >100m锛屼涪寮冨悗閲岀▼姘歌繙涓嶆定锛涘紓甯镐綅绉诲凡鐢?d / calculatedSpeed 绾︽潫
 
     // 1. Initial point
     if (trajectoryPoints.value.length === 0) {
@@ -789,7 +833,7 @@ const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
         runPolyline.value.points.push({ latitude: workLat, longitude: workLng });
         updateMapPolyline();
         
-        // 修复：第一个点也需要计算打卡点距离
+        // 淇锛氱涓€涓偣涔熼渶瑕佽绠楁墦鍗＄偣璺濈
         if (currentMode.value === 'campus' && checkpoint.value.lat) {
           distanceToCheckpoint.value = Math.floor(getDistance(workLat, workLng, checkpoint.value.lat, checkpoint.value.lng));
           if (distanceToCheckpoint.value <= (checkpoint.value.radius || 100)) { 
@@ -804,7 +848,7 @@ const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
     const d = getDistance(lastPoint.latitude, lastPoint.longitude, workLat, workLng);
     const timeDiff = (nowTs - lastPoint.timestamp) / 1000; // seconds
 
-    // 瞬时速度（m/s）：与是否计入总里程解耦，用于界面速度/配速；微信 onLocationChange 的 speed 常为 -1
+    // 鐬椂閫熷害锛坢/s锛夛細涓庢槸鍚﹁鍏ユ€婚噷绋嬭В鑰︼紝鐢ㄤ簬鐣岄潰閫熷害/閰嶉€燂紱寰俊 onLocationChange 鐨?speed 甯镐负 -1
     const spNum = typeof speed === 'number' && !Number.isNaN(speed) ? speed : -1;
     const calcSp = timeDiff > 0.001 ? d / timeDiff : 0;
     const runGpsSpeedWarmup = !hasReliableGpsMovement() && duration.value < 15 && distance.value < 28;
@@ -818,7 +862,7 @@ const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
       currentSpeed.value = 0;
     }
 
-    // Checkpoint logic - 修复：移出里程过滤逻辑，确保静止时也能刷新距离
+    // Checkpoint logic - 淇锛氱Щ鍑洪噷绋嬭繃婊ら€昏緫锛岀‘淇濋潤姝㈡椂涔熻兘鍒锋柊璺濈
     if (currentMode.value === 'campus' && checkpoint.value.lat) {
       distanceToCheckpoint.value = Math.floor(getDistance(workLat, workLng, checkpoint.value.lat, checkpoint.value.lng));
       // Tolerance increased to 100m as requested for better user experience
@@ -829,12 +873,12 @@ const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
              checkIn({ lat: workLat, lng: workLng, checkpoint_id: checkpoint.value.id })
                .then(res => {
                  if (res.success) {
-                   uni.showToast({ title: '打卡成功！', icon: 'success' });
+                   uni.showToast({ title: '鎵撳崱鎴愬姛锛?, icon: 'success' });
                    checkinRecords.value.push({ checkpoint_id: checkpoint.value.id, time: new Date().toISOString(), lat: workLat, lng: workLng });
                  }
                }).catch(() => {});
            } else {
-              uni.showToast({ title: '已到达打卡点范围！', icon: 'success' });
+              uni.showToast({ title: '宸插埌杈炬墦鍗＄偣鑼冨洿锛?, icon: 'success' });
            }
            uni.setStorageSync('checkpointReached', '1');
         }
@@ -843,21 +887,21 @@ const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
       }
     }
 
-    // 若时间间隔过短，多为重复回调，略放宽避免丢点
+    // 鑻ユ椂闂撮棿闅旇繃鐭紝澶氫负閲嶅鍥炶皟锛岀暐鏀惧閬垮厤涓㈢偣
     if (timeDiff < 0.35) return;
 
     const calculatedSpeed = d / timeDiff;
     const accM = getHorizontalAccuracyM(accuracyOrRes);
-    /** 开跑后约 50s 内 GPS 常抖动出「未动却有里程」；单区间位移封顶，超出只纠偏末点、不计里程 */
+    /** 寮€璺戝悗绾?50s 鍐?GPS 甯告姈鍔ㄥ嚭銆屾湭鍔ㄥ嵈鏈夐噷绋嬨€嶏紱鍗曞尯闂翠綅绉诲皝椤讹紝瓒呭嚭鍙籂鍋忔湯鐐广€佷笉璁￠噷绋?*/
     const coldPhase = duration.value < 50;
-    /** 步数长期为 0 时仅靠 GPS 易累计假里程（漂移）；在出现真实步频前持续收紧（有步数后自动解除） */
+    /** 姝ユ暟闀挎湡涓?0 鏃朵粎闈?GPS 鏄撶疮璁″亣閲岀▼锛堟紓绉伙級锛涘湪鍑虹幇鐪熷疄姝ラ鍓嶆寔缁敹绱э紙鏈夋鏁板悗鑷姩瑙ｉ櫎锛?*/
     const recentStepMotion = hasRecentStepMotion();
     const trustedMotion = hasTrustedRunMotion();
-    const tightenNoSteps = stepCount.value === 0 && !trustedMotion && duration.value >= 12 && duration.value < 180 && distance.value < 500;
+    const tightenNoSteps = stepCount.value === 0 && !trustedMotion && duration.value >= 20 && duration.value < 90 && distance.value < 160;
     const driftTight = coldPhase || tightenNoSteps;
     const weakGpsSignal = Number.isFinite(accM) && accM > 45;
     const veryWeakGpsSignal = Number.isFinite(accM) && accM > 80;
-    const earlyMotionStrict = !trustedMotion && duration.value >= 8 && duration.value < 150 && distance.value < 500;
+    const earlyMotionStrict = !trustedMotion && duration.value >= 10 && duration.value < 45 && distance.value < 120;
     const motionTier = classifyMotionTier({
       speedMps: calculatedSpeed,
       distanceM: d,
@@ -898,8 +942,8 @@ const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
       !trustedMotion &&
       duration.value >= 15 &&
       timeDiff <= 2.6 &&
-      d < Math.max(6, tierConfig.minDistance + 1.2) &&
-      calculatedSpeed < Math.max(1.8, tierConfig.minSpeed + 0.2)
+      d < Math.max(4.5, tierConfig.minDistance + 0.8) &&
+      calculatedSpeed < Math.max(1.5, tierConfig.minSpeed + 0.15)
     ) {
       currentSpeed.value = 0;
       return;
@@ -908,8 +952,8 @@ const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
     if (
       earlyMotionStrict &&
       timeDiff <= 3.2 &&
-      d < Math.max(8, tierConfig.minDistance + 2.2) &&
-      calculatedSpeed < Math.max(2.4, tierConfig.minSpeed + 0.7)
+      d < Math.max(5.5, tierConfig.minDistance + 1.4) &&
+      calculatedSpeed < Math.max(1.8, tierConfig.minSpeed + 0.35)
     ) {
       currentSpeed.value = 0;
       return;
@@ -918,8 +962,8 @@ const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
     if (
       earlyMotionStrict &&
       weakGpsSignal &&
-      d < Math.max(12, tierConfig.minDistance + 3.8) &&
-      calculatedSpeed < Math.max(3.2, tierConfig.minSpeed + 1.2)
+      d < Math.max(8, tierConfig.minDistance + 2.2) &&
+      calculatedSpeed < Math.max(2.3, tierConfig.minSpeed + 0.7)
     ) {
       currentSpeed.value = 0;
       return;
@@ -930,11 +974,11 @@ const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
         const gpsLooksGood = (!Number.isFinite(accM) || accM <= 28) && calculatedSpeed >= 1.1 && d >= 4.5;
         const canTrustThisSegment = trustedMotion || recentStepMotion || gpsLooksGood || gpsAcceptedPointCount >= 4;
         const trustedByTier = !tierConfig.requiresTrustedMotion || trustedMotion || recentStepMotion;
-        if (!trustedByTier && duration.value >= 8 && distance.value < 600) {
+        if (!trustedByTier && duration.value >= 8 && distance.value < 180) {
           currentSpeed.value = 0;
           return;
         }
-        if (!canTrustThisSegment && duration.value >= 10 && distance.value < 600) {
+        if (!canTrustThisSegment && duration.value >= 10 && distance.value < 180) {
           currentSpeed.value = 0;
           return;
         }
@@ -988,7 +1032,7 @@ const startRealLocationTracking = () => {
   }, 1000);
   // #endif
   // #ifdef MP-WEIXIN
-  // 息屏/切后台：须先 startLocationUpdate，再 startLocationUpdateBackground；manifest requiredBackgroundModes + 用户授权
+  // 鎭睆/鍒囧悗鍙帮細椤诲厛 startLocationUpdate锛屽啀 startLocationUpdateBackground锛沵anifest requiredBackgroundModes + 鐢ㄦ埛鎺堟潈
   if (wxLocationWatchdogTimer) {
     clearTimeout(wxLocationWatchdogTimer);
     wxLocationWatchdogTimer = null;
@@ -1014,7 +1058,7 @@ const startRealLocationTracking = () => {
       } catch (e) {}
       locationCallback = null;
     }
-    uni.showToast({ title: '定位服务兼容模式已启动', icon: 'none' });
+    uni.showToast({ title: '瀹氫綅鏈嶅姟鍏煎妯″紡宸插惎鍔?, icon: 'none' });
     if (h5LocationTimer) {
       clearTimeout(h5LocationTimer);
       clearInterval(h5LocationTimer);
@@ -1043,7 +1087,7 @@ const startRealLocationTracking = () => {
     };
     h5LocationTimer = setTimeout(pollTick, 0);
   };
-  /** 须在 startLocationUpdate 成功之后再调 startLocationUpdateBackground；禁止先卡「后台定位授权」再开前台，否则部分真机全程无 onLocationChange、里程/计时为 0 */
+  /** 椤诲湪 startLocationUpdate 鎴愬姛涔嬪悗鍐嶈皟 startLocationUpdateBackground锛涚姝㈠厛鍗°€屽悗鍙板畾浣嶆巿鏉冦€嶅啀寮€鍓嶅彴锛屽惁鍒欓儴鍒嗙湡鏈哄叏绋嬫棤 onLocationChange銆侀噷绋?璁℃椂涓?0 */
   const tryStartWxBackgroundAfterForeground = () => {
     try {
       uni.authorize({
@@ -1053,17 +1097,17 @@ const startRealLocationTracking = () => {
             type: 'gcj02',
             success: () => {
               mpBackgroundLocationActive = true;
-              uni.showToast({ title: '已开启后台定位，息屏可继续记录', icon: 'none', duration: 2000 });
+              uni.showToast({ title: '宸插紑鍚悗鍙板畾浣嶏紝鎭睆鍙户缁褰?, icon: 'none', duration: 2000 });
             },
             fail: () => {
               mpBackgroundLocationActive = false;
-              uni.showToast({ title: '后台定位未开启，前台仍会记录轨迹', icon: 'none', duration: 2200 });
+              uni.showToast({ title: '鍚庡彴瀹氫綅鏈紑鍚紝鍓嶅彴浠嶄細璁板綍杞ㄨ抗', icon: 'none', duration: 2200 });
             }
           });
         },
         fail: () => {
           mpBackgroundLocationActive = false;
-          uni.showToast({ title: '未开后台定位时息屏可能暂停，可在设置中开启', icon: 'none', duration: 2600 });
+          uni.showToast({ title: '鏈紑鍚庡彴瀹氫綅鏃舵伅灞忓彲鑳芥殏鍋滐紝鍙湪璁剧疆涓紑鍚?, icon: 'none', duration: 2600 });
         }
       });
     } catch (e) {
@@ -1078,17 +1122,17 @@ const startRealLocationTracking = () => {
     },
     fail: () => startPollFallback()
   });
-  // 部分真机 startLocationUpdate 成功但长时间无 onLocationChange，用轮询兜底
+  // 閮ㄥ垎鐪熸満 startLocationUpdate 鎴愬姛浣嗛暱鏃堕棿鏃?onLocationChange锛岀敤杞鍏滃簳
   wxLocationWatchdogTimer = setTimeout(() => {
     wxLocationWatchdogTimer = null;
     if (!isRunning.value || h5LocationTimer) return;
-    // 旧条件 trajectory<=2：GPS 抖动多点后永远不触发兜底，导致全程 0
+    // 鏃ф潯浠?trajectory<=2锛欸PS 鎶栧姩澶氱偣鍚庢案杩滀笉瑙﹀彂鍏滃簳锛屽鑷村叏绋?0
     if (distance.value < 8) {
       console.log('WX: watchdog starting location poll fallback');
       startPollFallback();
     }
   }, 4000);
-  // 与 onLocationChange 并行：map 页 setInterval 常被节流到停表，用 setTimeout 递归；每拍先同步墙钟时长，避免仅靠跑步时钟时界面一直 0
+  // 涓?onLocationChange 骞惰锛歮ap 椤?setInterval 甯歌鑺傛祦鍒板仠琛紝鐢?setTimeout 閫掑綊锛涙瘡鎷嶅厛鍚屾澧欓挓鏃堕暱锛岄伩鍏嶄粎闈犺窇姝ユ椂閽熸椂鐣岄潰涓€鐩?0
   clearWxRunAssistTimer();
   const wxAssistTick = () => {
     if (!isRunning.value) return;
@@ -1102,7 +1146,7 @@ const startRealLocationTracking = () => {
       .catch(() => {})
       .finally(() => {
         if (!isRunning.value) return;
-        // startPollFallback 已切到 h5LocationTimer 轮询时，勿再挂 wx 辅助定时器，避免双通道重复
+        // startPollFallback 宸插垏鍒?h5LocationTimer 杞鏃讹紝鍕垮啀鎸?wx 杈呭姪瀹氭椂鍣紝閬垮厤鍙岄€氶亾閲嶅
         if (h5LocationTimer) return;
         wxRunAssistTimer = setTimeout(wxAssistTick, 2000);
       });
@@ -1119,7 +1163,7 @@ const startRealLocationTracking = () => {
     },
     fail: (err) => {
       console.log('startLocationUpdate failed:', err);
-      uni.showToast({ title: '定位服务兼容模式已启动', icon: 'none' });
+      uni.showToast({ title: '瀹氫綅鏈嶅姟鍏煎妯″紡宸插惎鍔?, icon: 'none' });
       if (h5LocationTimer) clearInterval(h5LocationTimer);
       let preferredType = 'gcj02';
       const doPoll = () => {
@@ -1153,7 +1197,7 @@ const stopRealLocationTracking = () => {
   }
   // #ifndef H5
   // #ifdef MP-WEIXIN
-  // 未关闭后台持续定位时，部分机型第二次 startLocationUpdate 异常、全程无点（时长/里程一直 0）
+  // 鏈叧闂悗鍙版寔缁畾浣嶆椂锛岄儴鍒嗘満鍨嬬浜屾 startLocationUpdate 寮傚父銆佸叏绋嬫棤鐐癸紙鏃堕暱/閲岀▼涓€鐩?0锛?
   if (mpBackgroundLocationActive) {
     try {
       uni.stopLocationUpdateBackground({ complete: () => {} });
@@ -1173,23 +1217,23 @@ const stopRealLocationTracking = () => {
   lastRawLocationSample = null;
 };
 
-// 2. 跑步核心配置
-const currentMode = ref('normal'); // normal-普通 police-警务 campus-校园
+// 2. 璺戞鏍稿績閰嶇疆
+const currentMode = ref('normal'); // normal-鏅€?police-璀﹀姟 campus-鏍″洯
 const isRunning = ref(false);
 const duration = ref(0);
-/** 微信小程序 map 页常见 setInterval 被节流/停表，用墙钟 + 分段基准保证时长与心率可更新 */
+/** 寰俊灏忕▼搴?map 椤靛父瑙?setInterval 琚妭娴?鍋滆〃锛岀敤澧欓挓 + 鍒嗘鍩哄噯淇濊瘉鏃堕暱涓庡績鐜囧彲鏇存柊 */
 const runActiveBaseSec = ref(0);
 const runSegmentStartMs = ref(0);
-const distance = ref(0); // 已跑距离（米）
+const distance = ref(0); // 宸茶窇璺濈锛堢背锛?
 const distanceToCheckpoint = ref('---');
 const isReach = ref(false);
 const stepCount = ref(0);
 const heartRate = ref(80);
-const currentSpeed = ref(0); // 实时速度 m/s
-const maxSpeed = ref(0); // 最大速度 m/s
-// 警务专项（tickPoliceFinishHint 依赖，须早于跑步时钟函数）
-const policeTargetDistance = ref(2000); // 固定2000米
-const policeTargetPace = ref(6.5); // 达标配速：6.5分钟/公里（男生标准）
+const currentSpeed = ref(0); // 瀹炴椂閫熷害 m/s
+const maxSpeed = ref(0); // 鏈€澶ч€熷害 m/s
+// 璀﹀姟涓撻」锛坱ickPoliceFinishHint 渚濊禆锛岄』鏃╀簬璺戞鏃堕挓鍑芥暟锛?
+const policeTargetDistance = ref(2000); // 鍥哄畾2000绫?
+const policeTargetPace = ref(6.5); // 杈炬爣閰嶉€燂細6.5鍒嗛挓/鍏噷锛堢敺鐢熸爣鍑嗭級
 let timer = null;
 
 const syncRunElapsedDisplay = () => {
@@ -1208,12 +1252,12 @@ const clearRunTickTimer = () => {
 const tickPoliceFinishHint = () => {
   if (currentMode.value !== 'police') return;
   if (distance.value >= policeTargetDistance.value && !uni.getStorageSync('policeFinishTip')) {
-    uni.showToast({ title: `已完成 ${(policeTargetDistance.value / 1000).toFixed(2)} 公里目标！`, icon: 'success' });
+    uni.showToast({ title: `宸插畬鎴?${(policeTargetDistance.value / 1000).toFixed(2)} 鍏噷鐩爣锛乣, icon: 'success' });
     uni.setStorageSync('policeFinishTip', '1');
   }
 };
 
-/** 微信真机 map 场景下优先用 setTimeout 递归，避免 setInterval 完全不触发 */
+/** 寰俊鐪熸満 map 鍦烘櫙涓嬩紭鍏堢敤 setTimeout 閫掑綊锛岄伩鍏?setInterval 瀹屽叏涓嶈Е鍙?*/
 const scheduleRunClock = () => {
   clearRunTickTimer();
   if (!isRunning.value) return;
@@ -1242,7 +1286,7 @@ const endFaceUrl = ref(null);
 const taskId = ref(null);
 const taskType = ref(null);
 
-// 计算当前配速（分钟/公里）：里程尚短时用瞬时速度推算，避免一直显示 0
+// 璁＄畻褰撳墠閰嶉€燂紙鍒嗛挓/鍏噷锛夛細閲岀▼灏氱煭鏃剁敤鐬椂閫熷害鎺ㄧ畻锛岄伩鍏嶄竴鐩存樉绀?0
 const currentPace = computed(() => {
   const km = distance.value / 1000;
   const min = duration.value / 60;
@@ -1260,7 +1304,7 @@ const currentPace = computed(() => {
   if (overall > 0 && overall < 999) return overall;
   return 0;
 });
-// 实时速度 (km/h)：开跑后短时内不展示 GPS 推算值；无步数且里程可疑时不展示，抑制静止漂移
+// 瀹炴椂閫熷害 (km/h)锛氬紑璺戝悗鐭椂鍐呬笉灞曠ず GPS 鎺ㄧ畻鍊硷紱鏃犳鏁颁笖閲岀▼鍙枒鏃朵笉灞曠ず锛屾姂鍒堕潤姝㈡紓绉?
 const currentSpeedKmh = computed(() => {
   if (!isRunning.value) return '0.0';
   if (duration.value < 12 && distance.value < 20) {
@@ -1273,7 +1317,7 @@ const currentSpeedKmh = computed(() => {
   if (v < 0.2) return '0.0';
   return v.toFixed(1);
 });
-// 平均速度 (km/h)：里程尚短或开跑不久时置 0；无步数时暂不展示平均速度，避免与漂移里程一起误导
+// 骞冲潎閫熷害 (km/h)锛氶噷绋嬪皻鐭垨寮€璺戜笉涔呮椂缃?0锛涙棤姝ユ暟鏃舵殏涓嶅睍绀哄钩鍧囬€熷害锛岄伩鍏嶄笌婕傜Щ閲岀▼涓€璧疯瀵?
 const avgSpeedKmh = computed(() => {
   if (!isRunning.value) return '0.0';
   if (duration.value < 12 || duration.value === 0) return '0.0';
@@ -1287,7 +1331,7 @@ uni.$on('onLocationChosen', (res) => {
   processSelectedLocation(res);
 });
 
-// 4. 定位优化（含权限申请+校园围栏）
+// 4. 瀹氫綅浼樺寲锛堝惈鏉冮檺鐢宠+鏍″洯鍥存爮锛?
 const startLocationService = () => {
   getLocation(); // First try
   
@@ -1335,7 +1379,7 @@ onUnmounted(() => {
 
 const getLocation = () => {
   // #ifdef MP-WEIXIN
-  /** 冷启动时立刻 getLocation 常无回调；授权/已授权后 nextTick + 短延迟再拉取，与「重进小程序就好」同类问题 */
+  /** 鍐峰惎鍔ㄦ椂绔嬪埢 getLocation 甯告棤鍥炶皟锛涙巿鏉?宸叉巿鏉冨悗 nextTick + 鐭欢杩熷啀鎷夊彇锛屼笌銆岄噸杩涘皬绋嬪簭灏卞ソ銆嶅悓绫婚棶棰?*/
   const scheduleWxInitialLocate = () => {
     nextTick(() => {
       setTimeout(() => {
@@ -1355,10 +1399,11 @@ const getLocation = () => {
         scope: 'scope.userLocation',
         success: () => scheduleWxInitialLocate(),
         fail: () => {
+          locationState.value = 'fail';
           uni.showModal({
-            title: '权限申请',
-            content: '需要定位权限才能使用打卡/跑步功能，请前往设置开启',
-            confirmText: '去设置',
+            title: '鏉冮檺鐢宠',
+            content: '闇€瑕佸畾浣嶆潈闄愭墠鑳戒娇鐢ㄦ墦鍗?璺戞鍔熻兘锛岃鍓嶅線璁剧疆寮€鍚?,
+            confirmText: '鍘昏缃?,
             success: (res) => {
               if (res.confirm) uni.openSetting();
             }
@@ -1371,10 +1416,11 @@ const getLocation = () => {
         scope: 'scope.userLocation',
         success: () => scheduleWxInitialLocate(),
         fail: () => {
+          locationState.value = 'fail';
           uni.showModal({
-            title: '权限申请',
-            content: '需要定位权限才能使用打卡/跑步功能，请前往设置开启',
-            confirmText: '去设置',
+            title: '鏉冮檺鐢宠',
+            content: '闇€瑕佸畾浣嶆潈闄愭墠鑳戒娇鐢ㄦ墦鍗?璺戞鍔熻兘锛岃鍓嶅線璁剧疆寮€鍚?,
+            confirmText: '鍘昏缃?,
             success: (res) => {
               if (res.confirm) uni.openSetting();
             }
@@ -1386,7 +1432,7 @@ const getLocation = () => {
   // #endif
 
   // #ifndef MP-WEIXIN
-  // App端和H5端直接调用getLocation，系统会自动处理权限请求
+  // App绔拰H5绔洿鎺ヨ皟鐢╣etLocation锛岀郴缁熶細鑷姩澶勭悊鏉冮檺璇锋眰
   doGetLocation();
   // #endif
 };
@@ -1400,7 +1446,7 @@ const handleLocationSuccess = (res) => {
   uni.setStorageSync('lastLocation', { lat: res.latitude, lng: res.longitude });
 
   refreshMarkers();
-  // 校园围栏（仅校园打卡用）
+  // 鏍″洯鍥存爮锛堜粎鏍″洯鎵撳崱鐢級
   const campusLatMin = 39.90;
   const campusLatMax = 39.92;
   const campusLngMin = 116.39;
@@ -1408,38 +1454,38 @@ const handleLocationSuccess = (res) => {
   const isInCampus = res.latitude >= campusLatMin && res.latitude <= campusLatMax 
                   && res.longitude >= campusLngMin && res.longitude <= campusLngMax;
   if (!isInCampus && currentMode.value === 'campus') {
-    uni.showToast({ title: '仅校园内可进行打卡', icon: 'none' });
+    uni.showToast({ title: '浠呮牎鍥唴鍙繘琛屾墦鍗?, icon: 'none' });
   }
 };
 
 const handleLocationError = (err) => {
   console.error('Location failed:', err);
-  let msg = '定位失败';
+  let msg = '瀹氫綅澶辫触';
   let showSettings = false;
 
-  // getCurrentLocation 失败时可能是包装对象，真实 errMsg 在 originalErr
+  // getCurrentLocation 澶辫触鏃跺彲鑳芥槸鍖呰瀵硅薄锛岀湡瀹?errMsg 鍦?originalErr
   const raw = err?.originalErr || err;
   const errMsg = (raw && raw.errMsg) || err?.message || '';
-  if (errMsg.includes('privacy') || errMsg.includes('隐私')) {
-    msg = '需先同意小程序隐私保护指引。请返回首页同意，或重新进入本页后再试。';
+  if (errMsg.includes('privacy') || errMsg.includes('闅愮')) {
+    msg = '闇€鍏堝悓鎰忓皬绋嬪簭闅愮淇濇姢鎸囧紩銆傝杩斿洖棣栭〉鍚屾剰锛屾垨閲嶆柊杩涘叆鏈〉鍚庡啀璇曘€?;
   } else if (errMsg.includes('auth') || errMsg.includes('denied') || errMsg.includes('permission')) {
-    msg = '定位权限被拒绝，请去设置开启';
+    msg = '瀹氫綅鏉冮檺琚嫆缁濓紝璇峰幓璁剧疆寮€鍚?;
     showSettings = true;
   } else if (errMsg.includes('service') || errMsg.includes('unavailable')) {
-    msg = '定位服务不可用，请检查GPS';
+    msg = '瀹氫綅鏈嶅姟涓嶅彲鐢紝璇锋鏌PS';
   }
 
   // #ifdef H5
   if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
-    msg = 'H5定位需HTTPS';
+    msg = 'H5瀹氫綅闇€HTTPS';
   }
   // #endif
 
   if (showSettings) {
      uni.showModal({
-       title: '权限提示',
+       title: '鏉冮檺鎻愮ず',
        content: msg,
-       confirmText: '去设置',
+       confirmText: '鍘昏缃?,
        success: (res) => {
          if (res.confirm) uni.openSetting();
        }
@@ -1448,110 +1494,118 @@ const handleLocationError = (err) => {
      uni.showToast({ title: msg, icon: 'none', duration: 3000 });
   }
   
-  // 更新状态为失败
+  // 鏇存柊鐘舵€佷负澶辫触
   locationState.value = 'fail';
 };
 
 const doGetLocation = async () => {
-  const raceGetLocation = () => {
-    const locateMs = 22000;
-    return Promise.race([
-      getCurrentLocation(),
-      new Promise((_, reject) => {
-        setTimeout(() => {
-          reject({
-            success: false,
-            type: 'timeout',
-            message: '定位超时',
-            originalErr: { errMsg: 'getLocation:fail outer timeout' }
-          });
-        }, locateMs);
-      })
-    ]);
-  };
+  if (locationPromise) return locationPromise;
 
-  // 1. 优先使用缓存 (提升首屏速度)
-  const lastLoc = uni.getStorageSync('lastLocation');
-  if (lastLoc) {
-    lat.value = lastLoc.lat;
-    lng.value = lastLoc.lng;
-    refreshMarkers();
-  } else {
-    uni.showLoading({ title: '定位中...' });
-  }
+  locationPromise = (async () => {
+    const raceGetLocation = () => {
+      const locateMs = 22000;
+      return Promise.race([
+        getCurrentLocation(),
+        new Promise((_, reject) => {
+          setTimeout(() => {
+            reject({
+              success: false,
+              type: 'timeout',
+              message: 'Location timeout',
+              originalErr: { errMsg: 'getLocation:fail outer timeout' }
+            });
+          }, locateMs);
+        })
+      ]);
+    };
 
-  locationState.value = 'locating';
-
-  try {
-    let res;
-    // #ifdef MP-WEIXIN
-    try {
-      res = await raceGetLocation();
-    } catch (e1) {
-      if (isPageActive) {
-        await new Promise((r) => setTimeout(r, 520));
-        res = await raceGetLocation();
-      } else {
-        throw e1;
-      }
+    const lastLoc = uni.getStorageSync('lastLocation');
+    if (lastLoc) {
+      lat.value = lastLoc.lat;
+      lng.value = lastLoc.lng;
+      refreshMarkers();
+    } else {
+      uni.showLoading({ title: '定位中...' });
     }
-    // #endif
-    // #ifndef MP-WEIXIN
-    res = await raceGetLocation();
-    // #endif
 
-    if (!isPageActive) {
+    locationState.value = 'locating';
+
+    try {
+      let res;
+      // #ifdef MP-WEIXIN
+      try {
+        res = await raceGetLocation();
+      } catch (e1) {
+        if (isPageActive) {
+          await new Promise((r) => setTimeout(r, 520));
+          res = await raceGetLocation();
+        } else {
+          throw e1;
+        }
+      }
+      // #endif
+      // #ifndef MP-WEIXIN
+      res = await raceGetLocation();
+      // #endif
+
+      if (!isPageActive) {
+        if (res && res.success) {
+          handleLocationSuccess(res);
+          locationState.value = 'success';
+        } else if (lastLoc) {
+          lastLocationFixWasStale.value = true;
+          locationState.value = 'success';
+        } else {
+          locationState.value = 'idle';
+        }
+        return;
+      }
+
       if (res && res.success) {
         handleLocationSuccess(res);
-        locationState.value = 'success';
-      } else if (lastLoc) {
-        lastLocationFixWasStale.value = true;
+        uni.showToast({ title: '定位成功', icon: 'none' });
         locationState.value = 'success';
       } else {
-        locationState.value = 'idle';
+        throw res || { originalErr: { errMsg: 'getLocation:fail unknown' } };
       }
-      return;
-    }
-    if (res && res.success) {
-      handleLocationSuccess(res);
-      uni.showToast({ title: '定位成功', icon: 'none' });
-      locationState.value = 'success';
-    } else {
-      throw res || { originalErr: { errMsg: 'getLocation:fail unknown' } };
-    }
-  } catch (err) {
-    if (!isPageActive) {
-      if (lastLoc) {
-        lastLocationFixWasStale.value = true;
-        locationState.value = 'success';
+    } catch (err) {
+      if (!isPageActive) {
+        if (lastLoc) {
+          lastLocationFixWasStale.value = true;
+          locationState.value = 'success';
+        } else {
+          locationState.value = 'fail';
+        }
+        return;
+      }
+
+      if (!lastLoc) {
+        handleLocationError(err?.originalErr || err);
       } else {
-        locationState.value = 'fail';
+        lastLocationFixWasStale.value = true;
+        uni.showToast({ title: '刷新定位失败，暂用上次位置，请到室外后重试', icon: 'none', duration: 2800 });
+        locationState.value = 'success';
       }
-      return;
+    } finally {
+      uni.hideLoading();
+      locationPromise = null;
     }
-    if (!lastLoc) {
-      handleLocationError(err?.originalErr || err);
-    } else {
-      lastLocationFixWasStale.value = true;
-      uni.showToast({ title: '刷新定位失败，暂用历史位置，请到室外或点击定位按钮重试', icon: 'none', duration: 2800 });
-      locationState.value = 'success';
-    }
-  } finally {
-    uni.hideLoading();
-  }
+  })();
+
+  return locationPromise;
 };
 
 const handleRelocate = () => {
-    uni.showLoading({ title: '重新定位...' });
+    uni.showLoading({ title: '閲嶆柊瀹氫綅...' });
     locationState.value = 'locating';
-    // 强制清除 loading
+    // 寮哄埗娓呴櫎 loading
     setTimeout(() => uni.hideLoading(), 5000);
     
     getCurrentLocation().then(res => {
         if (!isPageActive) return;
         uni.hideLoading();
         handleLocationSuccess(res);
-        uni.showToast({ title: '已更新位置', icon: 'none' });
+        uni.showToast({ title: '宸叉洿鏂颁綅缃?, icon: 'none' });
         locationState.value = 'success';
     }).catch(err => {
         if (!isPageActive) return;
@@ -1562,51 +1616,12 @@ const handleRelocate = () => {
 
 const locationStatusText = computed(() => {
   switch(locationState.value) {
-    case 'locating': return '正在定位...';
-    case 'success': return '定位成功';
-    case 'fail': return '定位失败，请移至室外开阔地';
-    default: return '等待定位';
+    case 'locating': return '姝ｅ湪瀹氫綅...';
+    case 'success': return '瀹氫綅鎴愬姛';
+    case 'fail': return '瀹氫綅澶辫触锛岃绉昏嚦瀹ゅ寮€闃斿湴';
+    default: return '绛夊緟瀹氫綅';
   }
 });
-
-// 5. 搜索打卡点（仅校园模式）
-const searchCheckpoint = () => {
-  // If input is empty, show list of all available checkpoints
-  if (!checkpointName.value) {
-    if (availableCheckpoints.value.length === 0) {
-      uni.showToast({ title: '未加载到打卡点数据', icon: 'none' });
-      // Retry loading
-      getCheckpoints().then(data => {
-         availableCheckpoints.value = data;
-         uni.showToast({ title: '数据已重新加载，请重试', icon: 'none' });
-      });
-      return;
-    }
-
-    const itemList = availableCheckpoints.value.map(cp => cp.name);
-    uni.showActionSheet({
-      itemList: itemList,
-      success: (res) => {
-        const target = availableCheckpoints.value[res.tapIndex];
-        selectCheckpoint(target);
-      },
-      fail: (res) => {
-        console.log(res.errMsg);
-      }
-    });
-    return;
-  }
-  
-  // Fuzzy search in available checkpoints
-  const target = availableCheckpoints.value.find(cp => cp.name.includes(checkpointName.value));
-  
-  if (!target) {
-     uni.showToast({ title: '未找到该打卡点', icon: 'none' });
-     return;
-  }
-
-  selectCheckpoint(target);
-};
 
 const selectCheckpoint = (target) => {
   const newCheckpoint = {
@@ -1634,7 +1649,7 @@ const selectCheckpoint = (target) => {
   // Force Map Update
   updateMapPolyline();
 
-  uni.showToast({ title: `已锁定：${newCheckpoint.name}`, icon: 'success' });
+  uni.showToast({ title: `宸查攣瀹氾細${newCheckpoint.name}`, icon: 'success' });
 };
 
 const processSelectedLocation = (res) => {
@@ -1682,16 +1697,16 @@ const processSelectedLocation = (res) => {
         };
         updateMapPolyline();
         
-        uni.showToast({ title: `已定位到：${nearest.name}`, icon: 'success' });
+        uni.showToast({ title: `宸插畾浣嶅埌锛?{nearest.name}`, icon: 'success' });
       } else {
         uni.showModal({
-          title: '提示',
-          content: '您选择的地点不在校园打卡点范围内，是否仍要设为目标？(无法进行有效打卡)',
+          title: '鎻愮ず',
+          content: '鎮ㄩ€夋嫨鐨勫湴鐐逛笉鍦ㄦ牎鍥墦鍗＄偣鑼冨洿鍐咃紝鏄惁浠嶈璁句负鐩爣锛?鏃犳硶杩涜鏈夋晥鎵撳崱)',
           success: (mRes) => {
             if (mRes.confirm) {
-               checkpointName.value = res.name || '自定义位置';
+               checkpointName.value = res.name || '鑷畾涔変綅缃?;
                const customCheckpoint = {
-                 name: res.name || '自定义位置',
+                 name: res.name || '鑷畾涔変綅缃?,
                  lat: selLat,
                  lng: selLng,
                  radius: 50,
@@ -1737,7 +1752,7 @@ const handleMapSelect = () => {
   // #endif
 };
 
-// 6. 添加打卡点标记
+// 6. 娣诲姞鎵撳崱鐐规爣璁?
 const addCheckpointMarker = (lat, lng, name) => {
   checkpointMarker.value = {
     id: 1,
@@ -1755,16 +1770,16 @@ const addCheckpointMarker = (lat, lng, name) => {
   refreshMarkers();
 };
 
-// 7. 切换跑步模式（普通/警务/校园）
+// 7. 鍒囨崲璺戞妯″紡锛堟櫘閫?璀﹀姟/鏍″洯锛?
 const switchMode = (mode) => {
   if (taskRunLocked.value) {
-    uni.showToast({ title: '任务跑步请使用专项跑页面', icon: 'none' });
+    uni.showToast({ title: '浠诲姟璺戞璇蜂娇鐢ㄤ笓椤硅窇椤甸潰', icon: 'none' });
     return;
   }
   const wasRunning = isRunning.value;
   const hadStepListener = !!accelerometerCallback;
   const hadLocTracking = !!(locationCallback || h5LocationTimer || wxRunAssistTimer);
-  // 切换模式时重置跑步状态；未开跑时不要反复 stop 加速度/持续定位（减少控制台噪音，也避免干扰模拟器）
+  // 鍒囨崲妯″紡鏃堕噸缃窇姝ョ姸鎬侊紱鏈紑璺戞椂涓嶈鍙嶅 stop 鍔犻€熷害/鎸佺画瀹氫綅锛堝噺灏戞帶鍒跺彴鍣煶锛屼篃閬垮厤骞叉壈妯℃嫙鍣級
   isRunning.value = false;
   clearRunTickTimer();
   runActiveBaseSec.value = 0;
@@ -1803,37 +1818,37 @@ const switchMode = (mode) => {
   currentMode.value = mode;
 };
 
-// 8. 步数统计（加速度传感器）
-// 计步：波峰 + 防抖。部分机型/环境下返回的是「不含重力」的线性加速度（静止接近 0），若再强行归一到 1g 会永远达不到阈值；故用「含重力时 |模长−1g|」与「纯线性时模长」统一的 m/s² 强度信号。
+// 8. 姝ユ暟缁熻锛堝姞閫熷害浼犳劅鍣級
+// 璁℃锛氭尝宄?+ 闃叉姈銆傞儴鍒嗘満鍨?鐜涓嬭繑鍥炵殑鏄€屼笉鍚噸鍔涖€嶇殑绾挎€у姞閫熷害锛堥潤姝㈡帴杩?0锛夛紝鑻ュ啀寮鸿褰掍竴鍒?1g 浼氭案杩滆揪涓嶅埌闃堝€硷紱鏁呯敤銆屽惈閲嶅姏鏃?|妯￠暱鈭?g|銆嶄笌銆岀函绾挎€ф椂妯￠暱銆嶇粺涓€鐨?m/s虏 寮哄害淇″彿銆?
     let isStepActive = false;
     let lastStepTime = 0;
     let accelMagPrev = null;
     let accelBaseline = null;
     let linearMagPrev = 0;
-    /** 上阈值：一次明显冲击（含晃手机）应能超过；下阈值须低于上阈值，且不宜过低，否则噪声下无法回落、会卡死只能计 1 步 */
+    /** 涓婇槇鍊硷細涓€娆℃槑鏄惧啿鍑伙紙鍚檭鎵嬫満锛夊簲鑳借秴杩囷紱涓嬮槇鍊奸』浣庝簬涓婇槇鍊硷紝涓斾笉瀹滆繃浣庯紝鍚﹀垯鍣０涓嬫棤娉曞洖钀姐€佷細鍗℃鍙兘璁?1 姝?*/
     const STEP_SIGNAL_UP_MS2 = 0.24;
     const STEP_SIGNAL_DOWN_MS2 = 0.10;
     const MIN_STEP_INTERVAL = 220;
     const RESET_TIMEOUT = 900;
 
-    // 启动步数统计 - 带重试机制
+    // 鍚姩姝ユ暟缁熻 - 甯﹂噸璇曟満鍒?
     const startStepCount = (retryCount = 0) => {
       const MAX_RETRIES = 3;
-      console.log('=== 开始启动步数统计 (重试次数:', retryCount, ') ===');
+      console.log('=== 寮€濮嬪惎鍔ㄦ鏁扮粺璁?(閲嶈瘯娆℃暟:', retryCount, ') ===');
       
-      // 先确保停止之前的监听，使用回调确保完成后再启动
+      // 鍏堢‘淇濆仠姝箣鍓嶇殑鐩戝惉锛屼娇鐢ㄥ洖璋冪‘淇濆畬鎴愬悗鍐嶅惎鍔?
       const stopAndStart = () => {
         uni.stopAccelerometer({
           success: () => {
-            console.log('✅ 传感器已停止');
-            // 延迟200ms确保传感器完全释放
+            console.log('鉁?浼犳劅鍣ㄥ凡鍋滄');
+            // 寤惰繜200ms纭繚浼犳劅鍣ㄥ畬鍏ㄩ噴鏀?
             setTimeout(() => {
               startAccelerometerWithRetry(retryCount);
             }, 200);
           },
           fail: (err) => {
-            console.warn('停止传感器失败，继续尝试启动:', err);
-            // 即使停止失败也尝试启动
+            console.warn('鍋滄浼犳劅鍣ㄥけ璐ワ紝缁х画灏濊瘯鍚姩:', err);
+            // 鍗充娇鍋滄澶辫触涔熷皾璇曞惎鍔?
             setTimeout(() => {
               startAccelerometerWithRetry(retryCount);
             }, 200);
@@ -1844,7 +1859,7 @@ const switchMode = (mode) => {
       stopAndStart();
     };
     
-    // 带重试的启动传感器：仅在 start 成功后再注册监听，避免失败重试时重复 on 导致冲突；降采样提高部分机型/微信环境兼容性
+    // 甯﹂噸璇曠殑鍚姩浼犳劅鍣細浠呭湪 start 鎴愬姛鍚庡啀娉ㄥ唽鐩戝惉锛岄伩鍏嶅け璐ラ噸璇曟椂閲嶅 on 瀵艰嚧鍐茬獊锛涢檷閲囨牱鎻愰珮閮ㄥ垎鏈哄瀷/寰俊鐜鍏煎鎬?
     const startAccelerometerWithRetry = (retryCount) => {
       const MAX_RETRIES = 3;
       const intervals = ['game', 'normal', 'ui'];
@@ -1864,7 +1879,7 @@ const switchMode = (mode) => {
         accelerometerCallback = (res) => {
           const mag = Math.sqrt(res.x * res.x + res.y * res.y + res.z * res.z);
           if (!Number.isFinite(mag)) return;
-          // 含重力：|模长−1g|；弱模长：用线性强度。摇晃时模长常仍接近 1g，必须叠加帧间变化量才能稳定触发
+          // 鍚噸鍔涳細|妯￠暱鈭?g|锛涘急妯￠暱锛氱敤绾挎€у己搴︺€傛憞鏅冩椂妯￠暱甯镐粛鎺ヨ繎 1g锛屽繀椤诲彔鍔犲抚闂村彉鍖栭噺鎵嶈兘绋冲畾瑙﹀彂
           accelBaseline = accelBaseline == null ? mag : (accelBaseline * 0.82 + mag * 0.18);
           const gravOrLin = mag >= 3.5 ? Math.abs(mag - accelBaseline) : mag;
           const jerk = accelMagPrev != null ? Math.abs(mag - accelMagPrev) : 0;
@@ -1882,7 +1897,7 @@ const switchMode = (mode) => {
           if (!isStepActive && signal > STEP_SIGNAL_UP_MS2) {
             if (now - lastStepTime > MIN_STEP_INTERVAL) {
               stepCount.value += 1;
-              console.log('👣 步数+1', stepCount.value, 'signal≈', signal.toFixed(2), 'mag≈', mag.toFixed(2));
+              console.log('馃懀 姝ユ暟+1', stepCount.value, 'signal鈮?, signal.toFixed(2), 'mag鈮?, mag.toFixed(2));
               noteStepMotion(now);
               lastStepTime = now;
               isStepActive = true;
@@ -1892,13 +1907,13 @@ const switchMode = (mode) => {
           }
         };
         uni.onAccelerometerChange(accelerometerCallback);
-        console.log('=== 步数统计监听已设置 (interval=' + interval + ') ===');
+        console.log('=== 姝ユ暟缁熻鐩戝惉宸茶缃?(interval=' + interval + ') ===');
       };
 
       uni.startAccelerometer({
         interval,
         success: () => {
-          console.log('✅ 加速度传感器启动成功');
+          console.log('鉁?鍔犻€熷害浼犳劅鍣ㄥ惎鍔ㄦ垚鍔?);
           bindAccelerometerListener();
           isStepActive = false;
           accelMagPrev = null;
@@ -1908,7 +1923,7 @@ const switchMode = (mode) => {
           lastStepTime = Date.now();
         },
         fail: (err) => {
-          console.error('❌ 加速度传感器启动失败:', err);
+          console.error('鉂?鍔犻€熷害浼犳劅鍣ㄥ惎鍔ㄥけ璐?', err);
 
           const errMsg = err && err.errMsg ? String(err.errMsg) : '';
           const retriable =
@@ -1921,9 +1936,9 @@ const switchMode = (mode) => {
               errMsg.includes('fail'));
 
           if (retriable) {
-            console.log('🔄 传感器启动失败，准备重试:', errMsg);
+            console.log('馃攧 浼犳劅鍣ㄥ惎鍔ㄥけ璐ワ紝鍑嗗閲嶈瘯:', errMsg);
             uni.showToast({
-              title: '传感器启动中，请稍候…',
+              title: '浼犳劅鍣ㄥ惎鍔ㄤ腑锛岃绋嶅€欌€?,
               icon: 'none',
               duration: 1000
             });
@@ -1932,9 +1947,9 @@ const switchMode = (mode) => {
             }, 800);
           } else {
             uni.showModal({
-              title: '步数统计启动失败',
+              title: '姝ユ暟缁熻鍚姩澶辫触',
               content:
-                '无法启动加速度传感器，步数将无法统计。请在系统设置与微信「小程序」权限中允许运动/传感器相关权限；若已开启，请结束小程序进程后重试。',
+                '鏃犳硶鍚姩鍔犻€熷害浼犳劅鍣紝姝ユ暟灏嗘棤娉曠粺璁°€傝鍦ㄧ郴缁熻缃笌寰俊銆屽皬绋嬪簭銆嶆潈闄愪腑鍏佽杩愬姩/浼犳劅鍣ㄧ浉鍏虫潈闄愶紱鑻ュ凡寮€鍚紝璇风粨鏉熷皬绋嬪簭杩涚▼鍚庨噸璇曘€?,
               showCancel: false
             });
           }
@@ -1958,8 +1973,8 @@ const stopStepCount = () => {
 };
 
 /**
- * 人脸拍照 / chooseMedia 刚结束时，部分微信真机需过一小段再调 startLocationUpdate，否则 onLocationChange 不回调（步数、墙钟、里程均不涨）。
- * 测试反馈「第一次拍照后开始跑步统计不工作；点结束跑步再取消后正常」即典型时序问题。
+ * 浜鸿劯鎷嶇収 / chooseMedia 鍒氱粨鏉熸椂锛岄儴鍒嗗井淇＄湡鏈洪渶杩囦竴灏忔鍐嶈皟 startLocationUpdate锛屽惁鍒?onLocationChange 涓嶅洖璋冿紙姝ユ暟銆佸閽熴€侀噷绋嬪潎涓嶆定锛夈€?
+ * 娴嬭瘯鍙嶉銆岀涓€娆℃媿鐓у悗寮€濮嬭窇姝ョ粺璁′笉宸ヤ綔锛涚偣缁撴潫璺戞鍐嶅彇娑堝悗姝ｅ父銆嶅嵆鍏稿瀷鏃跺簭闂銆?
  */
 const beginRunTrackingAfterFaceDefer = () => {
   const go = () => {
@@ -1973,23 +1988,23 @@ const beginRunTrackingAfterFaceDefer = () => {
   });
 };
 
-// 9. 心率更新+预警
+// 9. 蹇冪巼鏇存柊+棰勮
 const updateHeartRate = () => {
   heartRate.value = 80 + Math.floor(duration.value / 10);
   if (heartRate.value > 180) {
     uni.showModal({
-      title: '健康预警',
-      content: `当前心率过高（${heartRate.value}次/分），建议降速休息`,
+      title: '鍋ュ悍棰勮',
+      content: `褰撳墠蹇冪巼杩囬珮锛?{heartRate.value}娆?鍒嗭級锛屽缓璁檷閫熶紤鎭痐,
       showCancel: false
     });
   }
 };
 
-// 10. 开始跑步（分三种模式）
+// 10. 寮€濮嬭窇姝ワ紙鍒嗕笁绉嶆ā寮忥級
 // Common start logic
 const initializeRunState = () => {
   if (locationState.value !== 'success') {
-    uni.showToast({ title: '定位未成功，无法开始', icon: 'none' });
+    uni.showToast({ title: '瀹氫綅鏈垚鍔燂紝鏃犳硶寮€濮?, icon: 'none' });
     doGetLocation(); // Try to refresh
     return false;
   }
@@ -2024,28 +2039,28 @@ const initializeRunState = () => {
   return true;
 };
 
-// 人脸验证：选图/拍照（相册/相机在微信公众平台「隐私保护指引」中声明用途；勿写入 app.json 的 requiredPrivateInfos，该字段仅允许定位类白名单）
+// 浜鸿劯楠岃瘉锛氶€夊浘/鎷嶇収锛堢浉鍐?鐩告満鍦ㄥ井淇″叕浼楀钩鍙般€岄殣绉佷繚鎶ゆ寚寮曘€嶄腑澹版槑鐢ㄩ€旓紱鍕垮啓鍏?app.json 鐨?requiredPrivateInfos锛岃瀛楁浠呭厑璁稿畾浣嶇被鐧藉悕鍗曪級
 const handleFacePickFail = (resolve, err) => {
   const errMsg = (err && err.errMsg) ? String(err.errMsg) : '';
   if (errMsg.includes('cancel')) {
     resolve(false);
     return;
   }
-  if (errMsg.includes('privacy') || errMsg.includes('隐私')) {
+  if (errMsg.includes('privacy') || errMsg.includes('闅愮')) {
     uni.showModal({
-      title: '隐私授权未完成',
-      content: '请先同意《用户隐私保护指引》（可返回首页弹出框点「同意并继续」），再重试拍照。',
+      title: '闅愮鎺堟潈鏈畬鎴?,
+      content: '璇峰厛鍚屾剰銆婄敤鎴烽殣绉佷繚鎶ゆ寚寮曘€嬶紙鍙繑鍥為椤靛脊鍑烘鐐广€屽悓鎰忓苟缁х画銆嶏級锛屽啀閲嶈瘯鎷嶇収銆?,
       showCancel: false,
-      confirmText: '知道了'
+      confirmText: '鐭ラ亾浜?
     });
     resolve(false);
     return;
   }
   if (errMsg.includes('auth') || errMsg.includes('deny') || errMsg.includes('denied')) {
     uni.showModal({
-      title: '需要相机/相册权限',
-      content: '无法打开相机或相册。请在手机系统设置与微信「小程序」权限中允许本小程序使用相机、相册后重试。',
-      confirmText: '去设置',
+      title: '闇€瑕佺浉鏈?鐩稿唽鏉冮檺',
+      content: '鏃犳硶鎵撳紑鐩告満鎴栫浉鍐屻€傝鍦ㄦ墜鏈虹郴缁熻缃笌寰俊銆屽皬绋嬪簭銆嶆潈闄愪腑鍏佽鏈皬绋嬪簭浣跨敤鐩告満銆佺浉鍐屽悗閲嶈瘯銆?,
+      confirmText: '鍘昏缃?,
       success: (r) => {
         if (r.confirm) uni.openSetting();
       }
@@ -2054,23 +2069,132 @@ const handleFacePickFail = (resolve, err) => {
     return;
   }
   uni.showModal({
-    title: '拍照或选图失败',
+    title: '鎷嶇収鎴栭€夊浘澶辫触',
     content: errMsg
-      ? `${errMsg}\n\n可稍后重试或改用相册选图。未完成人脸验证无法开始或结束跑步。`
-      : '请检查相机与相册权限、存储空间是否正常，或稍后重试。未完成人脸验证无法开始或结束跑步。',
+      ? `${errMsg}\n\n鍙◢鍚庨噸璇曟垨鏀圭敤鐩稿唽閫夊浘銆傛湭瀹屾垚浜鸿劯楠岃瘉鏃犳硶寮€濮嬫垨缁撴潫璺戞銆俙
+      : '璇锋鏌ョ浉鏈轰笌鐩稿唽鏉冮檺銆佸瓨鍌ㄧ┖闂存槸鍚︽甯革紝鎴栫◢鍚庨噸璇曘€傛湭瀹屾垚浜鸿劯楠岃瘉鏃犳硶寮€濮嬫垨缁撴潫璺戞銆?,
     showCancel: false,
-    confirmText: '知道了'
+    confirmText: '鐭ラ亾浜?
   });
   resolve(false);
+};
+
+const finishFaceCamera = (result) => {
+  const resolver = faceCameraResolve;
+  faceCameraResolve = null;
+  showFaceCamera.value = false;
+  faceCameraBusy.value = false;
+  faceCameraErrorText.value = 'Camera unavailable, please retry';
+  faceCameraContext = null;
+  if (resolver) resolver(result);
+};
+
+const cancelFaceCamera = () => finishFaceCamera(false);
+
+const handleFaceCameraReady = () => {
+  // #ifdef MP-WEIXIN
+  faceCameraContext = uni.createCameraContext('faceCamera');
+  // #endif
+  faceCameraErrorText.value = '';
+};
+
+const handleFaceCameraError = (err) => {
+  console.error('Inline face camera error:', err);
+  faceCameraErrorText.value = 'Camera unavailable, please retry';
+};
+
+const openInlineFaceCamera = (phase) => {
+  faceCapturePhase.value = phase;
+  faceCameraBusy.value = false;
+  faceCameraErrorText.value = '';
+  showFaceCamera.value = true;
+  return new Promise((resolve) => {
+    faceCameraResolve = resolve;
+    nextTick(() => {
+      // #ifdef MP-WEIXIN
+      faceCameraContext = uni.createCameraContext('faceCamera');
+      // #endif
+    });
+  });
+};
+
+const uploadFaceCapture = async (filePath, phase, resolve) => {
+  if (!filePath) {
+    uni.showModal({
+      title: 'No photo captured',
+      content: 'Face verification was not completed. Please retake the photo.',
+      showCancel: false,
+      confirmText: 'OK'
+    });
+    resolve(false);
+    return;
+  }
+  try {
+    uni.showLoading({ title: '涓婁紶楠岃瘉鐓х墖...' });
+    const uploadRes = await uploadFile(filePath);
+    uni.hideLoading();
+
+    const url = uploadRes?.url || uploadRes?.path || uploadRes?.filePath || uploadRes;
+    if (!url) {
+      uni.showModal({
+        title: 'Upload failed',
+        content: 'Photo upload failed. Please check the server and network, then try again.',
+        showCancel: false
+      });
+      resolve(false);
+      return;
+    }
+
+    if (phase === 'start') startFaceUrl.value = url;
+    else endFaceUrl.value = url;
+    resolve(true);
+  } catch (e) {
+    uni.hideLoading();
+    console.error('Face upload fail:', e);
+    const msg = e?.message || e?.detail || 'Photo upload failed, please try again later';
+    uni.showModal({
+      title: 'Upload failed',
+      content: msg,
+      showCancel: false
+    });
+    resolve(false);
+  }
+};
+
+const captureFaceFromInlineCamera = () => {
+  // #ifndef MP-WEIXIN
+  return;
+  // #endif
+  // #ifdef MP-WEIXIN
+  if (faceCameraBusy.value) return;
+  if (!faceCameraContext) {
+    faceCameraErrorText.value = 'Camera unavailable, please retry';
+    return;
+  }
+  faceCameraBusy.value = true;
+  faceCameraErrorText.value = '';
+  faceCameraContext.takePhoto({
+    quality: 'medium',
+    success: async (res) => {
+      const done = (ok) => finishFaceCamera(ok);
+      await uploadFaceCapture(res?.tempImagePath || '', faceCapturePhase.value, done);
+    },
+    fail: (err) => {
+      faceCameraBusy.value = false;
+      console.error('Inline face capture fail:', err);
+      faceCameraErrorText.value = 'Capture failed, please retry';
+    }
+  });
+  // #endif
 };
 
 const faceVerify = (phase) => {
   return new Promise((resolve) => {
     uni.showModal({
-      title: '人脸验证',
+      title: '浜鸿劯楠岃瘉',
       content: phase === 'start'
-        ? '请拍摄起跑照片，用于本次阳光跑验证。'
-        : '请拍摄结束照片，用于本次阳光跑验证。',
+        ? '璇锋媿鎽勮捣璺戠収鐗囷紝鐢ㄤ簬鏈闃冲厜璺戦獙璇併€?
+        : '璇锋媿鎽勭粨鏉熺収鐗囷紝鐢ㄤ簬鏈闃冲厜璺戦獙璇併€?,
       showCancel: true,
       success: (modalRes) => {
         if (!modalRes.confirm) {
@@ -2078,72 +2202,15 @@ const faceVerify = (phase) => {
           return;
         }
 
-        const uploadChosen = async (filePath) => {
-          if (!filePath) {
-            uni.showModal({
-              title: '未获取到照片',
-              content: '未完成人脸验证，无法开始或结束本次跑步。请重新拍照。',
-              showCancel: false,
-              confirmText: '知道了'
-            });
+        const uploadChosen = async (filePath) => uploadFaceCapture(filePath, phase, resolve);
+
+        // #ifdef MP-WEIXIN
+        openInlineFaceCamera(phase).then((ok) => {
+          if (ok === false) {
             resolve(false);
             return;
           }
-          try {
-            uni.showLoading({ title: '上传验证照片...' });
-            const uploadRes = await uploadFile(filePath);
-            uni.hideLoading();
-
-            const url = uploadRes?.url || uploadRes?.path || uploadRes?.filePath || uploadRes;
-            if (!url) {
-              uni.showModal({
-                title: '验证失败',
-                content: '照片上传失败，请检查后端是否启动、网络是否正常，然后重试。',
-                showCancel: false
-              });
-              resolve(false);
-              return;
-            }
-
-            if (phase === 'start') startFaceUrl.value = url;
-            else endFaceUrl.value = url;
-            resolve(true);
-          } catch (e) {
-            uni.hideLoading();
-            console.error('Face upload fail:', e);
-            const msg = e?.message || e?.detail || '照片上传失败，请稍后重试';
-            uni.showModal({
-              title: '验证失败',
-              content: msg,
-              showCancel: false
-            });
-            resolve(false);
-          }
-        };
-
-        // #ifdef MP-WEIXIN
-        uni.chooseMedia({
-          count: 1,
-          mediaType: ['image'],
-          sourceType: ['camera'],
-          sizeType: ['compressed'],
-          success: (res) => {
-            const f = res.tempFiles && res.tempFiles[0];
-            const path = f && f.tempFilePath ? f.tempFilePath : '';
-            uploadChosen(path);
-          },
-          fail: (err) => {
-            uni.chooseImage({
-              count: 1,
-              sizeType: ['compressed'],
-              sourceType: ['camera'],
-              success: (res2) => {
-                const path = res2.tempFilePaths && res2.tempFilePaths[0] ? res2.tempFilePaths[0] : '';
-                uploadChosen(path);
-              },
-              fail: (err2) => handleFacePickFail(resolve, err2 || err)
-            });
-          }
+          resolve(ok);
         });
         // #endif
         // #ifndef MP-WEIXIN
@@ -2163,16 +2230,16 @@ const faceVerify = (phase) => {
   });
 };
 
-// 普通跑步（无固定目标）
+// 鏅€氳窇姝ワ紙鏃犲浐瀹氱洰鏍囷級
 const startNormalRun = async () => {
   if (locationState.value !== 'success') {
-    uni.showToast({ title: '定位未成功，请稍候或点击地图旁定位按钮刷新后再试', icon: 'none' });
+    uni.showToast({ title: '瀹氫綅鏈垚鍔燂紝璇风◢鍊欐垨鐐瑰嚮鍦板浘鏃佸畾浣嶆寜閽埛鏂板悗鍐嶈瘯', icon: 'none' });
     doGetLocation();
     return;
   }
   if (lastLocationFixWasStale.value) {
     uni.showToast({
-      title: '当前为历史定位，建议先点地图旁「定位」刷新或到室外再跑，以免里程统计偏晚',
+      title: '褰撳墠涓哄巻鍙插畾浣嶏紝寤鸿鍏堢偣鍦板浘鏃併€屽畾浣嶃€嶅埛鏂版垨鍒板澶栧啀璺戯紝浠ュ厤閲岀▼缁熻鍋忔櫄',
       icon: 'none',
       duration: 3200
     });
@@ -2193,16 +2260,16 @@ const startNormalRun = async () => {
   beginRunTrackingAfterFaceDefer();
 };
 
-// 专项训练（固定2000米，按达标配速跑）
+// 涓撻」璁粌锛堝浐瀹?000绫筹紝鎸夎揪鏍囬厤閫熻窇锛?
 const startPoliceRun = async () => {
   if (locationState.value !== 'success') {
-    uni.showToast({ title: '定位未成功，请稍候或点击地图旁定位按钮刷新后再试', icon: 'none' });
+    uni.showToast({ title: '瀹氫綅鏈垚鍔燂紝璇风◢鍊欐垨鐐瑰嚮鍦板浘鏃佸畾浣嶆寜閽埛鏂板悗鍐嶈瘯', icon: 'none' });
     doGetLocation();
     return;
   }
   if (lastLocationFixWasStale.value) {
     uni.showToast({
-      title: '当前为历史定位，建议先点地图旁「定位」刷新或到室外再跑，以免里程统计偏晚',
+      title: '褰撳墠涓哄巻鍙插畾浣嶏紝寤鸿鍏堢偣鍦板浘鏃併€屽畾浣嶃€嶅埛鏂版垨鍒板澶栧啀璺戯紝浠ュ厤閲岀▼缁熻鍋忔櫄',
       icon: 'none',
       duration: 3200
     });
@@ -2221,16 +2288,16 @@ const startPoliceRun = async () => {
   beginRunTrackingAfterFaceDefer();
 };
 
-// 校园打卡
+// 鏍″洯鎵撳崱
 const startCampusRun = async () => {
   if (locationState.value !== 'success') {
-    uni.showToast({ title: '定位未成功，请稍候或点击地图旁定位按钮刷新后再试', icon: 'none' });
+    uni.showToast({ title: '瀹氫綅鏈垚鍔燂紝璇风◢鍊欐垨鐐瑰嚮鍦板浘鏃佸畾浣嶆寜閽埛鏂板悗鍐嶈瘯', icon: 'none' });
     doGetLocation();
     return;
   }
   if (lastLocationFixWasStale.value) {
     uni.showToast({
-      title: '当前为历史定位，建议先点地图旁「定位」刷新或到室外再跑，以免里程统计偏晚',
+      title: '褰撳墠涓哄巻鍙插畾浣嶏紝寤鸿鍏堢偣鍦板浘鏃併€屽畾浣嶃€嶅埛鏂版垨鍒板澶栧啀璺戯紝浠ュ厤閲岀▼缁熻鍋忔櫄',
       icon: 'none',
       duration: 3200
     });
@@ -2250,7 +2317,7 @@ const startCampusRun = async () => {
   beginRunTrackingAfterFaceDefer();
 };
 
-// 结束跑步时若用户取消人脸验证：恢复计时、计步与定位（避免已停表却无法继续跑）
+// 缁撴潫璺戞鏃惰嫢鐢ㄦ埛鍙栨秷浜鸿劯楠岃瘉锛氭仮澶嶈鏃躲€佽姝ヤ笌瀹氫綅锛堥伩鍏嶅凡鍋滆〃鍗存棤娉曠户缁窇锛?
 const resumeRunAfterEndFaceCancelled = () => {
   runActiveBaseSec.value = duration.value;
   runSegmentStartMs.value = Date.now();
@@ -2259,18 +2326,18 @@ const resumeRunAfterEndFaceCancelled = () => {
   beginRunTrackingAfterFaceDefer();
 };
 
-// 提交跑步记录并跳转结算页
+// 鎻愪氦璺戞璁板綍骞惰烦杞粨绠楅〉
 const redirectToRunResult = () => {
   uni.redirectTo({
     url: '/pages/result/result?useStorage=true',
     fail: (err) => {
       console.error('Navigate failed:', err);
-      uni.showToast({ title: '页面跳转失败', icon: 'none' });
+      uni.showToast({ title: '椤甸潰璺宠浆澶辫触', icon: 'none' });
     }
   });
 };
 
-/** 读取本地跑步条（兼容字符串存储） */
+/** 璇诲彇鏈湴璺戞鏉★紙鍏煎瀛楃涓插瓨鍌級 */
 const getStoredRunRecordsList = () => {
   let raw = uni.getStorageSync('runRecordsList');
   if (raw == null || raw === '') return [];
@@ -2284,7 +2351,7 @@ const getStoredRunRecordsList = () => {
   return Array.isArray(raw) ? raw : [];
 };
 
-/** 今日概览 / 历史条依赖本地 runRecordsList；此前从未写入导致一直为 0 */
+/** 浠婃棩姒傝 / 鍘嗗彶鏉′緷璧栨湰鍦?runRecordsList锛涙鍓嶄粠鏈啓鍏ュ鑷翠竴鐩翠负 0 */
 const appendLocalRunRecord = (runData) => {
   try {
     const distanceKm = Number(runData?.metrics?.distance) || 0;
@@ -2304,7 +2371,7 @@ const appendLocalRunRecord = (runData) => {
 };
 
 const submitCurrentRunToServer = async (runData) => {
-  uni.showLoading({ title: '正在核验运动数据...' });
+  uni.showLoading({ title: '姝ｅ湪鏍搁獙杩愬姩鏁版嵁...' });
   try {
     const res = await submitActivity(runData);
     uni.hideLoading();
@@ -2319,7 +2386,7 @@ const submitCurrentRunToServer = async (runData) => {
   }
 };
 
-// 11. 结束跑步（统一逻辑）
+// 11. 缁撴潫璺戞锛堢粺涓€閫昏緫锛?
 const stopRun = async () => {
   if (!isRunning.value) return;
   syncRunElapsedDisplay();
@@ -2330,14 +2397,14 @@ const stopRun = async () => {
 
   const token = uni.getStorageSync('token');
   if (!token) {
-    uni.showToast({ title: '请先登录', icon: 'none' });
+    uni.showToast({ title: '璇峰厛鐧诲綍', icon: 'none' });
     setTimeout(() => {
       uni.reLaunch({ url: '/pages/login/login' });
     }, 800);
     return;
   }
 
-  // 结束前进行一次人脸验证拍照
+  // 缁撴潫鍓嶈繘琛屼竴娆′汉鑴搁獙璇佹媿鐓?
   const faceOk = await faceVerify('end');
   if (!faceOk) {
     resumeRunAfterEndFaceCancelled();
@@ -2346,8 +2413,8 @@ const stopRun = async () => {
 
   if (!endFaceUrl.value) {
     uni.showModal({
-      title: '验证异常',
-      content: '未获取到终点人脸照片，请再次点击结束并完成拍照。',
+      title: '楠岃瘉寮傚父',
+      content: '鏈幏鍙栧埌缁堢偣浜鸿劯鐓х墖锛岃鍐嶆鐐瑰嚮缁撴潫骞跺畬鎴愭媿鐓с€?,
       showCancel: false
     });
     resumeRunAfterEndFaceCancelled();
@@ -2355,7 +2422,7 @@ const stopRun = async () => {
   }
 
   const filtM = distance.value;
-  /** 非任务跑：上报里程与轨迹几何长对齐（防滤波偏低）；任务跑仍以端上累计为准，避免与任务规则冲突 */
+  /** 闈炰换鍔¤窇锛氫笂鎶ラ噷绋嬩笌杞ㄨ抗鍑犱綍闀垮榻愶紙闃叉护娉㈠亸浣庯級锛涗换鍔¤窇浠嶄互绔笂绱涓哄噯锛岄伩鍏嶄笌浠诲姟瑙勫垯鍐茬獊 */
   let reportM = filtM;
   if (!taskId.value && trajectoryPoints.value.length >= 2) {
     const trajM = computeTrajectoryPathLengthM(trajectoryPoints.value);
@@ -2392,7 +2459,7 @@ const stopRun = async () => {
     runData.task_id = Number(taskId.value);
   }
 
-  // 添加起跑与结束人脸照片证据（如有）
+  // 娣诲姞璧疯窇涓庣粨鏉熶汉鑴哥収鐗囪瘉鎹紙濡傛湁锛?
   if (startFaceUrl.value) {
     runData.evidence.push({
       evidence_type: 'start_face',
@@ -2410,23 +2477,23 @@ const stopRun = async () => {
     await submitCurrentRunToServer(runData);
   } catch (error) {
     console.error('Submit failed:', error);
-    const msg = error?.message || error?.detail || String(error) || '网络或服务器错误，请重试';
+    const msg = error?.message || error?.detail || String(error) || '缃戠粶鎴栨湇鍔″櫒閿欒锛岃閲嶈瘯';
     uni.showModal({
-      title: '提交失败',
+      title: '鎻愪氦澶辫触',
       content: msg,
-      confirmText: '重试',
-      cancelText: '强制结束',
+      confirmText: '閲嶈瘯',
+      cancelText: '寮哄埗缁撴潫',
       success: (modalRes) => {
         if (modalRes.confirm) {
           submitCurrentRunToServer(runData).catch((e2) => {
             uni.showToast({
-              title: e2?.message || e2?.detail || '重试失败，请稍后再试',
+              title: e2?.message || e2?.detail || '閲嶈瘯澶辫触锛岃绋嶅悗鍐嶈瘯',
               icon: 'none',
               duration: 2500
             });
           });
         } else if (modalRes.cancel) {
-          uni.showToast({ title: '已强制结束', icon: 'none' });
+          uni.showToast({ title: '宸插己鍒剁粨鏉?, icon: 'none' });
           setTimeout(() => {
             uni.reLaunch({ url: '/pages/tab/home' });
           }, 800);
@@ -2551,7 +2618,7 @@ const buildHistory = (records) => {
   width: 100%;
 }
 
-/* 新增顶部样式 */
+/* 鏂板椤堕儴鏍峰紡 */
 .top-widgets {
   margin-bottom: 20rpx;
 }
@@ -2586,7 +2653,7 @@ const buildHistory = (records) => {
 .badge-icon { margin-right: 8rpx; }
 .badge-name { font-size: 24rpx; color: #333; }
 
-/* 推荐路线样式 */
+/* 鎺ㄨ崘璺嚎鏍峰紡 */
 .routes-card {
   background: #fff;
   border-radius: 12rpx;
@@ -2640,38 +2707,63 @@ const buildHistory = (records) => {
 .progress-bar { width: 100%; height: 16rpx; background: #eee; border-radius: 10rpx; overflow: hidden; }
 .progress-fill { height: 100%; background: #20C997; width: 0; }
 .progress-text { font-size: 26rpx; color: #666; text-align: center; margin-top: 6rpx; display: block; }
-/* 搜索栏仅校园模式显示 */
+/* 鎼滅储鏍忎粎鏍″洯妯″紡鏄剧ず */
 .search-bar {
-  display: flex;
   margin-bottom: 20rpx;
 }
-.search-input {
-  flex: 1;
-  border: 1px solid #eee;
-  padding: 15rpx;
-  border-radius: 8rpx;
-  margin-right: 10rpx;
-}
-.search-btn {
-  background-color: #20C997;
-  color: #fff;
-  border: none;
-  border-radius: 8rpx;
-  padding: 0 20rpx;
+.map-select-panel {
+  width: 100%;
 }
 .map-select-btn {
   display: flex;
   align-items: center;
-  justify-content: center;
-  background-color: #f0f0f0;
-  border-radius: 8rpx;
-  padding: 0 20rpx;
-  margin-right: 10rpx;
+  gap: 18rpx;
+  min-height: 108rpx;
+  background: linear-gradient(135deg, #1fc48d, #22c55e);
+  border-radius: 18rpx;
+  padding: 0 24rpx;
+  box-shadow: 0 10rpx 24rpx rgba(32, 201, 151, 0.2);
 }
 .map-icon {
-  font-size: 32rpx;
+  width: 62rpx;
+  height: 62rpx;
+  line-height: 62rpx;
+  text-align: center;
+  font-size: 34rpx;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
 }
-/* 地图 */
+.map-select-copy {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.map-select-title {
+  font-size: 30rpx;
+  line-height: 1.2;
+  color: #fff;
+  font-weight: 700;
+}
+.map-select-desc {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.9);
+}
+.map-select-arrow {
+  font-size: 34rpx;
+  color: #fff;
+  font-weight: 700;
+}
+.map-select-hint {
+  display: block;
+  margin-top: 12rpx;
+  padding: 0 8rpx;
+  font-size: 24rpx;
+  line-height: 1.4;
+  color: #5f6b7a;
+}
+/* 鍦板浘 */
 .map {
   width: 100%;
   height: 460rpx;
@@ -2680,7 +2772,7 @@ const buildHistory = (records) => {
   margin-bottom: 24rpx;
   overflow: hidden;
 }
-/* 模式切换（三选一） */
+/* 妯″紡鍒囨崲锛堜笁閫変竴锛?*/
 .mode-switch {
   display: flex;
   justify-content: center;
@@ -2698,7 +2790,7 @@ const buildHistory = (records) => {
   color: #d81e06;
   font-weight: bold;
 }
-/* 警务专项计划模块 */
+/* 璀﹀姟涓撻」璁″垝妯″潡 */
 .police-plan {
   background-color: #fdf2f0;
   border: 1px solid #fef0f0;
@@ -2730,7 +2822,7 @@ const buildHistory = (records) => {
   color: #d81e06;
   font-weight: bold;
 }
-/* 通用跑步模块样式 */
+/* 閫氱敤璺戞妯″潡鏍峰紡 */
 .run-mode-box {
   margin-bottom: 20rpx;
 }
@@ -2857,9 +2949,85 @@ const buildHistory = (records) => {
   font-weight: bold;
 }
 
+.face-camera-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(0, 0, 0, 0.92);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.face-camera-view {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.face-camera-panel {
+  position: relative;
+  z-index: 2;
+  padding: 32rpx 28rpx calc(36rpx + env(safe-area-inset-bottom));
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.88), rgba(0, 0, 0, 0.3));
+}
+
+.face-camera-title {
+  display: block;
+  color: #fff;
+  font-size: 34rpx;
+  font-weight: 700;
+  text-align: center;
+}
+
+.face-camera-tip {
+  display: block;
+  margin-top: 14rpx;
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 26rpx;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.face-camera-error {
+  display: block;
+  margin-top: 14rpx;
+  color: #ffd6d6;
+  font-size: 24rpx;
+  text-align: center;
+}
+
+.face-camera-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18rpx;
+  margin-top: 28rpx;
+}
+
+.face-camera-cancel,
+.face-camera-shoot {
+  height: 88rpx;
+  line-height: 88rpx;
+  border-radius: 44rpx;
+  font-size: 30rpx;
+  border: none;
+}
+
+.face-camera-cancel {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+
+.face-camera-shoot {
+  background: #20c997;
+  color: #fff;
+}
+
 @keyframes pulse {
   0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(32, 201, 151, 0.4); }
   70% { transform: scale(1.05); box-shadow: 0 0 0 20rpx rgba(32, 201, 151, 0); }
   100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(32, 201, 151, 0); }
 }
 </style>
+

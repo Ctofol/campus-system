@@ -1,32 +1,32 @@
-<template>
+﻿<template>
   <view class="discover-page">
     <view class="navbar">
-      <text class="back-btn" @click="goBack" v-if="showCreateForm">←</text>
-      <text class="title">{{ showCreateForm ? '创建跑团' : '跑团发现' }}</text>
-      <text class="rank-btn" @click="goToRank" v-if="!showCreateForm">排行榜</text>
+      <text class="back-btn" @click="goBack" v-if="showCreateForm">鈫?/text>
+      <text class="title">{{ showCreateForm ? '鍒涘缓璺戝洟' : '璺戝洟鍙戠幇' }}</text>
+      <text class="rank-btn" @click="goToRank" v-if="!showCreateForm">鎺掕姒?/text>
     </view>
     
-    <!-- 创建跑团表单 -->
+    <!-- 鍒涘缓璺戝洟琛ㄥ崟 -->
     <view class="create-form" v-if="showCreateForm">
       <view class="form-item">
-        <text class="label">跑团名称</text>
-        <input class="input" v-model="formData.name" placeholder="请输入跑团名称" maxlength="20" />
+        <text class="label">璺戝洟鍚嶇О</text>
+        <input class="input" v-model="formData.name" placeholder="璇疯緭鍏ヨ窇鍥㈠悕绉? maxlength="20" />
       </view>
       
       <view class="form-item">
-        <text class="label">跑团简介</text>
+        <text class="label">璺戝洟绠€浠?/text>
         <textarea 
           class="textarea" 
           v-model="formData.description" 
-          placeholder="请输入跑团简介" 
+          placeholder="璇疯緭鍏ヨ窇鍥㈢畝浠? 
           maxlength="200"
         />
       </view>
       
-      <button class="submit-btn" @click="handleCreate">创建跑团</button>
+      <button class="submit-btn" @click="handleCreate">鍒涘缓璺戝洟</button>
     </view>
     
-    <!-- 跑团列表 -->
+    <!-- 璺戝洟鍒楄〃 -->
     <scroll-view 
       v-else
       scroll-y 
@@ -48,22 +48,22 @@
         <image class="avatar" :src="group.avatar || '/static/default-avatar.png'" mode="aspectFill" />
         <view class="info">
           <text class="name">{{ group.name }}</text>
-          <text class="desc">{{ group.description || '暂无描述' }}</text>
-          <text class="stats">{{ group.member_count }}人 · {{ (group.total_mileage || 0).toFixed(1) }}km</text>
+          <text class="desc">{{ group.description || '鏆傛棤鎻忚堪' }}</text>
+          <text class="stats">{{ group.member_count }}浜?路 {{ (group.total_mileage || 0).toFixed(1) }}km</text>
         </view>
-        <button class="join-btn" @click.stop="handleJoin(group.id)">加入</button>
+        <button class="join-btn" @click.stop="handleJoin(group.id)">鍔犲叆</button>
       </view>
       
       <view class="loading" v-if="loading">
-        <text>加载中...</text>
+        <text>鍔犺浇涓?..</text>
       </view>
       
       <view class="no-more" v-if="!loading && noMore">
-        <text>没有更多了</text>
+        <text>娌℃湁鏇村浜?/text>
       </view>
       
       <view class="empty" v-if="!loading && groups.length === 0">
-        <text>暂无跑团</text>
+        <text>鏆傛棤璺戝洟</text>
       </view>
     </scroll-view>
   </view>
@@ -86,7 +86,7 @@ const formData = ref({
 });
 
 onLoad((options) => {
-  // 检查是否是创建模式
+  // 妫€鏌ユ槸鍚︽槸鍒涘缓妯″紡
   if (options.action === 'create') {
     showCreateForm.value = true;
   }
@@ -108,7 +108,7 @@ const loadGroups = async (refresh = false) => {
       size: 20
     });
     
-    // 数据验证：确保返回的是有效数组
+    // 鏁版嵁楠岃瘉锛氱‘淇濊繑鍥炵殑鏄湁鏁堟暟缁?
     const validGroups = Array.isArray(res) ? res.filter(g => g && g.id) : [];
     
     if (refresh) {
@@ -121,7 +121,7 @@ const loadGroups = async (refresh = false) => {
       noMore.value = true;
     }
   } catch (e) {
-    uni.showToast({ title: '加载失败', icon: 'none' });
+    uni.showToast({ title: '鍔犺浇澶辫触', icon: 'none' });
   } finally {
     loading.value = false;
     refreshing.value = false;
@@ -142,22 +142,22 @@ const loadMore = () => {
 
 const handleJoin = async (groupId) => {
   try {
-    console.log('尝试加入跑团:', groupId);
+    console.log('灏濊瘯鍔犲叆璺戝洟:', groupId);
     const res = await joinRunGroup(groupId);
-    console.log('加入跑团响应:', res);
+    console.log('鍔犲叆璺戝洟鍝嶅簲:', res);
     
     if (res && res.joinStatus) {
-      uni.showToast({ title: '加入成功', icon: 'success' });
-      // 刷新页面或跳转到我的跑团
+      uni.showToast({ title: '鍔犲叆鎴愬姛', icon: 'success' });
+      // 鍒锋柊椤甸潰鎴栬烦杞埌鎴戠殑璺戝洟
       setTimeout(() => {
-        uni.navigateTo({ url: '/pages/run-group/my' });
+        uni.redirectTo({ url: '/pages/run-group/my' });
       }, 1500);
     } else {
-      const message = res?.message || '加入失败';
+      const message = res?.message || '鍔犲叆澶辫触';
       uni.showToast({ title: message, icon: 'none' });
     }
   } catch (e) {
-    console.error('加入跑团失败:', e);
+    console.error('鍔犲叆璺戝洟澶辫触:', e);
     const errorMsg = e.message || e.detail || '加入失败，请重试';
     uni.showToast({ title: errorMsg, icon: 'none' });
   }
@@ -165,34 +165,34 @@ const handleJoin = async (groupId) => {
 
 const handleCreate = async () => {
   if (!formData.value.name) {
-    uni.showToast({ title: '请输入跑团名称', icon: 'none' });
+    uni.showToast({ title: '璇疯緭鍏ヨ窇鍥㈠悕绉?, icon: 'none' });
     return;
   }
   
   if (!formData.value.description) {
-    uni.showToast({ title: '请输入跑团简介', icon: 'none' });
+    uni.showToast({ title: '璇疯緭鍏ヨ窇鍥㈢畝浠?, icon: 'none' });
     return;
   }
   
   try {
-    uni.showLoading({ title: '创建中...' });
+    uni.showLoading({ title: '鍒涘缓涓?..' });
     await createRunGroup(formData.value);
     uni.hideLoading();
-    uni.showToast({ title: '创建成功', icon: 'success' });
+    uni.showToast({ title: '鍒涘缓鎴愬姛', icon: 'success' });
     
-    // 跳转到我的跑团页面
+    // 璺宠浆鍒版垜鐨勮窇鍥㈤〉闈?
     setTimeout(() => {
-      uni.navigateTo({ url: '/pages/run-group/my' });
+      uni.redirectTo({ url: '/pages/run-group/my' });
     }, 1500);
   } catch (e) {
     uni.hideLoading();
-    uni.showToast({ title: e.detail || '创建失败', icon: 'none' });
+    uni.showToast({ title: e.message || e.detail || '创建失败', icon: 'none' });
   }
 };
 
 const goBack = () => {
   showCreateForm.value = false;
-  // 返回后重新加载跑团列表
+  // 杩斿洖鍚庨噸鏂板姞杞借窇鍥㈠垪琛?
   loadGroups(true);
 };
 
@@ -381,3 +381,4 @@ onMounted(() => {
   font-size: 24rpx;
 }
 </style>
+
