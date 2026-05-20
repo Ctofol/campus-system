@@ -606,6 +606,12 @@ class RunGroupCreate(RunGroupBase):
     pass
 
 
+class RunGroupUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    avatar: Optional[str] = None
+
+
 class RunGroupOut(RunGroupBase):
     id: int
     creator_id: Optional[int] = None

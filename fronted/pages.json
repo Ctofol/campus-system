@@ -377,6 +377,12 @@
       }
     },
     {
+      "path": "pages/run-group/edit",
+      "style": {
+        "navigationBarTitleText": "编辑跑团"
+      }
+    },
+    {
       "path": "pages/run-group/activity-list",
       "style": {
         "navigationBarTitleText": "活动列表"

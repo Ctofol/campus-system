@@ -440,6 +440,14 @@ export const createRunGroup = (data) => {
   });
 };
 
+export const updateRunGroup = (groupId, data) => {
+  return request({
+    url: `/run-group/${groupId}`,
+    method: 'PUT',
+    data
+  });
+};
+
 export const joinRunGroup = (groupId) => {
   return request({
     url: `/run-group/join?group_id=${groupId}`,

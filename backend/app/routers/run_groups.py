@@ -77,6 +77,50 @@ async def create_run_group(
     return new_group
 
 
+@router.put("/{group_id}", response_model=schemas.RunGroupDetailOut)
+async def update_run_group(
+    group_id: int,
+    group_in: schemas.RunGroupUpdate,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Update basic info for a run group created by the current user."""
+    member = db.query(models.RunGroupMember).filter(
+        models.RunGroupMember.group_id == group_id,
+        models.RunGroupMember.user_id == current_user.id
+    ).first()
+
+    if not member or not member.group:
+        raise HTTPException(status_code=404, detail="您未加入该跑团")
+
+    if member.role != "creator":
+        raise HTTPException(status_code=403, detail="只有跑团创建者可以修改跑团资料")
+
+    group = member.group
+
+    if group_in.name is not None:
+        group_name = group_in.name.strip()
+        if not group_name:
+            raise HTTPException(status_code=400, detail="跑团名称不能为空")
+        existing = db.query(models.RunGroup).filter(
+            models.RunGroup.name == group_name,
+            models.RunGroup.id != group_id
+        ).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="跑团名称已存在")
+        group.name = group_name
+
+    if group_in.description is not None:
+        group.description = group_in.description.strip() or None
+
+    if group_in.avatar is not None:
+        group.avatar = group_in.avatar.strip() or None
+
+    db.commit()
+    db.refresh(group)
+    return _build_group_detail(db, group, member.role)
+
+
 @router.post("/join")
 async def join_run_group(
     group_id: int,
