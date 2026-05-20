@@ -1,98 +1,103 @@
 <template>
   <view class="my-page">
-    <!-- 未加入状态 -->
-    <view class="no-group" v-if="!hasJoined">
+    <view class="no-group" v-if="joinedGroups.length === 0">
       <image class="empty-icon" src="/static/empty-group.png" mode="aspectFit" />
       <text class="tip-text">您还未加入跑团</text>
       <view class="tip-actions">
         <button class="tip-btn primary" @click="goToDiscover">加入跑团</button>
       </view>
     </view>
-    
-    <!-- 已加入状态 -->
-    <view class="group-content" v-else>
-      <!-- 跑团信息卡片 -->
-      <view class="group-card">
-        <view class="card-header">
-          <image class="avatar" :src="myGroup.avatar || '/static/default-avatar.png'" mode="aspectFill" />
-          <view class="header-info">
-            <text class="name">{{ myGroup.name }}</text>
-            <view class="role-badge" :class="'role-' + myGroup.role">
-              <text>{{ getRoleText(myRole) }}</text>
-            </view>
-          </view>
-          <view class="rank-badge" v-if="myGroup.rank">
-            <text>No.{{ myGroup.rank }}</text>
+
+    <view class="group-content" v-else-if="activeGroup">
+      <scroll-view class="group-switcher" scroll-x show-scrollbar="false">
+        <view class="group-switcher-row">
+          <view
+            v-for="group in joinedGroups"
+            :key="group.id"
+            class="group-chip"
+            :class="{ active: group.id === activeGroupId }"
+            @click="selectGroup(group.id)"
+          >
+            <text class="group-chip-name">{{ group.name }}</text>
+            <text class="group-chip-role">{{ getRoleText(group.role) }}</text>
           </view>
         </view>
-        
+      </scroll-view>
+
+      <view class="group-card">
+        <view class="card-header">
+          <image class="avatar" :src="activeGroup.avatar || '/static/default-avatar.png'" mode="aspectFill" />
+          <view class="header-info">
+            <text class="name">{{ activeGroup.name }}</text>
+            <view class="role-badge">
+              <text>{{ getRoleText(activeGroup.role) }}</text>
+            </view>
+          </view>
+          <view class="rank-badge" v-if="activeGroup.rank">
+            <text>No.{{ activeGroup.rank }}</text>
+          </view>
+        </view>
+
         <view class="stats-row">
           <view class="stat-item">
-            <text class="value">{{ myGroup.member_count }}</text>
+            <text class="value">{{ activeGroup.member_count }}</text>
             <text class="label">成员数</text>
           </view>
           <view class="stat-item">
-            <text class="value">{{ (myGroup.total_mileage || 0).toFixed(1) }}km</text>
+            <text class="value">{{ (activeGroup.total_mileage || 0).toFixed(1) }}km</text>
             <text class="label">总里程</text>
           </view>
           <view class="stat-item">
-            <text class="value">{{ myGroup.month_activity_count }}</text>
+            <text class="value">{{ activeGroup.month_activity_count || 0 }}</text>
             <text class="label">本月活动</text>
           </view>
         </view>
-        
-        <button class="leave-btn" @click="handleLeave" v-if="myRole !== 'creator'">退出跑团</button>
-        <button class="delete-btn" @click="handleDeleteGroup" v-else>删除跑团</button>
+
+        <view class="card-actions">
+          <button class="detail-btn" @click="goToDetail">查看详情</button>
+          <button class="leave-btn" @click="handleLeave" v-if="activeGroup.role !== 'creator'">退出跑团</button>
+          <button class="delete-btn" @click="handleDeleteGroup" v-else>删除跑团</button>
+        </view>
       </view>
-      
-      <!-- Tab 栏 -->
+
       <view class="tab-bar">
-        <view 
-          class="tab-item" 
-          :class="{active: currentTab === 'overview'}"
-          @click="currentTab = 'overview'"
-        >
+        <view class="tab-item" :class="{ active: currentTab === 'overview' }" @click="currentTab = 'overview'">
           <text>概览</text>
         </view>
-        <view 
-          class="tab-item" 
-          :class="{active: currentTab === 'members'}"
-          @click="loadMembers"
-        >
+        <view class="tab-item" :class="{ active: currentTab === 'members' }" @click="loadMembers">
           <text>成员</text>
         </view>
-        <view 
-          class="tab-item" 
-          :class="{active: currentTab === 'activities'}"
-          @click="loadActivities"
-        >
+        <view class="tab-item" :class="{ active: currentTab === 'activities' }" @click="loadActivities">
           <text>活动</text>
         </view>
       </view>
-      
-      <!-- 概览 -->
+
       <view class="tab-content" v-if="currentTab === 'overview'">
         <view class="overview-section">
           <text class="section-title">跑团简介</text>
-          <text class="section-text">{{ myGroup.description || '暂无简介' }}</text>
+          <text class="section-text">{{ activeGroup.description || '暂无简介' }}</text>
         </view>
       </view>
-      
-      <!-- 成员列表 -->
+
       <view class="tab-content" v-if="currentTab === 'members'">
         <view class="member-item" v-for="member in members" :key="member.id">
           <text class="member-name">{{ member.user_name }}</text>
           <text class="member-role">{{ getRoleText(member.role) }}</text>
           <text class="member-mileage">{{ (member.total_mileage || 0).toFixed(1) }}km</text>
         </view>
+        <view class="empty-state" v-if="members.length === 0">
+          <text>暂无成员数据</text>
+        </view>
       </view>
-      
-      <!-- 活动列表 -->
+
       <view class="tab-content" v-if="currentTab === 'activities'">
         <view class="activity-item" v-for="activity in activities" :key="activity.id" @click="goToActivity(activity.id)">
           <text class="activity-title">{{ activity.title }}</text>
           <text class="activity-time">{{ formatTime(activity.activity_time) }}</text>
           <text class="activity-apply">{{ activity.apply_count }}/{{ activity.total_quota }}人</text>
+        </view>
+        <view class="empty-state" v-if="activities.length === 0">
+          <text>暂无活动数据</text>
         </view>
       </view>
     </view>
@@ -100,78 +105,82 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
-import { getMyRunGroup, leaveRunGroup, deleteRunGroup, getGroupMembers, getGroupActivities } from '@/utils/request.js';
+import { computed, ref, onMounted } from 'vue';
+import { getMyRunGroups, leaveRunGroup, deleteRunGroup, getGroupMembers, getGroupActivities } from '@/utils/request.js';
 
-const hasJoined = ref(false);
-const myGroup = ref(null);
-const myRole = ref('member');
+const joinedGroups = ref([]);
+const activeGroupId = ref(null);
 const currentTab = ref('overview');
 const members = ref([]);
 const activities = ref([]);
 
-const loadMyGroup = async () => {
+const activeGroup = computed(() => joinedGroups.value.find(group => group.id === activeGroupId.value) || null);
+
+const resetTabData = () => {
+  members.value = [];
+  activities.value = [];
+  currentTab.value = 'overview';
+};
+
+const selectGroup = (groupId) => {
+  if (activeGroupId.value === groupId) return;
+  activeGroupId.value = groupId;
+  resetTabData();
+};
+
+const loadMyGroups = async () => {
   try {
-    const res = await getMyRunGroup();
-    
-    // 如果返回null，说明用户未加入跑团
-    if (!res) {
-      hasJoined.value = false;
+    const res = await getMyRunGroups();
+    joinedGroups.value = Array.isArray(res) ? res : [];
+    if (joinedGroups.value.length === 0) {
+      activeGroupId.value = null;
+      resetTabData();
       return;
     }
-    
-    myGroup.value = res;
-    hasJoined.value = true;
-    
-    // 获取当前用户角色（需要从成员列表中查找）
-    const userId = uni.getStorageSync('userInfo')?.id;
-    if (userId) {
-      const memberRes = await getGroupMembers(res.id, { page: 1, size: 100 });
-      const currentMember = memberRes.find(m => m.user_id === userId);
-      if (currentMember) {
-        myRole.value = currentMember.role;
-      }
+
+    if (!joinedGroups.value.some(group => group.id === activeGroupId.value)) {
+      activeGroupId.value = joinedGroups.value[0].id;
     }
   } catch (e) {
-    // 任何错误都视为未加入跑团
     console.log('加载跑团信息失败:', e);
-    hasJoined.value = false;
+    joinedGroups.value = [];
+    activeGroupId.value = null;
+    resetTabData();
   }
 };
 
 const handleLeave = async () => {
+  if (!activeGroup.value) return;
+
   uni.showModal({
     title: '确认退出',
-    content: '退出后将无法查看跑团信息',
+    content: `确认退出 ${activeGroup.value.name} 吗？`,
     success: async (res) => {
-      if (res.confirm) {
-        try {
-          await leaveRunGroup();
-          uni.showToast({ title: '退出成功', icon: 'success' });
-          hasJoined.value = false;
-          myGroup.value = null;
-        } catch (e) {
-          uni.showToast({ title: e.detail || '退出失败', icon: 'none' });
-        }
+      if (!res.confirm) return;
+      try {
+        await leaveRunGroup(activeGroup.value.id);
+        uni.showToast({ title: '退出成功', icon: 'success' });
+        await loadMyGroups();
+      } catch (e) {
+        uni.showToast({ title: e.message || e.detail || '退出失败', icon: 'none' });
       }
     }
   });
 };
 
 const handleDeleteGroup = async () => {
+  if (!activeGroup.value) return;
+
   uni.showModal({
     title: '确认删除',
-    content: '删除后跑团成员、活动和报名记录都会一起清空，且无法恢复。',
+    content: `删除 ${activeGroup.value.name} 后无法恢复，确认继续吗？`,
     confirmColor: '#e03131',
     success: async (res) => {
       if (!res.confirm) return;
       try {
-        await deleteRunGroup();
+        await deleteRunGroup(activeGroup.value.id);
         uni.showToast({ title: '跑团已删除', icon: 'success' });
-        hasJoined.value = false;
-        myGroup.value = null;
-        members.value = [];
-        activities.value = [];
+        await loadMyGroups();
       } catch (e) {
         uni.showToast({ title: e.message || e.detail || '删除失败', icon: 'none' });
       }
@@ -180,34 +189,36 @@ const handleDeleteGroup = async () => {
 };
 
 const loadMembers = async () => {
+  if (!activeGroup.value) return;
   currentTab.value = 'members';
   if (members.value.length > 0) return;
-  
+
   try {
-    const res = await getGroupMembers(myGroup.value.id, { page: 1, size: 50 });
-    members.value = res;
+    const res = await getGroupMembers(activeGroup.value.id, { page: 1, size: 100 });
+    members.value = Array.isArray(res) ? res : [];
   } catch (e) {
-    uni.showToast({ title: '加载失败', icon: 'none' });
+    uni.showToast({ title: e.message || '加载失败', icon: 'none' });
   }
 };
 
 const loadActivities = async () => {
+  if (!activeGroup.value) return;
   currentTab.value = 'activities';
   if (activities.value.length > 0) return;
-  
+
   try {
-    const res = await getGroupActivities(myGroup.value.id, { page: 1, size: 20 });
-    activities.value = res.items;
+    const res = await getGroupActivities(activeGroup.value.id, { page: 1, size: 20 });
+    activities.value = Array.isArray(res?.items) ? res.items : [];
   } catch (e) {
-    uni.showToast({ title: '加载失败', icon: 'none' });
+    uni.showToast({ title: e.message || '加载失败', icon: 'none' });
   }
 };
 
 const getRoleText = (role) => {
   const roleMap = {
-    'creator': '创建者',
-    'admin': '管理员',
-    'member': '成员'
+    creator: '创建者',
+    admin: '管理员',
+    member: '成员'
   };
   return roleMap[role] || '成员';
 };
@@ -221,12 +232,17 @@ const goToDiscover = () => {
   uni.navigateTo({ url: '/pages/run-group/discover' });
 };
 
+const goToDetail = () => {
+  if (!activeGroup.value) return;
+  uni.navigateTo({ url: `/pages/run-group/detail?groupId=${activeGroup.value.id}` });
+};
+
 const goToActivity = (activityId) => {
   uni.navigateTo({ url: `/pages/run-group/activity-detail?activityId=${activityId}` });
 };
 
 onMounted(() => {
-  loadMyGroup();
+  loadMyGroups();
 });
 </script>
 
@@ -275,6 +291,49 @@ onMounted(() => {
 
 .group-content {
   padding: 20rpx 30rpx;
+}
+
+.group-switcher {
+  white-space: nowrap;
+  margin-bottom: 20rpx;
+}
+
+.group-switcher-row {
+  display: inline-flex;
+  gap: 16rpx;
+  padding-right: 20rpx;
+}
+
+.group-chip {
+  min-width: 200rpx;
+  padding: 18rpx 24rpx;
+  border-radius: 18rpx;
+  background: #fff;
+  border: 2rpx solid #e7edf3;
+}
+
+.group-chip.active {
+  background: #20C997;
+  border-color: #20C997;
+}
+
+.group-chip-name {
+  display: block;
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #243447;
+}
+
+.group-chip-role {
+  display: block;
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: #7b8794;
+}
+
+.group-chip.active .group-chip-name,
+.group-chip.active .group-chip-role {
+  color: #fff;
 }
 
 .group-card {
@@ -330,7 +389,7 @@ onMounted(() => {
 .stats-row {
   display: flex;
   justify-content: space-around;
-  margin-bottom: 30rpx;
+  margin-bottom: 24rpx;
 }
 
 .stat-item {
@@ -340,7 +399,7 @@ onMounted(() => {
 }
 
 .value {
-  font-size: 48rpx;
+  font-size: 40rpx;
   font-weight: bold;
   color: #fff;
   margin-bottom: 8rpx;
@@ -351,24 +410,35 @@ onMounted(() => {
   color: rgba(255, 255, 255, 0.9);
 }
 
-.leave-btn {
-  width: 100%;
+.card-actions {
+  display: flex;
+  gap: 16rpx;
+}
+
+.detail-btn,
+.leave-btn,
+.delete-btn {
+  flex: 1;
   padding: 20rpx;
-  background: rgba(255, 255, 255, 0.2);
-  color: #fff;
   border-radius: 30rpx;
   font-size: 26rpx;
+  border: none;
+}
+
+.detail-btn {
+  background: rgba(255, 255, 255, 0.92);
+  color: #0f766e;
+}
+
+.leave-btn {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
   border: 1px solid rgba(255, 255, 255, 0.5);
 }
 
 .delete-btn {
-  width: 100%;
-  padding: 20rpx;
-  margin-top: 16rpx;
   background: rgba(224, 49, 49, 0.22);
   color: #fff;
-  border-radius: 30rpx;
-  font-size: 26rpx;
   border: 1px solid rgba(255, 255, 255, 0.45);
 }
 
@@ -418,28 +488,39 @@ onMounted(() => {
   line-height: 1.6;
 }
 
-.member-item, .activity-item {
+.member-item,
+.activity-item {
   display: flex;
   align-items: center;
   padding: 20rpx 0;
   border-bottom: 1px solid #f0f0f0;
 }
 
-.member-name, .activity-title {
+.member-name,
+.activity-title {
   flex: 1;
   font-size: 26rpx;
   color: #333;
 }
 
-.member-role, .activity-time {
+.member-role,
+.activity-time {
   font-size: 24rpx;
   color: #999;
   margin-right: 20rpx;
 }
 
-.member-mileage, .activity-apply {
+.member-mileage,
+.activity-apply {
   font-size: 24rpx;
   color: #20C997;
   font-weight: bold;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 24rpx 0 8rpx;
+  font-size: 24rpx;
+  color: #999;
 }
 </style>

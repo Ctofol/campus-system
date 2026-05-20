@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="detail-page">
     <view class="header-card" v-if="groupDetail">
       <view class="header-bg"></view>
@@ -6,16 +6,16 @@
         <image class="avatar" :src="groupDetail.avatar || '/static/default-avatar.png'" mode="aspectFill" />
         <text class="name">{{ groupDetail.name }}</text>
         <view class="rank-badge" v-if="groupDetail.rank">
-          <text>排名 No.{{ groupDetail.rank }}</text>
+          <text>鎺掑悕 No.{{ groupDetail.rank }}</text>
         </view>
         <view class="stats-row">
           <view class="stat-item">
             <text class="value">{{ groupDetail.member_count }}</text>
-            <text class="label">成员</text>
+            <text class="label">鎴愬憳</text>
           </view>
           <view class="stat-item">
             <text class="value">{{ (groupDetail.total_mileage || 0).toFixed(1) }}km</text>
-            <text class="label">总里程</text>
+            <text class="label">鎬婚噷绋?/text>
           </view>
         </view>
       </view>
@@ -27,34 +27,34 @@
         :class="{active: currentTab === 'overview'}"
         @click="currentTab = 'overview'"
       >
-        <text>概览</text>
+        <text>姒傝</text>
       </view>
       <view 
         class="tab-item" 
         :class="{active: currentTab === 'members'}"
         @click="loadMembers"
       >
-        <text>成员</text>
+        <text>鎴愬憳</text>
       </view>
       <view 
         class="tab-item" 
         :class="{active: currentTab === 'activities'}"
         @click="loadActivities"
       >
-        <text>活动</text>
+        <text>娲诲姩</text>
       </view>
     </view>
     
     <view class="tab-content">
-      <!-- 概览 -->
+      <!-- 姒傝 -->
       <view v-if="currentTab === 'overview' && groupDetail">
         <view class="desc-card">
-          <text class="card-title">跑团简介</text>
-          <text class="desc-text">{{ groupDetail.description || '暂无简介' }}</text>
+          <text class="card-title">璺戝洟绠€浠?/text>
+          <text class="desc-text">{{ groupDetail.description || '鏆傛棤绠€浠? }}</text>
         </view>
       </view>
       
-      <!-- 成员列表 -->
+      <!-- 鎴愬憳鍒楄〃 -->
       <view v-if="currentTab === 'members'">
         <view class="member-item" v-for="member in members" :key="member.id">
           <text class="member-name">{{ member.user_name }}</text>
@@ -63,20 +63,20 @@
         </view>
       </view>
       
-      <!-- 活动列表 -->
+      <!-- 娲诲姩鍒楄〃 -->
       <view v-if="currentTab === 'activities'">
         <view class="activity-item" v-for="activity in activities" :key="activity.id" @click="goToActivity(activity.id)">
           <text class="activity-title">{{ activity.title }}</text>
           <text class="activity-time">{{ formatTime(activity.activity_time) }}</text>
-          <text class="activity-apply">{{ activity.apply_count }}/{{ activity.total_quota }}人</text>
+          <text class="activity-apply">{{ activity.apply_count }}/{{ activity.total_quota }}浜?/text>
         </view>
       </view>
     </view>
     
     <view class="bottom-bar" v-if="groupDetail">
-      <button class="action-btn" @click="handleJoin" v-if="!isMember">加入跑团</button>
-      <button class="action-btn primary" @click="goToCreateActivity" v-else-if="isCreator">发布活动</button>
-      <button class="action-btn leave" @click="handleLeave" v-else>退出跑团</button>
+      <button class="action-btn" @click="handleJoin" v-if="!isMember">鍔犲叆璺戝洟</button>
+      <button class="action-btn primary" @click="goToCreateActivity" v-else-if="isCreator">鍙戝竷娲诲姩</button>
+      <button class="action-btn leave" @click="handleLeave" v-else>閫€鍑鸿窇鍥?/button>
     </view>
   </view>
 </template>
@@ -94,90 +94,91 @@ const activities = ref([]);
 const isMember = ref(false);
 const isCreator = ref(false);
 
-// 获取URL参数
+// 鑾峰彇URL鍙傛暟
 onLoad((options) => {
   if (options.groupId) {
     groupId.value = parseInt(options.groupId);
     loadDetail();
-    // 立即加载成员信息以判断用户身份
+    // 绔嬪嵆鍔犺浇鎴愬憳淇℃伅浠ュ垽鏂敤鎴疯韩浠?
     checkMemberStatus();
   } else {
-    uni.showToast({ title: '参数错误', icon: 'none' });
+    uni.showToast({ title: '鍙傛暟閿欒', icon: 'none' });
     setTimeout(() => {
       uni.navigateBack();
     }, 1500);
   }
 });
 
-// 检查用户在跑团中的身份
+// 妫€鏌ョ敤鎴峰湪璺戝洟涓殑韬唤
 const checkMemberStatus = async () => {
   try {
     const userInfo = uni.getStorageSync('userInfo');
-    console.log('当前用户信息:', userInfo);
+    console.log('褰撳墠鐢ㄦ埛淇℃伅:', userInfo);
     
-    if (!userInfo || !userInfo.userId) {
-      console.log('未找到用户信息或userId');
+    const currentUserId = userInfo?.id || userInfo?.userId;
+    if (!currentUserId) {
+      console.log('鏈壘鍒扮敤鎴蜂俊鎭垨userId');
       return;
     }
     
     const res = await getGroupMembers(groupId.value, { page: 1, size: 100 });
-    console.log('成员列表响应:', res);
+    console.log('鎴愬憳鍒楄〃鍝嶅簲:', res);
     
-    // 后端返回的是数组，不是分页对象
+    // 鍚庣杩斿洖鐨勬槸鏁扮粍锛屼笉鏄垎椤靛璞?
     if (Array.isArray(res)) {
       members.value = res;
-      const currentMember = res.find(m => m.user_id === userInfo.userId);
-      console.log('找到的当前成员:', currentMember);
+      const currentMember = res.find(m => m.user_id === currentUserId);
+      console.log('鎵惧埌鐨勫綋鍓嶆垚鍛?', currentMember);
       
       if (currentMember) {
         isMember.value = true;
         isCreator.value = currentMember.role === 'creator';
-        console.log('用户身份:', { isMember: isMember.value, isCreator: isCreator.value, role: currentMember.role });
+        console.log('鐢ㄦ埛韬唤:', { isMember: isMember.value, isCreator: isCreator.value, role: currentMember.role });
       } else {
-        console.log('用户不是该跑团成员');
+        console.log('鐢ㄦ埛涓嶆槸璇ヨ窇鍥㈡垚鍛?);
       }
     } else {
-      console.log('成员列表格式错误:', res);
+      console.log('鎴愬憳鍒楄〃鏍煎紡閿欒:', res);
     }
   } catch (e) {
-    console.error('检查成员身份失败:', e);
+    console.error('妫€鏌ユ垚鍛樿韩浠藉け璐?', e);
   }
 };
 
 const loadDetail = async () => {
   try {
-    console.log('加载跑团详情, groupId:', groupId.value);
+    console.log('鍔犺浇璺戝洟璇︽儏, groupId:', groupId.value);
     const res = await getRunGroups({ page: 1, size: 100 });
-    console.log('跑团列表:', res);
+    console.log('璺戝洟鍒楄〃:', res);
     
     if (res && res.items) {
-      // 如果返回的是分页数据
+      // 濡傛灉杩斿洖鐨勬槸鍒嗛〉鏁版嵁
       groupDetail.value = res.items.find(g => g.id === groupId.value);
     } else if (Array.isArray(res)) {
-      // 如果返回的是数组
+      // 濡傛灉杩斿洖鐨勬槸鏁扮粍
       groupDetail.value = res.find(g => g.id === groupId.value);
     }
     
-    console.log('找到的跑团详情:', groupDetail.value);
+    console.log('鎵惧埌鐨勮窇鍥㈣鎯?', groupDetail.value);
     
     if (!groupDetail.value) {
-      uni.showToast({ title: '跑团不存在', icon: 'none' });
+      uni.showToast({ title: '璺戝洟涓嶅瓨鍦?, icon: 'none' });
       setTimeout(() => {
         uni.navigateBack();
       }, 1500);
     }
   } catch (e) {
-    console.error('加载跑团详情失败:', e);
-    uni.showToast({ title: '加载失败', icon: 'none' });
+    console.error('鍔犺浇璺戝洟璇︽儏澶辫触:', e);
+    uni.showToast({ title: '鍔犺浇澶辫触', icon: 'none' });
   }
 };
 
 const loadMembers = async () => {
   currentTab.value = 'members';
-  // 如果已经加载过成员列表，直接返回
+  // 濡傛灉宸茬粡鍔犺浇杩囨垚鍛樺垪琛紝鐩存帴杩斿洖
   if (members.value.length > 0) return;
   
-  // 否则调用检查函数
+  // 鍚﹀垯璋冪敤妫€鏌ュ嚱鏁?
   await checkMemberStatus();
 };
 
@@ -189,7 +190,7 @@ const loadActivities = async () => {
     const res = await getGroupActivities(groupId.value, { page: 1, size: 20 });
     activities.value = res.items;
   } catch (e) {
-    uni.showToast({ title: '加载失败', icon: 'none' });
+    uni.showToast({ title: '鍔犺浇澶辫触', icon: 'none' });
   }
 };
 
@@ -197,31 +198,31 @@ const handleJoin = async () => {
   try {
     const res = await joinRunGroup(groupId.value);
     if (res.joinStatus) {
-      uni.showToast({ title: '加入成功', icon: 'success' });
+      uni.showToast({ title: '鍔犲叆鎴愬姛', icon: 'success' });
       isMember.value = true;
       loadMembers();
     } else {
       uni.showToast({ title: res.message, icon: 'none' });
     }
   } catch (e) {
-    uni.showToast({ title: '加入失败', icon: 'none' });
+    uni.showToast({ title: '鍔犲叆澶辫触', icon: 'none' });
   }
 };
 
 const handleLeave = async () => {
   uni.showModal({
-    title: '确认退出',
-    content: '退出后将无法查看跑团信息',
+    title: '纭閫€鍑?,
+    content: '閫€鍑哄悗灏嗘棤娉曟煡鐪嬭窇鍥俊鎭?,
     success: async (res) => {
       if (res.confirm) {
         try {
-          await leaveRunGroup();
-          uni.showToast({ title: '退出成功', icon: 'success' });
+          await leaveRunGroup(groupId.value);
+          uni.showToast({ title: '閫€鍑烘垚鍔?, icon: 'success' });
           setTimeout(() => {
             uni.navigateBack();
           }, 1500);
         } catch (e) {
-          uni.showToast({ title: '退出失败', icon: 'none' });
+          uni.showToast({ title: e.message || e.detail || '退出失败', icon: 'none' });
         }
       }
     }
@@ -236,16 +237,16 @@ const goToCreateActivity = () => {
 
 const getRoleText = (role) => {
   const roleMap = {
-    'creator': '创建者',
-    'admin': '管理员',
-    'member': '成员'
+    'creator': '鍒涘缓鑰?,
+    'admin': '绠＄悊鍛?,
+    'member': '鎴愬憳'
   };
-  return roleMap[role] || '成员';
+  return roleMap[role] || '鎴愬憳';
 };
 
 const formatTime = (timeStr) => {
   const date = new Date(timeStr);
-  return `${date.getMonth() + 1}月${date.getDate()}日 ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+  return `${date.getMonth() + 1}鏈?{date.getDate()}鏃?${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
 };
 
 const goToActivity = (activityId) => {
@@ -435,3 +436,4 @@ const goToActivity = (activityId) => {
   border: 2px solid #ff6b6b;
 }
 </style>
+

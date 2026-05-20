@@ -447,16 +447,18 @@ export const joinRunGroup = (groupId) => {
   });
 };
 
-export const leaveRunGroup = () => {
+export const leaveRunGroup = (groupId) => {
+  const query = groupId ? `?group_id=${groupId}` : '';
   return request({
-    url: '/run-group/leave',
+    url: `/run-group/leave${query}`,
     method: 'POST'
   });
 };
 
-export const deleteRunGroup = () => {
+export const deleteRunGroup = (groupId) => {
+  const query = groupId ? `?group_id=${groupId}` : '';
   return request({
-    url: '/run-group/current',
+    url: `/run-group/current${query}`,
     method: 'DELETE'
   });
 };
@@ -464,6 +466,13 @@ export const deleteRunGroup = () => {
 export const getMyRunGroup = () => {
   return request({
     url: '/run-group/my',
+    method: 'GET'
+  });
+};
+
+export const getMyRunGroups = () => {
+  return request({
+    url: '/run-group/my-groups',
     method: 'GET'
   });
 };
