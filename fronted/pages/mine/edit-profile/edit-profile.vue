@@ -5,11 +5,10 @@
         <view class="avatar-row">
           <text class="label">头像</text>
           <view class="avatar-preview" @click="chooseAvatar">
-            <image :src="avatarUrl" mode="aspectFill" class="avatar-img" />
-            <view class="change-copy">
-              <text class="change-text">点击更换</text>
-              <text class="change-sub">相册 / 拍照</text>
+            <view class="avatar-img-wrap">
+              <image :src="avatarUrl" mode="aspectFill" class="avatar-img" />
             </view>
+            <text class="change-text">更改头像</text>
           </view>
         </view>
       </view>
@@ -36,12 +35,14 @@
       </view>
 
       <view class="form-item signature-item">
-        <text class="label">个性签名</text>
+        <text class="label signature-label">个性签名</text>
         <textarea
           v-model="formData.signature"
           class="textarea"
-          placeholder="写点什么吧"
+          placeholder="写点什么吧，最多 100 字"
           maxlength="100"
+          :auto-height="true"
+          :show-confirm-bar="false"
         />
       </view>
 
@@ -246,7 +247,13 @@ const handleSave = async () => {
 }
 
 .signature-item {
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.signature-label {
+  width: auto;
+  margin-bottom: 16rpx;
 }
 
 .label {
@@ -266,13 +273,14 @@ const handleSave = async () => {
 }
 
 .textarea {
-  flex: 1;
-  min-height: 120rpx;
+  width: 100%;
+  min-height: 160rpx;
   padding: 18rpx 20rpx;
   border-radius: 12rpx;
   background: #f8f9fa;
   font-size: 28rpx;
   color: #333;
+  line-height: 1.5;
   box-sizing: border-box;
 }
 
@@ -295,21 +303,17 @@ const handleSave = async () => {
   align-items: center;
   justify-content: flex-end;
   gap: 24rpx;
-  /* 避开微信右上角胶囊，避免文字被遮挡 */
-  padding-right: 200rpx;
   box-sizing: border-box;
 }
 
-.change-copy {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 6rpx;
-}
-
-.change-sub {
-  font-size: 22rpx;
-  color: #999;
+.avatar-img-wrap {
+  width: 120rpx;
+  height: 120rpx;
+  flex-shrink: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2rpx solid #f0f0f0;
+  background: #f5f5f5;
 }
 
 .avatar-trigger {
@@ -326,15 +330,14 @@ const handleSave = async () => {
 }
 
 .avatar-img {
-  width: 120rpx;
-  height: 120rpx;
-  border-radius: 60rpx;
-  border: 2rpx solid #f0f0f0;
-  background: #f5f5f5;
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 .change-text {
-  font-size: 24rpx;
+  flex-shrink: 0;
+  font-size: 28rpx;
   color: #20c997;
 }
 

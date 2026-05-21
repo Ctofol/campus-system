@@ -5,6 +5,24 @@
       <text class="mode-title">{{modeTitle}}</text>
     </view>
 
+    <!-- 轨迹地图（仅跑步模式显示） -->
+    <view class="map-section" v-if="currentMode !== 'test' && (trajectoryPoints.length >= 1 || mapCenterLat !== 0)">
+      <map
+        class="result-map"
+        :latitude="mapCenterLat"
+        :longitude="mapCenterLng"
+        :polyline="mapPolyline"
+        :markers="mapMarkers"
+        :enable-zoom="true"
+        :enable-scroll="true"
+        scale="15"
+        :show-location="false"
+      />
+      <view class="map-label">
+        <text class="map-label-text">{{ trajectoryPoints.length >= 2 ? '📍 本次跑步轨迹' : '📍 起跑位置' }}</text>
+      </view>
+    </view>
+
     <!-- 核心数据卡片 -->
     <view class="result-card">
       <!-- 体能测试模式：不显示通用的运动时长/距离，而是显示项目专属数据 -->
@@ -162,19 +180,18 @@ import { ref, computed} from 'vue';
 import { onShow, onLoad  } from '@dcloudio/uni-app';
 
 // 1. 接收跑步页传递的参数
-const currentMode = ref('normal'); // normal/police/campus
-const duration = ref(0); // 运动时长（秒）
-const distance = ref(0); // 运动距离（米）
-const isReach = ref(false); // 校园打卡是否到达
-const isPoliceFinish = ref(false); // 警务2000米是否完成
-const policePace = ref(0); // 警务配速（分/公里）
-const isValid = ref(null); // 本次运动是否有效（后端判定）
-const failReason = ref(''); // 无效原因
-const todayCompleted = ref(null); // 今日是否已完成目标（仅阳光跑自由跑）
+const currentMode = ref('normal');
+const duration = ref(0);
+const distance = ref(0);
+const isReach = ref(false);
+const isPoliceFinish = ref(false);
+const policePace = ref(0);
+const isValid = ref(null);
+const failReason = ref('');
+const todayCompleted = ref(null);
 const isTaskRun = ref(false);
 const taskTitle = ref('');
 const taskCompleted = ref(null);
-// 测试模式专属
 const testProject = ref('');
 const testType = ref('');
 const testCount = ref(0);
@@ -183,6 +200,13 @@ const standardReq = ref(0);
 const userScorePercent = ref(0);
 const standardScorePercent = ref(0);
 const suggestionText = ref('');
+
+// 轨迹地图数据
+const trajectoryPoints = ref([]);
+const mapCenterLat = ref(0);
+const mapCenterLng = ref(0);
+const mapPolyline = ref([]);
+const mapMarkers = ref([]);
 
 // 3. 计算属性：动态标题和背景色
 const modeTitle = computed(() => {
@@ -287,6 +311,68 @@ onLoad((options) => {
     isPoliceFinish.value = options.isPoliceFinish === 'true';
     policePace.value = Number(options.policePace) || 0;
   }
+  // 加载轨迹数据
+  const trajectoryData = uni.getStorageSync('tempRunTrajectory');
+  if (trajectoryData && trajectoryData.points && trajectoryData.points.length >= 1) {
+    trajectoryPoints.value = trajectoryData.points;
+    const pts = trajectoryData.points;
+    // 地图中心取轨迹中间点
+    const mid = Math.floor(pts.length / 2);
+    mapCenterLat.value = pts[mid].latitude;
+    mapCenterLng.value = pts[mid].longitude;
+
+    if (pts.length >= 2) {
+      // 构建轨迹线
+      mapPolyline.value = [{
+        points: pts,
+        color: '#1E88E5',
+        width: 6,
+        borderColor: '#ffffff',
+        borderWidth: 1
+      }];
+    }
+
+    // 起点标记
+    mapMarkers.value = [
+      {
+        id: 1,
+        latitude: pts[0].latitude,
+        longitude: pts[0].longitude,
+        title: '起点',
+        iconPath: '',
+        label: { content: '起', color: '#fff', fontSize: 12, bgColor: '#FF6D00', padding: 4, borderRadius: 4 },
+        width: 30,
+        height: 30
+      }
+    ];
+    // 终点标记（有多个点时）
+    if (pts.length >= 2) {
+      mapMarkers.value.push({
+        id: 2,
+        latitude: pts[pts.length - 1].latitude,
+        longitude: pts[pts.length - 1].longitude,
+        title: '终点',
+        iconPath: '',
+        label: { content: '终', color: '#fff', fontSize: 12, bgColor: '#20C997', padding: 4, borderRadius: 4 },
+        width: 30,
+        height: 30
+      });
+    }
+  } else if (trajectoryData && trajectoryData.startLat) {
+    // 没有轨迹点但有起点坐标
+    mapCenterLat.value = trajectoryData.startLat;
+    mapCenterLng.value = trajectoryData.startLng;
+    mapMarkers.value = [{
+      id: 1,
+      latitude: trajectoryData.startLat,
+      longitude: trajectoryData.startLng,
+      title: '起点',
+      iconPath: '',
+      label: { content: '起', color: '#fff', fontSize: 12, bgColor: '#FF6D00', padding: 4, borderRadius: 4 },
+      width: 30,
+      height: 30
+    }];
+  }
 });
 
 // 5. 格式化时长（秒 → 分:秒）
@@ -306,6 +392,29 @@ const backToHome = () => {
 .result-page {
   min-height: 100vh;
   background-color: #fff;
+}
+
+/* 轨迹地图 */
+.map-section {
+  position: relative;
+  width: 100%;
+  height: 500rpx;
+}
+.result-map {
+  width: 100%;
+  height: 500rpx;
+}
+.map-label {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(transparent, rgba(0,0,0,0.45));
+  padding: 20rpx 24rpx 16rpx;
+}
+.map-label-text {
+  color: #fff;
+  font-size: 24rpx;
 }
 
 /* 顶部模式标题栏 */

@@ -1,7 +1,5 @@
 from datetime import datetime, date, timedelta
 from typing import Tuple
-import random
-
 from sqlalchemy import and_, or_
 
 from .. import models, config
@@ -27,7 +25,7 @@ def verify_activity(user: models.User, activity: models.Activity, db) -> Tuple[b
     - 性别 + 里程：男生 < 2.0km / 女生 < 1.2km 视为无效
     - 配速区间：3:00 - 10:00 min/km（以分钟/公里的浮点数表示）
     - 频次限制：同一天内已有一条达标记录，则本次无效
-    - 人脸验证：90% 通过率
+    - 人脸验证：须同时有起跑、结束照片（不做第三方刷脸，上传即采证）
     返回 (is_valid, fail_reason, face_verified)
     """
     metrics = activity.metrics
@@ -71,19 +69,24 @@ def verify_activity(user: models.User, activity: models.Activity, db) -> Tuple[b
     if valid_today_count > 0:
         return False, "今日已达标", False
 
-    # 4. 人脸验证：需要起跑+结束两张照片，并模拟 90% 通过率
-    faces = [
+    # 4. 人脸采证：起跑 + 结束各一张照片（前端 start_face / end_face）
+    has_start = any(e.evidence_type == "start_face" for e in activity.evidence)
+    has_end = any(e.evidence_type == "end_face" for e in activity.evidence)
+    if has_start and has_end:
+        return True, "", True
+
+    legacy_camera = [
         e for e in activity.evidence
         if e.evidence_type in ("start_face", "end_face", "camera")
     ]
-    if len(faces) < 2:
-        return False, "人脸验证失败", False
+    if len(legacy_camera) >= 2:
+        return True, "", True
 
-    face_verified = random.random() > 0.1
-    if not face_verified:
-        return False, "人脸验证失败", False
-
-    return True, "", face_verified
+    if not has_start and not has_end:
+        return False, "人脸验证失败：缺少起跑与结束照片", False
+    if not has_start:
+        return False, "人脸验证失败：缺少起跑照片", False
+    return False, "人脸验证失败：缺少结束照片", False
 
 
 def calculate_total_score(valid_count: int) -> int:

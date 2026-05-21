@@ -143,7 +143,7 @@
         "requiredBackgroundModes" : [ "location" ],
         "permission" : {
             "scope.userLocation" : {
-                "desc" : "用于记录跑步轨迹及校园打卡时的位置判定；后台跑步需在系统与微信中允许后台定位"
+                "desc" : "用于跑步轨迹记录、校园打卡与后台定位"
             }
         },
         "requiredPrivateInfos" : [

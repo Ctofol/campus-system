@@ -5,11 +5,10 @@
         <view class="avatar-row">
           <text class="label">头像</text>
           <view class="avatar-preview" @click="chooseAvatar">
-            <image :src="avatarUrl" mode="aspectFill" class="avatar-img" />
-            <view class="change-copy">
-              <text class="change-text">点击更换</text>
-              <text class="change-sub">相册 / 拍照</text>
+            <view class="avatar-img-wrap">
+              <image :src="avatarUrl" mode="aspectFill" class="avatar-img" />
             </view>
+            <text class="change-text">更改头像</text>
           </view>
         </view>
       </view>
@@ -25,8 +24,15 @@
       </view>
 
       <view class="form-item signature-item">
-        <text class="label">个性签名</text>
-        <textarea v-model="formData.signature" class="textarea" maxlength="100" placeholder="写点什么吧" />
+        <text class="label signature-label">个性签名</text>
+        <textarea
+          v-model="formData.signature"
+          class="textarea"
+          maxlength="100"
+          placeholder="写点什么吧，最多 100 字"
+          :auto-height="true"
+          :show-confirm-bar="false"
+        />
       </view>
     </view>
 
@@ -38,7 +44,13 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import { request, uploadFile, resolveMediaUrl } from '@/utils/request.js';
+import {
+  request,
+  uploadFile,
+  resolveMediaUrl,
+  persistAvatarUrl,
+  patchStoredUserInfo
+} from '@/utils/request.js';
 import { pickAvatarFromAlbum } from '@/utils/avatar-picker.js';
 
 const avatarUrl = ref('/static/avatar.png');
@@ -77,8 +89,10 @@ const uploadAvatar = async (filePath) => {
     const uploadResult = await uploadFile(filePath, 'image');
     formData.value.avatar_url = uploadResult.url;
     avatarUrl.value = resolveMediaUrl(uploadResult.url);
+    await persistAvatarUrl(uploadResult.url);
+    uni.showToast({ title: '头像已更新', icon: 'success' });
   } catch (e) {
-    uni.showToast({ title: '上传失败', icon: 'none' });
+    uni.showToast({ title: e?.message || '上传失败', icon: 'none' });
   } finally {
     uni.hideLoading();
   }
@@ -120,22 +134,12 @@ const saveProfile = async () => {
       }
     });
 
-    let userInfo = uni.getStorageSync('userInfo');
-    if (typeof userInfo === 'string') {
-      try {
-        userInfo = JSON.parse(userInfo);
-      } catch (e) {
-        userInfo = {};
-      }
-    }
-    userInfo = {
-      ...userInfo,
+    patchStoredUserInfo({
       name,
       phone,
       signature: formData.value.signature,
       avatar_url: formData.value.avatar_url
-    };
-    uni.setStorageSync('userInfo', userInfo);
+    });
 
     uni.showToast({ title: '保存成功', icon: 'success' });
     setTimeout(() => uni.navigateBack(), 1000);
@@ -194,7 +198,13 @@ onMounted(() => {
 }
 
 .signature-item {
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.signature-label {
+  width: auto;
+  margin-bottom: 16rpx;
 }
 
 .label {
@@ -214,13 +224,14 @@ onMounted(() => {
 }
 
 .textarea {
-  flex: 1;
-  min-height: 120rpx;
+  width: 100%;
+  min-height: 160rpx;
   padding: 18rpx 20rpx;
   border-radius: 12rpx;
   background: #f8f9fa;
   font-size: 28rpx;
   color: #333;
+  line-height: 1.5;
   box-sizing: border-box;
 }
 
@@ -231,20 +242,17 @@ onMounted(() => {
   align-items: center;
   justify-content: flex-end;
   gap: 24rpx;
-  padding-right: 200rpx;
   box-sizing: border-box;
 }
 
-.change-copy {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 6rpx;
-}
-
-.change-sub {
-  font-size: 22rpx;
-  color: #999;
+.avatar-img-wrap {
+  width: 120rpx;
+  height: 120rpx;
+  flex-shrink: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2rpx solid #f0f0f0;
+  background: #f5f5f5;
 }
 
 .avatar-trigger {
@@ -261,15 +269,14 @@ onMounted(() => {
 }
 
 .avatar-img {
-  width: 120rpx;
-  height: 120rpx;
-  border-radius: 60rpx;
-  border: 2rpx solid #f0f0f0;
-  background: #f5f5f5;
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 .change-text {
-  font-size: 24rpx;
+  flex-shrink: 0;
+  font-size: 28rpx;
   color: #20c997;
 }
 

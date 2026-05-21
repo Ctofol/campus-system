@@ -15,8 +15,8 @@
           <text class="teacher-name">{{ userInfo.name || '教师' }}</text>
           <text class="teacher-title">公共体育教研部</text>
         </view>
-        <view class="teacher-avatar">
-          <image class="avatar-img" src="/static/avatar.png" mode="aspectFill"></image>
+        <view class="teacher-avatar" @click="goToProfileEdit">
+          <image class="avatar-img" :src="avatarDisplay" mode="aspectFill"></image>
         </view>
       </view>
       
@@ -113,9 +113,15 @@
 <script setup>
 import { ref } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
-import { request } from '@/utils/request.js';
+import {
+  request,
+  getStoredUserInfo,
+  patchStoredUserInfo,
+  avatarImageSrc
+} from '@/utils/request.js';
 
 const userInfo = ref({});
+const avatarDisplay = ref('/static/avatar.png');
 const todos = ref([]);
 
 // 功能打通：跳转到请假审批列表
@@ -239,27 +245,49 @@ const fetchAbnormalAlerts = async () => {
   }
 };
 
-onShow(() => {
+const syncAvatar = () => {
+  avatarDisplay.value = avatarImageSrc(userInfo.value.avatar_url);
+};
+
+const fetchProfile = async () => {
+  try {
+    const res = await request({ url: '/users/profile', method: 'GET' });
+    if (!res) return;
+    userInfo.value = { ...getStoredUserInfo(), ...res };
+    syncAvatar();
+    patchStoredUserInfo(res);
+  } catch (e) {
+    console.error('fetch teacher profile failed', e);
+  }
+};
+
+const goToProfileEdit = () => {
+  uni.navigateTo({ url: '/pages/teacher/profile/edit' });
+};
+
+const onPageShow = () => {
   uni.hideHomeButton && uni.hideHomeButton();
 
-  const storedUser = uni.getStorageSync('userInfo');
-  if (storedUser) {
-    try {
-      userInfo.value = typeof storedUser === 'string' ? JSON.parse(storedUser) : storedUser;
-    } catch (e) {
-      console.error('JSON parse error', e);
-      userInfo.value = {};
-    }
-  }
-  
+  userInfo.value = getStoredUserInfo();
+  syncAvatar();
+
   if (!uni.getStorageSync('token')) {
     uni.reLaunch({ url: '/pages/login/login' });
     return;
   }
-  
+
+  fetchProfile();
   fetchTeacherStats();
   fetchWeeklyTrend();
   fetchAbnormalAlerts();
+};
+
+onShow(() => {
+  onPageShow();
+});
+
+defineExpose({
+  onPageShow
 });
 
 const teacherStats = ref({

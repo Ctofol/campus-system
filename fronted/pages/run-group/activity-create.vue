@@ -96,8 +96,8 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick } from 'vue';
-import { onMounted, onUnload } from '@dcloudio/uni-app';
+import { ref, computed, nextTick, onMounted } from 'vue';
+import { onUnload } from '@dcloudio/uni-app';
 import { createGroupActivity, getMyRunGroup } from '@/utils/request.js';
 import {
   createDateTimePickerConfig,
@@ -294,6 +294,12 @@ onUnload(() => {
   font-size: 26rpx;
   color: #333;
   box-sizing: border-box;
+}
+
+.input {
+  height: 80rpx;
+  line-height: 80rpx;
+  padding: 0 20rpx;
 }
 
 .picker {

@@ -5,7 +5,7 @@
         <text class="label">跑团头像</text>
         <view class="avatar-picker" @click="chooseAvatar">
           <image class="avatar-img" :src="avatarPreview" mode="aspectFill" />
-          <text class="avatar-text">点击更换</text>
+          <text class="avatar-text">点击更换 · 可裁剪</text>
         </view>
       </view>
 
@@ -35,6 +35,7 @@
 import { ref } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import { getMyRunGroups, updateRunGroup, uploadFile, resolveMediaUrl } from '@/utils/request.js';
+import { pickAvatarFromAlbum } from '@/utils/avatar-picker.js';
 
 const groupId = ref(0);
 const saving = ref(false);
@@ -67,26 +68,19 @@ const loadGroup = async () => {
   }
 };
 
-const chooseAvatar = () => {
-  uni.chooseImage({
-    count: 1,
-    sizeType: ['compressed'],
-    sourceType: ['album', 'camera'],
-    success: async (res) => {
-      const filePath = res.tempFilePaths && res.tempFilePaths[0];
-      if (!filePath) return;
-      try {
-        uni.showLoading({ title: '上传中...' });
-        const uploadResult = await uploadFile(filePath, 'image');
-        formData.value.avatar = uploadResult.url;
-        avatarPreview.value = resolveMediaUrl(uploadResult.url);
-      } catch (e) {
-        uni.showToast({ title: '上传失败', icon: 'none' });
-      } finally {
-        uni.hideLoading();
-      }
-    }
-  });
+const chooseAvatar = async () => {
+  try {
+    const filePath = await pickAvatarFromAlbum();
+    uni.showLoading({ title: '上传中...' });
+    const uploadResult = await uploadFile(filePath, 'image');
+    formData.value.avatar = uploadResult.url;
+    avatarPreview.value = resolveMediaUrl(uploadResult.url);
+  } catch (e) {
+    if (e?.cancelled) return;
+    uni.showToast({ title: e?.message || '上传失败', icon: 'none' });
+  } finally {
+    uni.hideLoading();
+  }
 };
 
 const handleSave = async () => {

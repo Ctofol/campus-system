@@ -3,20 +3,25 @@
 
 export const getCurrentLocation = (options = {}) => {
   return new Promise((resolve, reject) => {
+    const useFastFix = options.fastFix === true;
     // 默认配置
     const config = {
       type: 'gcj02', // 默认 gcj02，兼容性好
-      isHighAccuracy: true, // 开启高精度
-      timeout: 8000, // 超时 8秒
-      highAccuracyExpireTime: 5000, // 高精度定位超时时间(ms)，增加到5秒
+      isHighAccuracy: !useFastFix,
+      timeout: 8000,
+      highAccuracyExpireTime: useFastFix ? 3000 : 5000,
       // 高度会拖慢真机 getLocation，易导致轮询兜底超时、里程不涨；跑步里程不依赖海拔
       altitude: false,
       ...options
     };
+    delete config.fastFix;
     // #ifdef MP-WEIXIN
-    // 开发者工具/弱网模拟器上 8s 易 timeout，跑步辅助轮询会整段拿不到点
-    if (options.timeout == null) config.timeout = 22000;
-    if (options.highAccuracyExpireTime == null) config.highAccuracyExpireTime = 14000;
+    if (useFastFix) {
+      if (options.timeout == null) config.timeout = 14000;
+    } else if (options.timeout == null) {
+      config.timeout = 22000;
+      if (options.highAccuracyExpireTime == null) config.highAccuracyExpireTime = 14000;
+    }
     // #endif
 
     uni.getLocation({
@@ -34,6 +39,7 @@ export const getCurrentLocation = (options = {}) => {
           speed: res.speed,
           accuracy: res.accuracy,
           altitude: res.altitude,
+          direction: res.direction,
           originalRes: res
         });
       },

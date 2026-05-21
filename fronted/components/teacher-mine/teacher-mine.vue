@@ -10,12 +10,12 @@
 
     <view class="content-wrapper">
       <view class="user-card">
-      <view class="avatar">👮</view>
-      <view class="info">
-        <text class="name">{{ userInfo.name || '教官' }}</text>
-        <text class="role">公共体育教研部</text>
+        <image class="avatar-img" :src="avatarDisplay" mode="aspectFill" />
+        <view class="info">
+          <text class="name">{{ userInfo.name || '教师' }}</text>
+          <text class="role">{{ userInfo.subject || userInfo.signature || '公共体育教研部' }}</text>
+        </view>
       </view>
-    </view>
     
     <view class="menu-list">
       <view class="menu-item" @click="handlePersonalInfo">
@@ -58,21 +58,38 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
+import {
+  request,
+  getStoredUserInfo,
+  patchStoredUserInfo,
+  avatarImageSrc
+} from '@/utils/request.js';
 
 const userInfo = ref({});
+const avatarDisplay = ref('/static/avatar.png');
 const notificationCount = ref(0);
+
+const syncAvatar = () => {
+  avatarDisplay.value = avatarImageSrc(userInfo.value.avatar_url);
+};
+
+const fetchProfile = async () => {
+  try {
+    const res = await request({ url: '/users/profile', method: 'GET' });
+    if (!res) return;
+    userInfo.value = { ...getStoredUserInfo(), ...res };
+    syncAvatar();
+    patchStoredUserInfo(res);
+  } catch (e) {
+    console.error('fetch teacher profile failed', e);
+  }
+};
 
 const onPageShow = () => {
   uni.hideHomeButton && uni.hideHomeButton();
-
-  const storedUser = uni.getStorageSync('userInfo');
-  if (storedUser) {
-    try {
-      userInfo.value = typeof storedUser === 'string' ? JSON.parse(storedUser) : storedUser;
-    } catch (e) {
-      userInfo.value = {};
-    }
-  }
+  userInfo.value = getStoredUserInfo();
+  syncAvatar();
+  fetchProfile();
 };
 
 onMounted(() => {
@@ -206,18 +223,14 @@ const handleLogout = () => {
   margin-bottom: 40rpx;
   box-shadow: 0 8rpx 24rpx rgba(32, 201, 151, 0.2);
 }
-.avatar {
+.avatar-img {
   width: 120rpx;
   height: 120rpx;
-  background: rgba(255,255,255,0.25);
   border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 60rpx;
   margin-right: 30rpx;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.1);
+  background: rgba(255, 255, 255, 0.25);
+  border: 2rpx solid rgba(255, 255, 255, 0.5);
+  flex-shrink: 0;
 }
 .info {
   display: flex;

@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <view class="discover-page">
     <view class="navbar">
       <text class="back-btn" @click="goBack" v-if="showCreateForm">←</text>
@@ -11,7 +11,7 @@
         <text class="label">跑团头像</text>
         <view class="avatar-picker" @click="chooseGroupAvatar">
           <image class="avatar-preview" :src="avatarPreview" mode="aspectFill" />
-          <text class="avatar-text">点击上传</text>
+          <text class="avatar-text">点击上传 · 可裁剪</text>
         </view>
       </view>
 
@@ -151,26 +151,19 @@ const loadMore = () => {
   }
 };
 
-const chooseGroupAvatar = () => {
-  uni.chooseImage({
-    count: 1,
-    sizeType: ['compressed'],
-    sourceType: ['album', 'camera'],
-    success: async (res) => {
-      const filePath = res.tempFilePaths && res.tempFilePaths[0];
-      if (!filePath) return;
-      try {
-        uni.showLoading({ title: '上传中...' });
-        const uploadResult = await uploadFile(filePath, 'image');
-        formData.value.avatar = uploadResult.url;
-        avatarPreview.value = resolveMediaUrl(uploadResult.url);
-      } catch (e) {
-        uni.showToast({ title: '上传失败', icon: 'none' });
-      } finally {
-        uni.hideLoading();
-      }
-    }
-  });
+const chooseGroupAvatar = async () => {
+  try {
+    const filePath = await pickAvatarFromAlbum();
+    uni.showLoading({ title: '上传中...' });
+    const uploadResult = await uploadFile(filePath, 'image');
+    formData.value.avatar = uploadResult.url;
+    avatarPreview.value = resolveMediaUrl(uploadResult.url);
+  } catch (e) {
+    if (e?.cancelled) return;
+    uni.showToast({ title: e?.message || '上传失败', icon: 'none' });
+  } finally {
+    uni.hideLoading();
+  }
 };
 
 const handleJoin = async (groupId) => {
@@ -284,6 +277,16 @@ onMounted(() => {
   margin-bottom: 40rpx;
 }
 
+.form-item.avatar-item {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.form-item.avatar-item .label {
+  margin-bottom: 16rpx;
+}
+
 .label {
   display: block;
   font-size: 28rpx;
@@ -294,7 +297,9 @@ onMounted(() => {
 
 .input {
   width: 100%;
-  padding: 24rpx;
+  height: 88rpx;
+  line-height: 88rpx;
+  padding: 0 24rpx;
   background: #fff;
   border-radius: 16rpx;
   font-size: 28rpx;

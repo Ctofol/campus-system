@@ -59,6 +59,43 @@ export function resolveMediaUrl(pathOrUrl) {
   return `${origin}${path}`;
 }
 
+export function getStoredUserInfo() {
+  const raw = uni.getStorageSync('userInfo');
+  if (!raw) return {};
+  if (typeof raw === 'string') {
+    try {
+      return JSON.parse(raw);
+    } catch (e) {
+      return {};
+    }
+  }
+  return raw;
+}
+
+export function patchStoredUserInfo(patch) {
+  const userInfo = { ...getStoredUserInfo(), ...patch };
+  uni.setStorageSync('userInfo', userInfo);
+  return userInfo;
+}
+
+/** 头像展示 URL，附带版本参数避免微信 image 缓存旧图 */
+export function avatarImageSrc(avatarPathOrUrl) {
+  if (!avatarPathOrUrl) return '/static/avatar.png';
+  const base = resolveMediaUrl(avatarPathOrUrl);
+  const token = encodeURIComponent(String(avatarPathOrUrl));
+  return `${base}${base.includes('?') ? '&' : '?'}v=${token}`;
+}
+
+export async function persistAvatarUrl(avatarUrl) {
+  if (!avatarUrl) return;
+  await request({
+    url: '/users/profile',
+    method: 'PUT',
+    data: { avatar_url: avatarUrl }
+  });
+  patchStoredUserInfo({ avatar_url: avatarUrl });
+}
+
 // 请求封装
 export const request = (...args) => {
   let options = {};
