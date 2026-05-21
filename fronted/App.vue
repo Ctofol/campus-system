@@ -14,21 +14,8 @@
 			// H5 仅保留 admin：由入口页 pages/entry/entry 统一处理跳转（admin 登录/后台 或 登录页）
 			// #endif
 			// #ifndef H5
-			// 小程序端：未登录则跳转登录
-			try {
-				const userInfo = uni.getStorageSync('userInfo');
-				if (!userInfo) {
-					uni.reLaunch({
-						url: '/pages/login/login',
-						fail: (err) => {
-							console.error('跳转登录页失败:', err);
-						}
-					});
-				}
-			} catch (e) {
-				console.error('读取缓存失败:', e);
-				uni.reLaunch({ url: '/pages/login/login' });
-			}
+			// 路由由首页 pages/entry/entry 统一处理；勿在 onLaunch 再 reLaunch，
+			// 否则与 entry 同时跳转易报 appLaunch with non-empty page stack
 			// #endif
 		},
 		onShow: function() {
@@ -48,5 +35,19 @@
 </template>
 
 <style>
-	/*每个页面公共css */
+	/* 每个页面公共 css */
+	/* 链接「查看更多」：勿在模板 text 里写半角 >，否则微信端可能显示为 &gt; */
+	.link-more {
+		display: inline-flex;
+		align-items: center;
+		gap: 6rpx;
+	}
+	.link-arrow {
+		width: 14rpx;
+		height: 14rpx;
+		border-top: 3rpx solid currentColor;
+		border-right: 3rpx solid currentColor;
+		transform: rotate(45deg);
+		flex-shrink: 0;
+	}
 </style>

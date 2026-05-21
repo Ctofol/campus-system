@@ -4,104 +4,195 @@
       <text class="back-btn" @click="goBack">←</text>
       <text class="title">发布活动</text>
     </view>
-    
-    <view class="form-container">
-      <view class="form-item">
-        <text class="label">活动封面</text>
-        <view class="cover-upload" @click="chooseCover">
-          <image v-if="coverImage" :src="coverImage" mode="aspectFill" class="cover-preview" />
-          <view v-else class="cover-placeholder">
-            <text class="upload-icon">📷</text>
-            <text class="upload-text">点击上传封面</text>
+
+    <scroll-view
+      class="form-scroll"
+      scroll-y
+      :scroll-into-view="scrollIntoViewId"
+      scroll-with-animation
+      :style="{ paddingBottom: scrollPaddingBottom }"
+    >
+      <view class="form-container">
+        <view id="field-cover" class="form-item">
+          <text class="label">活动封面</text>
+          <view class="cover-upload" @click="chooseCover">
+            <image v-if="coverImage" :src="coverImage" mode="aspectFill" class="cover-preview" />
+            <view v-else class="cover-placeholder">
+              <text class="upload-icon">📷</text>
+              <text class="upload-text">点击上传封面</text>
+            </view>
           </view>
         </view>
+
+        <view id="field-title" class="form-item">
+          <text class="label">活动标题</text>
+          <input
+            class="input"
+            v-model="formData.title"
+            placeholder="请输入活动标题"
+            maxlength="30"
+            adjust-position
+            :cursor-spacing="120"
+            @focus="onFieldFocus('field-title')"
+          />
+        </view>
+
+        <view id="field-desc" class="form-item">
+          <text class="label">活动描述</text>
+          <textarea
+            class="textarea"
+            v-model="formData.description"
+            placeholder="请输入活动描述"
+            maxlength="200"
+            adjust-position
+            :cursor-spacing="120"
+            @focus="onFieldFocus('field-desc')"
+          />
+        </view>
+
+        <view id="field-time" class="form-item">
+          <text class="label">活动时间</text>
+          <picker
+            mode="multiSelector"
+            :range="dtRanges"
+            :value="dtIndex"
+            @change="onDateTimeChange"
+            @columnchange="onDateTimeColumnChange"
+          >
+            <view class="picker picker-datetime" :class="{ 'is-placeholder': !activityDateTimeText }">
+              {{ activityDateTimeText || '请选择活动时间' }}
+            </view>
+          </picker>
+        </view>
+
+        <view id="field-location" class="form-item">
+          <text class="label">活动地点</text>
+          <input
+            class="input"
+            v-model="formData.location"
+            placeholder="请输入活动地点"
+            maxlength="50"
+            adjust-position
+            :cursor-spacing="120"
+            @focus="onFieldFocus('field-location')"
+          />
+        </view>
+
+        <view id="field-distance" class="form-item">
+          <text class="label">目标距离（公里）</text>
+          <input
+            class="input"
+            type="digit"
+            v-model="formData.distance"
+            placeholder="请输入目标距离"
+            adjust-position
+            :cursor-spacing="160"
+            @focus="onFieldFocus('field-distance')"
+          />
+        </view>
+
+        <view id="field-quota" class="form-item">
+          <text class="label">活动名额</text>
+          <input
+            class="input"
+            type="number"
+            v-model="formData.total_quota"
+            placeholder="请输入活动名额"
+            adjust-position
+            :cursor-spacing="160"
+            @focus="onFieldFocus('field-quota')"
+          />
+        </view>
+
+        <view id="scroll-anchor" class="scroll-anchor" />
       </view>
-      
-      <view class="form-item">
-        <text class="label">活动标题</text>
-        <input 
-          class="input" 
-          v-model="formData.title" 
-          placeholder="请输入活动标题" 
-          maxlength="30"
-        />
-      </view>
-      
-      <view class="form-item">
-        <text class="label">活动描述</text>
-        <textarea 
-          class="textarea" 
-          v-model="formData.description" 
-          placeholder="请输入活动描述" 
-          maxlength="200"
-        />
-      </view>
-      
-      <view class="form-item">
-        <text class="label">活动时间</text>
-        <picker 
-          mode="date" 
-          :value="activityDate"
-          @change="onDateChange"
-        >
-          <view class="picker">
-            {{ activityDate || '请选择日期' }}
-          </view>
-        </picker>
-        <picker 
-          mode="time" 
-          :value="activityTimeValue"
-          @change="onTimeChange"
-        >
-          <view class="picker">
-            {{ activityTimeValue || '请选择时间' }}
-          </view>
-        </picker>
-      </view>
-      
-      <view class="form-item">
-        <text class="label">活动地点</text>
-        <input 
-          class="input" 
-          v-model="formData.location" 
-          placeholder="请输入活动地点" 
-          maxlength="50"
-        />
-      </view>
-      
-      <view class="form-item">
-        <text class="label">目标距离（公里）</text>
-        <input 
-          class="input" 
-          type="digit"
-          v-model="formData.distance" 
-          placeholder="请输入目标距离" 
-        />
-      </view>
-      
-      <view class="form-item">
-        <text class="label">活动名额</text>
-        <input 
-          class="input" 
-          type="number"
-          v-model="formData.total_quota" 
-          placeholder="请输入活动名额" 
-        />
-      </view>
-      
+    </scroll-view>
+
+    <view class="submit-bar" :style="{ bottom: keyboardHeight + 'px' }">
       <button class="submit-btn" @click="handleSubmit">发布活动</button>
     </view>
   </view>
 </template>
 
 <script setup>
-import { ref } from 'vue';
-import { onLoad } from '@dcloudio/uni-app';
+import { ref, computed, nextTick } from 'vue';
+import { onLoad, onUnload } from '@dcloudio/uni-app';
 import { createGroupActivity, uploadFile } from '@/utils/request.js';
+import {
+  createDateTimePickerConfig,
+  getDefaultActivityDateTime
+} from '@/utils/activity-datetime-picker.js';
 
-const groupId = ref(0);
+const dtPicker = createDateTimePickerConfig();
+const dtRanges = ref(dtPicker.buildRanges(0, 0));
+const dtIndex = ref([0, 0, 0, 8, 0]);
 const activityDate = ref('');
 const activityTimeValue = ref('');
+
+const activityDateTimeText = computed(() => {
+  if (activityDate.value && activityTimeValue.value) {
+    return `${activityDate.value} ${activityTimeValue.value}`;
+  }
+  return '';
+});
+
+const initActivityDateTime = () => {
+  const def = getDefaultActivityDateTime();
+  activityDate.value = def.date;
+  activityTimeValue.value = def.time;
+  const { index, ranges } = dtPicker.indexFromDateTime(def.date, def.time);
+  dtIndex.value = index;
+  dtRanges.value = ranges;
+};
+
+const onDateTimeChange = (e) => {
+  const { date, time, ranges } = dtPicker.dateTimeFromIndex(e.detail.value, dtRanges.value);
+  activityDate.value = date;
+  activityTimeValue.value = time;
+  dtRanges.value = ranges;
+  dtIndex.value = e.detail.value;
+};
+
+const onDateTimeColumnChange = (e) => {
+  const { index, ranges } = dtPicker.adjustIndexOnColumnChange(
+    e.detail.column,
+    e.detail.value,
+    dtIndex.value,
+    dtRanges.value
+  );
+  dtIndex.value = index;
+  dtRanges.value = ranges;
+  const applied = dtPicker.dateTimeFromIndex(index, ranges);
+  activityDate.value = applied.date;
+  activityTimeValue.value = applied.time;
+};
+
+const scrollIntoViewId = ref('');
+const keyboardHeight = ref(0);
+
+const scrollPaddingBottom = computed(() => {
+  const kb = keyboardHeight.value;
+  const submitBarPx = 140;
+  return kb > 0 ? `${kb + submitBarPx}px` : `${submitBarPx}px`;
+});
+
+const onFieldFocus = (fieldId) => {
+  scrollIntoViewId.value = '';
+  nextTick(() => {
+    scrollIntoViewId.value = fieldId;
+    if (fieldId === 'field-distance' || fieldId === 'field-quota') {
+      setTimeout(() => {
+        scrollIntoViewId.value = 'scroll-anchor';
+      }, 80);
+    }
+  });
+};
+
+const onKeyboardHeightChange = (res) => {
+  keyboardHeight.value = res.height || 0;
+};
+
+const groupId = ref(0);
 const coverImage = ref('');
 const coverUrl = ref('');
 const formData = ref({
@@ -121,15 +212,17 @@ onLoad((options) => {
       uni.navigateBack();
     }, 1500);
   }
+  if (typeof uni.onKeyboardHeightChange === 'function') {
+    uni.onKeyboardHeightChange(onKeyboardHeightChange);
+  }
+  initActivityDateTime();
 });
 
-const onDateChange = (e) => {
-  activityDate.value = e.detail.value;
-};
-
-const onTimeChange = (e) => {
-  activityTimeValue.value = e.detail.value;
-};
+onUnload(() => {
+  if (typeof uni.offKeyboardHeightChange === 'function') {
+    uni.offKeyboardHeightChange(onKeyboardHeightChange);
+  }
+});
 
 const goBack = () => {
   uni.navigateBack();
@@ -229,15 +322,28 @@ const handleSubmit = async () => {
 
 <style scoped>
 .create-activity-page {
-  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
   background: #f5f7fa;
+  overflow: hidden;
+}
+
+.form-scroll {
+  flex: 1;
+  height: 0;
+  box-sizing: border-box;
+}
+
+.scroll-anchor {
+  height: 2rpx;
 }
 
 .navbar {
-  position: sticky;
-  top: 0;
-  background: #20C997;
+  flex-shrink: 0;
+  background: #20c997;
   padding: 20rpx 30rpx;
+  padding-top: calc(20rpx + env(safe-area-inset-top));
   display: flex;
   align-items: center;
   z-index: 100;
@@ -256,7 +362,7 @@ const handleSubmit = async () => {
 }
 
 .form-container {
-  padding: 40rpx 30rpx;
+  padding: 40rpx 30rpx 24rpx;
 }
 
 .form-item {
@@ -328,6 +434,27 @@ const handleSubmit = async () => {
   color: #333;
 }
 
+.picker-datetime {
+  display: flex;
+  align-items: center;
+  min-height: 80rpx;
+}
+
+.picker-datetime.is-placeholder {
+  color: #999;
+}
+
+.submit-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  padding: 20rpx 30rpx;
+  padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
+  background: #fff;
+  box-shadow: 0 -4rpx 20rpx rgba(0, 0, 0, 0.06);
+  z-index: 10;
+}
+
 .submit-btn {
   width: 100%;
   padding: 28rpx;
@@ -337,6 +464,6 @@ const handleSubmit = async () => {
   font-size: 32rpx;
   font-weight: bold;
   border: none;
-  margin-top: 40rpx;
+  margin: 0;
 }
 </style>

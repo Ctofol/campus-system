@@ -143,10 +143,7 @@
         "requiredBackgroundModes" : [ "location" ],
         "permission" : {
             "scope.userLocation" : {
-                "desc" : "用于记录跑步轨迹及校园打卡时的位置判定"
-            },
-            "scope.userLocationBackground" : {
-                "desc" : "跑步时在息屏或离开小程序期间持续获取位置，用于统计里程与运动轨迹"
+                "desc" : "用于跑步轨迹记录、校园打卡与后台定位"
             }
         },
         "requiredPrivateInfos" : [

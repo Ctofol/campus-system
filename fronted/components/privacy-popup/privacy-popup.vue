@@ -5,6 +5,7 @@
       <view class="privacy-content">
         感谢您使用翊晨运动。在您使用本小程序前，请您务必仔细阅读
         <text class="privacy-link" @click="openPrivacyContract">《用户隐私保护指引》</text>。
+        其中需包含位置、选中的照片或视频、摄像头等与您跑步打卡、修改资料相关的说明。
         当您点击同意并开始使用后续服务时，即表示您已理解并同意规定内容。
       </view>
       <view class="privacy-footer">

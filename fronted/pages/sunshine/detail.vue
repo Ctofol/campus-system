@@ -47,6 +47,11 @@
             </view>
           </view>
         </view>
+        <view class="segment-bar">
+          <view class="segment pass" :style="{ width: `${passBarWidth}%` }"></view>
+          <view class="segment extra" :style="{ width: `${bonusBarWidth}%` }"></view>
+          <view class="segment rest" :style="{ width: `${remainingBarWidth}%` }"></view>
+        </view>
         <view class="core-tip">
           <text>说明：每次符合规则的阳光跑记为一次有效记录，用于阶梯计分。</text>
         </view>
@@ -106,7 +111,7 @@
             <text class="col">每多跑 1 次 +2 分</text>
           </view>
           <view class="table-row key">
-            <text class="col">&gt; 40 次</text>
+            <text class="col">40 次以上</text>
             <text class="col">100 分</text>
             <text class="col">满分封顶</text>
           </view>
@@ -171,13 +176,16 @@ const circleStyle = computed(() => {
   const extraDeg = (extra / 40) * 360;
   const remainDeg = (remain / 40) * 360;
   return {
-    backgroundImage: `conic-gradient(#20C997 0deg ${passDeg}deg, #ffb020 ${passDeg}deg ${passDeg + extraDeg}deg, #dcefe9 ${passDeg + extraDeg}deg ${passDeg + extraDeg + remainDeg}deg, #8b5cf6 ${passDeg + extraDeg + remainDeg}deg 360deg)`
+    background: `conic-gradient(#20C997 0deg ${passDeg}deg, #ffb020 ${passDeg}deg ${passDeg + extraDeg}deg, #dcefe9 ${passDeg + extraDeg}deg ${passDeg + extraDeg + remainDeg}deg, #8b5cf6 ${passDeg + extraDeg + remainDeg}deg 360deg)`
   };
 });
 
 const passCount = computed(() => Math.min(Number(stats.value.total_valid_count) || 0, 20));
 const bonusCount = computed(() => Math.max(Math.min((Number(stats.value.total_valid_count) || 0) - 20, 20), 0));
 const remainingCount = computed(() => Math.max(20 - passCount.value, 0));
+const passBarWidth = computed(() => Math.min((passCount.value / 20) * 100, 100));
+const bonusBarWidth = computed(() => Math.min((bonusCount.value / 20) * 100, 100));
+const remainingBarWidth = computed(() => Math.max(100 - passBarWidth.value - bonusBarWidth.value, 0));
 
 const progressText = computed(() => {
   const count = stats.value.total_valid_count || 0;
@@ -334,6 +342,7 @@ onMounted(() => {
   width: 200rpx;
   height: 200rpx;
   border-radius: 50%;
+  z-index: 1;
 }
 .circle-inner {
   width: 140rpx;
@@ -344,6 +353,8 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  position: relative;
+  z-index: 2;
 }
 .circle-count {
   font-size: 40rpx;
@@ -354,6 +365,32 @@ onMounted(() => {
   font-size: 22rpx;
   color: #999;
   margin-top: 8rpx;
+}
+
+.segment-bar {
+  width: 100%;
+  height: 18rpx;
+  border-radius: 999rpx;
+  overflow: hidden;
+  background: #edf4f2;
+  display: flex;
+  margin: 24rpx 0 12rpx;
+}
+
+.segment {
+  height: 100%;
+}
+
+.segment.pass {
+  background: #20C997;
+}
+
+.segment.extra {
+  background: #ffb020;
+}
+
+.segment.rest {
+  background: #dcefe9;
 }
 
 .core-info {

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from .. import models, schemas, auth, database
 
@@ -50,6 +50,19 @@ def update_my_profile(
 ):
     if profile_update.name:
         current_user.name = profile_update.name
+
+    if profile_update.phone is not None:
+        phone = str(profile_update.phone).strip()
+        if not phone:
+            raise HTTPException(status_code=400, detail="手机号不能为空")
+        if phone != (current_user.phone or ""):
+            exists = db.query(models.User).filter(
+                models.User.phone == phone,
+                models.User.id != current_user.id
+            ).first()
+            if exists:
+                raise HTTPException(status_code=400, detail="该手机号已被绑定")
+            current_user.phone = phone
     
     if profile_update.signature is not None:
         current_user.signature = profile_update.signature

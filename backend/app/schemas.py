@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+﻿from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
 
@@ -12,14 +12,15 @@ class UserCreate(UserBase):
     password: str
     captcha_code: str
     captcha_key: str
-    # 学生注册专用：用于与 StudentProfile 进行档案匹配
+    # 瀛︾敓娉ㄥ唽涓撶敤锛氱敤浜庝笌 StudentProfile 杩涜妗ｆ鍖归厤
     student_id: str | None = None
     major_id: int | None = None
     class_id: int | None = None
     subject: str | None = None
 
 class UserLogin(BaseModel):
-    phone: str
+    account: Optional[str] = None
+    phone: Optional[str] = None
     password: str
 
 class Token(BaseModel):
@@ -40,9 +41,8 @@ class UserProfile(BaseModel):
     name: str
     phone: str
     role: str
-    # class_name：历史兼容，常为「专业名 + 班级名」拼接；管理端表格请用 plain_class_name + major，避免重复。
-    class_name: Optional[str] = None
-    # plain_class_name：仅行政班级名 classes.name
+    # class_name锛氬巻鍙插吋瀹癸紝甯镐负銆屼笓涓氬悕 + 鐝骇鍚嶃€嶆嫾鎺ワ紱绠＄悊绔〃鏍艰鐢?plain_class_name + major锛岄伩鍏嶉噸澶嶃€?    class_name: Optional[str] = None
+    # plain_class_name锛氫粎琛屾斂鐝骇鍚?classes.name
     plain_class_name: Optional[str] = None
     class_id: Optional[int] = None
     student_id: Optional[str] = None
@@ -60,6 +60,7 @@ class UserProfile(BaseModel):
 
 class UserProfileUpdate(BaseModel):
     name: Optional[str] = None
+    phone: Optional[str] = None
     signature: Optional[str] = None
     avatar_url: Optional[str] = None
 
@@ -68,7 +69,7 @@ class TokenData(BaseModel):
     role: str | None = None
 
 #
-# Student Profile (档案激活用)
+# Student Profile (妗ｆ婵€娲荤敤)
 #
 
 class StudentProfileBase(BaseModel):
@@ -100,7 +101,7 @@ class ClassCreate(ClassBase):
 
 
 class ClassTeacherUpdate(BaseModel):
-    """更新班级绑定教师；teacher_id 为 null 表示解除绑定。"""
+    """Update class binding for a teacher."""
 
     teacher_id: Optional[int] = None
 
@@ -177,10 +178,9 @@ class ActivityMetricsCreate(BaseModel):
     checkpoints: Optional[str] = None # JSON string of check-in data
     count: Optional[int] = None
     qualified: bool = False
-    step_count: Optional[int] = None  # 步数
-    video_url: Optional[str] = None  # 视频文件URL
-    score: Optional[int] = None  # AI评分（0-100）
-    score_detail: Optional[str] = None  # 评分详情（JSON字符串）
+    step_count: Optional[int] = None  # 姝ユ暟
+    video_url: Optional[str] = None  # 瑙嗛鏂囦欢URL
+    score: Optional[int] = None  # AI璇勫垎锛?-100锛?    score_detail: Optional[str] = None  # 璇勫垎璇︽儏锛圝SON瀛楃涓诧級
 
 class ActivityEvidenceCreate(BaseModel):
     evidence_type: str
@@ -206,8 +206,7 @@ class ActivityFinish(BaseModel):
     ended_at: datetime
     metrics: ActivityMetricsCreate
     evidence: List[ActivityEvidenceCreate] = []
-    task_id: Optional[int] = None  # 任务跑步必填，与阳光跑区分
-
+    task_id: Optional[int] = None  # 浠诲姟璺戞蹇呭～锛屼笌闃冲厜璺戝尯鍒?
 class ActivityReviewOut(BaseModel):
     id: int
     teacher_id: int
@@ -228,21 +227,20 @@ class ActivityOut(BaseModel):
     metrics: Optional[ActivityMetricsOut] = None
     evidence: List[ActivityEvidenceOut] = []
     review: Optional[ActivityReviewOut] = None
-    # 自由跑：阳光跑核验；任务跑：是否满足任务要求
+    # 鑷敱璺戯細闃冲厜璺戞牳楠岋紱浠诲姟璺戯細鏄惁婊¤冻浠诲姟瑕佹眰
     is_valid: Optional[bool] = None
     fail_reason: Optional[str] = None
     face_verified: Optional[bool] = None
     today_completed: Optional[bool] = None
     task_id: Optional[int] = None
     task_title: Optional[str] = None
-    task_completed: Optional[bool] = None  # 任务维度是否达标（等同任务下 is_valid）
-
+    task_completed: Optional[bool] = None  # 浠诲姟缁村害鏄惁杈炬爣锛堢瓑鍚屼换鍔′笅 is_valid锛?
     class Config:
         from_attributes = True
 
 
 class ActivityFinishResponse(ActivityOut):
-    """结算接口返回（含任务文案）"""
+    """Response payload returned by activity settlement."""
     pass
 
 # Teacher
@@ -255,8 +253,7 @@ class InvalidActivityOut(BaseModel):
     user_id: Optional[int] = None
     student_name: str
     student_id: Optional[str] = None
-    # 行政班级名 classes.name；major_name 为专业
-    class_name: Optional[str] = None
+    # 琛屾斂鐝骇鍚?classes.name锛沵ajor_name 涓轰笓涓?    class_name: Optional[str] = None
     major_name: Optional[str] = None
     fail_reason: Optional[str] = None
     distance: Optional[float] = None
@@ -296,14 +293,13 @@ class TaskCreate(BaseModel):
     min_distance: Optional[float] = 0.0
     min_duration: Optional[int] = 0
     min_count: Optional[int] = 0
-    starts_at: Optional[datetime] = None  # 未到该时间学生不可提交
-    deadline: Optional[datetime] = None
+    starts_at: Optional[datetime] = None  # 鏈埌璇ユ椂闂村鐢熶笉鍙彁浜?    deadline: Optional[datetime] = None
     description: Optional[str] = None
-    # 教师发布：指定 class_id 单班，或 class_ids 多班（同一任务内容复制到各班）；优先使用非空的 class_ids
+    # 鏁欏笀鍙戝竷锛氭寚瀹?class_id 鍗曠彮锛屾垨 class_ids 澶氱彮锛堝悓涓€浠诲姟鍐呭澶嶅埗鍒板悇鐝級锛涗紭鍏堜娇鐢ㄩ潪绌虹殑 class_ids
     target_group: Optional[str] = "class"
     class_id: Optional[int] = None
     class_ids: Optional[List[int]] = None
-    video_url: Optional[str] = None  # 体测任务视频URL（第二阶段新增）
+    video_url: Optional[str] = None  # 浣撴祴浠诲姟瑙嗛URL锛堢浜岄樁娈垫柊澧烇級
 
 class TaskOut(TaskCreate):
     id: int
@@ -334,7 +330,7 @@ class StudentTaskListResponse(BaseModel):
 
 
 class AdminStudentActivityItem(BaseModel):
-    """管理端：单个学生运动记录（含阳光跑 / 任务跑 / 体测）"""
+    """Admin view of a single student exercise record."""
 
     id: int
     type: str
@@ -364,10 +360,8 @@ class StudentCompletionStatus(BaseModel):
     status: str # 'completed', 'pending'
     completed_at: Optional[datetime] = None
     metric_value: Optional[str] = None # e.g. "2.5km" or "15 mins"
-    activity_id: Optional[int] = None  # 第三阶段新增：活动ID，用于打分
-    teacher_score: Optional[float] = None  # 第三阶段新增：教师打分
-
-# 第三阶段新增：教师打分相关schemas
+    activity_id: Optional[int] = None  # 绗笁闃舵鏂板锛氭椿鍔↖D锛岀敤浜庢墦鍒?    teacher_score: Optional[float] = None  # 绗笁闃舵鏂板锛氭暀甯堟墦鍒?
+# 绗笁闃舵鏂板锛氭暀甯堟墦鍒嗙浉鍏硈chemas
 class TeacherScoreCreate(BaseModel):
     activity_id: int
     score: float  # 0-100
@@ -401,8 +395,7 @@ class StudentScoreRecord(BaseModel):
 class StudentScoreHistory(BaseModel):
     student_id: int
     student_name: str
-    regular_score: float  # 平时分
-    score_records: List[StudentScoreRecord]
+    regular_score: float  # 骞虫椂鍒?    score_records: List[StudentScoreRecord]
 
 class TaskDetailStats(TaskOut):
     total_students: int
@@ -429,7 +422,7 @@ class CheckpointOut(CheckpointBase):
 class HealthRequestCreate(BaseModel):
     type: str  # 'leave' | 'injury'
     reason: str
-    # 请假开始/结束时间（仅 type == 'leave' 时必填）
+    # 璇峰亣寮€濮?缁撴潫鏃堕棿锛堜粎 type == 'leave' 鏃跺繀濉級
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
     attachments: Optional[List[str]] = []  # List of file URLs
@@ -450,8 +443,7 @@ class StudentDetail(StudentInfo):
     abnormal_reason: Optional[str] = None
     group_name: Optional[str] = None
     health_requests: List[HealthRequestOut] = []
-    # 教师端展示：行政班 / 专业（与 User.plain_class_name、major 对齐）
-    plain_class_name: Optional[str] = None
+    # 鏁欏笀绔睍绀猴細琛屾斂鐝?/ 涓撲笟锛堜笌 User.plain_class_name銆乵ajor 瀵归綈锛?    plain_class_name: Optional[str] = None
     major_name: Optional[str] = None
     class_name: Optional[str] = None
 
@@ -479,14 +471,10 @@ class TeacherStatsOut(BaseModel):
     today_checkin: int
     abnormal_count: int
     pending_approvals: int
-    pending_health: int = 0  # 请假待处理数量（HealthRequest status=pending）
-    pending_activities: int = 0  # 运动待审批数量（Activity status=pending_review）
-    avg_pace: str
+    pending_health: int = 0  # 璇峰亣寰呭鐞嗘暟閲忥紙HealthRequest status=pending锛?    pending_activities: int = 0  # 杩愬姩寰呭鎵规暟閲忥紙Activity status=pending_review锛?    avg_pace: str
     task_count: int
     compliance_rate: int
-    qualified_rate: int  # 达标率（百分整数）
-    completion_rate: int  # 完成率（百分整数）
-
+    qualified_rate: int  # 杈炬爣鐜囷紙鐧惧垎鏁存暟锛?    completion_rate: int  # 瀹屾垚鐜囷紙鐧惧垎鏁存暟锛?
 class TodoItem(BaseModel):
     id: str
     title: str
@@ -506,8 +494,7 @@ class TeacherDashboardOut(BaseModel):
 
 class ClassAnalysisOut(BaseModel):
     class_id: int
-    # 行政班级名；major_name 为专业
-    class_name: str
+    # 琛屾斂鐝骇鍚嶏紱major_name 涓轰笓涓?    class_name: str
     major_name: Optional[str] = None
     student_count: int
     avg_distance: float
@@ -519,7 +506,7 @@ class ClassAnalysisOut(BaseModel):
 class CourseBase(BaseModel):
     title: str
     description: Optional[str] = None
-    cover_url: Optional[str] = None  # 修改为 cover_url
+    cover_url: Optional[str] = None  # 淇敼涓?cover_url
     category: Optional[str] = None
     is_public: bool = True
 
@@ -560,7 +547,7 @@ class EnrollmentOut(BaseModel):
     id: int
     student_id: int
     course_id: int
-    joined_at: datetime  # 修改为 joined_at 以匹配数据库
+    joined_at: datetime  # 淇敼涓?joined_at 浠ュ尮閰嶆暟鎹簱
     status: str
     
     class Config:
@@ -585,8 +572,8 @@ class CourseProgressOut(BaseModel):
 
 class CourseDetailOut(CourseOut):
     contents: List[CourseContentOut] = []
-    enrolled: bool = False  # 当前用户是否已选课
-    enrollment_count: int = 0  # 选课人数
+    enrolled: bool = False  # 褰撳墠鐢ㄦ埛鏄惁宸查€夎
+    enrollment_count: int = 0  # 閫夎浜烘暟
 
 class CourseListResponse(BaseModel):
     items: List[CourseOut]
@@ -619,6 +606,12 @@ class RunGroupCreate(RunGroupBase):
     pass
 
 
+class RunGroupUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    avatar: Optional[str] = None
+
+
 class RunGroupOut(RunGroupBase):
     id: int
     creator_id: Optional[int] = None
@@ -632,7 +625,11 @@ class RunGroupOut(RunGroupBase):
 
 
 class RunGroupDetailOut(RunGroupOut):
-    month_activity_count: int = 0  # 本月活动数（动态计算）
+    month_activity_count: int = 0  # 鏈湀娲诲姩鏁帮紙鍔ㄦ€佽绠楋級
+
+
+class RunGroupMembershipOut(RunGroupDetailOut):
+    role: str = "member"
 
 
 class RunGroupMemberOut(BaseModel):
@@ -689,7 +686,7 @@ class RunGroupRankOut(BaseModel):
         from_attributes = True
 
 
-# 阳光跑班级排行 Schemas
+# 闃冲厜璺戠彮绾ф帓琛?Schemas
 class ClassMemberSunshineItem(BaseModel):
     user_id: int
     student_id: str
