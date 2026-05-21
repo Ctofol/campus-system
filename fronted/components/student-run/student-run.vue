@@ -2300,7 +2300,7 @@ const buildHistory = (records) => {
   top: 0;
   left: 0;
   width: 100%;
-  background-color: #20C997;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0) 100%);
   z-index: 999;
 }
 
@@ -2342,6 +2342,7 @@ const buildHistory = (records) => {
 
 .content-spacer {
   width: 100%;
+  height: 0 !important;
 }
 
 /* 新增顶部样式 */
@@ -2381,6 +2382,7 @@ const buildHistory = (records) => {
 
 /* 推荐路线样式 */
 .routes-card {
+  display: none;
   background: #fff;
   border-radius: 12rpx;
   padding: 20rpx;
