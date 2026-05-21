@@ -155,7 +155,7 @@
         <scroll-view scroll-y class="report-list">
           <view class="report-item" v-for="(req, idx) in pendingRequests" :key="req.id">
             <view class="report-meta">
-              <text class="report-stu">{{ getStudentName(req.student_id) }}</text>
+              <text class="report-stu">{{ healthStudentLabel(req) }}</text>
               <text class="report-time">{{ formatDate(req.created_at) }}</text>
             </view>
             <view class="report-card" :class="req.type">
@@ -420,7 +420,8 @@ onReachBottom(() => {
 const loadHealthRequests = async () => {
   try {
     const res = await request('/teacher/health/requests', { method: 'GET' });
-    pendingRequests.value = res;
+    const list = Array.isArray(res) ? res : (res?.items || res?.data || []);
+    pendingRequests.value = list;
   } catch (e) {
     console.error(e);
   }
@@ -752,9 +753,30 @@ const openDetail = (stu) => {
   });
 };
 
+const findStudentById = (id) => {
+  if (id == null || id === '') return null;
+  const nid = Number(id);
+  return students.value.find(
+    (x) => Number(x.id) === nid || String(x.id) === String(id)
+  ) || null;
+};
+
 const getStudentName = (id) => {
-  const s = students.value.find(x => x.id === id);
-  return s ? s.name : `未知学员(${id})`;
+  const s = findStudentById(id);
+  return s ? s.name : '未知学员';
+};
+
+/** 请假列表姓名：优先接口字段，避免仅依赖分页学员列表 */
+const healthStudentLabel = (req) => {
+  const apiName = (req?.student_name || '').trim();
+  if (apiName && apiName !== '未知' && !apiName.startsWith('未知学员')) {
+    return apiName;
+  }
+  if (req?.student_id != null) {
+    const fromList = getStudentName(req.student_id);
+    if (fromList !== '未知学员') return fromList;
+  }
+  return apiName || getStudentName(req?.student_id);
 };
 
 const handleRequest = async (req, action) => {
