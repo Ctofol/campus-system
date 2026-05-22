@@ -1,19 +1,14 @@
 <template>
   <view class="content-manage-container">
-    <!-- 导航栏 -->
-    <view class="nav-bar">
-      <view :style="{ height: statusBarHeight + 'px' }"></view>
-      <view class="nav-bar-inner">
-      <view class="nav-back" @click="goBack">
-        <text class="back-icon">‹</text>
-      </view>
-      <text class="nav-title">课程内容管理</text>
-      <view class="nav-action" @click="addContent">
-        <text class="action-icon">+</text>
-      </view>
-      </view>
-    </view>
+    <page-tab-header title="课程内容管理" show-back theme="white">
+      <template #right>
+        <view class="nav-action" @click="addContent">
+          <text class="action-icon">+</text>
+        </view>
+      </template>
+    </page-tab-header>
 
+    <view class="page-tab-body">
     <!-- 课程信息 -->
     <view class="course-info-card">
       <text class="course-title">{{ courseTitle }}</text>
@@ -152,6 +147,7 @@
           </button>
         </view>
       </view>
+    </view>
     </view>
   </view>
 </template>
@@ -506,36 +502,12 @@ onLoad((options) => {
   padding-bottom: 40rpx;
 }
 
-.nav-bar {
-  background: #fff;
-  height: 88rpx;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 30rpx;
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.05);
-}
-
-.nav-back, .nav-action {
+.nav-action {
   width: 60rpx;
   height: 60rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.back-icon {
-  font-size: 40rpx;
-  color: #333;
-}
-
-.nav-title {
-  font-size: 32rpx;
-  font-weight: bold;
-  color: #333;
 }
 
 .action-icon {

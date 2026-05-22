@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from .. import models, schemas, auth, database
+from .. import models, schemas, auth, database, config
+from datetime import timedelta
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -51,6 +52,7 @@ def update_my_profile(
     if profile_update.name:
         current_user.name = profile_update.name
 
+    phone_changed = False
     if profile_update.phone is not None:
         phone = str(profile_update.phone).strip()
         if not phone:
@@ -63,6 +65,7 @@ def update_my_profile(
             if exists:
                 raise HTTPException(status_code=400, detail="该手机号已被绑定")
             current_user.phone = phone
+            phone_changed = True
     
     if profile_update.signature is not None:
         current_user.signature = profile_update.signature
@@ -72,4 +75,11 @@ def update_my_profile(
     
     db.commit()
     db.refresh(current_user)
-    return {"success": True, "message": "Profile updated successfully"}
+    result = {"success": True, "message": "Profile updated successfully"}
+    if phone_changed:
+        result["access_token"] = auth.create_access_token(
+            data={"sub": current_user.phone, "role": current_user.role},
+            expires_delta=timedelta(minutes=config.ACCESS_TOKEN_EXPIRE_MINUTES),
+        )
+        result["token_type"] = "bearer"
+    return result

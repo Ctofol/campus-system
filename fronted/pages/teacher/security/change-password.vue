@@ -1,17 +1,8 @@
 <template>
   <view class="change-password-page">
-    <!-- 导航栏 -->
-    <view class="nav-bar">
-      <view :style="{ height: statusBarHeight + 'px' }"></view>
-      <view class="nav-bar-inner">
-      <view class="nav-back" @click="goBack">
-        <text class="back-icon">‹</text>
-      </view>
-      <text class="nav-title">修改密码</text>
-      </view>
-    </view>
+    <page-tab-header title="修改密码" show-back theme="white" />
 
-    <view class="content">
+    <view class="content page-tab-body">
       <view class="form-card">
         <!-- 原密码 -->
         <view class="form-item">
@@ -63,7 +54,6 @@
 import { ref } from 'vue';
 import { request } from '@/utils/request.js';
 
-const statusBarHeight = ref(20);
 
 const formData = ref({
   oldPassword: '',
@@ -126,8 +116,6 @@ const goBack = () => {
   uni.navigateBack();
 };
 
-// Initialize statusBarHeight on load
-statusBarHeight.value = uni.getSystemInfoSync().statusBarHeight || 20;
 </script>
 
 <style scoped>

@@ -1,0 +1,51 @@
+/* 学生端 Tab 页与卡片区块 — 统一间距与标题样式 */
+page {
+  --page-padding-x: 30rpx;
+  --nav-bar-height: 44px;
+  --nav-title-size: 34rpx;
+  --section-title-size: 32rpx;
+  --section-accent-width: 8rpx;
+  --section-accent-gap: 20rpx;
+  --section-title-color: #333;
+  --color-brand: #20c997;
+  --page-bg: #f5f7fa;
+}
+
+/* 区块标题（绿条），与运动页「阳光跑看板」一致 */
+.page-section-title {
+  font-size: var(--section-title-size);
+  font-weight: bold;
+  color: var(--section-title-color);
+  padding-left: var(--section-accent-gap);
+  border-left: var(--section-accent-width) solid var(--color-brand);
+  line-height: 1.25;
+  margin-bottom: 24rpx;
+  box-sizing: border-box;
+}
+
+.page-section-title--compact {
+  margin-bottom: 0;
+}
+
+/* 白卡片容器：统一左右边距，便于标题左缘对齐 */
+.page-card {
+  background: #fff;
+  margin: 0 var(--page-padding-x) 30rpx;
+  padding: 40rpx;
+  border-radius: 24rpx;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.06);
+  box-sizing: border-box;
+}
+
+/* Tab 页正文区（需配合 page-tab-header 占位，仅额外顶间距） */
+.page-tab-body {
+  padding-top: 30rpx;
+  padding-bottom: 30rpx;
+  box-sizing: border-box;
+}
+
+/* 子页正文左右留白（与卡片边距一致） */
+.page-tab-body--pad-x {
+  padding-left: var(--page-padding-x);
+  padding-right: var(--page-padding-x);
+}

@@ -25,7 +25,7 @@
       <view class="divider"></view>
       
       <view class="desc-section">
-        <text class="section-title">活动详情</text>
+        <text class="page-section-title">活动详情</text>
         <text class="desc-text">这是一个模拟的活动详情页面。在这里，同学们可以查看活动的具体安排、注意事项以及奖励规则。参加活动不仅能锻炼身体，还能结识更多志同道合的朋友。</text>
       </view>
     </view>

@@ -1,17 +1,8 @@
 <template>
   <view class="test-container">
-    <!-- 自定义导航栏 -->
-    <view class="custom-navbar" :style="{paddingTop: statusBarHeight + 'px'}">
-      <view class="navbar-content">
-        <view class="navbar-left" @click="goBack">
-          <text class="back-icon">←</text>
-        </view>
-        <text class="navbar-title">体能测试</text>
-        <view class="navbar-right"></view>
-      </view>
-    </view>
-    
-    <view class="content-wrapper" :style="{paddingTop: (statusBarHeight + 44) + 'px'}">
+    <page-tab-header title="体能测试" show-back theme="dark" />
+
+    <view class="content-wrapper page-tab-body">
       <!-- 测试项目选择 -->
       <view class="test-header">
         <text class="test-title">{{ currentTest.name }}</text>
@@ -92,7 +83,6 @@ import { ref } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import { uploadFile, submitActivity } from '@/utils/request.js';
 
-const statusBarHeight = ref(20);
 const currentTest = ref({
   name: '引体向上',
   type: 'pull-up',
@@ -108,10 +98,6 @@ const testTypes = [
 const testResult = ref(null);
 const uploadedFile = ref(null);
 const isSubmitting = ref(false);
-
-const goBack = () => {
-  uni.navigateBack();
-};
 
 const showTestSelector = () => {
   const itemList = testTypes.map(t => t.name);
@@ -371,52 +357,12 @@ const formatTime = (seconds) => {
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 };
 
-onLoad(() => {
-  uni.getSystemInfo({
-    success: (res) => {
-      statusBarHeight.value = res.statusBarHeight || 20;
-    }
-  });
-});
 </script>
 
 <style lang="scss" scoped>
 .test-container {
   min-height: 100vh;
   background-color: #1a1a1a;
-}
-
-.custom-navbar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  background-color: #1a1a1a;
-  z-index: 100;
-}
-
-.navbar-content {
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 15px;
-}
-
-.navbar-left,
-.navbar-right {
-  width: 60rpx;
-}
-
-.back-icon {
-  color: #fff;
-  font-size: 40rpx;
-}
-
-.navbar-title {
-  color: #fff;
-  font-size: 18px;
-  font-weight: bold;
 }
 
 .content-wrapper {

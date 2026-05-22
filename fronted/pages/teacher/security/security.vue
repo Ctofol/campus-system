@@ -1,17 +1,8 @@
 <template>
   <view class="security-page">
-    <!-- 导航栏 -->
-    <view class="nav-bar">
-      <view :style="{ height: statusBarHeight + 'px' }"></view>
-      <view class="nav-bar-inner">
-      <view class="nav-back" @click="goBack">
-        <text class="back-icon">‹</text>
-      </view>
-      <text class="nav-title">账号安全</text>
-      </view>
-    </view>
+    <page-tab-header title="账号安全" show-back theme="white" />
 
-    <view class="content">
+    <view class="content page-tab-body">
       <!-- 修改密码 -->
       <view class="menu-item" @click="changePassword">
         <view class="item-left">
@@ -49,7 +40,6 @@
 import { ref, computed, onMounted } from 'vue';
 import { request } from '@/utils/request.js';
 
-const statusBarHeight = ref(20);
 const userPhone = ref('');
 
 const phoneDisplay = computed(() => {
@@ -105,7 +95,6 @@ const goBack = () => {
 };
 
 onMounted(() => {
-  statusBarHeight.value = uni.getSystemInfoSync().statusBarHeight || 20;
   loadUserInfo();
 });
 </script>

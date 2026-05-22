@@ -123,7 +123,7 @@ const saveProfile = async () => {
 
   saving.value = true;
   try {
-    await request({
+    const putRes = await request({
       url: '/users/profile',
       method: 'PUT',
       data: {
@@ -133,6 +133,10 @@ const saveProfile = async () => {
         avatar_url: formData.value.avatar_url
       }
     });
+
+    if (putRes && putRes.access_token) {
+      uni.setStorageSync('token', putRes.access_token);
+    }
 
     patchStoredUserInfo({
       name,

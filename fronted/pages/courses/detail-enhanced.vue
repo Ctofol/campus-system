@@ -72,13 +72,13 @@
 
       <!-- 课程简介 -->
       <view class="course-intro">
-        <view class="section-title">课程简介</view>
+        <view class="page-section-title">课程简介</view>
         <text class="intro-text">{{ course.description || '暂无简介' }}</text>
       </view>
 
       <!-- 课程详细内容（富文本） -->
       <view class="course-detail" v-if="course.content">
-        <view class="section-title">课程详情</view>
+        <view class="page-section-title">课程详情</view>
         <view class="rich-text-wrapper">
           <rich-text :nodes="course.content"></rich-text>
         </view>
@@ -86,7 +86,7 @@
 
       <!-- 课程章节列表 -->
       <view class="course-chapters" v-if="course.contents && course.contents.length > 0">
-        <view class="section-title">
+        <view class="page-section-title">
           <text>课程章节</text>
           <text class="chapter-count">共{{ course.contents.length }}节</text>
         </view>

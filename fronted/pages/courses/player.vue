@@ -34,7 +34,7 @@
     <!-- 课程列表 -->
     <view class="playlist-section">
       <view class="section-header">
-        <text class="section-title">课程列表</text>
+        <text class="page-section-title">课程列表</text>
         <text class="section-count">共{{ playlist.length }}节</text>
       </view>
       

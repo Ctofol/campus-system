@@ -1,15 +1,8 @@
 <template>
   <view class="container">
-    <!-- 自定义导航栏 -->
-    <view class="nav-bar">
-      <view :style="{ height: statusBarHeight + 'px' }"></view>
-      <view class="nav-back" @click="uni.navigateBack()">
-        <text class="nav-back-icon">‹</text>
-      </view>
-      <text class="nav-title">健康报备</text>
-      <view style="width: 60rpx;"></view>
-    </view>
+    <page-tab-header title="健康报备" show-back theme="white" />
 
+    <view class="page-tab-body">
     <view class="form-card">
       <view class="form-header">
         <text class="title">健康报备申请</text>
@@ -97,7 +90,7 @@
     
     <!-- 历史记录 -->
     <view class="history-section">
-      <view class="section-title">最近申请记录</view>
+      <view class="page-section-title">最近申请记录</view>
       <view class="history-list">
         <view class="history-item" v-for="item in history" :key="item.id">
           <view class="item-header">
@@ -131,6 +124,7 @@
         </view>
       </view>
     </view>
+    </view>
   </view>
 </template>
 
@@ -139,7 +133,6 @@ import { ref, computed } from 'vue';
 import { onLoad, onShow } from '@dcloudio/uni-app';
 import { request, BASE_URL } from '@/utils/request.js';
 
-const statusBarHeight = ref(20);
 const submitting = ref(false);
 const formData = ref({
   type: 'leave',
@@ -312,7 +305,6 @@ const onEndDateChange = (e) => {
 };
 
 onShow(() => {
-  statusBarHeight.value = uni.getSystemInfoSync().statusBarHeight || 20;
   loadHistory();
 });
 </script>
@@ -322,46 +314,6 @@ onShow(() => {
   padding: 30rpx;
   background-color: #f5f7fa;
   min-height: 100vh;
-}
-
-.nav-bar {
-  display: flex;
-  flex-direction: column;
-  background: #fff;
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.05);
-  margin-bottom: 20rpx;
-  margin-left: -30rpx;
-  margin-right: -30rpx;
-}
-
-.nav-bar > view:last-child {
-  height: 88rpx;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 30rpx;
-}
-
-.nav-back {
-  width: 60rpx;
-  height: 60rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.nav-back-icon {
-  font-size: 40rpx;
-  color: #333;
-}
-
-.nav-title {
-  font-size: 32rpx;
-  font-weight: bold;
-  color: #333;
 }
 
 .form-card {
@@ -490,16 +442,6 @@ onShow(() => {
   
   &[disabled] {
     background: #ccc;
-  }
-}
-
-.history-section {
-  .section-title {
-    font-size: 30rpx;
-    font-weight: bold;
-    color: #333;
-    margin-bottom: 20rpx;
-    padding-left: 10rpx;
   }
 }
 

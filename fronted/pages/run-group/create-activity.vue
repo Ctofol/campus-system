@@ -1,11 +1,9 @@
 <template>
   <view class="create-activity-page">
-    <view class="navbar">
-      <text class="back-btn" @click="goBack">←</text>
-      <text class="title">发布活动</text>
-    </view>
+    <page-tab-header title="发布活动" show-back theme="white" />
 
     <scroll-view
+      class="page-tab-body"
       class="form-scroll"
       scroll-y
       :scroll-into-view="scrollIntoViewId"
@@ -337,28 +335,6 @@ const handleSubmit = async () => {
 
 .scroll-anchor {
   height: 2rpx;
-}
-
-.navbar {
-  flex-shrink: 0;
-  background: #20c997;
-  padding: 20rpx 30rpx;
-  padding-top: calc(20rpx + env(safe-area-inset-top));
-  display: flex;
-  align-items: center;
-  z-index: 100;
-}
-
-.back-btn {
-  font-size: 36rpx;
-  color: #fff;
-  margin-right: 20rpx;
-}
-
-.title {
-  font-size: 32rpx;
-  font-weight: bold;
-  color: #fff;
 }
 
 .form-container {

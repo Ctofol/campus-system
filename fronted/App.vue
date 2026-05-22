@@ -10,6 +10,14 @@
 		},
 		// #endif
 		onLaunch: function() {
+			try {
+				const sys = uni.getSystemInfoSync()
+				const h = (sys && sys.statusBarHeight) ? sys.statusBarHeight : 20
+				// 供各页 custom 导航使用 var(--status-bar-height)
+				if (typeof document !== 'undefined' && document.documentElement) {
+					document.documentElement.style.setProperty('--status-bar-height', h + 'px')
+				}
+			} catch (e) { /* ignore */ }
 			// #ifdef H5
 			// H5 仅保留 admin：由入口页 pages/entry/entry 统一处理跳转（admin 登录/后台 或 登录页）
 			// #endif
@@ -34,7 +42,9 @@
 	<!-- #endif -->
 </template>
 
-<style>
+<style lang="scss">
+	@import '@/styles/page-chrome.scss';
+
 	/* 每个页面公共 css */
 	/* 链接「查看更多」：勿在模板 text 里写半角 >，否则微信端可能显示为 &gt; */
 	.link-more {

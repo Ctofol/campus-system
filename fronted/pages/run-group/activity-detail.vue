@@ -53,7 +53,7 @@
       </view>
       
       <view class="desc-section" v-if="activity.description">
-        <text class="section-title">活动描述</text>
+        <text class="page-section-title">活动描述</text>
         <text class="desc-text">{{ activity.description }}</text>
       </view>
     </view>

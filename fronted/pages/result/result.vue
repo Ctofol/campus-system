@@ -109,11 +109,19 @@
 
       <view class="mode-data" v-if="currentMode === 'campus'">
         <text class="mode-data-title">校园打卡数据</text>
+        <view class="data-item" v-if="campusCheckpointName">
+          <text class="item-label">目标打卡点</text>
+          <text class="item-value">{{ campusCheckpointName }}</text>
+        </view>
         <view class="data-item">
           <text class="item-label">打卡点到达状态</text>
           <text class="item-value" :class="isReach ? 'success' : 'fail'">
             {{isReach ? '✅ 已到达' : '❌ 未到达'}}
           </text>
+        </view>
+        <view class="data-item tips" v-if="!isReach">
+          <text class="item-label">说明</text>
+          <text class="item-value">需在打卡点半径内完成跑步；GPS 弱或距离过短会导致未到达</text>
         </view>
       </view>
 
@@ -138,8 +146,23 @@
         </view>
       </view>
 
-      <!-- 核验结果（阳光跑自由跑） -->
-      <view class="verify-section" v-if="!isTaskRun && isValid !== null">
+      <!-- 校园打卡：单独说明，不与阳光跑里程规则混用 -->
+      <view class="verify-section" v-if="currentMode === 'campus'">
+        <text class="verify-title">打卡结果</text>
+        <view class="verify-row" v-if="isReach">
+          <text class="verify-icon success">✅</text>
+          <text class="verify-text success">已成功到达打卡点，本次打卡记录已保存。</text>
+        </view>
+        <view class="verify-row" v-else>
+          <text class="verify-icon fail">⚠️</text>
+          <text class="verify-text fail">
+            未在打卡点有效范围内完成。请确认已选打卡点，并在室外开阔处跑至点附近再结束。
+          </text>
+        </view>
+      </view>
+
+      <!-- 核验结果（仅普通自由跑） -->
+      <view class="verify-section" v-if="currentMode === 'normal' && !isTaskRun && isValid !== null">
         <text class="verify-title">阳光跑核验结果</text>
         <view class="verify-row" v-if="isValid">
           <text class="verify-icon success">✅</text>
@@ -148,7 +171,7 @@
         <view class="verify-row" v-else>
           <text class="verify-icon fail">⚠️</text>
           <text class="verify-text fail">
-            本次运动未计入阳光跑：{{ failReason || '原因未知，请联系老师查看详情' }}
+            本次运动未计入阳光跑：{{ failReasonText }}
           </text>
         </view>
       </view>
@@ -162,8 +185,8 @@
       <button @click="backToHome" class="back-btn">返回首页</button>
     </view>
 
-    <!-- 今日目标提醒（仅阳光跑） -->
-    <view class="today-tip" v-if="!isTaskRun && todayCompleted !== null">
+    <!-- 今日目标提醒（仅普通阳光跑） -->
+    <view class="today-tip" v-if="currentMode === 'normal' && !isTaskRun && todayCompleted !== null">
       <text v-if="todayCompleted" class="today-success">
         ✅ 今日阳光跑目标已达成，明天继续加油！
       </text>
@@ -184,6 +207,7 @@ const currentMode = ref('normal');
 const duration = ref(0);
 const distance = ref(0);
 const isReach = ref(false);
+const campusCheckpointName = ref('');
 const isPoliceFinish = ref(false);
 const policePace = ref(0);
 const isValid = ref(null);
@@ -227,7 +251,26 @@ const modeBgColor = computed(() => {
   }
 });
 // 警务配速是否达标 (不再硬编码6.5，因为具体项目和性别标准不同)
-const isPaceQualified = ref(false); 
+const isPaceQualified = ref(false);
+
+const failReasonText = computed(() => {
+  const r = failReason.value || '';
+  if (r.includes('里程不足') && distance.value < 50) {
+    return '里程不足（GPS 可能未正常记录，请到室外重试）';
+  }
+  return r || '原因未知，请联系老师查看详情';
+});
+
+const parseCheckpointsReached = (metrics) => {
+  if (!metrics || metrics.checkpoints == null) return false;
+  try {
+    const raw = metrics.checkpoints;
+    const arr = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    return Array.isArray(arr) && arr.length > 0;
+  } catch (e) {
+    return false;
+  }
+};
 
 // 4. 页面加载时接收参数
 onLoad((options) => {
@@ -251,27 +294,41 @@ onLoad((options) => {
       taskCompleted.value = typeof data.task_completed === 'boolean' ? data.task_completed : null;
 
       // Map backend data to frontend display
-      if (data.type === 'test') {
-        // Distinguish police run from generic test if distance > 0 or specific criteria met
+      if (data.display_mode) {
+        currentMode.value = data.display_mode;
+      } else if (data.type === 'test') {
         currentMode.value = (data.metrics && data.metrics.distance > 0) ? 'police' : 'test';
       } else if (data.type === 'run') {
         if (isTaskRun.value) {
           currentMode.value = 'police';
+        } else if (parseCheckpointsReached(data.metrics)) {
+          currentMode.value = 'campus';
         } else {
-          currentMode.value = (data.metrics && data.metrics.checkpoints) ? 'campus' : 'normal';
+          currentMode.value = 'normal';
         }
       } else {
         currentMode.value = 'normal';
       }
+
+      if (data.campus_checkpoint) {
+        campusCheckpointName.value = data.campus_checkpoint;
+      }
+
       if (data.metrics) {
         duration.value = data.metrics.duration || 0;
         distance.value = (data.metrics.distance || 0) * 1000;
         testCount.value = data.metrics.count || 0;
         testQualified.value = data.metrics.qualified;
         policePace.value = Number(data.metrics.pace) || 0;
-        // Use backend's source of truth for qualification
-        isPaceQualified.value = data.metrics.qualified; 
-        isReach.value = data.metrics.qualified; // For campus mode, qualified usually means checkpiont reached
+        isPaceQualified.value = data.metrics.qualified;
+      }
+
+      if (currentMode.value === 'campus') {
+        if (typeof data.campus_reached === 'boolean') {
+          isReach.value = data.campus_reached;
+        } else {
+          isReach.value = parseCheckpointsReached(data.metrics);
+        }
       }
 
       if (typeof data.is_valid !== 'undefined') {
@@ -586,5 +643,54 @@ const backToHome = () => {
   border: 1px solid #eee;
   border-radius: 12rpx;
   font-size: 32rpx;
+}
+
+.verify-section {
+  margin-top: 28rpx;
+  padding-top: 24rpx;
+  border-top: 1rpx dashed #ddd;
+}
+.verify-title {
+  font-size: 30rpx;
+  font-weight: bold;
+  color: #333;
+  display: block;
+  margin-bottom: 16rpx;
+}
+.verify-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12rpx;
+}
+.verify-icon {
+  font-size: 32rpx;
+  flex-shrink: 0;
+}
+.verify-text {
+  font-size: 28rpx;
+  line-height: 1.5;
+  flex: 1;
+}
+.verify-text.success {
+  color: #17a077;
+}
+.verify-text.fail {
+  color: #d81e06;
+}
+
+.today-tip {
+  margin: 24rpx 20rpx 40rpx;
+  padding: 20rpx 24rpx;
+  border-radius: 12rpx;
+  background: #fafafa;
+  text-align: center;
+  font-size: 26rpx;
+  line-height: 1.5;
+}
+.today-success {
+  color: #17a077;
+}
+.today-fail {
+  color: #888;
 }
 </style>

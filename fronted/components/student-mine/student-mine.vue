@@ -1,22 +1,20 @@
 <template>
   <view class="mine-page">
-    <!-- Custom Navigation Bar -->
-    <view class="custom-navbar" :style="{paddingTop: statusBarHeight + 'px'}">
-      <view class="navbar-content">
-        <text class="navbar-title">个人中心</text>
-      </view>
-    </view>
-    
-    <view class="content-wrapper" :style="{paddingTop: (statusBarHeight + 44) + 'px'}">
+    <page-tab-header title="个人中心" />
+
+    <view class="content-wrapper page-tab-body">
       <!-- 1. 账号主页（顶部） -->
       <view class="user-header">
-        <view class="avatar-box">
+        <view class="avatar-row">
           <image class="avatar" :src="avatarUrl" mode="aspectFill"></image>
-          <button class="edit-avatar" @click="gotoUserProfile">编辑资料</button>
+          <view class="user-info">
+            <text class="username">{{userName}}</text>
+            <text class="user-signature" v-if="userSignature">{{ userSignature }}</text>
+            <text class="user-desc">{{ className ? className + ' · ' : '校园运动打卡 · ' }}{{userType}}</text>
+          </view>
         </view>
-        <view class="user-info">
-          <text class="username">{{userName}}</text>
-          <text class="user-desc">{{ className ? className + ' · ' : '校园运动打卡 · ' }}{{userType}}</text>
+        <view class="edit-profile-row">
+          <view class="edit-profile-btn" @click="gotoUserProfile">编辑资料</view>
         </view>
         <view class="user-stats">
           <view class="stats-item">
@@ -35,10 +33,10 @@
       </view>
       
       <!-- 2. 本周跑步统计 -->
-      <view class="week-run-card">
+      <view class="week-run-card page-card">
         <view class="card-header">
           <view class="header-left">
-            <text class="card-title">本周跑步</text>
+            <text class="page-section-title page-section-title--compact">本周跑步</text>
             <text class="target-tag">目标 {{weeklyTarget}} 次</text>
           </view>
           <text class="date-range">{{weekDateRange}}</text>
@@ -70,9 +68,9 @@
       </view>
 
       <!-- 任务跑步记录（与阳光跑区分） -->
-      <view class="task-run-card" v-if="taskRunPreview.length > 0">
+      <view class="task-run-card page-card" v-if="taskRunPreview.length > 0">
         <view class="card-header">
-          <text class="card-title">任务跑步</text>
+          <text class="page-section-title page-section-title--compact">任务跑步</text>
           <text class="view-all" @click="gotoTaskRuns">查看全部</text>
         </view>
         <view class="task-run-item" v-for="(tr, idx) in taskRunPreview" :key="idx">
@@ -85,9 +83,9 @@
       </view>
       
       <!-- 3. 运动记录列表 -->
-      <view class="record-card">
+      <view class="record-card page-card">
         <view class="card-header">
-          <text class="card-title">运动记录</text>
+          <text class="page-section-title page-section-title--compact">运动记录</text>
           <view class="header-actions">
             <text class="history-task-link" @click="gotoHistoryTasks">历史任务</text>
             <button class="view-all" @click="viewAllRecords">查看全部</button>
@@ -156,12 +154,13 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import { request, getStudentTaskRunHistory, resolveMediaUrl } from '@/utils/request.js';
+import { request, getStudentTaskRunHistory, avatarImageSrc } from '@/utils/request.js';
+import { mapRecordStatus, isValidSunshineRun } from '@/utils/activity-record.js';
 
-const statusBarHeight = ref(20);
 const avatarUrl = ref('/static/avatar.png');
 
 const userName = ref('同学');
+const userSignature = ref('');
 const userType = ref('学生');
 const className = ref('');
 const totalRunCount = ref(0);
@@ -207,8 +206,10 @@ const fetchHistory = async () => {
                 const isRun = item.type === 'run';
                 const date = new Date(item.started_at);
                 const dateStr = `${date.getMonth()+1}-${date.getDate()} ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+                const status = mapRecordStatus(item);
                 
                 return {
+                    id: item.id,
                     type: item.type,
                     modeBg: isRun ? '#20C997' : '#FF9F43',
                     modeText: isRun ? '跑步' : '体测',
@@ -219,30 +220,28 @@ const fetchHistory = async () => {
                     pace: item.metrics?.pace,
                     testCount: item.metrics?.count || 0,
                     result: item.metrics?.qualified ? '达标' : '未达标',
-                    statusText: item.status === 'finished' ? '有效' : '待审核',
-                    statusColor: '#20C997',
-                    // Add flags for filtering
+                    statusText: status.statusText,
+                    statusColor: status.statusColor,
+                    isValid: item.is_valid === true,
                     isTask: item.source === 'task' || !!item.task_id
                 };
             }).filter(item => !item.isTask)
             
-            // 更新统计数据
-            const runs = runRecords.value.filter(r => r.type === 'run');
-            totalRunCount.value = runs.length;
-            totalRunDistance.value = runs
-                .reduce((acc, cur) => acc + Number(cur.distance || 0), 0)
+            const validRuns = res.items.filter(isValidSunshineRun);
+            totalRunCount.value = validRuns.length;
+            totalRunDistance.value = validRuns
+                .reduce((acc, cur) => acc + Number(cur.metrics?.distance || 0), 0)
                 .toFixed(2);
             policeSuccessCount.value = runRecords.value.filter(r => r.type === 'test' && r.result === '达标').length;
             
-            // 计算本周数据（只统计本周的记录）
             const now = new Date();
             const startOfWeek = new Date(now);
-            startOfWeek.setDate(now.getDate() - now.getDay()); // 本周日
+            startOfWeek.setDate(now.getDate() - now.getDay());
             startOfWeek.setHours(0, 0, 0, 0);
             
             const weekRuns = res.items.filter(item => {
                 const itemDate = new Date(item.started_at);
-                return item.type === 'run' && itemDate >= startOfWeek;
+                return isValidSunshineRun(item) && itemDate >= startOfWeek;
             });
             
             weekRunCount.value = weekRuns.length;
@@ -289,7 +288,8 @@ const fetchUserProfile = async () => {
         if (res) {
         if (res.name) userName.value = res.name;
         if (res.class_name) className.value = res.class_name;
-        avatarUrl.value = res.avatar_url ? resolveMediaUrl(res.avatar_url) : '/static/avatar.png';
+        userSignature.value = (res.signature || '').trim();
+        avatarUrl.value = res.avatar_url ? avatarImageSrc(res.avatar_url) : '/static/avatar.png';
         
         // Update storage
             let currentUser = uni.getStorageSync('userInfo');
@@ -306,8 +306,6 @@ const fetchUserProfile = async () => {
 
 // 页面显示逻辑
 const onPageShow = () => {
-  statusBarHeight.value = uni.getSystemInfoSync().statusBarHeight || 20;
-  
   const user = uni.getStorageSync('userInfo');
   if (user) {
     let u = user;
@@ -320,7 +318,8 @@ const onPageShow = () => {
     if (u) {
         if(u.name) userName.value = u.name;
         if(u.class_name) className.value = u.class_name;
-        avatarUrl.value = u.avatar_url ? resolveMediaUrl(u.avatar_url) : '/static/avatar.png';
+        userSignature.value = (u.signature || '').trim();
+        avatarUrl.value = u.avatar_url ? avatarImageSrc(u.avatar_url) : '/static/avatar.png';
     }
   }
   
@@ -398,25 +397,6 @@ const logout = () => {
 </script>
 
 <style scoped>
-.custom-navbar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  background-color: #fff;
-  z-index: 999;
-}
-.navbar-content {
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.navbar-title {
-  color: #333;
-  font-size: 16px;
-  font-weight: bold;
-}
 .content-wrapper {
   width: 100%;
   box-sizing: border-box;
@@ -429,30 +409,41 @@ const logout = () => {
   padding: 40rpx 30rpx;
   margin-bottom: 20rpx;
 }
-.avatar-box {
+.avatar-row {
   display: flex;
-  align-items: flex-start;
-  margin-bottom: 20rpx;
+  align-items: center;
+  gap: 24rpx;
+  margin-bottom: 24rpx;
 }
 .avatar {
   width: 140rpx;
   height: 140rpx;
+  flex-shrink: 0;
   border-radius: 50%;
-  margin-right: 20rpx;
   border: 4rpx solid #fff;
-  box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.08);
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.08);
 }
-.edit-avatar {
-  font-size: 24rpx;
-  color: #20C997;
+.edit-profile-row {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 32rpx;
+}
+.edit-profile-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 200rpx;
+  padding: 14rpx 40rpx;
+  font-size: 26rpx;
+  color: #20c997;
   background-color: rgba(32, 201, 151, 0.1);
-  border: none;
-  padding: 10rpx 24rpx;
-  border-radius: 30rpx;
-  margin-left: auto;
+  border: 1rpx solid #20c997;
+  border-radius: 32rpx;
+  box-sizing: border-box;
 }
 .user-info {
-  margin-bottom: 40rpx;
+  flex: 1;
+  min-width: 0;
 }
 .username {
   font-size: 40rpx;
@@ -460,6 +451,17 @@ const logout = () => {
   color: #333;
   display: block;
   margin-bottom: 8rpx;
+}
+.user-signature {
+  display: block;
+  font-size: 26rpx;
+  color: #20c997;
+  line-height: 1.45;
+  margin-bottom: 6rpx;
+  max-width: 420rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .user-desc {
   font-size: 26rpx;
@@ -493,13 +495,6 @@ const logout = () => {
 }
 
 /* 2. 本周跑步 */
-.week-run-card {
-  background-color: #fff;
-  margin: 0 20rpx 20rpx;
-  padding: 24rpx;
-  border-radius: 16rpx;
-  box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.05);
-}
 .card-header {
   display: flex;
   justify-content: space-between;
@@ -510,11 +505,6 @@ const logout = () => {
   display: flex;
   align-items: center;
   gap: 12rpx;
-}
-.card-title {
-  font-size: 32rpx;
-  font-weight: bold;
-  color: #333;
 }
 .target-tag {
   font-size: 20rpx;
@@ -580,13 +570,6 @@ const logout = () => {
   transition: width 0.5s ease;
 }
 
-.task-run-card {
-  background-color: #fff;
-  margin: 0 20rpx 20rpx;
-  padding: 24rpx;
-  border-radius: 16rpx;
-  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.05);
-}
 .task-run-card .view-all {
   font-size: 24rpx;
   color: #20c997;
@@ -629,13 +612,6 @@ const logout = () => {
   color: #999;
 }
 
-/* 3. 运动记录 */
-.record-card {
-  background-color: #fff;
-  margin: 0 20rpx 20rpx;
-  padding: 20rpx;
-  border-radius: 12rpx;
-}
 .header-actions {
   display: flex;
   align-items: center;

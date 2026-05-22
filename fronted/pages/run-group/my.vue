@@ -74,7 +74,7 @@
 
       <view class="tab-content" v-if="currentTab === 'overview'">
         <view class="overview-section">
-          <text class="section-title">跑团简介</text>
+          <text class="page-section-title">跑团简介</text>
           <text class="section-text">{{ activeGroup.description || '暂无简介' }}</text>
         </view>
       </view>

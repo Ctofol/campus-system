@@ -4,11 +4,20 @@
       <view class="form-item avatar-item">
         <view class="avatar-row">
           <text class="label">头像</text>
-          <view class="avatar-preview" @click="chooseAvatar">
-            <view class="avatar-img-wrap">
+          <view class="avatar-preview">
+            <view class="avatar-img-wrap" @click="chooseAvatarFromAlbum">
               <image :src="avatarUrl" mode="aspectFill" class="avatar-img" />
             </view>
-            <text class="change-text">更改头像</text>
+            <view class="avatar-actions">
+              <text class="change-text" @click="chooseAvatarFromAlbum">相册/拍照</text>
+              <!-- #ifdef MP-WEIXIN -->
+              <button
+                class="wx-avatar-btn"
+                open-type="chooseAvatar"
+                @chooseavatar="onWxChooseAvatar"
+              >微信头像</button>
+              <!-- #endif -->
+            </view>
           </view>
         </view>
       </view>
@@ -44,6 +53,7 @@
           :auto-height="true"
           :show-confirm-bar="false"
         />
+        <text class="signature-tip">保存后将在「我的」页姓名下方展示</text>
       </view>
 
       <view class="form-item">
@@ -65,7 +75,15 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import { request, uploadFile, resolveMediaUrl } from '@/utils/request.js';
+import { onShow } from '@dcloudio/uni-app';
+import {
+  request,
+  uploadFile,
+  resolveMediaUrl,
+  persistAvatarUrl,
+  patchStoredUserInfo,
+  avatarImageSrc
+} from '@/utils/request.js';
 import { pickAvatarFromAlbum } from '@/utils/avatar-picker.js';
 
 const avatarUrl = ref('/static/avatar.png');
@@ -80,7 +98,15 @@ const formData = ref({
   avatar_url: ''
 });
 
+const syncAvatarPreview = (path) => {
+  avatarUrl.value = path ? avatarImageSrc(path) : '/static/avatar.png';
+};
+
 onMounted(() => {
+  loadUserProfile();
+});
+
+onShow(() => {
   loadUserProfile();
 });
 
@@ -101,9 +127,7 @@ const loadUserProfile = async () => {
         avatar_url: res.avatar_url || ''
       };
 
-      if (res.avatar_url) {
-        avatarUrl.value = resolveMediaUrl(res.avatar_url);
-      }
+      syncAvatarPreview(res.avatar_url);
     }
   } catch (e) {
     console.error('Failed to load profile:', e);
@@ -111,13 +135,23 @@ const loadUserProfile = async () => {
   }
 };
 
-const chooseAvatar = async () => {
+const chooseAvatarFromAlbum = async () => {
   try {
     const tempFilePath = await pickAvatarFromAlbum();
     await uploadAvatar(tempFilePath);
   } catch (e) {
+    if (e && e.cancelled) return;
     // 已在 pickAvatarFromAlbum 内提示隐私配置
   }
+};
+
+const onWxChooseAvatar = async (e) => {
+  const path = e?.detail?.avatarUrl;
+  if (!path) {
+    uni.showToast({ title: '未获取到头像', icon: 'none' });
+    return;
+  }
+  await uploadAvatar(path);
 };
 
 const uploadAvatar = async (filePath) => {
@@ -126,13 +160,15 @@ const uploadAvatar = async (filePath) => {
     uni.showLoading({ title: '上传中...' });
     const uploadResult = await uploadFile(filePath, 'image');
     formData.value.avatar_url = uploadResult.url;
-    avatarUrl.value = resolveMediaUrl(uploadResult.url);
+    syncAvatarPreview(uploadResult.url);
+    await persistAvatarUrl(uploadResult.url);
+    patchStoredUserInfo({ avatar_url: uploadResult.url });
     uni.hideLoading();
-    uni.showToast({ title: '上传成功', icon: 'success' });
+    uni.showToast({ title: '头像已更新', icon: 'success' });
   } catch (e) {
     uni.hideLoading();
     console.error('Upload failed:', e);
-    uni.showToast({ title: '上传失败', icon: 'none' });
+    uni.showToast({ title: e?.message || '上传失败', icon: 'none' });
   }
 };
 
@@ -158,16 +194,20 @@ const handleSave = async () => {
   saving.value = true;
 
   try {
-    await request({
+    const putRes = await request({
       url: '/users/profile',
       method: 'PUT',
       data: {
         name,
         phone,
-        signature: formData.value.signature,
+        signature: (formData.value.signature || '').trim(),
         avatar_url: formData.value.avatar_url
       }
     });
+
+    if (putRes && putRes.access_token) {
+      uni.setStorageSync('token', putRes.access_token);
+    }
 
     let userInfo = uni.getStorageSync('userInfo');
     if (typeof userInfo === 'string') {
@@ -182,11 +222,12 @@ const handleSave = async () => {
       ...userInfo,
       name,
       phone,
-      signature: formData.value.signature,
+      signature: (formData.value.signature || '').trim(),
       avatar_url: formData.value.avatar_url
     };
 
     uni.setStorageSync('userInfo', userInfo);
+    patchStoredUserInfo(userInfo);
     formData.value.name = name;
     formData.value.phone = phone;
 
@@ -272,6 +313,13 @@ const handleSave = async () => {
   text-align: right;
 }
 
+.signature-tip {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 22rpx;
+  color: #999;
+}
+
 .textarea {
   width: 100%;
   min-height: 160rpx;
@@ -335,10 +383,31 @@ const handleSave = async () => {
   display: block;
 }
 
+.avatar-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12rpx;
+}
+
 .change-text {
   flex-shrink: 0;
   font-size: 28rpx;
   color: #20c997;
+}
+
+.wx-avatar-btn {
+  margin: 0;
+  padding: 0 8rpx;
+  font-size: 26rpx;
+  color: #20c997;
+  background: transparent;
+  border: none;
+  line-height: 1.4;
+}
+
+.wx-avatar-btn::after {
+  border: none;
 }
 
 .button-section {

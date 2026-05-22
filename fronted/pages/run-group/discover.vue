@@ -1,10 +1,17 @@
 <template>
   <view class="discover-page">
-    <view class="navbar">
-      <text class="back-btn" @click="goBack" v-if="showCreateForm">←</text>
-      <text class="title">{{ showCreateForm ? '创建跑团' : '跑团发现' }}</text>
-      <text class="rank-btn" @click="goToRank" v-if="!showCreateForm">排行榜</text>
-    </view>
+    <page-tab-header
+      :title="showCreateForm ? '创建跑团' : '跑团发现'"
+      :show-back="showCreateForm"
+      :back-handler="goBack"
+      theme="white"
+    >
+      <template #right>
+        <text class="rank-btn" @click="goToRank" v-if="!showCreateForm">排行榜</text>
+      </template>
+    </page-tab-header>
+
+    <view class="page-tab-body">
 
     <view class="create-form" v-if="showCreateForm">
       <view class="form-item avatar-item">
@@ -72,6 +79,7 @@
         <text>暂无跑团</text>
       </view>
     </scroll-view>
+    </view>
   </view>
 </template>
 
@@ -239,33 +247,11 @@ onMounted(() => {
   background: #f5f7fa;
 }
 
-.navbar {
-  position: sticky;
-  top: 0;
-  background: #20c997;
-  padding: 20rpx 30rpx;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  z-index: 100;
-}
-
-.back-btn {
-  font-size: 36rpx;
-  color: #fff;
-}
-
-.title {
-  font-size: 32rpx;
-  font-weight: bold;
-  color: #fff;
-}
-
 .rank-btn {
   font-size: 26rpx;
-  color: #fff;
+  color: #20c997;
   padding: 8rpx 20rpx;
-  border: 1px solid #fff;
+  border: 1rpx solid #20c997;
   border-radius: 20rpx;
 }
 

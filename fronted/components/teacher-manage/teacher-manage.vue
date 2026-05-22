@@ -1,14 +1,8 @@
 <template>
   <view class="manage-container">
-    <!-- 自定义导航栏 -->
-    <view class="custom-nav-bar">
-      <view class="nav-status-bar"></view>
-      <view class="nav-content">
-        <text class="nav-title">综合管理</text>
-      </view>
-    </view>
+    <page-tab-header title="综合管理" theme="white" />
 
-    <view class="content-wrapper">
+    <view class="content-wrapper page-tab-body">
       <view class="grid-container">
         <!-- 模块迁移：学员管理（包含原班级管理的排课、考勤） -->
         <view class="grid-item" @click="navTo('/pages/teacher/students/students')">
@@ -192,34 +186,7 @@ defineExpose({
   padding-bottom: 50px;
 }
 
-.custom-nav-bar {
-  background-color: #fff;
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 100;
-  
-  .nav-status-bar {
-    height: var(--status-bar-height);
-  }
-  
-  .nav-content {
-    height: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    
-    .nav-title {
-      font-size: 18px;
-      font-weight: bold;
-      color: #333;
-    }
-  }
-}
-
 .content-wrapper {
-  padding-top: calc(var(--status-bar-height) + 44px);
   padding-left: 30rpx;
   padding-right: 30rpx;
 }

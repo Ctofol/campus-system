@@ -42,7 +42,7 @@
 
       <!-- 课程内容列表 -->
       <view class="content-section">
-        <view class="section-title">课程内容</view>
+        <view class="page-section-title">课程内容</view>
         <view 
           class="content-item" 
           v-for="(content, index) in course.contents" 

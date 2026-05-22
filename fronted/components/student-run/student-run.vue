@@ -1,16 +1,6 @@
 <template>
   <view class="run">
-    <!-- Custom Navigation Bar -->
-    <view class="custom-navbar" :style="{paddingTop: statusBarHeight + 'px'}">
-      <view class="navbar-content">
-        <view class="navbar-left" @click="goBack">
-          <text class="back-icon">←</text>
-        </view>
-        <text class="navbar-title">跑步</text>
-        <view class="navbar-right"></view>
-      </view>
-    </view>
-    <view class="content-spacer" :style="{height: (statusBarHeight + 44) + 'px'}"></view>
+    <page-tab-header title="跑步" show-back theme="transparent" />
 
     <!-- AI Robot Component -->
     <ai-chat-robot 
@@ -69,11 +59,11 @@
     >
        <cover-view
          class="location-status-bar"
-         :class="{ 'location-status-tappable': showLocationStatusBar }"
-         :style="{ display: showLocationStatusBar ? 'flex' : 'none' }"
+         :class="{ 'location-status-tappable': showMapTopHintTappable }"
+         :style="{ display: showMapTopHintBar ? 'flex' : 'none' }"
          @tap="onLocationStatusBarTap"
        >
-         <cover-view class="status-text">{{ locationStatusText }}</cover-view>
+         <cover-view class="status-text">{{ mapTopHintText }}</cover-view>
        </cover-view>
        <cover-view v-if="showMapLegend" class="map-legend">
          <cover-view class="legend-row">
@@ -84,7 +74,7 @@
            <cover-view class="legend-line-sample" />
            <cover-view class="legend-txt">跑步轨迹</cover-view>
          </cover-view>
-         <cover-view v-if="runStartMarker" class="legend-row">
+         <cover-view v-if="runStartMarker && showRunStartOnMap" class="legend-row">
            <cover-view class="legend-pin legend-pin-start" />
            <cover-view class="legend-txt">起点</cover-view>
          </cover-view>
@@ -110,9 +100,9 @@
 
     <!-- 3. 鏍稿績璺戞妯″紡鍒囨崲锛堜换鍔¤窇閿佸畾涓恒€屼笓椤规祴璇曘€嶄腑闂撮〉锛?-->
     <view class="mode-switch" v-if="!taskRunLocked">
-      <text class="mode-item" :class="{active: currentMode === 'normal'}" @click="switchMode('normal')">普通跑步</text>
-      <text class="mode-item" :class="{active: currentMode === 'police'}" @click="switchMode('police')">专项测试</text>
-      <text class="mode-item" :class="{active: currentMode === 'campus'}" @click="switchMode('campus')">校园打卡</text>
+      <text class="mode-item" :class="{active: currentMode === 'normal', disabled: isRunning && currentMode !== 'normal'}" @click="switchMode('normal')">普通跑步</text>
+      <text class="mode-item" :class="{active: currentMode === 'police', disabled: isRunning && currentMode !== 'police'}" @click="switchMode('police')">专项测试</text>
+      <text class="mode-item" :class="{active: currentMode === 'campus', disabled: isRunning && currentMode !== 'campus'}" @click="switchMode('campus')">校园打卡</text>
     </view>
     <view v-else class="task-mode-hint">
       <text class="task-mode-hint-text">📋 任务跑步（专项跑）· 已锁定模式</text>
@@ -148,17 +138,18 @@
       <view v-else class="running-box">
         <view class="run-stats">
           <view class="stat-cell"><text class="stat-label">时长</text><text class="stat-value">{{ duration }}秒</text></view>
-          <view class="stat-cell"><text class="stat-label">已跑</text><text class="stat-value">{{ ((distance || 0)/1000).toFixed(2) }}km</text></view>
+          <view class="stat-cell"><text class="stat-label">已跑</text><text class="stat-value">{{ (displayRunDistanceM/1000).toFixed(2) }}km</text></view>
           <view class="stat-cell"><text class="stat-label">速度</text><text class="stat-value">{{ currentSpeedKmh }}km/h</text></view>
           <view class="stat-cell"><text class="stat-label">步数</text><text class="stat-value">{{ stepCount }}</text></view>
           <view class="stat-cell"><text class="stat-label">心率</text><text class="stat-value">{{ heartRate }}次/分</text></view>
           <view class="stat-cell"><text class="stat-label">均速</text><text class="stat-value">{{ avgSpeedKmh }}km/h</text></view>
         </view>
+        <text v-if="runMileageHint" class="mileage-hint">{{ runMileageHint }}</text>
         <view class="progress-wrap">
           <view class="progress-bar">
             <view class="progress-fill" :style="{width: normalProgress + '%'}"></view>
           </view>
-          <text class="progress-text">已跑 {{ ((distance || 0)/1000).toFixed(2) }} km</text>
+          <text class="progress-text">已跑 {{ (displayRunDistanceM/1000).toFixed(2) }} km</text>
         </view>
         <button @click="stopRun" class="stop-btn">结束跑步</button>
       </view>
@@ -173,12 +164,13 @@
       <view v-else class="running-box">
         <view class="run-stats">
           <view class="stat-cell"><text class="stat-label">时长</text><text class="stat-value">{{ duration }}秒</text></view>
-          <view class="stat-cell"><text class="stat-label">已跑</text><text class="stat-value">{{ (distance/1000).toFixed(2) }}km / 目标2km</text></view>
-          <view class="stat-cell"><text class="stat-label">剩余</text><text class="stat-value">{{ (Math.max(0, policeTargetDistance - distance)/1000).toFixed(2) }}km</text></view>
+          <view class="stat-cell"><text class="stat-label">已跑</text><text class="stat-value">{{ (displayRunDistanceM/1000).toFixed(2) }}km / 目标2km</text></view>
+          <view class="stat-cell"><text class="stat-label">剩余</text><text class="stat-value">{{ (Math.max(0, policeTargetDistance - displayRunDistanceM)/1000).toFixed(2) }}km</text></view>
           <view class="stat-cell"><text class="stat-label">配速</text><text class="stat-value">{{ currentPace.toFixed(1) }}分/公里</text></view>
           <view class="stat-cell"><text class="stat-label">心率</text><text class="stat-value">{{ heartRate }}次/分</text></view>
           <view class="stat-cell"><text class="stat-label">步数</text><text class="stat-value">{{ stepCount }}</text></view>
         </view>
+        <text v-if="runMileageHint" class="mileage-hint">{{ runMileageHint }}</text>
         <text class="pace-status" :style="{color: currentPace <= policeTargetPace ? 'green' : 'red'}">
           {{ currentPace <= policeTargetPace ? '✅ 配速达标' : '❌ 配速未达标' }}
         </text>
@@ -245,7 +237,7 @@
 
 <script setup>
 // 缁熶竴瀵煎叆瑙勮寖
-import { ref, computed, onUnmounted, onMounted, nextTick } from 'vue';
+import { ref, computed, watch, onUnmounted, onMounted, nextTick } from 'vue';
 import AiChatRobot from '@/components/ai-chat-robot/ai-chat-robot.vue';
 import { submitActivity, getCheckpoints, checkIn, uploadFile, getStudentTaskDetail } from '@/utils/request.js';
 import { getCurrentLocation } from '@/utils/location.js';
@@ -406,6 +398,8 @@ const onPageShow = (options = {}) => {
     }
 
     startLocationService();
+
+    tryRestoreRunSession();
     
     // Load Checkpoints for Campus Mode
     getCheckpoints().then(data => {
@@ -559,6 +553,8 @@ let lastStrongStepMotionAt = 0;
 let lastGpsMotionAt = 0;
 let stepBurstCount = 0;
 let gpsMotionBurstCount = 0;
+/** 最近一次定位水平精度（米），用于跑步中提示 */
+const lastGpsAccuracyM = ref(NaN);
 
 const resetRunMotionEvidence = () => {
   lastStepDetectedAt = 0;
@@ -584,22 +580,29 @@ const getLastTrackAnchor = () => {
  */
 const isRunGpsUnlocked = () =>
   gpsAcceptedPointCount >= 2 ||
-  distance.value >= 22 ||
+  distance.value >= 18 ||
   (gpsAcceptedPointCount >= 1 && hasRecentGpsMotionEvidence()) ||
-  (hasStrongStepMotion() && distance.value >= 8) ||
-  (hasRecentGpsMotionEvidence() && distance.value >= 6);
+  (hasStrongStepMotion() && distance.value >= 6) ||
+  (hasRecentGpsMotionEvidence() && distance.value >= 5) ||
+  (hasRecentStepMotion() && stepCount.value >= 12 && duration.value >= 8);
 
 const getMergePolylineGapM = () => (isRunGpsUnlocked() ? MERGE_POLYLINE_GAP_RUN_M : MERGE_POLYLINE_GAP_IDLE_M);
 
 /** 仅“站着抖手机、GPS 几乎不动”时冻结；起跑就开跑（有位移/步频）不冻结 */
 const shouldFreezeRunPosition = (rawLat, rawLng) => {
   if (!isRunning.value || isRunGpsUnlocked()) return false;
+  if (hasRecentStepMotion() && stepCount.value >= 8) return false;
   const anchor = getLastTrackAnchor();
   if (!anchor) return false;
   const rawM = getDistance(anchor.latitude, anchor.longitude, rawLat, rawLng);
   if (rawM >= STATIONARY_RAW_IDLE_M) return false;
-  if (hasStrongStepMotion() && rawM >= 2.5) return false;
-  const shakeOnly = stepCount.value >= 10 && !hasRecentGpsMotionEvidence() && !hasStrongStepMotion();
+  if (hasStrongStepMotion() && rawM >= 1.8) return false;
+  if (hasRecentStepMotion() && stepCount.value >= 12 && rawM >= 1.0) return false;
+  const shakeOnly =
+    stepCount.value >= 18 &&
+    !hasRecentGpsMotionEvidence() &&
+    !hasStrongStepMotion() &&
+    !hasRecentStepMotion();
   return shakeOnly || rawM < 2.2;
 };
 
@@ -618,8 +621,16 @@ const noteStepMotion = (now) => {
 
 const noteGpsMotion = (now, segmentDistanceM, speedMps, accuracyM) => {
   const goodAccuracy = !Number.isFinite(accuracyM) || accuracyM <= 40;
+  const softAccuracy = !Number.isFinite(accuracyM) || accuracyM <= 55;
   const speedOk = speedMps >= 0.55 && speedMps <= 6.5;
+  const softSpeedOk = speedMps >= 0.4 && speedMps <= 6.5;
   const distanceOk = segmentDistanceM >= 1.8;
+  const softDistanceOk = segmentDistanceM >= 1.1;
+  if (hasRecentStepMotion() && softAccuracy && softSpeedOk && softDistanceOk) {
+    lastGpsMotionAt = now;
+    gpsMotionBurstCount = Math.max(gpsMotionBurstCount, 1);
+    return;
+  }
   if (goodAccuracy && speedOk && distanceOk) {
     gpsMotionBurstCount += 1;
     if (segmentDistanceM >= 2.6 || gpsMotionBurstCount >= 2) {
@@ -868,9 +879,24 @@ const createRunPointMarker = (id, latitude, longitude, labelText, style = {}) =>
   };
 };
 
+/** 开跑初期隐藏起点 pin，避免与蓝箭头叠在一起难辨认 */
+const showRunStartOnMap = computed(() => {
+  if (!runStartMarker.value) return false;
+  if (!isRunning.value) return true;
+  if (distance.value >= 28) return true;
+  if (duration.value >= 18 && trajectoryPointCount.value >= 3) return true;
+  return false;
+});
+
+watch(showRunStartOnMap, () => {
+  if (isRunning.value || runStartMarker.value) {
+    refreshMarkers();
+  }
+});
+
 const refreshMarkers = () => {
   const nextMarkers = [];
-  if (runStartMarker.value) {
+  if (runStartMarker.value && showRunStartOnMap.value) {
     nextMarkers.push({ ...runStartMarker.value });
   }
   if (runEndMarker.value) {
@@ -986,7 +1012,12 @@ const getHorizontalAccuracyM = (accuracyOrRes) => {
 };
 
 const hasReliableGpsMovement = () => {
-  return gpsAcceptedPointCount >= 3 || distance.value >= 28 || currentSpeed.value >= 1.15;
+  return (
+    gpsAcceptedPointCount >= 2 ||
+    distance.value >= 20 ||
+    currentSpeed.value >= 1.0 ||
+    (hasRecentStepMotion() && stepCount.value >= 16 && duration.value >= 10)
+  );
 };
 
 const estimateStepsByDistance = (distanceM) => {
@@ -1032,20 +1063,30 @@ const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
 
   if (isRunning.value && shouldFreezeRunPosition(newLat, newLng)) {
     const anchor = getLastTrackAnchor();
-    if (anchor) {
+    const followGpsOnMap = hasRecentStepMotion() && stepCount.value >= 8;
+    if (followGpsOnMap) {
+      lat.value = newLat;
+      lng.value = newLng;
+      runLocationSmooth = { lat: newLat, lng: newLng };
+      patchCurrentLocationMarker();
+    } else if (anchor) {
       lat.value = anchor.latitude;
       lng.value = anchor.longitude;
       runLocationSmooth = { lat: anchor.latitude, lng: anchor.longitude };
       patchCurrentLocationMarker();
-      currentSpeed.value = 0;
-      syncRunElapsedDisplay();
-      if (currentMode.value === 'campus' && checkpoint.value.lat) {
+    }
+    currentSpeed.value = 0;
+    syncRunElapsedDisplay();
+    if (currentMode.value === 'campus' && checkpoint.value.lat) {
+      const refLat = followGpsOnMap ? newLat : anchor?.latitude;
+      const refLng = followGpsOnMap ? newLng : anchor?.longitude;
+      if (refLat != null && refLng != null) {
         distanceToCheckpoint.value = Math.floor(
-          getDistance(anchor.latitude, anchor.longitude, checkpoint.value.lat, checkpoint.value.lng)
+          getDistance(refLat, refLng, checkpoint.value.lat, checkpoint.value.lng)
         );
       }
-      return;
     }
+    return;
   }
 
   let workLat = newLat;
@@ -1116,7 +1157,7 @@ const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
     // 鐬椂閫熷害锛坢/s锛夛細涓庢槸鍚﹁鍏ユ€婚噷绋嬭В鑰︼紝鐢ㄤ簬鐣岄潰閫熷害/閰嶉€燂紱寰俊 onLocationChange 鐨?speed 甯镐负 -1
     const spNum = typeof speed === 'number' && !Number.isNaN(speed) ? speed : -1;
     const calcSp = timeDiff > 0.001 ? d / timeDiff : 0;
-    const runGpsSpeedWarmup = !hasReliableGpsMovement() && duration.value < 15 && distance.value < 28;
+    const runGpsSpeedWarmup = !hasReliableGpsMovement() && duration.value < 10 && distance.value < 18;
     if (!runGpsSpeedWarmup) {
       if (spNum >= 0 && spNum < 22) {
         currentSpeed.value = spNum;
@@ -1157,17 +1198,31 @@ const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
 
     const calculatedSpeed = d / timeDiff;
     const accM = getHorizontalAccuracyM(accuracyOrRes);
-    /** 寮€璺戝悗绾?50s 鍐?GPS 甯告姈鍔ㄥ嚭銆屾湭鍔ㄥ嵈鏈夐噷绋嬨€嶏紱鍗曞尯闂翠綅绉诲皝椤讹紝瓒呭嚭鍙籂鍋忔湯鐐广€佷笉璁￠噷绋?*/
+    if (Number.isFinite(accM)) {
+      lastGpsAccuracyM.value = accM;
+    }
+    /** 开跑后 GPS 防抖；有步频时放宽，避免「有步数无里程」 */
     const runUnlocked = isRunGpsUnlocked();
-    const coldPhase = !runUnlocked && duration.value < 60;
+    const coldPhase = !runUnlocked && duration.value < 50;
     const recentStepMotion = hasRecentStepMotion();
     const trustedMotion = hasTrustedRunMotion();
-    const tightenNoSteps = stepCount.value === 0 && !trustedMotion && duration.value >= 20 && duration.value < 90 && distance.value < 160;
-    const driftTight = !runUnlocked && (coldPhase || tightenNoSteps);
+    const stepBoosted = recentStepMotion && stepCount.value >= 8;
+    const tightenNoSteps =
+      stepCount.value < 8 &&
+      !trustedMotion &&
+      duration.value >= 20 &&
+      duration.value < 90 &&
+      distance.value < 160;
+    const driftTight = !runUnlocked && (coldPhase || tightenNoSteps) && !stepBoosted;
     const weakGpsSignal = Number.isFinite(accM) && accM > 45;
     const veryWeakGpsSignal = Number.isFinite(accM) && accM > 80;
     const earlyMotionStrict =
-      !runUnlocked && !trustedMotion && duration.value >= 10 && duration.value < 45 && distance.value < 120;
+      !runUnlocked &&
+      !trustedMotion &&
+      !stepBoosted &&
+      duration.value >= 10 &&
+      duration.value < 40 &&
+      distance.value < 100;
     const motionTier = classifyMotionTier({
       speedMps: calculatedSpeed,
       distanceM: d,
@@ -1196,6 +1251,9 @@ const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
     if (runUnlocked) {
       minD = Math.min(minD, 3.2);
     }
+    if (stepBoosted && !runUnlocked) {
+      minD = Math.min(minD, 1.35);
+    }
 
     const maxStepGate = Math.min(Math.max(1.2, timeDiff * 7.5), tierConfig.maxStepDistance);
     const maxSpeedCold = driftTight ? Math.min(5.2, tierConfig.maxSpeed) : tierConfig.maxSpeed;
@@ -1210,7 +1268,7 @@ const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
     }
 
     if (
-      stepCount.value === 0 &&
+      stepCount.value < 8 &&
       !trustedMotion &&
       duration.value >= 15 &&
       timeDiff <= 2.6 &&
@@ -1234,6 +1292,7 @@ const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
     if (
       earlyMotionStrict &&
       weakGpsSignal &&
+      !stepBoosted &&
       d < Math.max(8, tierConfig.minDistance + 2.2) &&
       calculatedSpeed < Math.max(2.3, tierConfig.minSpeed + 0.7)
     ) {
@@ -1245,15 +1304,16 @@ const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
     if (d >= minD && calculatedSpeed >= tierConfig.minSpeed && calculatedSpeed < maxSpeedForDistance) {
         const gpsLooksGood = (!Number.isFinite(accM) || accM <= 32) && calculatedSpeed >= 1.05 && d >= 4.5;
         const runningFromStart =
-          hasStrongStepMotion() &&
-          d >= 2.8 &&
-          calculatedSpeed >= 0.75 &&
+          (hasStrongStepMotion() || (stepBoosted && hasRecentStepMotion())) &&
+          d >= (stepBoosted ? 2.0 : 2.8) &&
+          calculatedSpeed >= (stepBoosted ? 0.5 : 0.75) &&
           calculatedSpeed < maxSpeedForDistance &&
-          (!Number.isFinite(accM) || accM <= 50);
+          (!Number.isFinite(accM) || accM <= 55);
         const canTrustThisSegment = runUnlocked
           ? d >= 2.2 && calculatedSpeed >= 0.5 && calculatedSpeed < maxSpeedForDistance
           : gpsLooksGood ||
             runningFromStart ||
+            (stepBoosted && d >= 1.8 && calculatedSpeed >= 0.45 && calculatedSpeed < maxSpeedForDistance) ||
             (hasRecentGpsMotionEvidence() && d >= 3 && calculatedSpeed >= 0.7) ||
             (gpsAcceptedPointCount >= 1 && d >= 3.5 && calculatedSpeed >= 0.85);
         const trustedByTier = runUnlocked
@@ -1262,11 +1322,11 @@ const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
             hasRecentGpsMotionEvidence() ||
             runningFromStart ||
             gpsLooksGood;
-        if (!runUnlocked && !trustedByTier && duration.value >= 12 && distance.value < 120) {
+        if (!runUnlocked && !trustedByTier && !stepBoosted && duration.value >= 12 && distance.value < 120) {
           currentSpeed.value = 0;
           return;
         }
-        if (!canTrustThisSegment && !runUnlocked && duration.value >= 15 && distance.value < 120) {
+        if (!canTrustThisSegment && !runUnlocked && !stepBoosted && duration.value >= 15 && distance.value < 120) {
           currentSpeed.value = 0;
           return;
         }
@@ -1305,7 +1365,7 @@ const startRealLocationTracking = () => {
            const dt = (Date.now() - lastTs) / 1000;
            if (dt > 0) speedVal = d / dt;
         }
-        const runGpsSpeedWarmup = !hasReliableGpsMovement() && duration.value < 15 && distance.value < 28;
+        const runGpsSpeedWarmup = !hasReliableGpsMovement() && duration.value < 10 && distance.value < 18;
         currentSpeed.value = runGpsSpeedWarmup ? 0 : speedVal;
 
         updateLocationLogic(newLat, newLng, speedVal, res);
@@ -1509,7 +1569,14 @@ const duration = ref(0);
 /** 寰俊灏忕▼搴?map 椤靛父瑙?setInterval 琚妭娴?鍋滆〃锛岀敤澧欓挓 + 鍒嗘鍩哄噯淇濊瘉鏃堕暱涓庡績鐜囧彲鏇存柊 */
 const runActiveBaseSec = ref(0);
 const runSegmentStartMs = ref(0);
-const distance = ref(0); // 宸茶窇璺濈锛堢背锛?
+const distance = ref(0); // 已跑距离（米）
+/** 展示用里程：GPS 累计与轨迹长度取较大值，减少界面长期显示 0 */
+const displayRunDistanceM = computed(() => {
+  const acc = distance.value || 0;
+  if (!isRunning.value || trajectoryPoints.value.length < 2) return acc;
+  const trajM = computeTrajectoryPathLengthM(trajectoryPoints.value);
+  return Math.max(acc, trajM * 0.92);
+});
 const distanceToCheckpoint = ref('---');
 const isReach = ref(false);
 const stepCount = ref(0);
@@ -1592,10 +1659,10 @@ const currentPace = computed(() => {
 // 瀹炴椂閫熷害 (km/h)锛氬紑璺戝悗鐭椂鍐呬笉灞曠ず GPS 鎺ㄧ畻鍊硷紱鏃犳鏁颁笖閲岀▼鍙枒鏃朵笉灞曠ず锛屾姂鍒堕潤姝㈡紓绉?
 const currentSpeedKmh = computed(() => {
   if (!isRunning.value) return '0.0';
-  if (duration.value < 12 && distance.value < 20) {
+  if (duration.value < 6 && distance.value < 10) {
     return '0.0';
   }
-  if (!hasReliableGpsMovement() && currentSpeed.value < 0.2) {
+  if (!hasReliableGpsMovement() && currentSpeed.value < 0.2 && stepCount.value < 10) {
     return '0.0';
   }
   const v = currentSpeed.value * 3.6;
@@ -1605,9 +1672,9 @@ const currentSpeedKmh = computed(() => {
 // 骞冲潎閫熷害 (km/h)锛氶噷绋嬪皻鐭垨寮€璺戜笉涔呮椂缃?0锛涙棤姝ユ暟鏃舵殏涓嶅睍绀哄钩鍧囬€熷害锛岄伩鍏嶄笌婕傜Щ閲岀▼涓€璧疯瀵?
 const avgSpeedKmh = computed(() => {
   if (!isRunning.value) return '0.0';
-  if (duration.value < 12 || duration.value === 0) return '0.0';
-  if (duration.value < 50 && distance.value < 40) return '0.0';
-  if (!hasReliableGpsMovement() && distance.value < 40) return '0.0';
+  if (duration.value < 8 || duration.value === 0) return '0.0';
+  if (duration.value < 35 && distance.value < 25) return '0.0';
+  if (!hasReliableGpsMovement() && distance.value < 25 && stepCount.value < 12) return '0.0';
   return ((distance.value / 1000) / (duration.value / 3600)).toFixed(1);
 });
 
@@ -1699,6 +1766,7 @@ const onLocationStatusBarTap = () => {
 // onHide logic simulated for component
 const onPageHide = () => {
     isPageActive = false;
+    saveRunSession();
     stopLocationPolling();
 };
 defineExpose({ onPageShow, onPageHide });
@@ -2010,6 +2078,41 @@ const locationStatusText = computed(() => {
   }
 });
 
+const runMileageHint = computed(() => {
+  if (!isRunning.value) return '';
+  if (distance.value >= 12) return '';
+  const acc = lastGpsAccuracyM.value;
+  if (locationState.value !== 'success') {
+    return '定位未完成，请到室外开阔处';
+  }
+  if (Number.isFinite(acc) && acc > 80) {
+    return 'GPS 信号较弱，请到空旷处再跑';
+  }
+  if (stepCount.value >= 10 && duration.value >= 6 && !hasRecentGpsMotionEvidence()) {
+    return '正在校准 GPS，请正常跑动…';
+  }
+  if (duration.value >= 8 && stepCount.value < 4) {
+    return '请正常跑动，原地不动不计里程';
+  }
+  if (duration.value >= 4 && distance.value < 8) {
+    return '正在校准 GPS…';
+  }
+  return '';
+});
+
+const mapTopHintText = computed(() => {
+  if (isRunning.value && runMileageHint.value) return runMileageHint.value;
+  return locationStatusText.value;
+});
+
+const showMapTopHintBar = computed(
+  () => (isRunning.value && !!runMileageHint.value) || showLocationStatusBar.value
+);
+
+const showMapTopHintTappable = computed(
+  () => showLocationStatusBar.value && !(isRunning.value && runMileageHint.value)
+);
+
 const selectCheckpoint = (target) => {
   const newCheckpoint = {
     name: target.name,
@@ -2166,16 +2269,102 @@ const addCheckpointMarker = (lat, lng, name) => {
   refreshMarkers();
 };
 
-// 7. 鍒囨崲璺戞妯″紡锛堟櫘閫?璀﹀姟/鏍″洯锛?
+const RUN_SESSION_KEY = 'activeRunSessionV1';
+
+const saveRunSession = () => {
+  if (!isRunning.value) {
+    uni.removeStorageSync(RUN_SESSION_KEY);
+    return;
+  }
+  uni.setStorageSync(RUN_SESSION_KEY, {
+    v: 1,
+    savedAt: Date.now(),
+    currentMode: currentMode.value,
+    duration: duration.value,
+    distance: distance.value,
+    stepCount: stepCount.value,
+    heartRate: heartRate.value,
+    runActiveBaseSec: runActiveBaseSec.value,
+    runSegmentStartMs: runSegmentStartMs.value,
+    trajectoryPoints: trajectoryPoints.value,
+    runPolylinePoints: runPolyline.value.points || [],
+    lat: lat.value,
+    lng: lng.value,
+    gpsAcceptedPointCount,
+    startFaceUrl: startFaceUrl.value || null,
+    taskId: taskId.value
+  });
+};
+
+const clearRunSession = () => {
+  uni.removeStorageSync(RUN_SESSION_KEY);
+};
+
+const tryRestoreRunSession = () => {
+  if (isRunning.value) return false;
+  let snap = uni.getStorageSync(RUN_SESSION_KEY);
+  if (!snap) return false;
+  if (typeof snap === 'string') {
+    try {
+      snap = JSON.parse(snap);
+    } catch (e) {
+      uni.removeStorageSync(RUN_SESSION_KEY);
+      return false;
+    }
+  }
+  if (!snap || snap.v !== 1 || !snap.savedAt) return false;
+  if (Date.now() - snap.savedAt > 2 * 60 * 60 * 1000) {
+    uni.removeStorageSync(RUN_SESSION_KEY);
+    return false;
+  }
+  currentMode.value = snap.currentMode || 'normal';
+  duration.value = snap.duration || 0;
+  distance.value = snap.distance || 0;
+  stepCount.value = snap.stepCount || 0;
+  heartRate.value = snap.heartRate || 80;
+  runActiveBaseSec.value = snap.runActiveBaseSec || 0;
+  runSegmentStartMs.value = snap.runSegmentStartMs || Date.now();
+  trajectoryPoints.value = Array.isArray(snap.trajectoryPoints) ? snap.trajectoryPoints : [];
+  runPolyline.value.points = Array.isArray(snap.runPolylinePoints) ? snap.runPolylinePoints : [];
+  lat.value = snap.lat ?? lat.value;
+  lng.value = snap.lng ?? lng.value;
+  gpsAcceptedPointCount = snap.gpsAcceptedPointCount || 0;
+  if (snap.startFaceUrl) startFaceUrl.value = snap.startFaceUrl;
+  isRunning.value = true;
+  runEndMarker.value = null;
+  if (trajectoryPoints.value.length > 0) {
+    const p0 = trajectoryPoints.value[0];
+    runStartMarker.value = createRunPointMarker(2, p0.latitude, p0.longitude, '起', {
+      bgColor: '#FF6D00',
+      iconPath: '/static/marker-start.png'
+    });
+  }
+  refreshMarkers();
+  updateMapPolyline();
+  beginRunTrackingAfterFaceDefer();
+  uni.showToast({ title: '已恢复上次跑步数据', icon: 'none', duration: 2200 });
+  return true;
+};
+
+// 7. 切换跑步模式（普通/专项/校园）
 const switchMode = (mode) => {
   if (taskRunLocked.value) {
     uni.showToast({ title: '任务跑步请使用专项跑页面', icon: 'none' });
     return;
   }
+  if (currentMode.value === mode) return;
+  if (isRunning.value) {
+    uni.showModal({
+      title: '跑步进行中',
+      content: '切换模式会清空本次跑步数据。请先点击「结束跑步」，或留在当前模式继续跑。',
+      showCancel: false,
+      confirmText: '知道了'
+    });
+    return;
+  }
   const wasRunning = isRunning.value;
   const hadStepListener = !!accelerometerCallback;
   const hadLocTracking = !!(locationCallback || h5LocationTimer || wxRunAssistTimer);
-  // 鍒囨崲妯″紡鏃堕噸缃窇姝ョ姸鎬侊紱鏈紑璺戞椂涓嶈鍙嶅 stop 鍔犻€熷害/鎸佺画瀹氫綅锛堝噺灏戞帶鍒跺彴鍣煶锛屼篃閬垮厤骞叉壈妯℃嫙鍣級
   isRunning.value = false;
   clearRunTickTimer();
   runActiveBaseSec.value = 0;
@@ -2411,6 +2600,7 @@ const initializeRunState = () => {
   endFaceUrl.value = null;
   gpsAcceptedPointCount = 0;
   resetRunMotionEvidence();
+  lastGpsAccuracyM.value = NaN;
   
   // Clear previous trajectory
   runPolyline.value.points = [];
@@ -2769,7 +2959,12 @@ const submitCurrentRunToServer = async (runData) => {
     const res = await submitActivity(runData);
     uni.hideLoading();
     console.log('Submit success:', res);
-    uni.setStorageSync('tempRunResult', res);
+    uni.setStorageSync('tempRunResult', {
+      ...res,
+      display_mode: currentMode.value,
+      campus_reached: currentMode.value === 'campus' ? !!isReach.value : undefined,
+      campus_checkpoint: currentMode.value === 'campus' ? (checkpoint.value?.name || '') : ''
+    });
     // 同时保存轨迹数据用于结算页展示
     uni.setStorageSync('tempRunTrajectory', {
       points: runPolyline.value.points || [],
@@ -2799,6 +2994,7 @@ const stopRun = async () => {
     refreshMarkers();
   }
   isRunning.value = false;
+  clearRunSession();
   clearRunTickTimer();
   stopStepCount();
   stopRealLocationTracking();
@@ -2834,8 +3030,17 @@ const stopRun = async () => {
   let reportM = filtM;
   if (!taskId.value && trajectoryPoints.value.length >= 2) {
     const trajM = computeTrajectoryPathLengthM(trajectoryPoints.value);
-    const relaxedTraj = trajM * 0.94;
-    reportM = Math.max(filtM, Math.min(relaxedTraj, filtM * 1.28));
+    if (filtM < 20) {
+      reportM = Math.max(filtM, trajM * 0.92);
+    } else {
+      const relaxedTraj = trajM * 0.94;
+      reportM = Math.max(filtM, Math.min(relaxedTraj, filtM * 1.28));
+    }
+  }
+  if (!taskId.value && reportM < 30 && stepCount.value >= 40) {
+    const strideM = currentMode.value === 'police' ? 0.72 : 0.78;
+    const stepEstM = stepCount.value * strideM;
+    reportM = Math.max(reportM, Math.min(stepEstM, stepCount.value * 0.55));
   }
   const distKm = reportM / 1000;
   const durSec = Math.max(duration.value, 1);
@@ -3033,56 +3238,6 @@ const buildHistory = (records) => {
   line-height: 1.2;
 }
 
-.custom-navbar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  background: linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0) 100%);
-  z-index: 999;
-}
-
-.navbar-content {
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  position: relative;
-  padding: 0 15px;
-}
-
-.navbar-left {
-  width: 60rpx;
-  height: 60rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.back-icon {
-  color: #ffffff;
-  font-size: 40rpx;
-  font-weight: bold;
-}
-
-.navbar-title {
-  color: #ffffff;
-  font-size: 16px;
-  font-weight: bold;
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-.navbar-right {
-  width: 60rpx;
-}
-
-.content-spacer {
-  width: 100%;
-  height: 0 !important;
-}
-
 /* 鏂板椤堕儴鏍峰紡 */
 .top-widgets {
   margin-bottom: 20rpx;
@@ -3268,6 +3423,9 @@ const buildHistory = (records) => {
   color: #d81e06;
   font-weight: bold;
 }
+.mode-item.disabled {
+  opacity: 0.45;
+}
 /* 璀﹀姟涓撻」璁″垝妯″潡 */
 .police-plan {
   background-color: #fdf2f0;
@@ -3338,6 +3496,17 @@ const buildHistory = (records) => {
 .running-box {
   text-align: center;
   padding: 10rpx 0;
+}
+.mileage-hint {
+  display: block;
+  text-align: center;
+  font-size: 24rpx;
+  color: #0d9668;
+  background: rgba(32, 201, 151, 0.12);
+  padding: 14rpx 20rpx;
+  border-radius: 12rpx;
+  margin: 4rpx 0 16rpx;
+  line-height: 1.45;
 }
 .run-stats {
   display: flex;

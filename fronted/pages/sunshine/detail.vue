@@ -1,15 +1,8 @@
 <template>
   <view class="page">
-    <!-- 自定义导航栏 -->
-    <view class="nav-bar">
-      <view class="nav-back" @click="goBack">
-        <text class="back-icon">←</text>
-      </view>
-      <text class="nav-title">阳光跑详情</text>
-      <view class="nav-right"></view>
-    </view>
+    <page-tab-header title="阳光跑详情" show-back theme="white" />
 
-    <view class="content">
+    <view class="content page-tab-body">
       <!-- 核心数据区 -->
       <view class="card core-card">
         <view class="core-top">
@@ -59,7 +52,7 @@
 
       <!-- 标准说明区 -->
       <view class="card standard-card">
-        <text class="section-title">达标要求</text>
+        <text class="page-section-title">达标要求</text>
         <view class="standard-row">
           <text class="standard-label">里程要求：</text>
           <text class="standard-value">
@@ -83,7 +76,7 @@
 
         <view class="divider"></view>
 
-        <text class="section-title">积分阶梯说明</text>
+        <text class="page-section-title">积分阶梯说明</text>
         <view class="score-table">
           <view class="table-header">
             <text class="col">有效次数</text>
@@ -120,7 +113,7 @@
 
       <!-- 今日状态明细 / 最近记录 -->
       <view class="card detail-card">
-        <text class="section-title">最近运动明细（7 天内）</text>
+        <text class="page-section-title">最近运动明细（7 天内）</text>
         <view v-if="stats.daily_records && stats.daily_records.length" class="record-list">
           <view 
             class="record-item" 
@@ -221,10 +214,6 @@ const loadStats = async () => {
   }
 };
 
-const goBack = () => {
-  uni.navigateBack();
-};
-
 const formatDateTime = (val) => {
   if (!val) return '';
   const d = new Date(val);
@@ -252,33 +241,8 @@ onMounted(() => {
   background-color: #f5f7fa;
 }
 
-.nav-bar {
-  height: 88rpx;
-  padding: 0 24rpx;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background-color: #fff;
-  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.04);
-}
-.nav-back {
-  padding: 10rpx;
-}
-.back-icon {
-  font-size: 34rpx;
-  color: #333;
-}
-.nav-title {
-  font-size: 32rpx;
-  font-weight: bold;
-  color: #333;
-}
-.nav-right {
-  width: 40rpx;
-}
-
 .content {
-  padding: 20rpx;
+  padding: 0 30rpx 30rpx;
 }
 
 .card {
@@ -426,13 +390,6 @@ onMounted(() => {
   margin-top: 16rpx;
   font-size: 24rpx;
   color: #999;
-}
-
-.section-title {
-  font-size: 30rpx;
-  font-weight: bold;
-  margin-bottom: 16rpx;
-  color: #333;
 }
 
 .standard-row {

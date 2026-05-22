@@ -1,18 +1,8 @@
 <template>
   <view class="create-container">
-    <!-- 自定义导航栏 -->
-    <view class="custom-nav-bar">
-      <view class="nav-status-bar"></view>
-      <view class="nav-content">
-        <view class="nav-back" @click="goBack">
-          <text class="back-icon">‹</text>
-        </view>
-        <text class="nav-title">发布课程</text>
-        <view class="nav-placeholder"></view>
-      </view>
-    </view>
+    <page-tab-header title="发布课程" show-back theme="white" />
 
-    <scroll-view class="content-wrapper" scroll-y>
+    <scroll-view class="content-wrapper page-tab-body" scroll-y>
       <view class="form-card">
         <!-- 课程名称 -->
         <view class="form-item">
@@ -503,54 +493,7 @@ onReady(() => {
   background: #f5f7fa;
 }
 
-.custom-nav-bar {
-  background-color: #fff;
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 100;
-  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.05);
-  
-  .nav-status-bar {
-    height: var(--status-bar-height);
-  }
-  
-  .nav-content {
-    height: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 30rpx;
-    
-    .nav-back {
-      width: 60rpx;
-      height: 60rpx;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      
-      .back-icon {
-        font-size: 48rpx;
-        color: #333;
-        font-weight: bold;
-      }
-    }
-    
-    .nav-title {
-      font-size: 18px;
-      font-weight: bold;
-      color: #333;
-    }
-    
-    .nav-placeholder {
-      width: 60rpx;
-    }
-  }
-}
-
 .content-wrapper {
-  padding-top: calc(var(--status-bar-height) + 44px);
   padding-bottom: 160rpx;
   height: 100vh;
 }

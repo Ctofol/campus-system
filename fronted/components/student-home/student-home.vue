@@ -1,10 +1,7 @@
 <template>
   <view class="home-container">
-    <!-- 顶部导航栏：用于填充状态栏区域，避免全屏时顶部留白 -->
-    <view class="top-nav">
-      <text class="top-nav-title">首页</text>
-    </view>
-    <view class="content-wrapper">
+    <page-tab-header title="首页" />
+    <view class="content-wrapper page-tab-body">
       <view class="student-dashboard">
       
       <!-- Hero Section: 开始运动 -->
@@ -35,9 +32,9 @@
       </view>
       
       <!-- Task Stream: 任务流 -->
-      <view class="section-container" v-if="teacherTasks.length > 0">
+      <view class="section-container page-card" v-if="teacherTasks.length > 0">
         <view class="section-header">
-          <text class="section-title">我的任务</text>
+          <text class="page-section-title page-section-title--compact">我的任务</text>
           <view class="section-more link-more" @click="handleTaskClick()">
             <text>查看全部</text>
             <view class="link-arrow" />
@@ -60,9 +57,9 @@
       </view>
       
       <!-- Run Group Alliance: 跑团联盟 -->
-      <view class="section-container">
+      <view class="section-container page-card">
         <view class="section-header-enhanced">
-          <text class="section-title-main">跑团联盟</text>
+          <text class="page-section-title page-section-title--compact">跑团联盟</text>
           <view class="section-actions">
             <text class="action-link" @click="createRunGroup">创建</text>
             <text class="action-divider">|</text>
@@ -464,22 +461,6 @@ const loadRunGroupData = async () => {
   margin: 0 auto;
 }
 
-.top-nav {
-  padding-top: 40rpx;
-  padding-bottom: 20rpx;
-  padding-left: 30rpx;
-  padding-right: 30rpx;
-  background-color: #f5f7fa;
-  display: flex;
-  justify-content: center;
-}
-
-.top-nav-title {
-  font-size: 34rpx;
-  font-weight: bold;
-  color: #333;
-}
-
 .student-dashboard {
   padding-bottom: 20rpx;
 }
@@ -586,27 +567,11 @@ const loadRunGroupData = async () => {
 }
 
 /* Section Container */
-.section-container {
-  background: #fff;
-  border-radius: 20rpx;
-  margin: 0 30rpx 20rpx;
-  padding: 30rpx;
-  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
-}
-
 .section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 24rpx;
-}
-
-.section-title {
-  font-size: 30rpx;
-  font-weight: bold;
-  color: #333;
-  border-left: 6rpx solid #20C997;
-  padding-left: 12rpx;
 }
 
 .section-more {

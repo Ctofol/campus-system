@@ -1,14 +1,8 @@
 <template>
   <view class="home-container">
-    <view class="teacher-dashboard">
-      <!-- 自定义导航栏 -->
-      <view class="custom-nav-bar">
-        <view class="nav-status-bar"></view>
-        <view class="nav-content">
-          <text class="nav-title">教师工作台</text>
-        </view>
-      </view>
-      
+    <view class="teacher-dashboard page-tab-body">
+      <page-tab-header title="教师工作台" theme="brand" />
+
       <!-- 1. 教师头部信息 -->
       <view class="teacher-header">
         <view class="teacher-info">
@@ -43,7 +37,7 @@
       <!-- 3. 待办事项 - 功能打通：全部按钮跳转 -->
       <view class="section-card todo-section">
         <view class="section-header">
-          <text class="section-title">今日待办</text>
+          <text class="page-section-title page-section-title--compact">今日待办</text>
           <view class="section-more link-more" @click="goToTodos">
             <text>全部</text>
             <view class="link-arrow" />
@@ -66,7 +60,7 @@
       <!-- 4. 学员体能概览 -->
       <view class="section-card chart-section">
         <view class="section-header">
-          <text class="section-title">学员体能概览</text>
+          <text class="page-section-title page-section-title--compact">学员体能概览</text>
         </view>
         <view class="overview-chart">
           <view class="chart-col">
@@ -344,31 +338,6 @@ const handleResolveAlert = (index) => {
   flex-direction: column;
 }
 
-/* 自定义导航栏 */
-.custom-nav-bar {
-  background: #20C997;
-  width: 100%;
-  position: sticky;
-  top: 0;
-  z-index: 100;
-}
-.nav-status-bar {
-  height: var(--status-bar-height);
-  width: 100%;
-}
-.nav-content {
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-}
-.nav-title {
-  color: #fff;
-  font-size: 32rpx;
-  font-weight: bold;
-}
-
 /* 教师端样式 */
 .teacher-header {
   background: linear-gradient(135deg, #20C997 0%, #17a2b8 100%);
@@ -520,7 +489,6 @@ const handleResolveAlert = (index) => {
 }
 
 .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30rpx; }
-.section-title { font-size: 34rpx; font-weight: bold; color: #333; }
 .section-more { font-size: 26rpx; color: #20C997; padding: 10rpx 0; }
 .section-more .link-arrow { border-color: #20c997; }
 

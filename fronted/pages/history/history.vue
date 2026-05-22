@@ -1,15 +1,8 @@
 <template>
   <view class="container">
-    <view class="custom-navbar" :style="{paddingTop: statusBarHeight + 'px'}">
-      <view class="navbar-content">
-        <view class="back-btn" @click="goBack">
-          <text class="back-arrow">‹</text>
-        </view>
-        <text class="navbar-title">全部运动记录</text>
-      </view>
-    </view>
-    
-    <view class="content-wrapper" :style="{paddingTop: (statusBarHeight + 44) + 'px'}">
+    <page-tab-header title="全部运动记录" show-back theme="white" />
+
+    <view class="content-wrapper page-tab-body">
       <scroll-view scroll-y class="record-list" @scrolltolower="loadMore">
         <view 
           class="record-item" 
@@ -41,8 +34,8 @@
 import { ref, computed } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 import { request } from '@/utils/request.js';
+import { mapRecordStatus } from '@/utils/activity-record.js';
 
-const statusBarHeight = ref(20);
 const records = ref([]);
 const page = ref(1);
 const size = ref(20);
@@ -55,16 +48,11 @@ const filteredRecords = computed(() => {
 });
 
 onShow(() => {
-    statusBarHeight.value = uni.getSystemInfoSync().statusBarHeight || 20;
     page.value = 1;
     records.value = [];
     hasMore.value = true;
     loadHistory();
 });
-
-const goBack = () => {
-    uni.navigateBack();
-};
 
 const loadHistory = async () => {
     if (loading.value || !hasMore.value) return;
@@ -83,6 +71,7 @@ const loadHistory = async () => {
                 const date = new Date(item.started_at);
                 const dateStr = `${date.getMonth()+1}-${date.getDate()} ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
                 
+                const status = mapRecordStatus(item);
                 return {
                     raw: item,
                     type: item.type,
@@ -93,9 +82,8 @@ const loadHistory = async () => {
                     duration: formatDuration(item.metrics?.duration || 0),
                     pace: item.metrics?.pace,
                     result: item.metrics?.qualified ? '达标' : '未达标',
-                    statusText: item.status === 'finished' ? '有效' : '待审核',
-                    statusColor: '#20C997',
-                    // Flag for task identification
+                    statusText: status.statusText,
+                    statusColor: status.statusColor,
                     isTask: !!(item.task_id || item.plan_id)
                 };
             });
@@ -145,37 +133,6 @@ const formatDuration = (seconds) => {
 .container {
   min-height: 100vh;
   background-color: #f5f7fa;
-}
-.custom-navbar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  background-color: #fff;
-  z-index: 999;
-  border-bottom: 1rpx solid #eee;
-}
-.navbar-content {
-  height: 44px;
-  display: flex;
-  align-items: center;
-  padding: 0 15px;
-}
-.back-btn {
-  padding: 10px;
-  margin-left: -10px;
-}
-.back-arrow {
-  font-size: 20px;
-  color: #333;
-}
-.navbar-title {
-  font-size: 17px;
-  font-weight: bold;
-  color: #333;
-  flex: 1;
-  text-align: center;
-  margin-right: 30px;
 }
 .content-wrapper {
     height: 100vh;
