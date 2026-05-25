@@ -1,17 +1,8 @@
 <template>
   <view class="free-practice-container">
-    <!-- 自定义导航栏 -->
-    <view class="custom-nav-bar">
-      <view class="nav-status-bar"></view>
-      <view class="nav-content">
-        <view class="nav-back" @click="goBack">
-          <text class="back-icon">‹</text>
-        </view>
-        <text class="nav-title">自由练习</text>
-      </view>
-    </view>
+    <page-tab-header title="自由练习" show-back theme="white" :back-handler="goBack" />
 
-    <view class="content-wrapper">
+    <view class="content-wrapper page-tab-body">
       <!-- 占位内容 -->
       <view class="placeholder-section">
         <view class="placeholder-icon">💪</view>
@@ -57,52 +48,7 @@ const goBack = () => {
   background: #f5f7fa;
 }
 
-.custom-nav-bar {
-  background-color: #fff;
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 100;
-  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.05);
-  
-  .nav-status-bar {
-    height: var(--status-bar-height);
-  }
-  
-  .nav-content {
-    height: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-    
-    .nav-back {
-      position: absolute;
-      left: 30rpx;
-      width: 60rpx;
-      height: 60rpx;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      
-      .back-icon {
-        font-size: 48rpx;
-        color: #333;
-        font-weight: bold;
-      }
-    }
-    
-    .nav-title {
-      font-size: 18px;
-      font-weight: bold;
-      color: #333;
-    }
-  }
-}
-
 .content-wrapper {
-  padding-top: calc(var(--status-bar-height) + 44px);
   min-height: 100vh;
   display: flex;
   align-items: center;

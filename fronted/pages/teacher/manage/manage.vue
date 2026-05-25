@@ -1,14 +1,8 @@
 <template>
   <view class="manage-container">
-    <!-- 自定义导航栏 -->
-    <view class="custom-nav-bar">
-      <view class="nav-status-bar"></view>
-      <view class="nav-content">
-        <text class="nav-title">综合管理</text>
-      </view>
-    </view>
+    <page-tab-header title="综合管理" theme="white" />
 
-    <view class="content-wrapper">
+    <view class="content-wrapper page-tab-body">
       <view class="grid-container">
         <!-- 模块迁移：学员管理（包含原班级管理的排课、考勤） -->
         <view class="grid-item" @click="navTo('/pages/teacher/students/students')">
@@ -241,32 +235,6 @@ const showToast = (title) => {
   background: #f5f7fa;
   display: flex;
   flex-direction: column;
-}
-
-/* 自定义导航栏 */
-.custom-nav-bar {
-  background: #fff;
-  width: 100%;
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  border-bottom: 1px solid #eee;
-}
-.nav-status-bar {
-  height: var(--status-bar-height);
-  width: 100%;
-}
-.nav-content {
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-}
-.nav-title {
-  color: #333;
-  font-size: 32rpx;
-  font-weight: bold;
 }
 
 .content-wrapper {

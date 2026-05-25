@@ -203,24 +203,28 @@
     {
       "path": "pages/teacher/profile/edit",
       "style": {
+        "navigationStyle": "custom",
         "navigationBarTitleText": "个人信息设置"
       }
     },
     {
       "path": "pages/teacher/security/security",
       "style": {
+        "navigationStyle": "custom",
         "navigationBarTitleText": "账号安全"
       }
     },
     {
       "path": "pages/teacher/security/change-password",
       "style": {
+        "navigationStyle": "custom",
         "navigationBarTitleText": "修改密码"
       }
     },
     {
       "path": "pages/teacher/notifications/list",
       "style": {
+        "navigationStyle": "custom",
         "navigationBarTitleText": "系统通知"
       }
     },
@@ -312,6 +316,12 @@
       }
     },
     {
+      "path": "pages/common/webview",
+      "style": {
+        "navigationBarTitleText": "外部链接"
+      }
+    },
+    {
       "path": "pages/courses/list",
       "style": {
         "navigationBarTitleText": "课程列表"
@@ -344,6 +354,7 @@
     {
       "path": "pages/courses/content-manage",
       "style": {
+        "navigationStyle": "custom",
         "navigationBarTitleText": "课程内容管理"
       }
     },
@@ -366,6 +377,12 @@
       }
     },
     {
+      "path": "pages/run-group/edit",
+      "style": {
+        "navigationBarTitleText": "编辑跑团"
+      }
+    },
+    {
       "path": "pages/run-group/activity-list",
       "style": {
         "navigationBarTitleText": "活动列表"
@@ -380,13 +397,22 @@
     {
       "path": "pages/run-group/activity-create",
       "style": {
-        "navigationBarTitleText": "发起活动"
+        "navigationBarTitleText": "发起活动",
+        "disableScroll": true,
+        "mp-weixin": {
+          "disableScroll": true
+        }
       }
     },
     {
       "path": "pages/run-group/create-activity",
       "style": {
-        "navigationBarTitleText": "发布活动"
+        "navigationBarTitleText": "发布活动",
+        "navigationStyle": "custom",
+        "disableScroll": true,
+        "mp-weixin": {
+          "disableScroll": true
+        }
       }
     },
     {

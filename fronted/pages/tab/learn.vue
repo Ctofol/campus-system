@@ -1,18 +1,14 @@
 <template>
   <view class="learn-container">
-    <!-- 自定义导航栏 -->
-    <view class="custom-nav-bar">
-      <view class="nav-status-bar"></view>
-      <view class="nav-content">
-        <text class="nav-title">体育课程</text>
-        <!-- 教师角色显示新增按钮 -->
+    <page-tab-header title="体育课程">
+      <template #right>
         <view class="nav-action" v-if="userRole === 'teacher'" @click="createCourse">
           <text class="action-icon">+</text>
         </view>
-      </view>
-    </view>
+      </template>
+    </page-tab-header>
 
-    <view class="content-wrapper">
+    <view class="content-wrapper page-tab-body">
       <!-- 分类筛选 -->
       <scroll-view scroll-x class="category-scroll">
         <view 
@@ -259,54 +255,20 @@ onReachBottom(() => {
   background-color: #f5f7fa;
 }
 
-.custom-nav-bar {
-  background-color: #fff;
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 100;
-  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.05);
-  
-  .nav-status-bar {
-    height: var(--status-bar-height);
-  }
-  
-  .nav-content {
-    height: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-    
-    .nav-title {
-      font-size: 18px;
-      font-weight: bold;
-      color: #333;
-    }
-    
-    .nav-action {
-      position: absolute;
-      right: 30rpx;
-      width: 60rpx;
-      height: 60rpx;
-      background: #20C997;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      
-      .action-icon {
-        font-size: 40rpx;
-        color: #fff;
-        font-weight: bold;
-      }
-    }
-  }
-}
+.nav-action {
+  width: 60rpx;
+  height: 60rpx;
+  background: #20c997;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 
-.content-wrapper {
-  padding-top: calc(var(--status-bar-height) + 44px);
+  .action-icon {
+    font-size: 40rpx;
+    color: #fff;
+    font-weight: bold;
+  }
 }
 
 .category-scroll {

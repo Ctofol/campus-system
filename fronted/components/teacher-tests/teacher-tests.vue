@@ -1,17 +1,8 @@
 <template>
   <view class="teacher-test-page">
-    <view class="custom-nav-bar">
-      <view class="nav-status-bar" :style="{ height: statusBarHeight + 'px' }"></view>
-      <view class="nav-content">
-        <view class="nav-back" @click="handleBack">
-          <text class="nav-back-icon">←</text>
-          <text class="nav-back-text">返回</text>
-        </view>
-        <text class="nav-title">测试监控</text>
-      </view>
-    </view>
+    <page-tab-header title="测试监控" show-back theme="white" />
 
-    <view class="header-tabs">
+    <view class="header-tabs page-tab-body">
       <view class="tab-item" :class="{ active: currentTab === 'analysis' }" @click="currentTab = 'analysis'">
         <text class="tab-title">数据总览</text>
         <view class="tab-indicator" v-if="currentTab === 'analysis'"></view>
@@ -119,7 +110,6 @@ import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { request } from '@/utils/request.js';
 
 const currentTab = ref('analysis');
-const statusBarHeight = ref(20);
 const taskCompletionData = ref([]);
 const historyList = ref([]);
 const sunshineMonitor = ref({
@@ -275,7 +265,6 @@ const onPageHide = () => {};
 
 onMounted(() => {
   const info = uni.getSystemInfoSync();
-  statusBarHeight.value = info.statusBarHeight || 20;
   fetchAnalysisData();
   fetchHistory();
 });
@@ -294,41 +283,6 @@ defineExpose({
   background: #f5f7fa;
   display: flex;
   flex-direction: column;
-}
-
-.custom-nav-bar {
-  background: #fff;
-  border-bottom: 1px solid #eee;
-}
-
-.nav-content {
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-}
-
-.nav-back {
-  position: absolute;
-  left: 16rpx;
-  top: 0;
-  bottom: 0;
-  display: flex;
-  align-items: center;
-  gap: 6rpx;
-}
-
-.nav-back-icon,
-.nav-back-text {
-  font-size: 26rpx;
-  color: #666;
-}
-
-.nav-title {
-  font-size: 32rpx;
-  font-weight: 700;
-  color: #333;
 }
 
 .header-tabs {

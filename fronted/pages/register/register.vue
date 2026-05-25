@@ -38,7 +38,7 @@
         </view>
 
         <!-- 基础信息 -->
-        <view class="section-title">基础信息</view>
+        <view class="page-section-title">基础信息</view>
         <view class="archive-tip" v-if="registerForm.role === 'student'">
           <text class="tip-text">学生注册为「档案激活」：专业、班级以学校预导入档案为准；请填写与档案一致的姓名与学号。</text>
         </view>

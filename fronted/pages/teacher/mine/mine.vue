@@ -1,20 +1,14 @@
 <template>
   <view class="mine-container">
-    <!-- 自定义导航栏 -->
-    <view class="custom-nav-bar">
-      <view class="nav-status-bar"></view>
-      <view class="nav-content">
-        <text class="nav-title">个人中心</text>
-      </view>
-    </view>
+    <page-tab-header title="个人中心" theme="white" />
 
-    <view class="content-wrapper">
+    <view class="content-wrapper page-tab-body">
       <!-- 用户信息卡片 -->
       <view class="user-card">
-        <view class="avatar">👮‍♂️</view>
+        <image class="avatar-img" :src="avatarDisplay" mode="aspectFill" />
         <view class="info">
-          <text class="name">{{ userInfo.name || '拉克丝' }}</text>
-          <text class="role">公共体育教研部</text>
+          <text class="name">{{ userInfo.name || '教师' }}</text>
+          <text class="role">{{ userInfo.subject || userInfo.signature || '公共体育教研部' }}</text>
         </view>
       </view>
     
@@ -62,21 +56,41 @@
 <script setup>
 import { ref } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
+import { request, resolveMediaUrl } from '@/utils/request.js';
 
 const userInfo = ref({});
+const avatarDisplay = ref('/static/avatar.png');
 const notificationCount = ref(0);
+
+const syncFromStorage = () => {
+  const storedUser = uni.getStorageSync('userInfo');
+  if (!storedUser) return;
+  try {
+    userInfo.value = typeof storedUser === 'string' ? JSON.parse(storedUser) : storedUser;
+  } catch (e) {
+    userInfo.value = {};
+  }
+  avatarDisplay.value = userInfo.value.avatar_url
+    ? resolveMediaUrl(userInfo.value.avatar_url)
+    : '/static/avatar.png';
+};
+
+const fetchProfile = async () => {
+  try {
+    const res = await request({ url: '/users/profile', method: 'GET' });
+    if (!res) return;
+    userInfo.value = { ...userInfo.value, ...res };
+    avatarDisplay.value = res.avatar_url ? resolveMediaUrl(res.avatar_url) : '/static/avatar.png';
+    uni.setStorageSync('userInfo', userInfo.value);
+  } catch (e) {
+    console.error('fetch teacher profile failed', e);
+  }
+};
 
 onShow(() => {
   uni.hideHomeButton && uni.hideHomeButton();
-
-  const storedUser = uni.getStorageSync('userInfo');
-  if (storedUser) {
-    try {
-      userInfo.value = typeof storedUser === 'string' ? JSON.parse(storedUser) : storedUser;
-    } catch (e) {
-      userInfo.value = {};
-    }
-  }
+  syncFromStorage();
+  fetchProfile();
 });
 
 // 功能打通：个人信息设置
@@ -165,32 +179,6 @@ const handleLogout = () => {
   flex-direction: column;
 }
 
-/* 自定义导航栏 */
-.custom-nav-bar {
-  background: #fff;
-  width: 100%;
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  border-bottom: 1px solid #eee;
-}
-.nav-status-bar {
-  height: var(--status-bar-height);
-  width: 100%;
-}
-.nav-content {
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-}
-.nav-title {
-  color: #333;
-  font-size: 32rpx;
-  font-weight: bold;
-}
-
 .content-wrapper {
   padding: 30rpx;
   flex: 1;
@@ -206,18 +194,14 @@ const handleLogout = () => {
   margin-bottom: 40rpx;
   box-shadow: 0 8rpx 24rpx rgba(32, 201, 151, 0.2);
 }
-.avatar {
+.avatar-img {
   width: 120rpx;
   height: 120rpx;
-  background: rgba(255,255,255,0.25);
   border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 60rpx;
   margin-right: 30rpx;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.1);
+  background: rgba(255, 255, 255, 0.25);
+  border: 2rpx solid rgba(255, 255, 255, 0.5);
+  flex-shrink: 0;
 }
 .info {
   display: flex;

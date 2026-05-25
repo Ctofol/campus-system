@@ -35,7 +35,7 @@
     </view>
 
     <view class="photo-card">
-      <text class="section-title">人脸对比</text>
+      <text class="page-section-title">人脸对比</text>
       <view class="photo-grid">
         <view class="photo-item">
           <text class="photo-label">跑前</text>
@@ -51,7 +51,7 @@
     </view>
 
     <view class="map-card" v-if="showMap">
-      <text class="section-title">运动轨迹</text>
+      <text class="page-section-title">运动轨迹</text>
       <map
         class="map"
         :latitude="centerLat"

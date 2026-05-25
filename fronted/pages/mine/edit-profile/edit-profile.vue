@@ -1,52 +1,72 @@
 <template>
   <view class="edit-profile-page">
     <view class="form-section">
-      <!-- 头像 -->
-      <view class="form-item" @click="chooseAvatar">
-        <text class="label">头像</text>
-        <view class="avatar-preview">
-          <image :src="avatarUrl" mode="aspectFill" class="avatar-img" />
-          <text class="change-text">点击更换</text>
+      <view class="form-item avatar-item">
+        <view class="avatar-row">
+          <text class="label">头像</text>
+          <view class="avatar-preview">
+            <view class="avatar-img-wrap" @click="chooseAvatarFromAlbum">
+              <image :src="avatarUrl" mode="aspectFill" class="avatar-img" />
+            </view>
+            <view class="avatar-actions">
+              <text class="change-text" @click="chooseAvatarFromAlbum">相册/拍照</text>
+              <!-- #ifdef MP-WEIXIN -->
+              <button
+                class="wx-avatar-btn"
+                open-type="chooseAvatar"
+                @chooseavatar="onWxChooseAvatar"
+              >微信头像</button>
+              <!-- #endif -->
+            </view>
+          </view>
         </view>
-        <text class="arrow">›</text>
       </view>
-      
-      <!-- 昵称 -->
+
       <view class="form-item">
-        <text class="label">昵称</text>
-        <input 
-          v-model="formData.name" 
-          class="input" 
-          placeholder="请输入昵称"
+        <text class="label">姓名</text>
+        <input
+          v-model="formData.name"
+          class="input"
+          placeholder="请输入姓名"
           maxlength="20"
         />
       </view>
-      
-      <!-- 个性签名 -->
-      <view class="form-item signature-item">
-        <text class="label">个性签名</text>
-        <textarea 
-          v-model="formData.signature" 
-          class="textarea" 
-          placeholder="写点什么吧~"
-          maxlength="100"
+
+      <view class="form-item">
+        <text class="label">手机号</text>
+        <input
+          v-model="formData.phone"
+          class="input"
+          placeholder="请输入手机号"
+          maxlength="11"
+          type="number"
         />
       </view>
-      
-      <!-- 学号（只读） -->
+
+      <view class="form-item signature-item">
+        <text class="label signature-label">个性签名</text>
+        <textarea
+          v-model="formData.signature"
+          class="textarea"
+          placeholder="写点什么吧，最多 100 字"
+          maxlength="100"
+          :auto-height="true"
+          :show-confirm-bar="false"
+        />
+        <text class="signature-tip">保存后将在「我的」页姓名下方展示</text>
+      </view>
+
       <view class="form-item">
         <text class="label">学号</text>
         <text class="value readonly">{{ formData.student_id || '未设置' }}</text>
       </view>
-      
-      <!-- 班级（只读） -->
+
       <view class="form-item">
         <text class="label">班级</text>
         <text class="value readonly">{{ formData.class_name || '未分配' }}</text>
       </view>
     </view>
-    
-    <!-- 保存按钮 -->
+
     <view class="button-section">
       <button class="save-btn" @click="handleSave" :loading="saving">保存</button>
     </view>
@@ -55,20 +75,38 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import { request, uploadFile, BASE_URL } from '@/utils/request.js';
+import { onShow } from '@dcloudio/uni-app';
+import {
+  request,
+  uploadFile,
+  resolveMediaUrl,
+  persistAvatarUrl,
+  patchStoredUserInfo,
+  avatarImageSrc
+} from '@/utils/request.js';
+import { pickAvatarFromAlbum } from '@/utils/avatar-picker.js';
 
 const avatarUrl = ref('/static/avatar.png');
 const saving = ref(false);
 
 const formData = ref({
   name: '',
+  phone: '',
   signature: '',
   student_id: '',
   class_name: '',
   avatar_url: ''
 });
 
+const syncAvatarPreview = (path) => {
+  avatarUrl.value = path ? avatarImageSrc(path) : '/static/avatar.png';
+};
+
 onMounted(() => {
+  loadUserProfile();
+});
+
+onShow(() => {
   loadUserProfile();
 });
 
@@ -78,21 +116,18 @@ const loadUserProfile = async () => {
       url: '/users/profile',
       method: 'GET'
     });
-    
+
     if (res) {
       formData.value = {
         name: res.name || '',
+        phone: res.phone || '',
         signature: res.signature || '',
         student_id: res.student_id || '',
         class_name: res.class_name || '',
         avatar_url: res.avatar_url || ''
       };
-      
-      if (res.avatar_url) {
-        avatarUrl.value = res.avatar_url.startsWith('http') 
-          ? res.avatar_url 
-          : `${BASE_URL}${res.avatar_url}`;
-      }
+
+      syncAvatarPreview(res.avatar_url);
     }
   } catch (e) {
     console.error('Failed to load profile:', e);
@@ -100,55 +135,80 @@ const loadUserProfile = async () => {
   }
 };
 
-const chooseAvatar = () => {
-  uni.chooseImage({
-    count: 1,
-    sizeType: ['compressed'],
-    sourceType: ['album', 'camera'],
-    success: async (res) => {
-      const tempFilePath = res.tempFilePaths[0];
-      
-      try {
-        uni.showLoading({ title: '上传中...' });
-        
-        const uploadResult = await uploadFile(tempFilePath, 'image');
-        
-        formData.value.avatar_url = uploadResult.url;
-        avatarUrl.value = uploadResult.url.startsWith('http') 
-          ? uploadResult.url 
-          : `${BASE_URL}${uploadResult.url}`;
-        
-        uni.hideLoading();
-        uni.showToast({ title: '上传成功', icon: 'success' });
-      } catch (e) {
-        uni.hideLoading();
-        console.error('Upload failed:', e);
-        uni.showToast({ title: '上传失败', icon: 'none' });
-      }
-    }
-  });
+const chooseAvatarFromAlbum = async () => {
+  try {
+    const tempFilePath = await pickAvatarFromAlbum();
+    await uploadAvatar(tempFilePath);
+  } catch (e) {
+    if (e && e.cancelled) return;
+    // 已在 pickAvatarFromAlbum 内提示隐私配置
+  }
+};
+
+const onWxChooseAvatar = async (e) => {
+  const path = e?.detail?.avatarUrl;
+  if (!path) {
+    uni.showToast({ title: '未获取到头像', icon: 'none' });
+    return;
+  }
+  await uploadAvatar(path);
+};
+
+const uploadAvatar = async (filePath) => {
+  if (!filePath) return;
+  try {
+    uni.showLoading({ title: '上传中...' });
+    const uploadResult = await uploadFile(filePath, 'image');
+    formData.value.avatar_url = uploadResult.url;
+    syncAvatarPreview(uploadResult.url);
+    await persistAvatarUrl(uploadResult.url);
+    patchStoredUserInfo({ avatar_url: uploadResult.url });
+    uni.hideLoading();
+    uni.showToast({ title: '头像已更新', icon: 'success' });
+  } catch (e) {
+    uni.hideLoading();
+    console.error('Upload failed:', e);
+    uni.showToast({ title: e?.message || '上传失败', icon: 'none' });
+  }
 };
 
 const handleSave = async () => {
-  if (!formData.value.name) {
-    uni.showToast({ title: '请输入昵称', icon: 'none' });
+  const name = String(formData.value.name || '').trim();
+  const phone = String(formData.value.phone || '').trim();
+
+  if (!name) {
+    uni.showToast({ title: '请输入姓名', icon: 'none' });
     return;
   }
-  
+
+  if (!phone) {
+    uni.showToast({ title: '请输入手机号', icon: 'none' });
+    return;
+  }
+
+  if (!/^1\d{10}$/.test(phone)) {
+    uni.showToast({ title: '手机号格式不正确', icon: 'none' });
+    return;
+  }
+
   saving.value = true;
-  
+
   try {
-    await request({
+    const putRes = await request({
       url: '/users/profile',
       method: 'PUT',
       data: {
-        name: formData.value.name,
-        signature: formData.value.signature,
+        name,
+        phone,
+        signature: (formData.value.signature || '').trim(),
         avatar_url: formData.value.avatar_url
       }
     });
-    
-    // 更新本地存储
+
+    if (putRes && putRes.access_token) {
+      uni.setStorageSync('token', putRes.access_token);
+    }
+
     let userInfo = uni.getStorageSync('userInfo');
     if (typeof userInfo === 'string') {
       try {
@@ -157,24 +217,28 @@ const handleSave = async () => {
         userInfo = {};
       }
     }
-    
+
     userInfo = {
       ...userInfo,
-      name: formData.value.name,
-      signature: formData.value.signature,
+      name,
+      phone,
+      signature: (formData.value.signature || '').trim(),
       avatar_url: formData.value.avatar_url
     };
-    
+
     uni.setStorageSync('userInfo', userInfo);
-    
+    patchStoredUserInfo(userInfo);
+    formData.value.name = name;
+    formData.value.phone = phone;
+
     uni.showToast({ title: '保存成功', icon: 'success' });
-    
+
     setTimeout(() => {
       uni.navigateBack();
-    }, 1500);
+    }, 1200);
   } catch (e) {
     console.error('Save failed:', e);
-    uni.showToast({ title: '保存失败', icon: 'none' });
+    uni.showToast({ title: e?.message || '保存失败', icon: 'none' });
   } finally {
     saving.value = false;
   }
@@ -206,37 +270,71 @@ const handleSave = async () => {
   border-bottom: none;
 }
 
+.avatar-item {
+  flex-direction: column;
+  align-items: stretch;
+  padding-top: 28rpx;
+  padding-bottom: 28rpx;
+}
+
+.avatar-row {
+  display: flex;
+  align-items: center;
+}
+
+.avatar-item .label {
+  align-self: flex-start;
+  padding-top: 36rpx;
+}
+
 .signature-item {
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.signature-label {
+  width: auto;
+  margin-bottom: 16rpx;
 }
 
 .label {
+  width: 150rpx;
+  flex-shrink: 0;
   font-size: 28rpx;
   color: #333;
   font-weight: 500;
-  width: 150rpx;
-  flex-shrink: 0;
 }
 
 .input {
   flex: 1;
+  min-width: 0;
   font-size: 28rpx;
   color: #333;
   text-align: right;
 }
 
+.signature-tip {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 22rpx;
+  color: #999;
+}
+
 .textarea {
-  flex: 1;
+  width: 100%;
+  min-height: 160rpx;
+  padding: 18rpx 20rpx;
+  border-radius: 12rpx;
+  background: #f8f9fa;
   font-size: 28rpx;
   color: #333;
-  min-height: 120rpx;
-  padding: 10rpx;
-  background: #f8f9fa;
-  border-radius: 8rpx;
+  line-height: 1.5;
+  box-sizing: border-box;
 }
 
 .value {
   flex: 1;
+  min-width: 0;
   font-size: 28rpx;
   color: #333;
   text-align: right;
@@ -248,28 +346,68 @@ const handleSave = async () => {
 
 .avatar-preview {
   flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 20rpx;
+  gap: 24rpx;
+  box-sizing: border-box;
+}
+
+.avatar-img-wrap {
+  width: 120rpx;
+  height: 120rpx;
+  flex-shrink: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2rpx solid #f0f0f0;
+  background: #f5f5f5;
+}
+
+.avatar-trigger {
+  flex: 1;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  border: none;
+  line-height: 1;
+}
+
+.avatar-trigger::after {
+  border: none;
 }
 
 .avatar-img {
-  width: 120rpx;
-  height: 120rpx;
-  border-radius: 50%;
-  border: 2rpx solid #f0f0f0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.avatar-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12rpx;
 }
 
 .change-text {
-  font-size: 24rpx;
-  color: #20C997;
+  flex-shrink: 0;
+  font-size: 28rpx;
+  color: #20c997;
 }
 
-.arrow {
-  font-size: 32rpx;
-  color: #ddd;
-  margin-left: 10rpx;
+.wx-avatar-btn {
+  margin: 0;
+  padding: 0 8rpx;
+  font-size: 26rpx;
+  color: #20c997;
+  background: transparent;
+  border: none;
+  line-height: 1.4;
+}
+
+.wx-avatar-btn::after {
+  border: none;
 }
 
 .button-section {
@@ -279,16 +417,16 @@ const handleSave = async () => {
 .save-btn {
   width: 100%;
   height: 88rpx;
-  background: linear-gradient(135deg, #20C997, #17a589);
+  background: linear-gradient(135deg, #20c997, #17a589);
   color: #fff;
+  border: none;
   border-radius: 44rpx;
   font-size: 32rpx;
-  font-weight: bold;
-  border: none;
-  box-shadow: 0 8rpx 24rpx rgba(32, 201, 151, 0.3);
+  font-weight: 600;
+  box-shadow: 0 8rpx 24rpx rgba(32, 201, 151, 0.24);
 }
 
 .save-btn:active {
-  opacity: 0.8;
+  opacity: 0.86;
 }
 </style>

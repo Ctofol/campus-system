@@ -13,7 +13,7 @@
     <!-- Task Requirements -->
     <view class="section-card">
       <view class="section-header">
-        <text class="section-title">任务要求</text>
+        <text class="page-section-title">任务要求</text>
       </view>
       
       <!-- 第二阶段新增：体测视频展示 -->
@@ -38,7 +38,7 @@
     <!-- Progress Overview -->
     <view class="section-card">
       <view class="section-header">
-        <text class="section-title">完成进度</text>
+        <text class="page-section-title">完成进度</text>
         <text class="progress-stats">{{ task.completedCount }}/{{ task.totalCount }} 人</text>
       </view>
       <view class="progress-box">
@@ -52,7 +52,7 @@
     <!-- Student Participation List -->
     <view class="section-card">
       <view class="section-header">
-        <text class="section-title">参与情况</text>
+        <text class="page-section-title">参与情况</text>
         <view class="filter-tabs">
           <text 
             class="tab-item" 

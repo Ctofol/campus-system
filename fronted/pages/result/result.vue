@@ -5,6 +5,24 @@
       <text class="mode-title">{{modeTitle}}</text>
     </view>
 
+    <!-- 轨迹地图（仅跑步模式显示） -->
+    <view class="map-section" v-if="currentMode !== 'test' && (trajectoryPoints.length >= 1 || mapCenterLat !== 0)">
+      <map
+        class="result-map"
+        :latitude="mapCenterLat"
+        :longitude="mapCenterLng"
+        :polyline="mapPolyline"
+        :markers="mapMarkers"
+        :enable-zoom="true"
+        :enable-scroll="true"
+        scale="15"
+        :show-location="false"
+      />
+      <view class="map-label">
+        <text class="map-label-text">{{ trajectoryPoints.length >= 2 ? '📍 本次跑步轨迹' : '📍 起跑位置' }}</text>
+      </view>
+    </view>
+
     <!-- 核心数据卡片 -->
     <view class="result-card">
       <!-- 体能测试模式：不显示通用的运动时长/距离，而是显示项目专属数据 -->
@@ -91,11 +109,19 @@
 
       <view class="mode-data" v-if="currentMode === 'campus'">
         <text class="mode-data-title">校园打卡数据</text>
+        <view class="data-item" v-if="campusCheckpointName">
+          <text class="item-label">目标打卡点</text>
+          <text class="item-value">{{ campusCheckpointName }}</text>
+        </view>
         <view class="data-item">
           <text class="item-label">打卡点到达状态</text>
           <text class="item-value" :class="isReach ? 'success' : 'fail'">
             {{isReach ? '✅ 已到达' : '❌ 未到达'}}
           </text>
+        </view>
+        <view class="data-item tips" v-if="!isReach">
+          <text class="item-label">说明</text>
+          <text class="item-value">需在打卡点半径内完成跑步；GPS 弱或距离过短会导致未到达</text>
         </view>
       </view>
 
@@ -120,8 +146,23 @@
         </view>
       </view>
 
-      <!-- 核验结果（阳光跑自由跑） -->
-      <view class="verify-section" v-if="!isTaskRun && isValid !== null">
+      <!-- 校园打卡：单独说明，不与阳光跑里程规则混用 -->
+      <view class="verify-section" v-if="currentMode === 'campus'">
+        <text class="verify-title">打卡结果</text>
+        <view class="verify-row" v-if="isReach">
+          <text class="verify-icon success">✅</text>
+          <text class="verify-text success">已成功到达打卡点，本次打卡记录已保存。</text>
+        </view>
+        <view class="verify-row" v-else>
+          <text class="verify-icon fail">⚠️</text>
+          <text class="verify-text fail">
+            未在打卡点有效范围内完成。请确认已选打卡点，并在室外开阔处跑至点附近再结束。
+          </text>
+        </view>
+      </view>
+
+      <!-- 核验结果（仅普通自由跑） -->
+      <view class="verify-section" v-if="currentMode === 'normal' && !isTaskRun && isValid !== null">
         <text class="verify-title">阳光跑核验结果</text>
         <view class="verify-row" v-if="isValid">
           <text class="verify-icon success">✅</text>
@@ -130,7 +171,7 @@
         <view class="verify-row" v-else>
           <text class="verify-icon fail">⚠️</text>
           <text class="verify-text fail">
-            本次运动未计入阳光跑：{{ failReason || '原因未知，请联系老师查看详情' }}
+            本次运动未计入阳光跑：{{ failReasonText }}
           </text>
         </view>
       </view>
@@ -144,8 +185,8 @@
       <button @click="backToHome" class="back-btn">返回首页</button>
     </view>
 
-    <!-- 今日目标提醒（仅阳光跑） -->
-    <view class="today-tip" v-if="!isTaskRun && todayCompleted !== null">
+    <!-- 今日目标提醒（仅普通阳光跑） -->
+    <view class="today-tip" v-if="currentMode === 'normal' && !isTaskRun && todayCompleted !== null">
       <text v-if="todayCompleted" class="today-success">
         ✅ 今日阳光跑目标已达成，明天继续加油！
       </text>
@@ -162,19 +203,19 @@ import { ref, computed} from 'vue';
 import { onShow, onLoad  } from '@dcloudio/uni-app';
 
 // 1. 接收跑步页传递的参数
-const currentMode = ref('normal'); // normal/police/campus
-const duration = ref(0); // 运动时长（秒）
-const distance = ref(0); // 运动距离（米）
-const isReach = ref(false); // 校园打卡是否到达
-const isPoliceFinish = ref(false); // 警务2000米是否完成
-const policePace = ref(0); // 警务配速（分/公里）
-const isValid = ref(null); // 本次运动是否有效（后端判定）
-const failReason = ref(''); // 无效原因
-const todayCompleted = ref(null); // 今日是否已完成目标（仅阳光跑自由跑）
+const currentMode = ref('normal');
+const duration = ref(0);
+const distance = ref(0);
+const isReach = ref(false);
+const campusCheckpointName = ref('');
+const isPoliceFinish = ref(false);
+const policePace = ref(0);
+const isValid = ref(null);
+const failReason = ref('');
+const todayCompleted = ref(null);
 const isTaskRun = ref(false);
 const taskTitle = ref('');
 const taskCompleted = ref(null);
-// 测试模式专属
 const testProject = ref('');
 const testType = ref('');
 const testCount = ref(0);
@@ -183,6 +224,13 @@ const standardReq = ref(0);
 const userScorePercent = ref(0);
 const standardScorePercent = ref(0);
 const suggestionText = ref('');
+
+// 轨迹地图数据
+const trajectoryPoints = ref([]);
+const mapCenterLat = ref(0);
+const mapCenterLng = ref(0);
+const mapPolyline = ref([]);
+const mapMarkers = ref([]);
 
 // 3. 计算属性：动态标题和背景色
 const modeTitle = computed(() => {
@@ -203,7 +251,26 @@ const modeBgColor = computed(() => {
   }
 });
 // 警务配速是否达标 (不再硬编码6.5，因为具体项目和性别标准不同)
-const isPaceQualified = ref(false); 
+const isPaceQualified = ref(false);
+
+const failReasonText = computed(() => {
+  const r = failReason.value || '';
+  if (r.includes('里程不足') && distance.value < 50) {
+    return '里程不足（GPS 可能未正常记录，请到室外重试）';
+  }
+  return r || '原因未知，请联系老师查看详情';
+});
+
+const parseCheckpointsReached = (metrics) => {
+  if (!metrics || metrics.checkpoints == null) return false;
+  try {
+    const raw = metrics.checkpoints;
+    const arr = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    return Array.isArray(arr) && arr.length > 0;
+  } catch (e) {
+    return false;
+  }
+};
 
 // 4. 页面加载时接收参数
 onLoad((options) => {
@@ -227,27 +294,41 @@ onLoad((options) => {
       taskCompleted.value = typeof data.task_completed === 'boolean' ? data.task_completed : null;
 
       // Map backend data to frontend display
-      if (data.type === 'test') {
-        // Distinguish police run from generic test if distance > 0 or specific criteria met
+      if (data.display_mode) {
+        currentMode.value = data.display_mode;
+      } else if (data.type === 'test') {
         currentMode.value = (data.metrics && data.metrics.distance > 0) ? 'police' : 'test';
       } else if (data.type === 'run') {
         if (isTaskRun.value) {
           currentMode.value = 'police';
+        } else if (parseCheckpointsReached(data.metrics)) {
+          currentMode.value = 'campus';
         } else {
-          currentMode.value = (data.metrics && data.metrics.checkpoints) ? 'campus' : 'normal';
+          currentMode.value = 'normal';
         }
       } else {
         currentMode.value = 'normal';
       }
+
+      if (data.campus_checkpoint) {
+        campusCheckpointName.value = data.campus_checkpoint;
+      }
+
       if (data.metrics) {
         duration.value = data.metrics.duration || 0;
         distance.value = (data.metrics.distance || 0) * 1000;
         testCount.value = data.metrics.count || 0;
         testQualified.value = data.metrics.qualified;
         policePace.value = Number(data.metrics.pace) || 0;
-        // Use backend's source of truth for qualification
-        isPaceQualified.value = data.metrics.qualified; 
-        isReach.value = data.metrics.qualified; // For campus mode, qualified usually means checkpiont reached
+        isPaceQualified.value = data.metrics.qualified;
+      }
+
+      if (currentMode.value === 'campus') {
+        if (typeof data.campus_reached === 'boolean') {
+          isReach.value = data.campus_reached;
+        } else {
+          isReach.value = parseCheckpointsReached(data.metrics);
+        }
       }
 
       if (typeof data.is_valid !== 'undefined') {
@@ -287,6 +368,68 @@ onLoad((options) => {
     isPoliceFinish.value = options.isPoliceFinish === 'true';
     policePace.value = Number(options.policePace) || 0;
   }
+  // 加载轨迹数据
+  const trajectoryData = uni.getStorageSync('tempRunTrajectory');
+  if (trajectoryData && trajectoryData.points && trajectoryData.points.length >= 1) {
+    trajectoryPoints.value = trajectoryData.points;
+    const pts = trajectoryData.points;
+    // 地图中心取轨迹中间点
+    const mid = Math.floor(pts.length / 2);
+    mapCenterLat.value = pts[mid].latitude;
+    mapCenterLng.value = pts[mid].longitude;
+
+    if (pts.length >= 2) {
+      // 构建轨迹线
+      mapPolyline.value = [{
+        points: pts,
+        color: '#1E88E5',
+        width: 6,
+        borderColor: '#ffffff',
+        borderWidth: 1
+      }];
+    }
+
+    // 起点标记
+    mapMarkers.value = [
+      {
+        id: 1,
+        latitude: pts[0].latitude,
+        longitude: pts[0].longitude,
+        title: '起点',
+        iconPath: '',
+        label: { content: '起', color: '#fff', fontSize: 12, bgColor: '#FF6D00', padding: 4, borderRadius: 4 },
+        width: 30,
+        height: 30
+      }
+    ];
+    // 终点标记（有多个点时）
+    if (pts.length >= 2) {
+      mapMarkers.value.push({
+        id: 2,
+        latitude: pts[pts.length - 1].latitude,
+        longitude: pts[pts.length - 1].longitude,
+        title: '终点',
+        iconPath: '',
+        label: { content: '终', color: '#fff', fontSize: 12, bgColor: '#20C997', padding: 4, borderRadius: 4 },
+        width: 30,
+        height: 30
+      });
+    }
+  } else if (trajectoryData && trajectoryData.startLat) {
+    // 没有轨迹点但有起点坐标
+    mapCenterLat.value = trajectoryData.startLat;
+    mapCenterLng.value = trajectoryData.startLng;
+    mapMarkers.value = [{
+      id: 1,
+      latitude: trajectoryData.startLat,
+      longitude: trajectoryData.startLng,
+      title: '起点',
+      iconPath: '',
+      label: { content: '起', color: '#fff', fontSize: 12, bgColor: '#FF6D00', padding: 4, borderRadius: 4 },
+      width: 30,
+      height: 30
+    }];
+  }
 });
 
 // 5. 格式化时长（秒 → 分:秒）
@@ -306,6 +449,29 @@ const backToHome = () => {
 .result-page {
   min-height: 100vh;
   background-color: #fff;
+}
+
+/* 轨迹地图 */
+.map-section {
+  position: relative;
+  width: 100%;
+  height: 500rpx;
+}
+.result-map {
+  width: 100%;
+  height: 500rpx;
+}
+.map-label {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(transparent, rgba(0,0,0,0.45));
+  padding: 20rpx 24rpx 16rpx;
+}
+.map-label-text {
+  color: #fff;
+  font-size: 24rpx;
 }
 
 /* 顶部模式标题栏 */
@@ -477,5 +643,54 @@ const backToHome = () => {
   border: 1px solid #eee;
   border-radius: 12rpx;
   font-size: 32rpx;
+}
+
+.verify-section {
+  margin-top: 28rpx;
+  padding-top: 24rpx;
+  border-top: 1rpx dashed #ddd;
+}
+.verify-title {
+  font-size: 30rpx;
+  font-weight: bold;
+  color: #333;
+  display: block;
+  margin-bottom: 16rpx;
+}
+.verify-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12rpx;
+}
+.verify-icon {
+  font-size: 32rpx;
+  flex-shrink: 0;
+}
+.verify-text {
+  font-size: 28rpx;
+  line-height: 1.5;
+  flex: 1;
+}
+.verify-text.success {
+  color: #17a077;
+}
+.verify-text.fail {
+  color: #d81e06;
+}
+
+.today-tip {
+  margin: 24rpx 20rpx 40rpx;
+  padding: 20rpx 24rpx;
+  border-radius: 12rpx;
+  background: #fafafa;
+  text-align: center;
+  font-size: 26rpx;
+  line-height: 1.5;
+}
+.today-success {
+  color: #17a077;
+}
+.today-fail {
+  color: #888;
 }
 </style>

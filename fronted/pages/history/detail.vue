@@ -34,7 +34,7 @@
 
     <!-- Map Trajectory（微信折线至少 2 点；仅 1 点时只显示标记、不传折线，避免渲染层 MultiPolyline 崩溃） -->
     <view class="map-card" v-if="showMap">
-      <text class="section-title">运动轨迹</text>
+      <text class="page-section-title">运动轨迹</text>
       <map 
         class="map" 
         :latitude="centerLat" 
@@ -51,7 +51,7 @@
 
     <!-- Video Evidence -->
     <view class="video-card" v-if="videoUrl">
-      <text class="section-title">视频记录</text>
+      <text class="page-section-title">视频记录</text>
       <video :src="videoUrl" class="video" controls></video>
     </view>
   </view>

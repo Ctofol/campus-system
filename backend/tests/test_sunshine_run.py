@@ -1,5 +1,4 @@
 import unittest
-from unittest.mock import patch
 from types import SimpleNamespace
 
 from app.services.score_service import verify_activity, calculate_total_score
@@ -54,8 +53,7 @@ class SunshineRunLogicTests(unittest.TestCase):
 
     # 场景 A：性别与里程标准校验
 
-    @patch("app.services.score_service.random.random", return_value=0.5)
-    def test_male_distance_below_standard_is_invalid(self, _mock_random):
+    def test_male_distance_below_standard_is_invalid(self):
         user = SimpleNamespace(id=1, gender="male")
         activity = make_activity(distance_km=1.9, pace_min_per_km=5.0)
         db = FakeDB(count_result=0)
@@ -66,8 +64,7 @@ class SunshineRunLogicTests(unittest.TestCase):
         self.assertEqual(reason, "里程不足")
         self.assertFalse(face_verified)
 
-    @patch("app.services.score_service.random.random", return_value=0.5)
-    def test_male_distance_meet_standard_is_valid(self, _mock_random):
+    def test_male_distance_meet_standard_is_valid(self):
         user = SimpleNamespace(id=1, gender="male")
         activity = make_activity(distance_km=2.1, pace_min_per_km=5.0)
         db = FakeDB(count_result=0)
@@ -78,8 +75,7 @@ class SunshineRunLogicTests(unittest.TestCase):
         self.assertEqual(reason, "")
         self.assertTrue(face_verified)
 
-    @patch("app.services.score_service.random.random", return_value=0.5)
-    def test_female_distance_below_standard_is_invalid(self, _mock_random):
+    def test_female_distance_below_standard_is_invalid(self):
         user = SimpleNamespace(id=2, gender="female")
         activity = make_activity(distance_km=1.1, pace_min_per_km=5.0)
         db = FakeDB(count_result=0)
@@ -90,8 +86,7 @@ class SunshineRunLogicTests(unittest.TestCase):
         self.assertEqual(reason, "里程不足")
         self.assertFalse(face_verified)
 
-    @patch("app.services.score_service.random.random", return_value=0.5)
-    def test_female_distance_meet_standard_is_valid(self, _mock_random):
+    def test_female_distance_meet_standard_is_valid(self):
         user = SimpleNamespace(id=2, gender="female")
         activity = make_activity(distance_km=1.3, pace_min_per_km=5.0)
         db = FakeDB(count_result=0)
@@ -104,8 +99,7 @@ class SunshineRunLogicTests(unittest.TestCase):
 
     # 场景 B：配速区间校验
 
-    @patch("app.services.score_service.random.random", return_value=0.5)
-    def test_pace_too_fast_is_invalid(self, _mock_random):
+    def test_pace_too_fast_is_invalid(self):
         # 2.0km, 5 分钟 => 2.5 min/km，低于 3
         user = SimpleNamespace(id=3, gender="male")
         activity = make_activity(distance_km=2.0, pace_min_per_km=2.5)
@@ -117,8 +111,7 @@ class SunshineRunLogicTests(unittest.TestCase):
         self.assertEqual(reason, "配速异常")
         self.assertFalse(face_verified)
 
-    @patch("app.services.score_service.random.random", return_value=0.5)
-    def test_pace_too_slow_is_invalid(self, _mock_random):
+    def test_pace_too_slow_is_invalid(self):
         # 2.0km, 25 分钟 => 12.5 min/km，高于 10
         user = SimpleNamespace(id=3, gender="male")
         activity = make_activity(distance_km=2.0, pace_min_per_km=12.5)
@@ -130,8 +123,7 @@ class SunshineRunLogicTests(unittest.TestCase):
         self.assertEqual(reason, "配速异常")
         self.assertFalse(face_verified)
 
-    @patch("app.services.score_service.random.random", return_value=0.5)
-    def test_pace_in_valid_range_is_valid(self, _mock_random):
+    def test_pace_in_valid_range_is_valid(self):
         # 2.0km, 10 分钟 => 5.0 min/km，在 3-10 范围内
         user = SimpleNamespace(id=3, gender="male")
         activity = make_activity(distance_km=2.0, pace_min_per_km=5.0)
@@ -161,8 +153,7 @@ class SunshineRunLogicTests(unittest.TestCase):
 
     # 场景 D：单日限次校验
 
-    @patch("app.services.score_service.random.random", return_value=0.5)
-    def test_daily_limit_only_first_valid(self, _mock_random):
+    def test_daily_limit_only_first_valid(self):
         user = SimpleNamespace(id=4, gender="male")
         activity1 = make_activity(distance_km=2.1, pace_min_per_km=5.0)
         activity2 = make_activity(distance_km=2.1, pace_min_per_km=5.0)

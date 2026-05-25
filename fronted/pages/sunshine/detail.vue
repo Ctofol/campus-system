@@ -1,15 +1,8 @@
 <template>
   <view class="page">
-    <!-- 自定义导航栏 -->
-    <view class="nav-bar">
-      <view class="nav-back" @click="goBack">
-        <text class="back-icon">←</text>
-      </view>
-      <text class="nav-title">阳光跑详情</text>
-      <view class="nav-right"></view>
-    </view>
+    <page-tab-header title="阳光跑详情" show-back theme="white" />
 
-    <view class="content">
+    <view class="content page-tab-body">
       <!-- 核心数据区 -->
       <view class="card core-card">
         <view class="core-top">
@@ -47,6 +40,11 @@
             </view>
           </view>
         </view>
+        <view class="segment-bar">
+          <view class="segment pass" :style="{ width: `${passBarWidth}%` }"></view>
+          <view class="segment extra" :style="{ width: `${bonusBarWidth}%` }"></view>
+          <view class="segment rest" :style="{ width: `${remainingBarWidth}%` }"></view>
+        </view>
         <view class="core-tip">
           <text>说明：每次符合规则的阳光跑记为一次有效记录，用于阶梯计分。</text>
         </view>
@@ -54,7 +52,7 @@
 
       <!-- 标准说明区 -->
       <view class="card standard-card">
-        <text class="section-title">达标要求</text>
+        <text class="page-section-title">达标要求</text>
         <view class="standard-row">
           <text class="standard-label">里程要求：</text>
           <text class="standard-value">
@@ -78,7 +76,7 @@
 
         <view class="divider"></view>
 
-        <text class="section-title">积分阶梯说明</text>
+        <text class="page-section-title">积分阶梯说明</text>
         <view class="score-table">
           <view class="table-header">
             <text class="col">有效次数</text>
@@ -106,7 +104,7 @@
             <text class="col">每多跑 1 次 +2 分</text>
           </view>
           <view class="table-row key">
-            <text class="col">&gt; 40 次</text>
+            <text class="col">40 次以上</text>
             <text class="col">100 分</text>
             <text class="col">满分封顶</text>
           </view>
@@ -115,7 +113,7 @@
 
       <!-- 今日状态明细 / 最近记录 -->
       <view class="card detail-card">
-        <text class="section-title">最近运动明细（7 天内）</text>
+        <text class="page-section-title">最近运动明细（7 天内）</text>
         <view v-if="stats.daily_records && stats.daily_records.length" class="record-list">
           <view 
             class="record-item" 
@@ -171,13 +169,16 @@ const circleStyle = computed(() => {
   const extraDeg = (extra / 40) * 360;
   const remainDeg = (remain / 40) * 360;
   return {
-    backgroundImage: `conic-gradient(#20C997 0deg ${passDeg}deg, #ffb020 ${passDeg}deg ${passDeg + extraDeg}deg, #dcefe9 ${passDeg + extraDeg}deg ${passDeg + extraDeg + remainDeg}deg, #8b5cf6 ${passDeg + extraDeg + remainDeg}deg 360deg)`
+    background: `conic-gradient(#20C997 0deg ${passDeg}deg, #ffb020 ${passDeg}deg ${passDeg + extraDeg}deg, #dcefe9 ${passDeg + extraDeg}deg ${passDeg + extraDeg + remainDeg}deg, #8b5cf6 ${passDeg + extraDeg + remainDeg}deg 360deg)`
   };
 });
 
 const passCount = computed(() => Math.min(Number(stats.value.total_valid_count) || 0, 20));
 const bonusCount = computed(() => Math.max(Math.min((Number(stats.value.total_valid_count) || 0) - 20, 20), 0));
 const remainingCount = computed(() => Math.max(20 - passCount.value, 0));
+const passBarWidth = computed(() => Math.min((passCount.value / 20) * 100, 100));
+const bonusBarWidth = computed(() => Math.min((bonusCount.value / 20) * 100, 100));
+const remainingBarWidth = computed(() => Math.max(100 - passBarWidth.value - bonusBarWidth.value, 0));
 
 const progressText = computed(() => {
   const count = stats.value.total_valid_count || 0;
@@ -213,10 +214,6 @@ const loadStats = async () => {
   }
 };
 
-const goBack = () => {
-  uni.navigateBack();
-};
-
 const formatDateTime = (val) => {
   if (!val) return '';
   const d = new Date(val);
@@ -244,33 +241,8 @@ onMounted(() => {
   background-color: #f5f7fa;
 }
 
-.nav-bar {
-  height: 88rpx;
-  padding: 0 24rpx;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background-color: #fff;
-  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.04);
-}
-.nav-back {
-  padding: 10rpx;
-}
-.back-icon {
-  font-size: 34rpx;
-  color: #333;
-}
-.nav-title {
-  font-size: 32rpx;
-  font-weight: bold;
-  color: #333;
-}
-.nav-right {
-  width: 40rpx;
-}
-
 .content {
-  padding: 20rpx;
+  padding: 0 30rpx 30rpx;
 }
 
 .card {
@@ -334,6 +306,7 @@ onMounted(() => {
   width: 200rpx;
   height: 200rpx;
   border-radius: 50%;
+  z-index: 1;
 }
 .circle-inner {
   width: 140rpx;
@@ -344,6 +317,8 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  position: relative;
+  z-index: 2;
 }
 .circle-count {
   font-size: 40rpx;
@@ -354,6 +329,32 @@ onMounted(() => {
   font-size: 22rpx;
   color: #999;
   margin-top: 8rpx;
+}
+
+.segment-bar {
+  width: 100%;
+  height: 18rpx;
+  border-radius: 999rpx;
+  overflow: hidden;
+  background: #edf4f2;
+  display: flex;
+  margin: 24rpx 0 12rpx;
+}
+
+.segment {
+  height: 100%;
+}
+
+.segment.pass {
+  background: #20C997;
+}
+
+.segment.extra {
+  background: #ffb020;
+}
+
+.segment.rest {
+  background: #dcefe9;
 }
 
 .core-info {
@@ -389,13 +390,6 @@ onMounted(() => {
   margin-top: 16rpx;
   font-size: 24rpx;
   color: #999;
-}
-
-.section-title {
-  font-size: 30rpx;
-  font-weight: bold;
-  margin-bottom: 16rpx;
-  color: #333;
 }
 
 .standard-row {

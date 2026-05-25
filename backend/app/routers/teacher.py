@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Body
 from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, or_, desc
 from typing import List, Optional
 import io
@@ -13,6 +13,7 @@ from ..services.teacher_service import (
     get_managed_class_summaries,
     teacher_manages_class_id,
     class_display_name,
+    student_display_name,
 )
 from ..services.score_service import calculate_total_score, sunshine_run_filter
 from ..database import get_db
@@ -392,21 +393,32 @@ async def get_health_requests_v2(
     if not managed_student_ids:
         return []
         
-    pending_requests = db.query(models.HealthRequest).filter(
-        models.HealthRequest.status == "pending",
-        models.HealthRequest.student_id.in_(managed_student_ids)
-    ).all()
-    
+    pending_requests = (
+        db.query(models.HealthRequest)
+        .options(
+            joinedload(models.HealthRequest.student).joinedload(models.User.profile)
+        )
+        .filter(
+            models.HealthRequest.status == "pending",
+            models.HealthRequest.student_id.in_(managed_student_ids),
+        )
+        .order_by(models.HealthRequest.created_at.desc())
+        .all()
+    )
+
     return [
         {
             "id": req.id,
-            "student_name": req.student.name if req.student else "未知",
+            "student_id": req.student_id,
+            "student_name": student_display_name(req.student),
+            "student_no": req.student.student_id if req.student else None,
             "type": req.type,
             "reason": req.reason,
             "start_date": req.start_date,
             "end_date": req.end_date,
-            "created_at": req.created_at
-        } for req in pending_requests
+            "created_at": req.created_at,
+        }
+        for req in pending_requests
     ]
 
 

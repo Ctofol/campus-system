@@ -252,6 +252,7 @@ def create_user(
 
     return new_user
 
+
 @router.delete("/users/{user_id}")
 def delete_user(
     user_id: int, 

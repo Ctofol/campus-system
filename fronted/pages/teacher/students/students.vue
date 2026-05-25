@@ -1,20 +1,14 @@
 <template>
   <view class="students-page">
-    <view class="header">
-      <!-- 状态栏占位 -->
-      <view :style="{ height: statusBarHeight + 'px' }"></view>
-      <!-- 1. 顶部标题栏 -->
-      <view class="nav-row">
-        <view class="nav-back" @click="handleBack">
-          <text class="nav-back-icon">‹</text>
-          <text class="nav-back-text">返回</text>
-        </view>
-        <text class="page-title">学员管理</text>
+    <page-tab-header title="学员管理" show-back theme="white">
+      <template #right>
         <view class="batch-btn" @click="toggleBatchMode" :class="{active: isBatchMode}">
           <text>{{ isBatchMode ? '完成' : '批量管理' }}</text>
         </view>
-      </view>
+      </template>
+    </page-tab-header>
 
+    <view class="header page-tab-body">
       <!-- 2. 数据概览栏 -->
       <view class="stats-row">
         <view class="stat-item">
@@ -155,7 +149,7 @@
         <scroll-view scroll-y class="report-list">
           <view class="report-item" v-for="(req, idx) in pendingRequests" :key="req.id">
             <view class="report-meta">
-              <text class="report-stu">{{ getStudentName(req.student_id) }}</text>
+              <text class="report-stu">{{ healthStudentLabel(req) }}</text>
               <text class="report-time">{{ formatDate(req.created_at) }}</text>
             </view>
             <view class="report-card" :class="req.type">
@@ -224,7 +218,6 @@ import { ref, computed, onMounted } from 'vue';
 import { onShow, onReachBottom, onLoad } from '@dcloudio/uni-app';
 import { request, BASE_URL } from '@/utils/request';
 
-const statusBarHeight = ref(20);
 const isBatchMode = ref(false);
 const selectedIds = ref([]);
 const sharedReports = ref([]);
@@ -364,7 +357,7 @@ const loadStudents = async (reset = false) => {
       method: 'GET',
       data: params
     });
-    const list = Array.isArray(res) ? res : [];
+    const list = Array.isArray(res) ? res : (res && Array.isArray(res.items) ? res.items : []);
 
     // Process data
     const newStudents = list.map(s => {
@@ -395,7 +388,15 @@ const loadStudents = async (reset = false) => {
     
   } catch (e) {
     console.error(e);
-    uni.showToast({ title: '加载失败', icon: 'none' });
+    let msg = '加载失败';
+    if (e && typeof e.message === 'string' && e.message.trim()) {
+      msg = e.message.trim();
+    } else if (e && e.data) {
+      const d = e.data.detail;
+      if (typeof d === 'string') msg = d;
+      else if (Array.isArray(d) && d[0] && d[0].msg) msg = String(d[0].msg);
+    }
+    uni.showToast({ title: msg.length > 40 ? msg.slice(0, 40) + '…' : msg, icon: 'none', duration: 3800 });
   } finally {
     isLoading.value = false;
     if (studentsReloadQueued.value) {
@@ -412,7 +413,8 @@ onReachBottom(() => {
 const loadHealthRequests = async () => {
   try {
     const res = await request('/teacher/health/requests', { method: 'GET' });
-    pendingRequests.value = res;
+    const list = Array.isArray(res) ? res : (res?.items || res?.data || []);
+    pendingRequests.value = list;
   } catch (e) {
     console.error(e);
   }
@@ -426,7 +428,6 @@ onLoad((options) => {
 
 onShow(() => {
   const info = uni.getSystemInfoSync();
-  statusBarHeight.value = info.statusBarHeight || 20;
   const role = uni.getStorageSync('userRole') || uni.getStorageSync('role');
   if (role !== 'teacher') {
     uni.showToast({ title: '请使用教师账号登录', icon: 'none' });
@@ -744,9 +745,30 @@ const openDetail = (stu) => {
   });
 };
 
+const findStudentById = (id) => {
+  if (id == null || id === '') return null;
+  const nid = Number(id);
+  return students.value.find(
+    (x) => Number(x.id) === nid || String(x.id) === String(id)
+  ) || null;
+};
+
 const getStudentName = (id) => {
-  const s = students.value.find(x => x.id === id);
-  return s ? s.name : `未知学员(${id})`;
+  const s = findStudentById(id);
+  return s ? s.name : '未知学员';
+};
+
+/** 请假列表姓名：优先接口字段，避免仅依赖分页学员列表 */
+const healthStudentLabel = (req) => {
+  const apiName = (req?.student_name || '').trim();
+  if (apiName && apiName !== '未知' && !apiName.startsWith('未知学员')) {
+    return apiName;
+  }
+  if (req?.student_id != null) {
+    const fromList = getStudentName(req.student_id);
+    if (fromList !== '未知学员') return fromList;
+  }
+  return apiName || getStudentName(req?.student_id);
 };
 
 const handleRequest = async (req, action) => {

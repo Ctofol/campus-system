@@ -1,19 +1,14 @@
 <template>
   <view class="resources-container">
-    <!-- 导航栏 -->
-    <view class="nav-bar">
-      <view :style="{ height: statusBarHeight + 'px' }"></view>
-      <view class="nav-bar-inner">
-      <view class="nav-back" @click="goBack">
-        <text class="back-icon">‹</text>
-      </view>
-      <text class="nav-title">教学资源</text>
-      <view class="nav-action" @click="createResource">
-        <text class="action-icon">+</text>
-      </view>
-      </view>
-    </view>
+    <page-tab-header title="教学资源" show-back theme="white">
+      <template #right>
+        <view class="nav-action" @click="createResource">
+          <text class="action-icon">+</text>
+        </view>
+      </template>
+    </page-tab-header>
 
+    <view class="page-tab-body">
     <!-- 分类标签 -->
     <view class="category-tabs">
       <view 
@@ -93,6 +88,7 @@
     <view class="loading" v-if="loading">
       <text>加载中...</text>
     </view>
+    </view>
   </view>
 </template>
 
@@ -107,8 +103,6 @@ const loading = ref(false);
 const userId = ref(0);
 const userRole = ref('');
 const brokenImages = ref(new Set());
-const statusBarHeight = ref(20);
-
 const filteredResources = computed(() => {
   if (activeCategory.value === 'all') {
     return resources.value;
@@ -224,7 +218,6 @@ const goBack = () => {
 };
 
 onShow(() => {
-  statusBarHeight.value = uni.getSystemInfoSync().statusBarHeight || 20;
   // 获取当前用户信息
   userRole.value = uni.getStorageSync('userRole') || '';
   const userInfo = uni.getStorageSync('userInfo');

@@ -1,10 +1,7 @@
 <template>
   <view class="home-container">
-    <!-- 顶部导航栏：用于填充状态栏区域，避免全屏时顶部留白 -->
-    <view class="top-nav">
-      <text class="top-nav-title">首页</text>
-    </view>
-    <view class="content-wrapper">
+    <page-tab-header title="首页" />
+    <view class="content-wrapper page-tab-body">
       <view class="student-dashboard">
       
       <!-- Hero Section: 开始运动 -->
@@ -35,10 +32,13 @@
       </view>
       
       <!-- Task Stream: 任务流 -->
-      <view class="section-container" v-if="teacherTasks.length > 0">
+      <view class="section-container page-card" v-if="teacherTasks.length > 0">
         <view class="section-header">
-          <text class="section-title">我的任务</text>
-          <text class="section-more" @click="handleTaskClick()">查看全部 ></text>
+          <text class="page-section-title page-section-title--compact">我的任务</text>
+          <view class="section-more link-more" @click="handleTaskClick()">
+            <text>查看全部</text>
+            <view class="link-arrow" />
+          </view>
         </view>
         <view class="task-stream">
           <view class="task-card" v-for="task in teacherTasks.slice(0, 3)" :key="task.id" @click="handleTaskClick(task)">
@@ -57,9 +57,9 @@
       </view>
       
       <!-- Run Group Alliance: 跑团联盟 -->
-      <view class="section-container">
+      <view class="section-container page-card">
         <view class="section-header-enhanced">
-          <text class="section-title-main">跑团联盟</text>
+          <text class="page-section-title page-section-title--compact">跑团联盟</text>
           <view class="section-actions">
             <text class="action-link" @click="createRunGroup">创建</text>
             <text class="action-divider">|</text>
@@ -182,7 +182,13 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import { request } from '@/utils/request.js';
+import {
+  getStudentTasks,
+  getMyRunGroup,
+  getRunGroupActivities,
+  getStoredToken,
+  isAuthError
+} from '@/utils/request.js';
 
 // 状态栏高度
 const statusBarHeight = ref(20);
@@ -200,13 +206,9 @@ const myRunGroup = ref(null);
 const latestActivities = ref([]);
 
 const fetchTasks = async () => {
+  if (!getStoredToken()) return;
   try {
-    // 对接真实API GET /student/tasks
-    const res = await request({
-      url: '/student/tasks',
-      method: 'GET',
-      data: { page: 1, size: 20 }
-    });
+    const res = await getStudentTasks({ page: 1, size: 20 });
     
     if (res.items && res.items.length > 0) {
       const ongoingStatuses = ['pending', 'in_progress', 'uncompleted', 'not_started', 'failed'];
@@ -234,9 +236,8 @@ const fetchTasks = async () => {
         teacherTasks.value = [];
     }
   } catch (e) {
-    if (!uni.getStorageSync('token')) return;
+    if (isAuthError(e)) return;
     console.error('Fetch tasks failed', e);
-    // 优雅降级：使用空数组
     teacherTasks.value = [];
   }
 };
@@ -245,8 +246,7 @@ const fetchTasks = async () => {
 const onPageShow = () => {
   statusBarHeight.value = uni.getSystemInfoSync().statusBarHeight || 20;
   
-  const token = uni.getStorageSync('token');
-  if (!token) {
+  if (!getStoredToken()) {
     uni.reLaunch({ url: '/pages/login/login' });
     return;
   }
@@ -428,28 +428,21 @@ const formatActivityTime = (timeStr) => {
 
 // 加载跑团数据
 const loadRunGroupData = async () => {
+  if (!getStoredToken()) return;
+
   try {
-    // 加载我的跑团
-    const groupRes = await request({
-      url: '/run-group/my',
-      method: 'GET'
-    });
-    myRunGroup.value = groupRes;
+    const groupRes = await getMyRunGroup();
+    myRunGroup.value = groupRes || null;
   } catch (e) {
-    console.log('未加入跑团或加载失败:', e);
+    if (isAuthError(e)) return;
     myRunGroup.value = null;
   }
-  
+
   try {
-    // 加载最新活动
-    const activityRes = await request({
-      url: '/run-group/activity/list',
-      method: 'GET',
-      data: { page: 1, size: 5 }
-    });
-    latestActivities.value = activityRes.items || [];
+    const activityRes = await getRunGroupActivities({ page: 1, size: 5 });
+    latestActivities.value = activityRes?.items || [];
   } catch (e) {
-    console.error('加载活动失败:', e);
+    if (isAuthError(e)) return;
     latestActivities.value = [];
   }
 };
@@ -466,22 +459,6 @@ const loadRunGroupData = async () => {
   flex-direction: column;
   max-width: 750rpx;
   margin: 0 auto;
-}
-
-.top-nav {
-  padding-top: 40rpx;
-  padding-bottom: 20rpx;
-  padding-left: 30rpx;
-  padding-right: 30rpx;
-  background-color: #f5f7fa;
-  display: flex;
-  justify-content: center;
-}
-
-.top-nav-title {
-  font-size: 34rpx;
-  font-weight: bold;
-  color: #333;
 }
 
 .student-dashboard {
@@ -590,14 +567,6 @@ const loadRunGroupData = async () => {
 }
 
 /* Section Container */
-.section-container {
-  background: #fff;
-  border-radius: 20rpx;
-  margin: 0 30rpx 20rpx;
-  padding: 30rpx;
-  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
-}
-
 .section-header {
   display: flex;
   justify-content: space-between;
@@ -605,17 +574,13 @@ const loadRunGroupData = async () => {
   margin-bottom: 24rpx;
 }
 
-.section-title {
-  font-size: 30rpx;
-  font-weight: bold;
-  color: #333;
-  border-left: 6rpx solid #20C997;
-  padding-left: 12rpx;
-}
-
 .section-more {
   font-size: 24rpx;
   color: #999;
+}
+
+.section-more .link-arrow {
+  border-color: #999;
 }
 
 /* Task Stream */

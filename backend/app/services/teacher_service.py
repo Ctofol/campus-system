@@ -75,6 +75,19 @@ async def teacher_manages_class_id(
     return any(s["id"] == class_id for s in summaries)
 
 
+def student_display_name(user: models.User | None) -> str:
+    """教师端展示用姓名：User.name 优先，否则档案 full_name。"""
+    if not user:
+        return "未知学员"
+    name = (user.name or "").strip()
+    if name:
+        return name
+    profile = getattr(user, "profile", None)
+    if profile and (profile.full_name or "").strip():
+        return profile.full_name.strip()
+    return "未知学员"
+
+
 async def get_managed_students_query(current_user: models.User, db: Session):
     """获取教师管辖的学生查询对象（统一逻辑：支持选科、班级管理、直接关联）"""
     # 1. 获取教师选科

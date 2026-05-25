@@ -1,14 +1,8 @@
 <template>
   <view class="manage-container">
-    <!-- 自定义导航栏 -->
-    <view class="custom-nav-bar">
-      <view class="nav-status-bar"></view>
-      <view class="nav-content">
-        <text class="nav-title">综合管理</text>
-      </view>
-    </view>
+    <page-tab-header title="综合管理" theme="white" />
 
-    <view class="content-wrapper">
+    <view class="content-wrapper page-tab-body">
       <view class="grid-container">
         <!-- 模块迁移：学员管理（包含原班级管理的排课、考勤） -->
         <view class="grid-item" @click="navTo('/pages/teacher/students/students')">
@@ -53,41 +47,13 @@
         </view>
       </view>
     
-    <view class="stats-card">
-      <view class="card-header">
-        <text class="card-title">数据概览</text>
-      </view>
-      <view class="stats-row">
-        <view class="stat-item">
-          <text class="stat-val">{{ stats.studentCount }}</text>
-          <text class="stat-label">总学员</text>
-        </view>
-        <view class="stat-item">
-          <text class="stat-val">{{ stats.complianceRate }}%</text>
-          <text class="stat-label">达标率</text>
-        </view>
-        <view class="stat-item">
-          <text class="stat-val">{{ stats.taskCount }}</text>
-          <text class="stat-label">进行中任务</text>
-        </view>
-      </view>
-    </view>
-    
     <view style="height: 120rpx;"></view>
     </view>
   </view>
 </template>
 
 <script setup>
-import { ref } from 'vue';
-import { onShow } from '@dcloudio/uni-app';
 import { request } from '@/utils/request.js';
-
-const stats = ref({
-  studentCount: 0,
-  complianceRate: 0,
-  taskCount: 0
-});
 
 const navTo = (url) => {
   uni.navigateTo({ url });
@@ -203,31 +169,9 @@ const showToast = (title) => {
   });
 };
 
-const loadStats = async () => {
-  try {
-    const res = await request({
-      url: '/teacher/stats',
-      method: 'GET'
-    });
-    stats.value = {
-      studentCount: res.student_count,
-      complianceRate: res.compliance_rate,
-      taskCount: res.task_count
-    };
-  } catch (e) {
-    console.error('Failed to load stats:', e);
-  }
-};
-
-const onPageShow = () => {
-  loadStats();
-};
+const onPageShow = () => {};
 
 const onPageHide = () => {};
-
-onShow(() => {
-  loadStats();
-});
 
 defineExpose({
   onPageShow,
@@ -242,34 +186,7 @@ defineExpose({
   padding-bottom: 50px;
 }
 
-.custom-nav-bar {
-  background-color: #fff;
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 100;
-  
-  .nav-status-bar {
-    height: var(--status-bar-height);
-  }
-  
-  .nav-content {
-    height: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    
-    .nav-title {
-      font-size: 18px;
-      font-weight: bold;
-      color: #333;
-    }
-  }
-}
-
 .content-wrapper {
-  padding-top: calc(var(--status-bar-height) + 44px);
   padding-left: 30rpx;
   padding-right: 30rpx;
 }
@@ -331,48 +248,4 @@ defineExpose({
   color: #999;
 }
 
-.stats-card {
-  background-color: #fff;
-  border-radius: 20rpx;
-  padding: 30rpx;
-  margin-top: 10rpx;
-  box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.04);
-  
-  .card-header {
-    margin-bottom: 30rpx;
-    padding-bottom: 20rpx;
-    border-bottom: 1rpx solid #eee;
-    
-    .card-title {
-      font-size: 32rpx;
-      font-weight: bold;
-      color: #333;
-      border-left: 8rpx solid #20C997;
-      padding-left: 20rpx;
-    }
-  }
-  
-  .stats-row {
-    display: flex;
-    justify-content: space-around;
-    
-    .stat-item {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      
-      .stat-val {
-        font-size: 40rpx;
-        font-weight: bold;
-        color: #20C997;
-        margin-bottom: 10rpx;
-      }
-      
-      .stat-label {
-        font-size: 26rpx;
-        color: #666;
-      }
-    }
-  }
-}
 </style>

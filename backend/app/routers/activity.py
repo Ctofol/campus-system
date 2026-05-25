@@ -126,6 +126,21 @@ def finish_activity(
         except Exception:
             today_completed = None
 
+    # 跑步有效时，更新跑团里程
+    if db_activity.type == "run" and db_activity.is_valid:
+        distance = db_metrics.distance or 0
+        if distance > 0:
+            member = db.query(models.RunGroupMember).filter(
+                models.RunGroupMember.user_id == current_user.id
+            ).first()
+            if member:
+                member.total_mileage = (member.total_mileage or 0) + distance
+                group = db.query(models.RunGroup).filter(
+                    models.RunGroup.id == member.group_id
+                ).first()
+                if group:
+                    group.total_mileage = (group.total_mileage or 0) + distance
+
     db.commit()
     db.refresh(db_activity)
     db.refresh(db_metrics)

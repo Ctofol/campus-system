@@ -2,15 +2,9 @@
   <view class="sport-container">
     <!-- 学生端：运动选择页面 -->
     <view v-if="role === 'student'" class="student-sport">
-      <!-- 自定义导航栏 -->
-      <view class="custom-nav-bar">
-        <view class="nav-status-bar"></view>
-        <view class="nav-content">
-          <text class="nav-title">运动</text>
-        </view>
-      </view>
+      <page-tab-header title="运动" theme="brand" />
 
-      <view class="content-wrapper">
+      <view class="content-wrapper page-tab-body">
         <!-- 运动选项卡片 -->
         <view class="sport-card" @click="goToRun">
           <view class="card-icon run-icon">
@@ -35,8 +29,8 @@
         </view>
 
         <!-- 阳光跑看板 -->
-        <view class="sunshine-section" @click="goToSunshineDetail">
-          <view class="section-title">阳光跑看板</view>
+        <view class="sunshine-section page-card" @click="goToSunshineDetail">
+          <view class="page-section-title">阳光跑看板</view>
           <view class="sunshine-content">
             <view class="sunshine-circle">
               <view class="circle-outer">
@@ -50,7 +44,7 @@
             <view class="sunshine-info">
               <view class="score-row">
                 <text class="score-label">当前积分</text>
-                <text class="score-value">{{ sunshine.score }} 分</text>
+                <text class="score-value">{{ sunshine.current_score || sunshine.score }} 分</text>
               </view>
               <view class="status-row">
                 <text class="status-label">今日状态</text>
@@ -66,8 +60,8 @@
         </view>
 
         <!-- 运动记录统计 -->
-        <view class="stats-section">
-          <view class="section-title">运动数据统计</view>
+        <view class="stats-section page-card">
+          <view class="page-section-title">运动数据统计</view>
           <view class="stats-grid">
             <view class="stat-item">
               <text class="stat-value">{{ totalStats.distance }}</text>
@@ -113,17 +107,22 @@ const totalStats = ref({
 
 const sunshine = ref({
   total_valid_count: 0,
+  current_score: 0,
   score: 0,
   today_status: 'not_started',
   today_fail_reason: ''
 });
 
 const circleStyle = computed(() => {
-  const max = 20;
-  const percent = Math.min(1, (sunshine.value.total_valid_count || 0) / max);
-  const deg = 360 * percent;
+  const total = Math.max(Number(sunshine.value.total_valid_count) || 0, 0);
+  const pass = Math.min(total, 20);
+  const extra = Math.max(Math.min(total - 20, 20), 0);
+  const remain = Math.max(20 - pass, 0);
+  const passDeg = (pass / 40) * 360;
+  const extraDeg = (extra / 40) * 360;
+  const remainDeg = (remain / 40) * 360;
   return {
-    backgroundImage: `conic-gradient(#20C997 ${deg}deg, #e5f7f3 ${deg}deg 360deg)`
+    background: `conic-gradient(#20C997 0deg ${passDeg}deg, #ffb020 ${passDeg}deg ${passDeg + extraDeg}deg, #dcefe9 ${passDeg + extraDeg}deg ${passDeg + extraDeg + remainDeg}deg, #8b5cf6 ${passDeg + extraDeg + remainDeg}deg 360deg)`
   };
 });
 
@@ -176,6 +175,7 @@ const fetchSunshineStats = async () => {
     const res = await getSunshineStats();
     sunshine.value = {
       total_valid_count: res.total_valid_count || 0,
+      current_score: res.current_score || res.score || 0,
       score: res.score || 0,
       today_status: res.today_status || 'not_started',
       today_fail_reason: res.today_fail_reason || ''
@@ -213,41 +213,8 @@ onMounted(() => {
   background: #f5f7fa;
 }
 
-/* 自定义导航栏 */
-.custom-nav-bar {
-  background: #20C997;
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 100;
-}
-
-.nav-status-bar {
-  height: var(--status-bar-height);
-}
-
-.nav-content {
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.nav-title {
-  color: #fff;
-  font-size: 32rpx;
-  font-weight: bold;
-}
-
-/* 内容区域 */
 .student-sport {
   min-height: 100vh;
-}
-
-.content-wrapper {
-  padding-top: calc(var(--status-bar-height) + 44px + 30rpx);
-  padding-bottom: 30rpx;
 }
 
 /* 运动卡片 */
@@ -312,22 +279,12 @@ onMounted(() => {
   font-weight: 300;
 }
 
-/* 统计区域 */
 .stats-section {
-  background: #fff;
-  margin: 0 30rpx;
-  padding: 40rpx;
-  border-radius: 24rpx;
-  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.06);
+  margin-bottom: 0;
 }
 
 .sunshine-section {
-  background: #fff;
-  margin: 0 30rpx 30rpx;
   margin-top: 0;
-  padding: 40rpx;
-  border-radius: 24rpx;
-  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.06);
 }
 
 .sunshine-content {
@@ -425,15 +382,6 @@ onMounted(() => {
   font-size: 24rpx;
   color: #f44336;
   margin-top: 6rpx;
-}
-
-.section-title {
-  font-size: 32rpx;
-  font-weight: bold;
-  color: #333;
-  margin-bottom: 30rpx;
-  padding-left: 20rpx;
-  border-left: 8rpx solid #20C997;
 }
 
 .stats-grid {

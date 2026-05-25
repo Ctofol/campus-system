@@ -1,22 +1,16 @@
 <template>
   <view class="home-container">
-    <view class="teacher-dashboard">
-      <!-- 自定义导航栏 -->
-      <view class="custom-nav-bar">
-        <view class="nav-status-bar"></view>
-        <view class="nav-content">
-          <text class="nav-title">教师工作台</text>
-        </view>
-      </view>
-      
+    <view class="teacher-dashboard page-tab-body">
+      <page-tab-header title="教师工作台" theme="brand" />
+
       <!-- 1. 教师头部信息 -->
       <view class="teacher-header">
         <view class="teacher-info">
           <text class="teacher-name">{{ userInfo.name || '教师' }}</text>
           <text class="teacher-title">公共体育教研部</text>
         </view>
-        <view class="teacher-avatar">
-          <image class="avatar-img" src="/static/avatar.png" mode="aspectFill"></image>
+        <view class="teacher-avatar" @click="goToProfileEdit">
+          <image class="avatar-img" :src="avatarDisplay" mode="aspectFill"></image>
         </view>
       </view>
       
@@ -43,8 +37,11 @@
       <!-- 3. 待办事项 - 功能打通：全部按钮跳转 -->
       <view class="section-card todo-section">
         <view class="section-header">
-          <text class="section-title">今日待办</text>
-          <text class="section-more" @click="goToTodos">全部 →</text>
+          <text class="page-section-title page-section-title--compact">今日待办</text>
+          <view class="section-more link-more" @click="goToTodos">
+            <text>全部</text>
+            <view class="link-arrow" />
+          </view>
         </view>
         <view class="todo-list" v-if="todos.length > 0">
           <view class="todo-item" v-for="(todo, index) in todos.slice(0, 3)" :key="index" @click="handleTodoClick(todo)">
@@ -63,7 +60,7 @@
       <!-- 4. 学员体能概览 -->
       <view class="section-card chart-section">
         <view class="section-header">
-          <text class="section-title">学员体能概览</text>
+          <text class="page-section-title page-section-title--compact">学员体能概览</text>
         </view>
         <view class="overview-chart">
           <view class="chart-col">
@@ -110,9 +107,15 @@
 <script setup>
 import { ref } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
-import { request } from '@/utils/request.js';
+import {
+  request,
+  getStoredUserInfo,
+  patchStoredUserInfo,
+  avatarImageSrc
+} from '@/utils/request.js';
 
 const userInfo = ref({});
+const avatarDisplay = ref('/static/avatar.png');
 const todos = ref([]);
 
 // 功能打通：跳转到请假审批列表
@@ -236,27 +239,49 @@ const fetchAbnormalAlerts = async () => {
   }
 };
 
-onShow(() => {
+const syncAvatar = () => {
+  avatarDisplay.value = avatarImageSrc(userInfo.value.avatar_url);
+};
+
+const fetchProfile = async () => {
+  try {
+    const res = await request({ url: '/users/profile', method: 'GET' });
+    if (!res) return;
+    userInfo.value = { ...getStoredUserInfo(), ...res };
+    syncAvatar();
+    patchStoredUserInfo(res);
+  } catch (e) {
+    console.error('fetch teacher profile failed', e);
+  }
+};
+
+const goToProfileEdit = () => {
+  uni.navigateTo({ url: '/pages/teacher/profile/edit' });
+};
+
+const onPageShow = () => {
   uni.hideHomeButton && uni.hideHomeButton();
 
-  const storedUser = uni.getStorageSync('userInfo');
-  if (storedUser) {
-    try {
-      userInfo.value = typeof storedUser === 'string' ? JSON.parse(storedUser) : storedUser;
-    } catch (e) {
-      console.error('JSON parse error', e);
-      userInfo.value = {};
-    }
-  }
-  
+  userInfo.value = getStoredUserInfo();
+  syncAvatar();
+
   if (!uni.getStorageSync('token')) {
     uni.reLaunch({ url: '/pages/login/login' });
     return;
   }
-  
+
+  fetchProfile();
   fetchTeacherStats();
   fetchWeeklyTrend();
   fetchAbnormalAlerts();
+};
+
+onShow(() => {
+  onPageShow();
+});
+
+defineExpose({
+  onPageShow
 });
 
 const teacherStats = ref({
@@ -311,31 +336,6 @@ const handleResolveAlert = (index) => {
   background: #f5f7fa;
   display: flex;
   flex-direction: column;
-}
-
-/* 自定义导航栏 */
-.custom-nav-bar {
-  background: #20C997;
-  width: 100%;
-  position: sticky;
-  top: 0;
-  z-index: 100;
-}
-.nav-status-bar {
-  height: var(--status-bar-height);
-  width: 100%;
-}
-.nav-content {
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-}
-.nav-title {
-  color: #fff;
-  font-size: 32rpx;
-  font-weight: bold;
 }
 
 /* 教师端样式 */
@@ -489,8 +489,8 @@ const handleResolveAlert = (index) => {
 }
 
 .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30rpx; }
-.section-title { font-size: 34rpx; font-weight: bold; color: #333; }
 .section-more { font-size: 26rpx; color: #20C997; padding: 10rpx 0; }
+.section-more .link-arrow { border-color: #20c997; }
 
 .overview-chart { display: flex; justify-content: space-around; }
 .chart-col { text-align: center; }
