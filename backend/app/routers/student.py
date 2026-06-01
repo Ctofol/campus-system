@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from datetime import datetime, timedelta
+import json
 from .. import models, schemas, auth
 from ..database import get_db
 from ..services.task_run_service import student_may_submit_task
@@ -375,3 +376,76 @@ def get_my_health_requests(
             "updated_at": req.updated_at
         })
     return result
+
+
+@router.get("/notifications", response_model=List[schemas.UserNotificationOut])
+def list_my_notifications(
+    unread_only: bool = Query(False),
+    ntype: Optional[str] = Query(None),
+    limit: int = Query(50, ge=1, le=100),
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
+    q = db.query(models.UserNotification).filter(
+        models.UserNotification.user_id == current_user.id
+    )
+    if unread_only:
+        q = q.filter(models.UserNotification.is_read.is_(False))
+    if ntype:
+        q = q.filter(models.UserNotification.ntype == ntype)
+    rows = (
+        q.order_by(models.UserNotification.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+    return rows
+
+
+@router.get("/notifications/unread-count", response_model=schemas.UserNotificationUnread)
+def my_notification_unread_count(
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
+    count = (
+        db.query(models.UserNotification)
+        .filter(
+            models.UserNotification.user_id == current_user.id,
+            models.UserNotification.is_read.is_(False),
+        )
+        .count()
+    )
+    return {"count": count}
+
+
+@router.put("/notifications/{notification_id}/read")
+def mark_notification_read(
+    notification_id: int,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
+    row = (
+        db.query(models.UserNotification)
+        .filter(
+            models.UserNotification.id == notification_id,
+            models.UserNotification.user_id == current_user.id,
+        )
+        .first()
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="通知不存在")
+    row.is_read = True
+    db.commit()
+    return {"ok": True}
+
+
+@router.put("/notifications/read-all")
+def mark_all_notifications_read(
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
+    db.query(models.UserNotification).filter(
+        models.UserNotification.user_id == current_user.id,
+        models.UserNotification.is_read.is_(False),
+    ).update({"is_read": True})
+    db.commit()
+    return {"ok": True}

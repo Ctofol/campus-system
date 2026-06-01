@@ -22,7 +22,7 @@
           <text class="upload-icon">📹</text>
           <text class="upload-text">点击上传测试视频</text>
           <text class="upload-hint">支持MP4格式，最大100MB</text>
-          <text class="upload-hint">AI将自动识别动作并计数</text>
+          <text class="upload-hint">侧面全身入镜、单人拍摄，提交后自动分析次数</text>
         </view>
         
         <view v-else class="upload-preview">
@@ -54,12 +54,18 @@
         >
           {{ isSubmitting ? '提交中...' : '提交测试' }}
         </button>
-        <text class="submit-hint">提交后AI将分析视频并给出评分</text>
+        <text class="submit-hint">提交后后台分析视频，请稍候查看结果</text>
       </view>
       
+      <!-- 分析中 -->
+      <view class="test-result analyzing" v-if="analysisPending">
+        <text class="result-title">视频分析中</text>
+        <text class="result-hint">请稍候，系统正在识别动作次数…</text>
+      </view>
+
       <!-- 测试结果 -->
-      <view class="test-result" v-if="testResult">
-        <text class="result-title">AI评测结果</text>
+      <view class="test-result" v-if="testResult && !analysisPending">
+        <text class="result-title">评测结果</text>
         <view class="result-data">
           <text class="result-count">完成次数：{{ testResult.count }}</text>
           <text class="result-status" :class="{ qualified: testResult.qualified }">
@@ -81,7 +87,7 @@
 <script setup>
 import { ref } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
-import { uploadFile, submitActivity } from '@/utils/request.js';
+import { uploadFile, submitActivity, getTestAnalysisStatus } from '@/utils/request.js';
 
 const currentTest = ref({
   name: '引体向上',
@@ -98,6 +104,21 @@ const testTypes = [
 const testResult = ref(null);
 const uploadedFile = ref(null);
 const isSubmitting = ref(false);
+const analysisPending = ref(false);
+const taskId = ref(null);
+let pollTimer = null;
+
+const exerciseApiType = (t) => {
+  const map = { 'pull-up': 'pull_up', 'sit-up': 'sit_up', 'push-up': 'push_up' };
+  return map[t] || t;
+};
+
+onLoad((options) => {
+  if (options && options.taskId) {
+    const id = parseInt(options.taskId, 10);
+    if (!Number.isNaN(id)) taskId.value = id;
+  }
+});
 
 const showTestSelector = () => {
   const itemList = testTypes.map(t => t.name);
@@ -300,47 +321,92 @@ const validateAndUpload = async (filePath, fileType) => {
   }
 };
 
+const applyAnalysisResult = (data) => {
+  testResult.value = {
+    count: data.count ?? 0,
+    qualified: !!data.qualified,
+    score: data.score,
+    score_detail: data.score_detail
+  };
+};
+
+const pollAnalysis = (activityId) => {
+  if (pollTimer) clearInterval(pollTimer);
+  analysisPending.value = true;
+  testResult.value = null;
+  let tries = 0;
+  const maxTries = 40;
+  pollTimer = setInterval(async () => {
+    tries += 1;
+    try {
+      const st = await getTestAnalysisStatus(activityId);
+      if (st.analysis_status === 'success') {
+        clearInterval(pollTimer);
+        pollTimer = null;
+        analysisPending.value = false;
+        applyAnalysisResult(st);
+        uni.showToast({ title: '分析完成', icon: 'success' });
+      } else if (st.analysis_status === 'failed') {
+        clearInterval(pollTimer);
+        pollTimer = null;
+        analysisPending.value = false;
+        uni.showToast({
+          title: st.analysis_error || '分析失败',
+          icon: 'none'
+        });
+      } else if (tries >= maxTries) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+        analysisPending.value = false;
+        uni.showToast({ title: '分析超时，请稍后在记录中查看', icon: 'none' });
+      }
+    } catch (e) {
+      if (tries >= maxTries) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+        analysisPending.value = false;
+      }
+    }
+  }, 2000);
+};
+
 const submitTest = async () => {
   if (!uploadedFile.value) {
     uni.showToast({ title: '请先上传视频', icon: 'none' });
     return;
   }
-  
+
   isSubmitting.value = true;
-  
-  // 准备活动数据
+
   const activityData = {
     type: 'test',
-    source: 'free',
+    source: taskId.value ? 'task' : 'free',
+    task_id: taskId.value || undefined,
     started_at: new Date().toISOString(),
     ended_at: new Date().toISOString(),
     metrics: {
-      duration: 0, // 体测不需要时长，设为0
+      duration: 0,
       video_url: uploadedFile.value.url,
-      qualified: false, // 默认未达标，等AI评分
-      count: 0 // 默认0次，等AI评分
+      qualified: false,
+      count: 0,
+      exercise_type: exerciseApiType(currentTest.value.type)
     },
     evidence: []
   };
-  
+
   try {
-    console.log('提交数据:', JSON.stringify(activityData, null, 2));
-    uni.showLoading({ title: 'AI分析中...' });
+    uni.showLoading({ title: '提交中...' });
     const result = await submitActivity(activityData);
-    
-    console.log('提交结果:', result);
-    
-    // 显示AI评测结果
-    testResult.value = {
-      count: result.metrics?.count || 0,
-      qualified: result.metrics?.qualified || false,
-      score: result.metrics?.score,
-      score_detail: result.metrics?.score_detail
-    };
-    
     uni.hideLoading();
-    uni.showToast({ title: 'AI评测完成', icon: 'success' });
-    
+
+    const status = result.metrics?.analysis_status;
+    if (status === 'pending' && result.id) {
+      uni.showToast({ title: '已提交，正在分析', icon: 'none' });
+      pollAnalysis(result.id);
+    } else if (result.metrics) {
+      applyAnalysisResult(result.metrics);
+      uni.showToast({ title: '提交成功', icon: 'success' });
+    }
   } catch (error) {
     uni.hideLoading();
     console.error('Submit error:', error);
@@ -550,6 +616,14 @@ const formatTime = (seconds) => {
   background: rgba(255, 255, 255, 0.05);
   border-radius: 20rpx;
   padding: 40rpx;
+}
+
+.test-result.analyzing .result-hint {
+  display: block;
+  color: #aaa;
+  font-size: 26rpx;
+  text-align: center;
+  margin-top: 16rpx;
 }
 
 .result-title {

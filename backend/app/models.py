@@ -147,6 +147,9 @@ class Activity(Base):
     is_valid = Column(Boolean, default=False)  # 自由跑：阳光跑达标；任务跑：是否满足任务要求
     fail_reason = Column(String, nullable=True)  # 不达标原因
     face_verified = Column(Boolean, default=False)  # 人脸验证结果
+    face_liveness_pass = Column(Boolean, nullable=True)  # 起止活体是否通过
+    face_match_score = Column(Float, nullable=True)  # 起止 1:1 相似度 0-100
+    face_fail_code = Column(String(64), nullable=True)  # LIVENESS_FAIL / NOT_SAME_PERSON / MISSING_PHOTO
     task_id = Column(Integer, ForeignKey("tasks.id"), nullable=True)  # 任务跑步关联
 
     user = relationship("User")
@@ -179,6 +182,9 @@ class ActivityMetrics(Base):
     teacher_comment = Column(String, nullable=True)  # 教师评语（第三阶段新增）
     scored_at = Column(DateTime, nullable=True)  # 打分时间（第三阶段新增）
     scored_by = Column(Integer, ForeignKey("users.id"), nullable=True)  # 打分教师ID（第三阶段新增）
+    exercise_type = Column(String(32), nullable=True)  # pull_up | sit_up | push_up
+    analysis_status = Column(String(32), nullable=True)  # pending | success | failed
+    analysis_error = Column(String(512), nullable=True)
 
     activity = relationship("Activity", back_populates="metrics")
     scorer = relationship("User", foreign_keys=[scored_by])  # 打分教师
@@ -253,6 +259,23 @@ class HealthRequest(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     student = relationship("User", back_populates="health_requests")
+
+
+class UserNotification(Base):
+    """学生/教师站内通知（审批结果、任务提醒等）"""
+    __tablename__ = "user_notifications"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True, nullable=False)
+    title = Column(String, nullable=False)
+    body = Column(String, nullable=True)
+    ntype = Column(String, default="system", index=True)  # health_review | task | system
+    payload = Column(String, nullable=True)
+    is_read = Column(Boolean, default=False, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", backref="notifications")
+
 
 # Course Models (Phase 4.2)
 class Course(Base):

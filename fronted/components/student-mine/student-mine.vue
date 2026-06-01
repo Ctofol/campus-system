@@ -1,6 +1,6 @@
 <template>
   <view class="mine-page">
-    <page-tab-header title="个人中心" />
+    <page-tab-header title="个人中心" theme="brand" />
 
     <view class="content-wrapper page-tab-body">
       <!-- 1. 账号主页（顶部） -->
@@ -118,6 +118,13 @@
       
       <!-- 4. 设置中心 -->
       <view class="setting-card">
+        <view class="setting-item" @click="gotoNotifications">
+          <text class="setting-icon">🔔</text>
+          <text class="setting-text">我的通知</text>
+          <text class="setting-desc">{{ unreadNotifyCount > 0 ? `${unreadNotifyCount} 条未读` : '审批与任务提醒' }}</text>
+          <view v-if="unreadNotifyCount > 0" class="notify-badge">{{ unreadNotifyCount > 99 ? '99+' : unreadNotifyCount }}</view>
+          <text class="arrow">＞</text>
+        </view>
         <view class="setting-item" @click="gotoHealthRequest">
           <text class="setting-icon">🩺</text>
           <text class="setting-text">健康报备</text>
@@ -179,6 +186,7 @@ const showRecords = computed(() => runRecords.value.slice(0, 5));
 const taskRunPreview = ref([]);
 
 const deviceId = ref('');
+const unreadNotifyCount = ref(0);
 
 const formatDistance = (val) => {
     const num = Number(val);
@@ -305,7 +313,17 @@ const fetchUserProfile = async () => {
 };
 
 // 页面显示逻辑
+const loadUnreadNotifyCount = async () => {
+  try {
+    const res = await request('/student/notifications/unread-count');
+    unreadNotifyCount.value = Number(res?.count) || 0;
+  } catch (e) {
+    unreadNotifyCount.value = 0;
+  }
+};
+
 const onPageShow = () => {
+  loadUnreadNotifyCount();
   const user = uni.getStorageSync('userInfo');
   if (user) {
     let u = user;
@@ -338,6 +356,10 @@ defineExpose({
 
 const gotoUserProfile = () => {
   uni.navigateTo({ url: '/pages/mine/edit-profile/edit-profile' });
+};
+
+const gotoNotifications = () => {
+  uni.navigateTo({ url: '/pages/student/notifications/list' });
 };
 
 const gotoHealthRequest = () => {
@@ -721,6 +743,18 @@ const logout = () => {
   font-size: 24rpx;
   color: #999;
   margin-right: 10rpx;
+}
+.notify-badge {
+  min-width: 36rpx;
+  height: 36rpx;
+  line-height: 36rpx;
+  padding: 0 10rpx;
+  margin-right: 8rpx;
+  border-radius: 18rpx;
+  background: #ff4d4f;
+  color: #fff;
+  font-size: 22rpx;
+  text-align: center;
 }
 .arrow {
   color: #ccc;

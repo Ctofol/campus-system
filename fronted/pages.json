@@ -83,6 +83,13 @@
       }
     },
     {
+      "path": "pages/student/notifications/list",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "我的通知"
+      }
+    },
+    {
       "path": "pages/student/task-runs/task-runs",
       "style": {
         "navigationBarTitleText": "任务跑步记录"
@@ -281,6 +288,7 @@
     {
       "path": "pages/mine/history-tasks/history-tasks",
       "style": {
+        "navigationStyle": "custom",
         "navigationBarTitleText": "历史任务"
       }
     },
@@ -361,6 +369,7 @@
     {
       "path": "pages/run-group/discover",
       "style": {
+        "navigationStyle": "custom",
         "navigationBarTitleText": "跑团发现"
       }
     },

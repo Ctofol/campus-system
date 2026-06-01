@@ -1,8 +1,7 @@
 <template>
   <view class="home-container">
+    <page-tab-header title="教师工作台" theme="brand" />
     <view class="teacher-dashboard page-tab-body">
-      <page-tab-header title="教师工作台" theme="brand" />
-
       <!-- 1. 教师头部信息 -->
       <view class="teacher-header">
         <view class="teacher-info">

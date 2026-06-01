@@ -1182,6 +1182,9 @@ async def get_teacher_task_run_detail(
             "teacher_comment": metrics.teacher_comment,
             "scored_at": metrics.scored_at,
             "scored_by": metrics.scored_by,
+            "exercise_type": metrics.exercise_type,
+            "analysis_status": metrics.analysis_status,
+            "analysis_error": metrics.analysis_error,
         }
 
     start_photo_url = None
@@ -1214,6 +1217,10 @@ async def get_teacher_task_run_detail(
             "status": act.status,
             "start_photo_url": start_photo_url,
             "end_photo_url": end_photo_url,
+            "face_verified": act.face_verified,
+            "face_liveness_pass": act.face_liveness_pass,
+            "face_match_score": act.face_match_score,
+            "face_fail_code": act.face_fail_code,
         },
         "student": {
             "id": stu.id if stu else act.user_id,
@@ -1257,8 +1264,23 @@ async def review_health_request(
             student.health_status = new_status
             student.abnormal_reason = hr.reason
     elif status == "rejected":
-        # 如果是驳回，可以根据需要保留或清除状态，这里通常保持原样
-        hr.updated_at = datetime.utcnow()
+        pass
+
+    hr.updated_at = datetime.utcnow()
+
+    import json as _json
+
+    type_label = "请假" if hr.type == "leave" else "伤病"
+    status_label = "已通过" if status == "approved" else "已驳回"
+    db.add(
+        models.UserNotification(
+            user_id=hr.student_id,
+            title=f"健康报备{status_label}",
+            body=f"您的{type_label}申请已{status_label}，可在「健康报备」查看详情。",
+            ntype="health_review",
+            payload=_json.dumps({"request_id": hr.id, "status": status}),
+        )
+    )
     db.commit()
     return {"ok": True}
 

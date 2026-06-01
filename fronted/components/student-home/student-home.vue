@@ -1,6 +1,6 @@
 <template>
   <view class="home-container">
-    <page-tab-header title="首页" />
+    <page-tab-header title="首页" theme="brand" />
     <view class="content-wrapper page-tab-body">
       <view class="student-dashboard">
       
@@ -189,6 +189,7 @@ import {
   getStoredToken,
   isAuthError
 } from '@/utils/request.js';
+import { warmUpLocationCache } from '@/utils/location.js';
 
 // 状态栏高度
 const statusBarHeight = ref(20);
@@ -266,6 +267,7 @@ const onPageShow = () => {
   
   fetchTasks();
   loadRunGroupData(); // 每次显示页面时重新加载跑团数据
+  warmUpLocationCache();
 };
 
 // Initial load

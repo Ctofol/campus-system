@@ -34,8 +34,17 @@
       </view>
     </view>
 
-    <view class="photo-card">
-      <text class="page-section-title">人脸对比</text>
+    <view class="photo-card" v-if="activity.type === 'run'">
+      <text class="page-section-title">起止人脸核验</text>
+      <view class="face-verify-meta" v-if="activity.face_verified != null">
+        <text class="face-meta-line" :class="activity.face_verified ? 'ok' : 'bad'">
+          {{ activity.face_verified ? '系统核验通过' : '系统核验未通过' }}
+        </text>
+        <text v-if="activity.face_match_score != null" class="face-meta-sub">
+          相似度 {{ Number(activity.face_match_score).toFixed(1) }}
+        </text>
+        <text v-if="activity.face_fail_code" class="face-meta-sub">代码 {{ activity.face_fail_code }}</text>
+      </view>
       <view class="photo-grid">
         <view class="photo-item">
           <text class="photo-label">跑前</text>
@@ -50,7 +59,34 @@
       </view>
     </view>
 
-    <view class="map-card" v-if="showMap">
+    <view class="test-card" v-if="activity.type === 'test' && metrics">
+      <text class="page-section-title">体测视频分析</text>
+      <view class="detail-row">
+        <text class="label">项目</text>
+        <text class="value">{{ exerciseLabel }}</text>
+      </view>
+      <view class="detail-row">
+        <text class="label">完成次数</text>
+        <text class="value">{{ metrics.count != null ? metrics.count : '—' }} 次</text>
+      </view>
+      <view class="detail-row">
+        <text class="label">分析状态</text>
+        <text class="value">{{ analysisStatusText }}</text>
+      </view>
+      <view class="detail-row" v-if="metrics.score != null">
+        <text class="label">AI评分</text>
+        <text class="value">{{ metrics.score }} 分</text>
+      </view>
+      <video
+        v-if="testVideoUrl"
+        class="test-video"
+        :src="testVideoUrl"
+        controls
+      />
+      <text v-if="metrics.analysis_error" class="fail-text">{{ metrics.analysis_error }}</text>
+    </view>
+
+    <view class="map-card" v-if="showMap && activity.type === 'run'">
       <text class="page-section-title">运动轨迹</text>
       <map
         class="map"
@@ -69,9 +105,11 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import { getTeacherTaskRunDetail, resolveMediaUrl } from '@/utils/request.js';
+import { smoothTrajectoryForMap, DEFAULT_BRAND_POLYLINE_STYLE } from '@/utils/trajectory-smooth.js';
+import { buildRunRouteMarkers } from '@/utils/run-map-markers.js';
 
 const activity = ref({});
 const student = ref({});
@@ -86,6 +124,21 @@ const markers = ref([]);
 const showMap = ref(false);
 const startPhotoUrl = ref('');
 const endPhotoUrl = ref('');
+const testVideoUrl = ref('');
+
+const exerciseLabel = computed(() => {
+  const t = metrics.value?.exercise_type || '';
+  const map = { pull_up: '引体向上', sit_up: '仰卧起坐', push_up: '俯卧撑' };
+  return map[t] || t || '体测';
+});
+
+const analysisStatusText = computed(() => {
+  const s = metrics.value?.analysis_status;
+  if (s === 'pending') return '分析中';
+  if (s === 'success') return '已完成';
+  if (s === 'failed') return '分析失败';
+  return s || '—';
+});
 
 function normalizeTrajectoryPoints(raw) {
   if (raw == null) return [];
@@ -120,6 +173,8 @@ onLoad(async (options) => {
     metrics.value = res.metrics || null;
     startPhotoUrl.value = activity.value.start_photo_url ? resolveMediaUrl(activity.value.start_photo_url) : '';
     endPhotoUrl.value = activity.value.end_photo_url ? resolveMediaUrl(activity.value.end_photo_url) : '';
+    testVideoUrl.value =
+      metrics.value && metrics.value.video_url ? resolveMediaUrl(metrics.value.video_url) : '';
 
     if (activity.value.started_at) {
       const d = new Date(activity.value.started_at);
@@ -142,44 +197,16 @@ onLoad(async (options) => {
     markers.value = [];
     showMap.value = false;
     if (points.length >= 2) {
-      polyline.value = [{ points, color: '#20C997', width: 4 }];
+      const displayPts = smoothTrajectoryForMap(points);
+      polyline.value = [{ ...DEFAULT_BRAND_POLYLINE_STYLE, points: displayPts }];
       centerLat.value = points[0].latitude;
       centerLng.value = points[0].longitude;
-      markers.value = [
-        {
-          id: 0,
-          latitude: points[0].latitude,
-          longitude: points[0].longitude,
-          title: '起点',
-          iconPath: '/static/location.png',
-          width: 20,
-          height: 20,
-        },
-        {
-          id: 1,
-          latitude: points[points.length - 1].latitude,
-          longitude: points[points.length - 1].longitude,
-          title: '终点',
-          iconPath: '/static/location.png',
-          width: 20,
-          height: 20,
-        },
-      ];
+      markers.value = buildRunRouteMarkers(points);
       showMap.value = true;
     } else if (points.length === 1) {
       centerLat.value = points[0].latitude;
       centerLng.value = points[0].longitude;
-      markers.value = [
-        {
-          id: 0,
-          latitude: points[0].latitude,
-          longitude: points[0].longitude,
-          title: '位置',
-          iconPath: '/static/location.png',
-          width: 20,
-          height: 20,
-        },
-      ];
+      markers.value = buildRunRouteMarkers(points.slice(0, 1));
       showMap.value = true;
     }
 
@@ -299,5 +326,36 @@ onLoad(async (options) => {
   padding: 40rpx;
   text-align: center;
   color: #999;
+}
+.test-card {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 30rpx;
+  margin-bottom: 20rpx;
+}
+.test-video {
+  width: 100%;
+  height: 360rpx;
+  margin-top: 16rpx;
+  border-radius: 12rpx;
+}
+.face-verify-meta {
+  margin-bottom: 16rpx;
+}
+.face-meta-line {
+  font-size: 28rpx;
+  display: block;
+}
+.face-meta-line.ok {
+  color: #20c997;
+}
+.face-meta-line.bad {
+  color: #e53935;
+}
+.face-meta-sub {
+  font-size: 24rpx;
+  color: #888;
+  display: block;
+  margin-top: 8rpx;
 }
 </style>

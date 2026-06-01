@@ -1,0 +1,20 @@
+/* 跑步页样式令牌（与全站品牌色一致） */
+.run-sport {
+  --run-brand: #20c997;
+  --run-brand-deep: #17a077;
+  --run-accent: #20c997;
+  --run-panel-bg: rgba(255, 255, 255, 0.94);
+  --run-panel-bg-solid: #ffffff;
+  --run-page-bg: #f5f7fa;
+  --run-text-primary: #333333;
+  --run-text-secondary: #666666;
+  --run-text-muted: #999999;
+  --run-pill-bg: rgba(255, 255, 255, 0.92);
+  --run-pill-active: #20c997;
+  --run-pill-active-text: #ffffff;
+  --run-pace-slow: #ff5252;
+  --run-pace-mid: #ffc107;
+  --run-pace-fast: #4caf50;
+  --run-radius-lg: 20rpx;
+  --run-shadow: 0 8rpx 28rpx rgba(0, 0, 0, 0.08);
+}

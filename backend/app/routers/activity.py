@@ -1,13 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime
-import random
 import math
 from typing import Optional
 
-from .. import models, schemas, auth, database
+from .. import models, schemas, auth, database, config
 from ..services.score_service import verify_activity, get_sunshine_stats
 from ..services.task_run_service import evaluate_task_run, student_may_submit_task
+from ..services.face_verify_service import (
+    apply_face_outcome_to_activity,
+    verify_run_faces,
+)
+from ..services.test_analysis_service import enqueue_test_analysis, run_test_analysis_sync
 
 router = APIRouter(prefix="/activity", tags=["activity"])
 
@@ -29,6 +33,14 @@ def _finish_response(
         extra["task_title"] = None
         extra["task_completed"] = None
     return out.model_copy(update=extra)
+
+
+def _apply_run_face_verify(act: models.Activity) -> None:
+    outcome = verify_run_faces(act.evidence)
+    apply_face_outcome_to_activity(act, outcome)
+    if not outcome.ok and config.FACE_BLOCK_ON_FAIL:
+        act.is_valid = False
+        act.fail_reason = outcome.reason or act.fail_reason
 
 
 @router.post("/finish", response_model=schemas.ActivityFinishResponse)
@@ -68,16 +80,25 @@ def finish_activity(
     if "video_url" not in metrics_data:
         metrics_data["video_url"] = None
 
-    if metrics_data.get("video_url") and activity_in.type == "test":
-        metrics_data["count"] = random.randint(8, 15)
-        metrics_data["qualified"] = metrics_data["count"] >= 10
-        metrics_data["score"] = random.randint(70, 95)
-        metrics_data["score_detail"] = f"动作标准度: {random.randint(80, 95)}%, 完成质量: 良好"
+    exercise_type = metrics_data.pop("exercise_type", None)
+
+    # 体测：不再随机评分，有视频则 pending 异步分析
+    if activity_in.type == "test" and metrics_data.get("video_url"):
+        metrics_data["count"] = metrics_data.get("count") or 0
+        metrics_data["qualified"] = False
+        metrics_data["score"] = None
+        metrics_data["score_detail"] = None
+        metrics_data["analysis_status"] = "pending"
+        metrics_data["analysis_error"] = None
+        metrics_data["exercise_type"] = exercise_type
 
     db_metrics = models.ActivityMetrics(
         activity_id=db_activity.id,
         **metrics_data,
     )
+    if activity_in.type == "test" and metrics_data.get("video_url") and not db_metrics.exercise_type:
+        db_metrics.exercise_type = exercise_type
+
     db.add(db_metrics)
 
     for evidence in activity_in.evidence:
@@ -96,7 +117,7 @@ def finish_activity(
             ok, reason = evaluate_task_run(task, db_metrics)
             db_activity.is_valid = ok
             db_activity.fail_reason = reason
-            db_activity.face_verified = True
+            _apply_run_face_verify(db_activity)
         else:
             is_valid, fail_reason, face_verified = verify_activity(current_user, db_activity, db)
             db_activity.is_valid = is_valid
@@ -105,18 +126,25 @@ def finish_activity(
     else:
         if db_activity.source == "task" and db_activity.task_id:
             task = db.query(models.Task).filter(models.Task.id == db_activity.task_id).first()
-            ok, reason = True, None
-            if task.min_count and int(task.min_count) > 0:
-                cnt = db_metrics.count or 0
-                if cnt < int(task.min_count):
-                    ok = False
-                    reason = f"次数未达标（需≥{task.min_count}次，实际{cnt}次）"
-            db_activity.is_valid = ok
-            db_activity.fail_reason = reason
+            db_activity.is_valid = False
+            db_activity.fail_reason = "视频分析中，请稍后查看结果"
             db_activity.face_verified = True
+            if not db_metrics.video_url:
+                ok, reason = True, None
+                if task.min_count and int(task.min_count) > 0:
+                    cnt = db_metrics.count or 0
+                    if cnt < int(task.min_count):
+                        ok = False
+                        reason = f"次数未达标（需≥{task.min_count}次，实际{cnt}次）"
+                db_activity.is_valid = ok
+                db_activity.fail_reason = reason
         else:
-            db_activity.is_valid = bool(db_metrics.qualified)
-            db_activity.fail_reason = None if db_metrics.qualified else "体测未达标"
+            if db_metrics.video_url:
+                db_activity.is_valid = False
+                db_activity.fail_reason = "视频分析中，请稍后查看结果"
+            else:
+                db_activity.is_valid = bool(db_metrics.qualified)
+                db_activity.fail_reason = None if db_metrics.qualified else "体测未达标"
 
     today_completed = None
     if activity_in.source == "free" and db_activity.type == "run":
@@ -126,7 +154,6 @@ def finish_activity(
         except Exception:
             today_completed = None
 
-    # 跑步有效时，更新跑团里程
     if db_activity.type == "run" and db_activity.is_valid:
         distance = db_metrics.distance or 0
         if distance > 0:
@@ -145,7 +172,79 @@ def finish_activity(
     db.refresh(db_activity)
     db.refresh(db_metrics)
 
+    if db_activity.type == "test" and db_metrics.video_url:
+        if config.TEST_ANALYSIS_USE_BACKGROUND:
+            enqueue_test_analysis(db_activity.id)
+        else:
+            run_test_analysis_sync(db_activity.id)
+            db.refresh(db_activity)
+            db.refresh(db_metrics)
+
     return _finish_response(db, db_activity, today_completed)
+
+
+@router.get("/{activity_id}/analysis-status")
+def get_analysis_status(
+    activity_id: int,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
+    act = (
+        db.query(models.Activity)
+        .filter(
+            models.Activity.id == activity_id,
+            models.Activity.user_id == current_user.id,
+        )
+        .first()
+    )
+    if not act or not act.metrics:
+        raise HTTPException(status_code=404, detail="记录不存在")
+    m = act.metrics
+    return {
+        "activity_id": act.id,
+        "type": act.type,
+        "analysis_status": m.analysis_status or "success",
+        "analysis_error": m.analysis_error,
+        "count": m.count,
+        "qualified": m.qualified,
+        "score": m.score,
+        "score_detail": m.score_detail,
+        "exercise_type": m.exercise_type,
+        "is_valid": act.is_valid,
+        "fail_reason": act.fail_reason,
+    }
+
+
+@router.post("/{activity_id}/reanalyze")
+def reanalyze_test_activity(
+    activity_id: int,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
+    act = (
+        db.query(models.Activity)
+        .filter(
+            models.Activity.id == activity_id,
+            models.Activity.user_id == current_user.id,
+            models.Activity.type == "test",
+        )
+        .first()
+    )
+    if not act or not act.metrics or not act.metrics.video_url:
+        raise HTTPException(status_code=404, detail="体测记录或视频不存在")
+    act.metrics.analysis_status = "pending"
+    act.metrics.analysis_error = None
+    db.commit()
+    if config.TEST_ANALYSIS_USE_BACKGROUND:
+        enqueue_test_analysis(activity_id)
+    else:
+        run_test_analysis_sync(activity_id)
+    db.refresh(act)
+    db.refresh(act.metrics)
+    return {
+        "message": "已重新提交分析",
+        "analysis_status": act.metrics.analysis_status,
+    }
 
 
 @router.get("/history", response_model=schemas.ActivityListResponse)
@@ -210,21 +309,34 @@ def recalculate_activity_score(
     current_user: models.User = Depends(auth.get_current_user),
     db: Session = Depends(database.get_db),
 ):
+    """体测：重新触发视频分析（非随机改分）。"""
     activity_id = payload.get("activity_id")
     if not activity_id:
         raise HTTPException(status_code=400, detail="Must provide activity_id")
 
-    activity = (
+    act = (
         db.query(models.Activity)
         .filter(
             models.Activity.id == activity_id,
             models.Activity.user_id == current_user.id,
+            models.Activity.type == "test",
         )
         .first()
     )
-    if not activity or not activity.metrics:
-        raise HTTPException(status_code=404, detail="Activity or metrics not found")
+    if not act or not act.metrics or not act.metrics.video_url:
+        raise HTTPException(status_code=404, detail="Activity or test video not found")
 
-    activity.metrics.score = random.randint(70, 95)
+    act.metrics.analysis_status = "pending"
+    act.metrics.analysis_error = None
     db.commit()
-    return {"message": "评分更新成功", "score": activity.metrics.score}
+    if config.TEST_ANALYSIS_USE_BACKGROUND:
+        enqueue_test_analysis(activity_id)
+    else:
+        run_test_analysis_sync(activity_id)
+        db.refresh(act.metrics)
+
+    return {
+        "message": "已提交重新分析",
+        "analysis_status": act.metrics.analysis_status,
+        "score": act.metrics.score,
+    }

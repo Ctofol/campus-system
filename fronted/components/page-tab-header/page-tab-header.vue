@@ -6,18 +6,20 @@
         `page-tab-header--${theme}`,
         { 'page-tab-header--fixed': fixed }
       ]"
+      :style="headerStyle"
     >
       <view class="page-tab-header__status" :style="statusBarStyle"></view>
-      <view class="page-tab-header__bar">
-        <view v-if="showBack" class="page-tab-header__back" @click="handleBack">
-          <text class="page-tab-header__back-icon">‹</text>
+      <view class="page-tab-header__bar" :style="barStyle">
+        <view class="page-tab-header__side page-tab-header__side--left">
+          <view v-if="showBack" class="page-tab-header__back" @click="handleBack">
+            <text class="page-tab-header__back-icon">‹</text>
+          </view>
         </view>
-        <text
-          class="page-tab-header__title"
-          :class="{ 'page-tab-header__title--with-back': showBack }"
-        >{{ title }}</text>
-        <view v-if="$slots.right" class="page-tab-header__right">
-          <slot name="right" />
+        <text class="page-tab-header__title">{{ title }}</text>
+        <view class="page-tab-header__side page-tab-header__side--right" :style="rightSideStyle">
+          <view v-if="$slots.right" class="page-tab-header__right">
+            <slot name="right" />
+          </view>
         </view>
       </view>
     </view>
@@ -46,13 +48,64 @@ const props = defineProps({
 const emit = defineEmits(['back']);
 
 const statusBarHeight = ref(20);
+const navBarHeight = ref(44);
+/** 右侧留白，避免标题/按钮与微信小程序胶囊重叠 */
+const capsuleSafeRightPx = ref(12);
+const sideMinWidthPx = ref(44);
+
+const initNavLayout = () => {
+  try {
+    const sys = uni.getSystemInfoSync();
+    const sb = sys.statusBarHeight || 20;
+    statusBarHeight.value = sb;
+    let barH = 44;
+    let safeRight = 12;
+    let sideW = 44;
+
+    // #ifdef MP-WEIXIN
+    const menu = typeof uni.getMenuButtonBoundingClientRect === 'function'
+      ? uni.getMenuButtonBoundingClientRect()
+      : null;
+    if (menu && menu.width && menu.top != null) {
+      barH = Math.max(44, (menu.top - sb) * 2 + menu.height);
+      safeRight = Math.max(12, (sys.windowWidth || 375) - menu.left + 8);
+      sideW = Math.max(menu.width, 44);
+    }
+    // #endif
+
+    navBarHeight.value = barH;
+    capsuleSafeRightPx.value = safeRight;
+    sideMinWidthPx.value = props.showBack ? Math.max(sideW, 44) : sideW;
+  } catch (e) {
+    statusBarHeight.value = 20;
+    navBarHeight.value = 44;
+    capsuleSafeRightPx.value = 12;
+    sideMinWidthPx.value = 44;
+  }
+};
+
+initNavLayout();
 
 const statusBarStyle = computed(() => ({
   height: `${statusBarHeight.value}px`
 }));
 
+const headerStyle = computed(() => ({
+  '--nav-bar-height-px': `${navBarHeight.value}px`,
+  '--capsule-safe-right': `${capsuleSafeRightPx.value}px`
+}));
+
+const barStyle = computed(() => ({
+  height: `${navBarHeight.value}px`,
+  paddingRight: `calc(var(--page-padding-x, 30rpx) + ${capsuleSafeRightPx.value}px)`
+}));
+
+const rightSideStyle = computed(() => ({
+  minWidth: `${Math.max(sideMinWidthPx.value, capsuleSafeRightPx.value * 0.45)}px`
+}));
+
 const placeholderStyle = computed(() => ({
-  height: `${statusBarHeight.value + 44}px`
+  height: `${statusBarHeight.value + navBarHeight.value}px`
 }));
 
 const handleBack = () => {
@@ -69,12 +122,7 @@ const handleBack = () => {
 };
 
 onMounted(() => {
-  try {
-    const sys = uni.getSystemInfoSync();
-    statusBarHeight.value = sys.statusBarHeight || 20;
-  } catch (e) {
-    statusBarHeight.value = 20;
-  }
+  initNavLayout();
 });
 </script>
 
@@ -124,22 +172,40 @@ onMounted(() => {
 }
 
 .page-tab-header__bar {
-  height: var(--nav-bar-height, 44px);
+  position: relative;
+  height: var(--nav-bar-height-px, var(--nav-bar-height, 44px));
   display: flex;
   align-items: center;
-  padding: 0 var(--page-padding-x, 30rpx);
+  padding-left: var(--page-padding-x, 30rpx);
   box-sizing: border-box;
+}
+
+.page-tab-header__side {
+  position: relative;
+  z-index: 2;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+
+.page-tab-header__side--left {
+  justify-content: flex-start;
+  min-width: 88rpx;
+}
+
+.page-tab-header__side--right {
+  justify-content: flex-end;
+  margin-left: auto;
 }
 
 .page-tab-header__back {
   width: 64rpx;
   height: 64rpx;
   margin-left: -16rpx;
-  margin-right: 4rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
 }
 
 .page-tab-header__back-icon {
@@ -158,15 +224,20 @@ onMounted(() => {
 }
 
 .page-tab-header__title {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1;
+  max-width: min(480rpx, calc(100% - var(--capsule-safe-right, 96px) - 120rpx));
   font-size: var(--nav-title-size, 34rpx);
   font-weight: bold;
   line-height: 1.2;
-  flex: 1;
-  min-width: 0;
-}
-
-.page-tab-header__title--with-back {
-  flex: 1;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
 }
 
 .page-tab-header--light .page-tab-header__title,
@@ -179,10 +250,10 @@ onMounted(() => {
 }
 
 .page-tab-header__right {
-  margin-left: auto;
   display: flex;
   align-items: center;
-  flex-shrink: 0;
+  justify-content: flex-end;
+  pointer-events: auto;
 }
 
 .page-tab-header__placeholder {

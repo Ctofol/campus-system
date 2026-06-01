@@ -32,4 +32,9 @@ uvicorn app.main:app --reload
 - ReDoc: http://127.0.0.1:8000/redoc
 
 ## 6. 数据库初始化
-服务启动时会自动检测并创建所有数据表（如果不存在）。无需手动执行 SQL 脚本。
+服务启动时会自动检测并创建所有数据表（如果不存在）。启动时还会执行 `app/db_migrate.py` 补充人脸/体测相关字段。
+
+## 7. 人脸识别与体测分析部署
+环境变量见 `.env.example`。完整说明（InsightFace 本地、腾讯云、体测异步、Docker/systemd）：
+
+**[../docs/人脸识别与体测分析-部署说明.md](../docs/人脸识别与体测分析-部署说明.md)**

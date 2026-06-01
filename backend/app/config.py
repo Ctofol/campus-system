@@ -27,3 +27,29 @@ SCORE_TIER_3_MAX = 40
 SCORE_TIER_1_START_VAL = 42
 SCORE_TIER_2_START_VAL = 60
 SCORE_MAX = 100
+
+# 人脸核验：none=仅双照 | tencent=腾讯云 | local=InsightFace 本地比对
+FACE_PROVIDER = os.getenv("FACE_PROVIDER", "none")  # none | tencent | local
+FACE_INSIGHTFACE_MODEL = os.getenv("FACE_INSIGHTFACE_MODEL", "buffalo_l")
+FACE_INSIGHTFACE_PROVIDERS = os.getenv("FACE_INSIGHTFACE_PROVIDERS", "CPUExecutionProvider")
+# 本地 1:1 余弦相似度阈值（0~1），常见 0.38~0.55，可按内测调整
+FACE_LOCAL_MIN_SIMILARITY = float(os.getenv("FACE_LOCAL_MIN_SIMILARITY", "0.42"))
+TENCENT_SECRET_ID = os.getenv("TENCENT_SECRET_ID", "")
+TENCENT_SECRET_KEY = os.getenv("TENCENT_SECRET_KEY", "")
+TENCENT_REGION = os.getenv("TENCENT_REGION", "ap-guangzhou")
+FACE_MATCH_THRESHOLD = float(os.getenv("FACE_MATCH_THRESHOLD", "70"))
+FACE_VERIFY_TIMEOUT_SEC = int(os.getenv("FACE_VERIFY_TIMEOUT_SEC", "8"))
+FACE_BLOCK_ON_FAIL = os.getenv("FACE_BLOCK_ON_FAIL", "true").lower() in ("1", "true", "yes")
+
+# 体测视频分析
+TEST_ANALYSIS_USE_BACKGROUND = os.getenv("TEST_ANALYSIS_USE_BACKGROUND", "true").lower() in (
+    "1",
+    "true",
+    "yes",
+)
+TEST_DEFAULT_MIN_COUNT = int(os.getenv("TEST_DEFAULT_MIN_COUNT", "10"))
+TEST_EXERCISE_MIN_COUNT = {
+    "pull_up": int(os.getenv("TEST_MIN_COUNT_PULL_UP", "10")),
+    "sit_up": int(os.getenv("TEST_MIN_COUNT_SIT_UP", "10")),
+    "push_up": int(os.getenv("TEST_MIN_COUNT_PUSH_UP", "10")),
+}

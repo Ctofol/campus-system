@@ -41,11 +41,15 @@ services:
   campus-backend:
     build: ./backend
     container_name: campus-backend
+    env_file:
+      - ./backend/.env
     environment:
       - SQLALCHEMY_DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-your_password}@db:5432/${POSTGRES_DB:-campus_db}
       - TZ=Asia/Shanghai
     volumes:
       - ./backend/uploads:/app/uploads
+      # 可选：持久化 InsightFace 模型，避免每次重建容器重新下载
+      # - insightface_models:/root/.insightface
     depends_on:
       - db
     networks:

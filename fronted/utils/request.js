@@ -217,6 +217,20 @@ export const submitActivity = (data) => {
   });
 };
 
+export const getTestAnalysisStatus = (activityId) => {
+  return request({
+    url: `/activity/${activityId}/analysis-status`,
+    method: 'GET'
+  });
+};
+
+export const reanalyzeTestActivity = (activityId) => {
+  return request({
+    url: `/activity/${activityId}/reanalyze`,
+    method: 'POST'
+  });
+};
+
 export const getActivityHistory = (params) => {
   // params: { page, size }
   let queryString = '';

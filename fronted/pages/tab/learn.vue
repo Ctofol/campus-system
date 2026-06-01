@@ -1,6 +1,6 @@
 <template>
   <view class="learn-container">
-    <page-tab-header title="体育课程">
+    <page-tab-header title="体育课程" theme="brand">
       <template #right>
         <view class="nav-action" v-if="userRole === 'teacher'" @click="createCourse">
           <text class="action-icon">+</text>

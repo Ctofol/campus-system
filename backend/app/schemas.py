@@ -1,4 +1,4 @@
-﻿from pydantic import BaseModel
+from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
 
@@ -174,13 +174,17 @@ class ActivityMetricsCreate(BaseModel):
     distance: Optional[float] = None
     duration: int
     pace: Optional[str] = None
-    trajectory: Optional[str] = None # JSON string of coordinates
-    checkpoints: Optional[str] = None # JSON string of check-in data
+    trajectory: Optional[str] = None
+    checkpoints: Optional[str] = None
     count: Optional[int] = None
     qualified: bool = False
-    step_count: Optional[int] = None  # 姝ユ暟
-    video_url: Optional[str] = None  # 瑙嗛鏂囦欢URL
-    score: Optional[int] = None  # AI璇勫垎锛?-100锛?    score_detail: Optional[str] = None  # 璇勫垎璇︽儏锛圝SON瀛楃涓诧級
+    step_count: Optional[int] = None
+    video_url: Optional[str] = None
+    score: Optional[int] = None
+    score_detail: Optional[str] = None
+    exercise_type: Optional[str] = None
+    analysis_status: Optional[str] = None
+    analysis_error: Optional[str] = None
 
 class ActivityEvidenceCreate(BaseModel):
     evidence_type: str
@@ -189,6 +193,7 @@ class ActivityEvidenceCreate(BaseModel):
 class ActivityMetricsOut(ActivityMetricsCreate):
     id: int
     activity_id: int
+
     class Config:
         from_attributes = True
 
@@ -231,6 +236,9 @@ class ActivityOut(BaseModel):
     is_valid: Optional[bool] = None
     fail_reason: Optional[str] = None
     face_verified: Optional[bool] = None
+    face_liveness_pass: Optional[bool] = None
+    face_match_score: Optional[float] = None
+    face_fail_code: Optional[str] = None
     today_completed: Optional[bool] = None
     task_id: Optional[int] = None
     task_title: Optional[str] = None
@@ -701,3 +709,19 @@ class ClassMemberSunshineList(BaseModel):
 
 class StudentNotify(BaseModel):
     message: str
+
+
+class UserNotificationOut(BaseModel):
+    id: int
+    title: str
+    body: Optional[str] = None
+    ntype: str = "system"
+    is_read: bool = False
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class UserNotificationUnread(BaseModel):
+    count: int

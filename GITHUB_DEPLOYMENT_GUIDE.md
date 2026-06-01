@@ -79,6 +79,14 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
+#### 人脸 / 体测（可选，推荐内测使用本地人脸）
+
+```bash
+cp .env.example .env   # 若尚未创建
+# 编辑 .env：FACE_PROVIDER=local（InsightFace，无需腾讯云密钥）
+# 详见：docs/人脸识别与体测分析-部署说明.md
+```
+
 #### 创建必要目录
 ```bash
 mkdir -p uploads

@@ -60,6 +60,9 @@
 <script setup>
 import { ref } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
+import { smoothTrajectoryForMap, DEFAULT_BRAND_POLYLINE_STYLE } from '@/utils/trajectory-smooth.js';
+import { buildPaceColoredPolylines } from '@/utils/trajectory-pace-polyline.js';
+import { buildRunRouteMarkers } from '@/utils/run-map-markers.js';
 
 const activity = ref({});
 const centerLat = ref(39.909);
@@ -95,7 +98,12 @@ function normalizeTrajectoryPoints(raw) {
     const lat = Number(p.latitude ?? p.lat);
     const lng = Number(p.longitude ?? p.lng ?? p.lon);
     if (Number.isFinite(lat) && Number.isFinite(lng)) {
-      out.push({ latitude: lat, longitude: lng });
+      out.push({
+        latitude: lat,
+        longitude: lng,
+        timestamp: p.timestamp != null ? Number(p.timestamp) : null,
+        speed: p.speed != null ? Number(p.speed) : null
+      });
     }
   }
   return out;
@@ -143,48 +151,24 @@ onLoad((options) => {
             showMap.value = false;
 
             if (points.length >= 2) {
-                polyline.value = [{
-                    points,
-                    color: '#20C997',
-                    width: 4
-                }];
+                const paceLines = buildPaceColoredPolylines(points);
+                if (paceLines.length > 0) {
+                  polyline.value = paceLines;
+                } else {
+                  const displayPts = smoothTrajectoryForMap(points);
+                  polyline.value = [{
+                    ...DEFAULT_BRAND_POLYLINE_STYLE,
+                    points: displayPts
+                  }];
+                }
                 centerLat.value = points[0].latitude;
                 centerLng.value = points[0].longitude;
-                markers.value = [
-                    {
-                        id: 0,
-                        latitude: points[0].latitude,
-                        longitude: points[0].longitude,
-                        title: '起点',
-                        iconPath: '/static/location.png',
-                        width: 20,
-                        height: 20
-                    },
-                    {
-                        id: 1,
-                        latitude: points[points.length - 1].latitude,
-                        longitude: points[points.length - 1].longitude,
-                        title: '终点',
-                        iconPath: '/static/location.png',
-                        width: 20,
-                        height: 20
-                    }
-                ];
+                markers.value = buildRunRouteMarkers(points);
                 showMap.value = true;
             } else if (points.length === 1) {
                 centerLat.value = points[0].latitude;
                 centerLng.value = points[0].longitude;
-                markers.value = [
-                    {
-                        id: 0,
-                        latitude: points[0].latitude,
-                        longitude: points[0].longitude,
-                        title: '位置',
-                        iconPath: '/static/location.png',
-                        width: 20,
-                        height: 20
-                    }
-                ];
+                markers.value = buildRunRouteMarkers(points.slice(0, 1));
                 showMap.value = true;
             }
             

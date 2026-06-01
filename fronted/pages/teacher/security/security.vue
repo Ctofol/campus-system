@@ -105,29 +105,7 @@ onMounted(() => {
   background: #f5f7fa;
 }
 
-.nav-bar {
-  background: #fff;
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.05);
-}
-
-.nav-bar-inner {
-  height: 88rpx;
-  display: flex;
-  align-items: center;
-  padding: 0 30rpx;
-}
-
-.nav-back {
-  width: 60rpx;
-  height: 60rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-right: 20rpx;
-}
+/* 顶栏已统一为 page-tab-header，以下旧样式保留为空避免引用报错 */
 
 .back-icon {
   font-size: 40rpx;

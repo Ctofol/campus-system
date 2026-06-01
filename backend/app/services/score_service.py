@@ -25,7 +25,7 @@ def verify_activity(user: models.User, activity: models.Activity, db) -> Tuple[b
     - 性别 + 里程：男生 < 2.0km / 女生 < 1.2km 视为无效
     - 配速区间：3:00 - 10:00 min/km（以分钟/公里的浮点数表示）
     - 频次限制：同一天内已有一条达标记录，则本次无效
-    - 人脸验证：须同时有起跑、结束照片（不做第三方刷脸，上传即采证）
+    - 人脸验证：起跑+结束照片；配置腾讯云后启用活体+同人比对
     返回 (is_valid, fail_reason, face_verified)
     """
     metrics = activity.metrics
@@ -69,24 +69,17 @@ def verify_activity(user: models.User, activity: models.Activity, db) -> Tuple[b
     if valid_today_count > 0:
         return False, "今日已达标", False
 
-    # 4. 人脸采证：起跑 + 结束各一张照片（前端 start_face / end_face）
-    has_start = any(e.evidence_type == "start_face" for e in activity.evidence)
-    has_end = any(e.evidence_type == "end_face" for e in activity.evidence)
-    if has_start and has_end:
-        return True, "", True
+    # 4. 人脸核验（可降级为双照存在）
+    from .face_verify_service import apply_face_outcome_to_activity, verify_run_faces
 
-    legacy_camera = [
-        e for e in activity.evidence
-        if e.evidence_type in ("start_face", "end_face", "camera")
-    ]
-    if len(legacy_camera) >= 2:
-        return True, "", True
+    face_outcome = verify_run_faces(activity.evidence)
+    apply_face_outcome_to_activity(activity, face_outcome)
+    if not face_outcome.ok:
+        if config.FACE_BLOCK_ON_FAIL:
+            return False, face_outcome.reason, face_outcome.face_verified
+        return True, "", face_outcome.face_verified
 
-    if not has_start and not has_end:
-        return False, "人脸验证失败：缺少起跑与结束照片", False
-    if not has_start:
-        return False, "人脸验证失败：缺少起跑照片", False
-    return False, "人脸验证失败：缺少结束照片", False
+    return True, "", face_outcome.face_verified
 
 
 def calculate_total_score(valid_count: int) -> int:
