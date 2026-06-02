@@ -585,7 +585,7 @@ class CourseDetailOut(CourseOut):
 
 class CourseListItemOut(CourseOut):
     enrolled: bool = False
-    teacher_name: str = ""
+    teacher_name: Optional[str] = None
     lesson_total: int = 0
     lesson_completed: int = 0
     progress_percent: int = 0
