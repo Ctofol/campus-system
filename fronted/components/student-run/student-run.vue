@@ -83,44 +83,6 @@
           </cover-view>
         </cover-view>
 
-        <cover-view
-          v-if="!hideMapCoverLayer"
-          class="sport-recenter cover-panel"
-          @tap="recenterMap"
-        >
-          <cover-view class="sport-recenter-icon">◎</cover-view>
-        </cover-view>
-
-        <cover-view v-if="!hideMapCoverLayer && isRunning" class="sport-run-hud cover-panel">
-          <cover-view class="sport-hud-metrics">
-            <cover-view class="sport-hud-col">
-              <cover-view class="sport-hud-val">{{ hudDistanceKm }}</cover-view>
-              <cover-view class="sport-hud-lbl">公里</cover-view>
-            </cover-view>
-            <cover-view class="sport-hud-col">
-              <cover-view class="sport-hud-val sport-hud-val-sm">{{ formatHudDuration(duration) }}</cover-view>
-              <cover-view class="sport-hud-lbl">用时</cover-view>
-            </cover-view>
-            <cover-view class="sport-hud-col">
-              <cover-view class="sport-hud-val sport-hud-val-sm">{{ hudAvgPace }}</cover-view>
-              <cover-view class="sport-hud-lbl">配速</cover-view>
-            </cover-view>
-          </cover-view>
-          <cover-view
-            v-if="currentMode === 'police'"
-            class="sport-hud-extra"
-          >目标 {{ policeTargetKmLabel }} · 剩余 {{ (Math.max(0, policeTargetDistance - displayRunDistanceM)/1000).toFixed(2) }}km</cover-view>
-          <cover-view
-            v-if="currentMode === 'campus'"
-            class="sport-hud-extra"
-          >距打卡点 {{ distanceToCheckpoint }}m · {{ isReach ? '已到达' : '未到达' }}</cover-view>
-          <cover-view class="sport-hud-sub">步数 {{ stepCount }}</cover-view>
-          <cover-view v-if="runHudProgressPct > 0" class="sport-hud-bar">
-            <cover-view class="sport-hud-bar-fill" :style="{ width: runHudProgressPct + '%' }" />
-          </cover-view>
-          <cover-view class="sport-hud-stop" @tap="stopRun">{{ stopRunLabel }}</cover-view>
-        </cover-view>
-
         <cover-view v-if="showMapLegend" class="map-legend">
           <cover-view class="legend-row">
             <cover-view class="legend-pin legend-pin-me" />
@@ -132,6 +94,121 @@
           </cover-view>
         </cover-view>
       </map>
+
+      <view
+        v-if="!hideMapCoverLayer"
+        class="sport-recenter-float"
+        :style="recenterFloatStyle"
+        @tap="recenterMap"
+      >
+        <text class="sport-recenter-icon">◎</text>
+      </view>
+
+      <view
+        v-if="!hideMapCoverLayer && isRunning"
+        class="run-bottom-sheet"
+        :class="{
+          'run-bottom-sheet--expanded': runSheetExpanded,
+          'run-bottom-sheet--dragging': runSheetDragging
+        }"
+        :style="runSheetStyle"
+        @touchstart.stop="onRunSheetTouchStart"
+        @touchmove.stop.prevent="onRunSheetTouchMove"
+        @touchend.stop="onRunSheetTouchEnd"
+        @touchcancel.stop="onRunSheetTouchEnd"
+      >
+        <view class="run-sheet-handle-wrap" @tap.stop="toggleRunSheetExpand">
+          <view class="run-sheet-handle" />
+        </view>
+
+        <view v-if="!runSheetExpanded" class="run-sheet-compact">
+          <view v-if="isRunPaused" class="run-sheet-paused-tag">已暂停</view>
+          <view class="run-sheet-metric">
+            <text class="run-sheet-metric-val">{{ hudDistanceKm }}</text>
+            <text class="run-sheet-metric-lbl">公里</text>
+          </view>
+          <view class="run-sheet-metric">
+            <text class="run-sheet-metric-val run-sheet-metric-val--dim">{{ formatHudDuration(duration) }}</text>
+            <text class="run-sheet-metric-lbl">用时</text>
+          </view>
+          <view class="run-sheet-metric">
+            <text class="run-sheet-metric-val run-sheet-metric-val--dim">{{ hudAvgPace }}</text>
+            <text class="run-sheet-metric-lbl">配速</text>
+          </view>
+        </view>
+
+        <view v-else class="run-sheet-expanded">
+          <text v-if="isRunPaused" class="run-sheet-paused-banner">已暂停</text>
+          <text class="run-sheet-hero-val">{{ hudDistanceKm }}</text>
+          <text class="run-sheet-hero-lbl">总距离（公里）</text>
+          <view class="run-sheet-grid">
+            <view class="run-sheet-grid-item">
+              <text class="run-sheet-grid-val">{{ formatHudDuration(duration) }}</text>
+              <text class="run-sheet-grid-lbl">总时长</text>
+            </view>
+            <view class="run-sheet-grid-item">
+              <text class="run-sheet-grid-val">{{ hudAvgPace }}</text>
+              <text class="run-sheet-grid-lbl">平均配速</text>
+            </view>
+            <view class="run-sheet-grid-item">
+              <text class="run-sheet-grid-val">{{ stepCount }}</text>
+              <text class="run-sheet-grid-lbl">步数</text>
+            </view>
+            <view class="run-sheet-grid-item">
+              <text class="run-sheet-grid-val">{{ runHudCalories }}</text>
+              <text class="run-sheet-grid-lbl">消耗(千卡)</text>
+            </view>
+          </view>
+        </view>
+
+        <view v-if="currentMode === 'police'" class="run-sheet-extra">
+          目标 {{ policeTargetKmLabel }} · 剩余 {{ (Math.max(0, policeTargetDistance - displayRunDistanceM) / 1000).toFixed(2) }}km
+        </view>
+        <view v-if="currentMode === 'campus'" class="run-sheet-extra">
+          距打卡点 {{ distanceToCheckpoint }}m · {{ isReach ? '已到达' : '未到达' }}
+        </view>
+        <view v-if="runHudProgressPct > 0" class="run-sheet-progress">
+          <view class="run-sheet-progress-fill" :style="{ width: runHudProgressPct + '%' }" />
+        </view>
+
+        <view v-if="runSheetExpanded" class="run-sheet-controls">
+          <view
+            class="run-ctrl-side"
+            :class="{ 'run-ctrl-side--on': runControlsLocked }"
+            @tap.stop="toggleRunLock"
+          >
+            <text class="run-ctrl-side-icon">{{ runControlsLocked ? '🔒' : '🔓' }}</text>
+            <text class="run-ctrl-side-lbl">{{ runControlsLocked ? '已锁' : '锁定' }}</text>
+          </view>
+          <view
+            class="run-ctrl-main"
+            :class="{ 'run-ctrl-main--resume': isRunPaused }"
+            @tap.stop="toggleRunPause"
+          >
+            <text class="run-ctrl-main-icon">{{ isRunPaused ? '▶' : '❚❚' }}</text>
+            <text class="run-ctrl-main-lbl">{{ isRunPaused ? '继续' : '暂停' }}</text>
+          </view>
+          <view class="run-ctrl-side" @tap.stop="openRunSheetSettings">
+            <text class="run-ctrl-side-icon">⚙</text>
+            <text class="run-ctrl-side-lbl">设置</text>
+          </view>
+        </view>
+        <view v-else class="run-sheet-actions">
+          <view
+            class="run-sheet-pause-btn"
+            :class="{ 'run-sheet-pause-btn--resume': isRunPaused }"
+            @tap.stop="toggleRunPause"
+          >
+            <text>{{ isRunPaused ? '继续' : '暂停' }}</text>
+          </view>
+          <view class="run-sheet-stop run-sheet-stop--inline" @tap.stop="onCompactStopTap">
+            <text>{{ stopRunLabel }}</text>
+          </view>
+        </view>
+        <view v-if="runSheetExpanded" class="run-sheet-end-link" @tap.stop="onCompactStopTap">
+          {{ stopRunLabel }}
+        </view>
+      </view>
     </view>
 
     <view v-if="!isRunning && teacherRunTask" class="sport-teacher-task">
@@ -243,7 +320,8 @@ const goBack = () => {
 onMounted(() => {
   const sys = uni.getSystemInfoSync();
   statusBarHeight.value = sys.statusBarHeight || 20;
-  
+  initRunSheetSnap();
+
   // 寤惰繜鍔犺浇鍦板浘锛岄槻姝㈠鍣ㄦ湭灏辩华瀵艰嚧鐨勬覆鏌撻敊璇?
   setTimeout(() => {
     isMapReady.value = true;
@@ -1235,8 +1313,14 @@ const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
   patchCurrentLocationMarker();
 
   if (isRunning.value) {
-    syncRunElapsedDisplay();
-    // 涓嶅啀鎸?horizontalAccuracy 鏁存涓㈠純鍥炶皟锛氬急淇″彿涓嬪父 >100m锛屼涪寮冨悗閲岀▼姘歌繙涓嶆定锛涘紓甯镐綅绉诲凡鐢?d / calculatedSpeed 绾︽潫
+    if (!isRunPaused.value) {
+      syncRunElapsedDisplay();
+    }
+    if (isRunPaused.value) {
+      currentSpeed.value = 0;
+      return;
+    }
+    // 不再按 horizontalAccuracy 整段丢弃回调：弱信号下常 >100m，丢弃后里程永远不涨；异常位移已由 d / calculatedSpeed 约束
 
     // 1. Initial point
     if (trajectoryPoints.value.length === 0) {
@@ -1718,8 +1802,11 @@ const policeTargetKmLabel = computed(() => {
 });
 let timer = null;
 
+const isRunPaused = ref(false);
+const runControlsLocked = ref(false);
+
 const syncRunElapsedDisplay = () => {
-  if (!isRunning.value || !runSegmentStartMs.value) return;
+  if (!isRunning.value || isRunPaused.value || !runSegmentStartMs.value) return;
   duration.value = runActiveBaseSec.value + Math.floor((Date.now() - runSegmentStartMs.value) / 1000);
 };
 
@@ -1742,9 +1829,9 @@ const tickPoliceFinishHint = () => {
 /** 寰俊鐪熸満 map 鍦烘櫙涓嬩紭鍏堢敤 setTimeout 閫掑綊锛岄伩鍏?setInterval 瀹屽叏涓嶈Е鍙?*/
 const scheduleRunClock = () => {
   clearRunTickTimer();
-  if (!isRunning.value) return;
+  if (!isRunning.value || isRunPaused.value) return;
   const loop = () => {
-    if (!isRunning.value) {
+    if (!isRunning.value || isRunPaused.value) {
       timer = null;
       return;
     }
@@ -1916,6 +2003,7 @@ const stopRunSessionAutosave = () => {
 watch(isRunning, (running) => {
   refreshMarkers();
   if (running) {
+    resetRunSheet();
     saveRunSession();
     startRunSessionAutosave();
   } else {
@@ -2312,6 +2400,154 @@ const formatHudPace = (paceMinPerKm) => {
 
 const hudAvgPace = computed(() => formatHudPace(currentPace.value));
 const hudDistanceKm = computed(() => (displayRunDistanceM.value / 1000).toFixed(2));
+const runHudCalories = computed(() =>
+  Math.max(0, Math.round((displayRunDistanceM.value / 1000) * 60))
+);
+
+/** 跑步中底部可上拉面板（类似 Keep） */
+const runSheetSafeBottomPx = ref(0);
+const runSheetSnap = ref({ collapsed: 200, expanded: 380 });
+const runSheetHeightPx = ref(200);
+const runSheetExpanded = ref(false);
+const runSheetDragging = ref(false);
+let runSheetDragStartY = 0;
+let runSheetDragStartH = 200;
+
+const initRunSheetSnap = () => {
+  try {
+    const sys = uni.getSystemInfoSync();
+    const h = sys.windowHeight || 667;
+    const safe = sys.safeAreaInsets?.bottom || 0;
+    runSheetSafeBottomPx.value = safe;
+    runSheetSnap.value = {
+      collapsed: Math.round(h * 0.26),
+      expanded: Math.round(h * 0.52)
+    };
+    if (!runSheetDragging.value) {
+      runSheetHeightPx.value = runSheetExpanded.value
+        ? runSheetSnap.value.expanded
+        : runSheetSnap.value.collapsed;
+    }
+  } catch (e) {
+    runSheetSnap.value = { collapsed: 200, expanded: 380 };
+  }
+};
+
+const runSheetStyle = computed(() => ({
+  height: `${runSheetHeightPx.value}px`,
+  paddingBottom: `${runSheetSafeBottomPx.value}px`
+}));
+
+const recenterFloatStyle = computed(() => {
+  const bottomPx = isRunning.value ? runSheetHeightPx.value + 12 : 200;
+  return { bottom: `${bottomPx}px` };
+});
+
+const snapRunSheetHeight = (heightPx) => {
+  const min = Math.round(runSheetSnap.value.collapsed * 0.82);
+  const max = runSheetSnap.value.expanded;
+  return Math.max(min, Math.min(max, heightPx));
+};
+
+const settleRunSheetHeight = () => {
+  const mid = (runSheetSnap.value.collapsed + runSheetSnap.value.expanded) / 2;
+  if (runSheetHeightPx.value >= mid) {
+    runSheetHeightPx.value = runSheetSnap.value.expanded;
+    runSheetExpanded.value = true;
+  } else {
+    runSheetHeightPx.value = runSheetSnap.value.collapsed;
+    runSheetExpanded.value = false;
+  }
+};
+
+const toggleRunSheetExpand = () => {
+  runSheetExpanded.value = !runSheetExpanded.value;
+  runSheetHeightPx.value = runSheetExpanded.value
+    ? runSheetSnap.value.expanded
+    : runSheetSnap.value.collapsed;
+};
+
+const onRunSheetTouchStart = (e) => {
+  if (!e.touches?.length) return;
+  runSheetDragging.value = true;
+  runSheetDragStartY = e.touches[0].clientY;
+  runSheetDragStartH = runSheetHeightPx.value;
+};
+
+const onRunSheetTouchMove = (e) => {
+  if (!runSheetDragging.value || !e.touches?.length) return;
+  const dy = runSheetDragStartY - e.touches[0].clientY;
+  runSheetHeightPx.value = snapRunSheetHeight(runSheetDragStartH + dy);
+  runSheetExpanded.value = runSheetHeightPx.value > (runSheetSnap.value.collapsed + 40);
+};
+
+const onRunSheetTouchEnd = () => {
+  if (!runSheetDragging.value) return;
+  runSheetDragging.value = false;
+  settleRunSheetHeight();
+};
+
+const resetRunSheet = () => {
+  runSheetDragging.value = false;
+  runSheetExpanded.value = false;
+  runSheetHeightPx.value = runSheetSnap.value.collapsed;
+};
+
+const pauseRun = () => {
+  if (!isRunning.value || isRunPaused.value) return;
+  syncRunElapsedDisplay();
+  runActiveBaseSec.value = duration.value;
+  runSegmentStartMs.value = 0;
+  isRunPaused.value = true;
+  currentSpeed.value = 0;
+  clearRunTickTimer();
+  stopStepCount();
+  saveRunSession();
+};
+
+const resumeRunPaused = () => {
+  if (!isRunning.value || !isRunPaused.value) return;
+  isRunPaused.value = false;
+  runSegmentStartMs.value = Date.now();
+  scheduleRunClock();
+  startStepCount();
+  saveRunSession();
+};
+
+const toggleRunPause = () => {
+  if (runControlsLocked.value) {
+    uni.showToast({ title: '已锁定，请先解锁', icon: 'none' });
+    return;
+  }
+  if (isRunPaused.value) resumeRunPaused();
+  else pauseRun();
+};
+
+const toggleRunLock = () => {
+  runControlsLocked.value = !runControlsLocked.value;
+  uni.showToast({
+    title: runControlsLocked.value ? '已锁定，防误触' : '已解锁',
+    icon: 'none'
+  });
+};
+
+const openRunSheetSettings = () => {
+  uni.showActionSheet({
+    itemList: ['重新定位', stopRunLabel.value],
+    success: (res) => {
+      if (res.tapIndex === 0) recenterMap();
+      if (res.tapIndex === 1) onCompactStopTap();
+    }
+  });
+};
+
+const onCompactStopTap = () => {
+  if (runControlsLocked.value) {
+    uni.showToast({ title: '已锁定，请先解锁', icon: 'none' });
+    return;
+  }
+  stopRun();
+};
 /** 底部展开区：仅校园选点、专项说明；普通跑无此项 */
 const showRunSportSheet = computed(
   () => !isRunning.value && (currentMode.value === 'campus' || currentMode.value === 'police')
@@ -2539,6 +2775,7 @@ const saveRunSession = () => {
     stepCount: stepCount.value,
     runActiveBaseSec: runActiveBaseSec.value,
     runSegmentStartMs: runSegmentStartMs.value,
+    isRunPaused: isRunPaused.value,
     trajectoryPoints: trajectoryPoints.value,
     lat: lat.value,
     lng: lng.value,
@@ -2579,12 +2816,19 @@ const tryRestoreRunSession = () => {
     return false;
   }
   currentMode.value = snap.currentMode || 'normal';
+  isRunPaused.value = !!snap.isRunPaused;
   const awaySec = Math.max(0, Math.floor((Date.now() - snap.savedAt) / 1000));
-  duration.value = (snap.duration || 0) + awaySec;
+  if (isRunPaused.value) {
+    duration.value = snap.duration || 0;
+    runActiveBaseSec.value = duration.value;
+    runSegmentStartMs.value = 0;
+  } else {
+    duration.value = (snap.duration || 0) + awaySec;
+    runActiveBaseSec.value = duration.value;
+    runSegmentStartMs.value = Date.now();
+  }
   distance.value = snap.distance || 0;
   stepCount.value = snap.stepCount || 0;
-  runActiveBaseSec.value = duration.value;
-  runSegmentStartMs.value = Date.now();
   trajectoryPoints.value = Array.isArray(snap.trajectoryPoints) ? snap.trajectoryPoints : [];
   runPolyline.value.points = [];
   lat.value = snap.lat ?? lat.value;
@@ -2708,7 +2952,7 @@ const startAccelerometerWithRetry = (retryCount) => {
     counter.reset();
     counter.setStepCount(stepCount.value);
     accelerometerCallback = (res) => {
-      if (!isRunning.value) return;
+      if (!isRunning.value || isRunPaused.value) return;
       const now = Date.now();
       const result = counter.feed(res.x, res.y, res.z, now);
       if (result.stepped) {
@@ -2782,8 +3026,10 @@ const beginRunTrackingAfterFaceDefer = () => {
   const go = () => {
     if (!isRunning.value) return;
     startRealLocationTracking();
-    startStepCount();
-    scheduleRunClock();
+    if (!isRunPaused.value) {
+      startStepCount();
+      scheduleRunClock();
+    }
   };
   nextTick(() => {
     setTimeout(go, 400);
@@ -2800,6 +3046,8 @@ const initializeRunState = () => {
   }
 
   isRunning.value = true;
+  isRunPaused.value = false;
+  runControlsLocked.value = false;
   duration.value = 0;
   runActiveBaseSec.value = 0;
   runSegmentStartMs.value = Date.now();
@@ -3117,6 +3365,7 @@ const startCampusRun = async () => {
 const resumeRunAfterEndFaceCancelled = () => {
   runEndMarker.value = null;
   refreshMarkers();
+  isRunPaused.value = false;
   runActiveBaseSec.value = duration.value;
   runSegmentStartMs.value = Date.now();
   isRunning.value = true;
@@ -3200,6 +3449,8 @@ const submitCurrentRunToServer = async (runData) => {
 // 11. 缁撴潫璺戞锛堢粺涓€閫昏緫锛?
 const stopRun = async () => {
   if (!isRunning.value) return;
+  isRunPaused.value = false;
+  runControlsLocked.value = false;
   syncRunElapsedDisplay();
   if (hasPlausibleCoords()) {
     runEndMarker.value = createRunPointMarker(3, lat.value, lng.value, '终');
@@ -3721,9 +3972,10 @@ const buildHistory = (records) => {
   font-size: 32rpx;
   font-weight: bold;
 }
-.sport-recenter {
+.sport-recenter-float {
+  position: absolute;
   right: 24rpx;
-  bottom: 320rpx;
+  z-index: 18;
   width: 72rpx;
   height: 72rpx;
   border-radius: 36rpx;
@@ -3731,78 +3983,248 @@ const buildHistory = (records) => {
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 6rpx 20rpx rgba(0, 0, 0, 0.1);
+  transition: bottom 0.25s ease;
 }
 .sport-recenter-icon {
   color: #333333;
   font-size: 36rpx;
+  line-height: 1;
 }
-.sport-run-hud {
+
+/* 跑步中底部上拉面板 */
+.run-bottom-sheet {
+  position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(255, 255, 255, 0.96);
-  border-top-left-radius: 32rpx;
-  border-top-right-radius: 32rpx;
-  padding: 28rpx 32rpx calc(28rpx + env(safe-area-inset-bottom));
+  z-index: 24;
   box-sizing: border-box;
-  box-shadow: 0 -8rpx 32rpx rgba(0, 0, 0, 0.06);
+  background: linear-gradient(180deg, #252b38 0%, #141820 100%);
+  border-top-left-radius: 28rpx;
+  border-top-right-radius: 28rpx;
+  box-shadow: 0 -12rpx 40rpx rgba(0, 0, 0, 0.22);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: height 0.28s ease;
 }
-.sport-hud-metrics {
+.run-bottom-sheet--dragging {
+  transition: none;
+}
+.run-sheet-handle-wrap {
+  padding: 16rpx 0 8rpx;
+  display: flex;
+  justify-content: center;
+}
+.run-sheet-handle {
+  width: 72rpx;
+  height: 8rpx;
+  border-radius: 4rpx;
+  background-color: rgba(255, 255, 255, 0.32);
+}
+.run-sheet-compact {
+  position: relative;
   display: flex;
   flex-direction: row;
-  justify-content: space-between;
+  padding: 8rpx 24rpx 12rpx;
 }
-.sport-hud-col {
+.run-sheet-metric {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
 }
-.sport-hud-val {
-  color: #20c997;
-  font-size: 56rpx;
-  font-weight: bold;
+.run-sheet-metric-val {
+  color: #2ee6b8;
+  font-size: 52rpx;
+  font-weight: 700;
   line-height: 1.1;
 }
-.sport-hud-val-sm {
-  font-size: 40rpx;
-  color: #333;
+.run-sheet-metric-val--dim {
+  color: #f2f4f8;
+  font-size: 36rpx;
+  font-weight: 600;
 }
-.sport-hud-lbl {
-  color: #999;
+.run-sheet-metric-lbl {
+  color: rgba(255, 255, 255, 0.55);
   font-size: 22rpx;
   margin-top: 8rpx;
 }
-.sport-hud-extra,
-.sport-hud-sub {
-  color: #666;
+.run-sheet-expanded {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 32rpx 8rpx;
+}
+.run-sheet-paused-banner {
+  color: #ffb347;
+  font-size: 26rpx;
+  font-weight: 600;
+  margin-bottom: 8rpx;
+}
+.run-sheet-hero-val {
+  color: #ffffff;
+  font-size: 112rpx;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -2rpx;
+}
+.run-sheet-hero-lbl {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 24rpx;
+  margin-top: 8rpx;
+}
+.run-sheet-grid {
+  width: 100%;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  margin-top: 28rpx;
+}
+.run-sheet-grid-item {
+  width: 50%;
+  padding: 20rpx 8rpx;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.run-sheet-grid-val {
+  color: #f2f4f8;
+  font-size: 40rpx;
+  font-weight: 600;
+}
+.run-sheet-grid-lbl {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 22rpx;
+  margin-top: 6rpx;
+}
+.run-sheet-extra {
+  color: rgba(255, 255, 255, 0.65);
   font-size: 24rpx;
   text-align: center;
-  margin-top: 16rpx;
+  padding: 0 24rpx;
+  margin-top: 4rpx;
 }
-.sport-hud-bar {
+.run-sheet-progress {
   height: 8rpx;
-  background-color: #eee;
+  background-color: rgba(255, 255, 255, 0.12);
   border-radius: 4rpx;
-  margin-top: 20rpx;
+  margin: 12rpx 24rpx 0;
   overflow: hidden;
 }
-.sport-hud-bar-fill {
+.run-sheet-progress-fill {
   height: 8rpx;
   background-color: #20c997;
   border-radius: 4rpx;
 }
-.sport-hud-stop {
-  margin-top: 24rpx;
-  background-color: #fff;
-  border-width: 2rpx;
-  border-style: solid;
-  border-color: #20c997;
-  color: #20c997;
+.run-sheet-paused-tag {
+  position: absolute;
+  top: 52rpx;
+  left: 24rpx;
+  color: #ffb347;
+  font-size: 22rpx;
+  font-weight: 600;
+}
+.run-sheet-controls {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12rpx 32rpx 8rpx;
+  flex-shrink: 0;
+}
+.run-ctrl-side {
+  width: 120rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  opacity: 0.85;
+}
+.run-ctrl-side--on {
+  opacity: 1;
+}
+.run-ctrl-side-icon {
+  font-size: 40rpx;
+  line-height: 1.1;
+}
+.run-ctrl-side-lbl {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 22rpx;
+  margin-top: 6rpx;
+}
+.run-ctrl-main {
+  width: 168rpx;
+  height: 168rpx;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  border: 4rpx solid rgba(255, 255, 255, 0.35);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.run-ctrl-main--resume {
+  border-color: rgba(46, 230, 184, 0.9);
+  background: rgba(46, 230, 184, 0.18);
+}
+.run-ctrl-main-icon {
+  color: #ffffff;
+  font-size: 44rpx;
+  line-height: 1;
+  font-weight: 700;
+}
+.run-ctrl-main-lbl {
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 22rpx;
+  margin-top: 8rpx;
+}
+.run-sheet-actions {
+  display: flex;
+  flex-direction: row;
+  gap: 16rpx;
+  margin: 12rpx 24rpx 8rpx;
+  flex-shrink: 0;
+}
+.run-sheet-pause-btn {
+  flex: 1;
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #f2f4f8;
   font-size: 30rpx;
+  font-weight: 600;
   text-align: center;
   padding: 22rpx;
   border-radius: 16rpx;
+}
+.run-sheet-pause-btn--resume {
+  color: #2ee6b8;
+  border: 2rpx solid rgba(46, 230, 184, 0.6);
+}
+.run-sheet-stop {
+  background-color: rgba(255, 255, 255, 0.08);
+  border: 2rpx solid rgba(46, 230, 184, 0.85);
+  color: #2ee6b8;
+  font-size: 30rpx;
+  font-weight: 600;
+  text-align: center;
+  padding: 22rpx;
+  border-radius: 16rpx;
+  flex-shrink: 0;
+}
+.run-sheet-stop--inline {
+  flex: 1;
+  margin: 0;
+}
+.run-sheet-end-link {
+  margin: 0 24rpx 12rpx;
+  padding: 16rpx;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 26rpx;
+  flex-shrink: 0;
 }
 .sport-teacher-task {
   flex-shrink: 0;
