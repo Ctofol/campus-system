@@ -17,7 +17,7 @@
         :min-scale="3"
         :max-scale="20"
         scale="16"
-        :show-location="showNativeLocation"
+        :show-location="showMapNativeLocation"
       >
         <cover-view
           v-if="showMapTopHintBar"
@@ -773,9 +773,12 @@ const hasPlausibleCoords = () => {
   );
 };
 
-/** 定位中显示系统蓝点；定位成功后用带方向的自定义箭头 marker */
-const showNativeLocation = computed(
-  () => locationState.value === 'locating' && hasPlausibleCoords()
+/** 未开跑：微信原生半透明蓝点；开跑：仅自定义方向箭头，二者不同时开避免叠影 */
+const showMapNativeLocation = computed(
+  () =>
+    !isRunning.value &&
+    hasPlausibleCoords() &&
+    (locationState.value === 'success' || locationState.value === 'locating')
 );
 
 const MAP_ID = 'runMap';
@@ -795,7 +798,7 @@ const applyMapHeading = (deg) => {
   const snapped = snapCompassHeading(deg);
   if (snapped === mapHeading.value) return;
   mapHeading.value = snapped;
-  if (locationState.value !== 'success' || !hasPlausibleCoords()) return;
+  if (locationState.value !== 'success' || !hasPlausibleCoords() || !isRunning.value) return;
   const idx = markers.value.findIndex((m) => m.id === 0);
   if (idx < 0) {
     refreshMarkers();
@@ -810,7 +813,7 @@ const applyMapHeading = (deg) => {
 
 /** 仅更新 id=0 的当前位置 marker，避免整表重建导致微信地图箭头叠影 */
 const patchCurrentLocationMarker = () => {
-  if (!hasPlausibleCoords()) return;
+  if (!hasPlausibleCoords() || !isRunning.value) return;
   const fresh = createCurrentLocationMarker(lat.value, lng.value);
   const idx = markers.value.findIndex((m) => m.id === 0);
   if (idx < 0) {
@@ -872,20 +875,20 @@ const showLocationStatusBar = computed(
 );
 
 const createCurrentLocationMarker = (latitude, longitude) => {
-  const locating = locationState.value !== 'success';
+  const size = 28;
   return {
     id: 0,
     latitude,
     longitude,
     title: '当前位置',
-    iconPath: locating ? '/static/location.png' : '/static/nav-arrow.png',
-    width: locating ? 24 : 44,
-    height: locating ? 24 : 44,
-    rotate: locating ? 0 : mapHeading.value,
+    iconPath: '/static/nav-arrow-soft.png',
+    width: size,
+    height: size,
+    rotate: mapHeading.value,
     zIndex: 100,
-    anchor: { x: 0.5, y: locating ? 0.5 : 0.72 },
+    anchor: { x: 0.5, y: 0.5 },
     callout: {
-      content: locating ? '定位中…' : '我的位置',
+      content: '我的位置',
       color: '#333333',
       fontSize: 12,
       borderRadius: 8,
@@ -918,6 +921,12 @@ watch(showRunStartOnMap, () => {
   }
 });
 
+watch(locationState, () => {
+  if (hasPlausibleCoords()) {
+    refreshMarkers();
+  }
+});
+
 const refreshMarkers = () => {
   const nextMarkers = [];
   if (runStartMarker.value && showRunStartOnMap.value) {
@@ -929,7 +938,7 @@ const refreshMarkers = () => {
   if (checkpointMarker.value) {
     nextMarkers.push({ ...checkpointMarker.value });
   }
-  if (hasPlausibleCoords()) {
+  if (hasPlausibleCoords() && isRunning.value) {
     nextMarkers.push(createCurrentLocationMarker(lat.value, lng.value));
   }
   markers.value = nextMarkers;
@@ -1905,6 +1914,7 @@ const stopRunSessionAutosave = () => {
 };
 
 watch(isRunning, (running) => {
+  refreshMarkers();
   if (running) {
     saveRunSession();
     startRunSessionAutosave();

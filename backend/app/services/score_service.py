@@ -40,15 +40,22 @@ def verify_activity(user: models.User, activity: models.Activity, db) -> Tuple[b
     except ValueError:
         pace_val = None
 
+    # 人脸核验优先执行并写入 activity，便于短距离测试也能看到相似度
+    from .face_verify_service import apply_face_outcome_to_activity, verify_run_faces
+
+    face_outcome = verify_run_faces(activity.evidence)
+    apply_face_outcome_to_activity(activity, face_outcome)
+    face_verified = face_outcome.face_verified
+
     # 1. 性别 + 里程校验
     gender = (user.gender or "male").lower()
     min_dist = config.MIN_DISTANCE_MALE if gender == "male" else config.MIN_DISTANCE_FEMALE
     if distance_km < min_dist:
-        return False, "里程不足", False
+        return False, "里程不足", face_verified
 
     # 2. 配速区间校验
     if pace_val is None or pace_val < config.MIN_PACE_MIN_KM or pace_val > config.MAX_PACE_MIN_KM:
-        return False, "配速异常", False
+        return False, "配速异常", face_verified
 
     # 3. 频次限制：当天只允许一条达标记录
     today: date = datetime.utcnow().date()
@@ -67,19 +74,14 @@ def verify_activity(user: models.User, activity: models.Activity, db) -> Tuple[b
         .count()
     )
     if valid_today_count > 0:
-        return False, "今日已达标", False
+        return False, "今日已达标", face_verified
 
-    # 4. 人脸核验（可降级为双照存在）
-    from .face_verify_service import apply_face_outcome_to_activity, verify_run_faces
-
-    face_outcome = verify_run_faces(activity.evidence)
-    apply_face_outcome_to_activity(activity, face_outcome)
     if not face_outcome.ok:
         if config.FACE_BLOCK_ON_FAIL:
-            return False, face_outcome.reason, face_outcome.face_verified
-        return True, "", face_outcome.face_verified
+            return False, face_outcome.reason, face_verified
+        return True, "", face_verified
 
-    return True, "", face_outcome.face_verified
+    return True, "", face_verified
 
 
 def calculate_total_score(valid_count: int) -> int:

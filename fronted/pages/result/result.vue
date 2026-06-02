@@ -329,12 +329,17 @@ onLoad((options) => {
     if (data.face_match_score != null) {
       faceMatchScore.value = data.face_match_score;
     }
+    const scoreExtra =
+      faceMatchScore.value != null
+        ? `（相似度 ${Number(faceMatchScore.value).toFixed(1)}）`
+        : '';
     if (data.face_verified === true) {
-      const extra =
-        faceMatchScore.value != null
-          ? `（相似度 ${Number(faceMatchScore.value).toFixed(1)}）`
-          : '';
-      faceVerifyText.value = `起止人脸核验通过${extra}`;
+      faceVerifyText.value = `起止人脸核验通过${scoreExtra}`;
+    } else if (faceMatchScore.value != null) {
+      const sportFail = data.fail_reason && !String(data.fail_reason).includes('人脸');
+      faceVerifyText.value = sportFail
+        ? `起止已比对${scoreExtra}，本次因${data.fail_reason}未计入成绩`
+        : `起止人脸核验未通过${scoreExtra}`;
     } else if (data.face_verified === false) {
       faceVerifyText.value = data.fail_reason || '起止人脸核验未通过';
     }
