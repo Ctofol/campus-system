@@ -28,13 +28,13 @@ def _build_course_list_item(
     lesson_total = len(contents)
     duration_minutes = sum((c.duration or 0) for c in contents) // 60
 
-    teacher_name = "授课教师"
+    teacher_name = None
     if course.teacher_id:
         teacher = course.teacher or db.query(models.User).filter(
             models.User.id == course.teacher_id
         ).first()
-        if teacher and teacher.name:
-            teacher_name = teacher.name
+        if teacher and teacher.name and str(teacher.name).strip():
+            teacher_name = str(teacher.name).strip()
 
     enrolled = False
     progress_percent = 0
@@ -311,6 +311,66 @@ async def get_course_contents(
     ).order_by(models.CourseContent.order).all()
     
     return contents
+
+@router.put("/{course_id}/contents/{content_id}", response_model=schemas.CourseContentOut)
+async def update_course_content(
+    course_id: int,
+    content_id: int,
+    content_in: schemas.CourseContentCreate,
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db)
+):
+    """更新课程章节（仅课程创建者）"""
+    course = db.query(models.Course).filter(models.Course.id == course_id).first()
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    if course.teacher_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to update content for this course")
+
+    content = db.query(models.CourseContent).filter(
+        models.CourseContent.id == content_id,
+        models.CourseContent.course_id == course_id
+    ).first()
+    if not content:
+        raise HTTPException(status_code=404, detail="Content not found")
+
+    content.title = content_in.title
+    content.content_type = content_in.content_type
+    content.content_url = content_in.content_url
+    content.duration = content_in.duration
+    content.order = content_in.order
+    db.commit()
+    db.refresh(content)
+    return content
+
+
+@router.delete("/{course_id}/contents/{content_id}")
+async def delete_course_content(
+    course_id: int,
+    content_id: int,
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db)
+):
+    """删除课程章节（仅课程创建者）"""
+    course = db.query(models.Course).filter(models.Course.id == course_id).first()
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    if course.teacher_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to delete content from this course")
+
+    content = db.query(models.CourseContent).filter(
+        models.CourseContent.id == content_id,
+        models.CourseContent.course_id == course_id
+    ).first()
+    if not content:
+        raise HTTPException(status_code=404, detail="Content not found")
+
+    db.query(models.CourseProgress).filter(
+        models.CourseProgress.content_id == content_id
+    ).delete(synchronize_session=False)
+    db.delete(content)
+    db.commit()
+    return {"success": True}
 
 @router.get("/content/{content_id}", response_model=schemas.CourseContentOut)
 async def get_single_content(

@@ -375,15 +375,9 @@ const editCourse = () => {
 
 // 管理内容
 const manageContent = () => {
-  uni.showToast({ 
-    title: '内容管理功能开发中', 
-    icon: 'none' 
+  uni.navigateTo({
+    url: `/pages/courses/content-manage?courseId=${courseId.value}`
   });
-  
-  // TODO: 跳转到内容管理页面
-  // uni.navigateTo({
-  //   url: `/pages/courses/manage-content?courseId=${courseId.value}`
-  // });
 };
 
 // 图片加载失败

@@ -65,13 +65,16 @@
         />
         <view class="course-body">
           <text class="course-title">{{ course.title }}</text>
-          <view class="course-meta-row">
-            <text class="course-meta">👤 {{ course.teacher_name || '授课教师' }}</text>
-            <text class="course-meta" v-if="course.duration_minutes > 0">⏱ {{ course.duration_minutes }}分钟</text>
+          <view
+            v-if="course.teacher_name || course.duration_minutes > 0 || course.category_label"
+            class="course-meta-row"
+          >
+            <text v-if="course.teacher_name" class="course-meta">👤 {{ course.teacher_name }}</text>
+            <text v-if="course.duration_minutes > 0" class="course-meta">⏱ {{ course.duration_minutes }}分钟</text>
+            <text v-if="course.category_label" class="course-meta">📚 {{ course.category_label }}</text>
           </view>
-          <view class="course-meta-row">
-            <text class="course-meta">⭐ 4.8</text>
-            <text class="course-meta">👥 {{ course.enrollment_count || 0 }}人在学</text>
+          <view v-if="course.enrollment_count > 0" class="course-meta-row">
+            <text class="course-meta">👥 {{ course.enrollment_count }}人在学</text>
           </view>
 
           <view v-if="course.enrolled && userRole === 'student'" class="course-progress-block">
@@ -97,6 +100,9 @@
           </view>
 
           <view class="course-actions" v-if="userRole === 'teacher' && course.teacher_id === userId">
+            <view class="action-btn content" @click.stop="manageCourseContent(course)">
+              <text>内容</text>
+            </view>
             <view class="action-btn edit" @click.stop="editCourse(course)">
               <text>编辑</text>
             </view>
@@ -223,7 +229,7 @@ const loadCourses = async (reset = false) => {
       lesson_total: c.lesson_total ?? 0,
       lesson_completed: c.lesson_completed ?? 0,
       duration_minutes: c.duration_minutes ?? 0,
-      teacher_name: c.teacher_name || '授课教师'
+      teacher_name: c.teacher_name ? String(c.teacher_name).trim() : ''
     }));
 
     courses.value = reset ? newCourses : [...courses.value, ...newCourses];
@@ -278,6 +284,10 @@ const createCourse = () => {
 
 const editCourse = (course) => {
   uni.navigateTo({ url: `/pages/courses/edit?id=${course.id}` });
+};
+
+const manageCourseContent = (course) => {
+  uni.navigateTo({ url: `/pages/courses/content-manage?courseId=${course.id}` });
 };
 
 const deleteCourse = async (course) => {
@@ -584,6 +594,11 @@ onReachBottom(() => loadCourses(false));
   text-align: center;
   border-radius: 12rpx;
   font-size: 24rpx;
+
+  &.content {
+    background: #e8f8f3;
+    color: #20c997;
+  }
 
   &.edit {
     background: #20c997;

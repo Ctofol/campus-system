@@ -77,12 +77,12 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
-import { createCourse, uploadFile, BASE_URL } from '@/utils/request.js';
+import { createCourse, uploadFile, resolveMediaUrl } from '@/utils/request.js';
 
 const getFullImageUrl = (url) => {
   if (!url) return '/static/activity-placeholder.png';
-  if (url.startsWith('http') || url.startsWith('blob:') || url.startsWith('wxfile:')) return url;
-  return `${BASE_URL}${url}`;
+  if (url.startsWith('blob:') || url.startsWith('wxfile:')) return url;
+  return resolveMediaUrl(url) || '/static/activity-placeholder.png';
 };
 
 const categories = [
@@ -191,20 +191,24 @@ const handleSubmit = async () => {
   
   submitting.value = true;
   try {
-    await createCourse(form.value);
-    uni.showToast({ 
-      title: '创建成功', 
-      icon: 'success',
-      duration: 1500
-    });
-    setTimeout(() => {
-      uni.navigateBack({
-        success: () => {
-          // 通知列表页刷新
-          uni.$emit('courseCreated');
+    const course = await createCourse(form.value);
+    submitting.value = false;
+    uni.$emit('courseCreated');
+    uni.showModal({
+      title: '创建成功',
+      content: '是否立即添加视频章节？',
+      confirmText: '去添加',
+      cancelText: '稍后',
+      success: (res) => {
+        if (res.confirm && course?.id) {
+          uni.redirectTo({
+            url: `/pages/courses/content-manage?courseId=${course.id}`
+          });
+        } else {
+          uni.navigateBack();
         }
-      });
-    }, 1500);
+      }
+    });
   } catch (e) {
     console.error('Create course failed:', e);
     
