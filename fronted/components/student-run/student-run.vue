@@ -108,55 +108,70 @@
         v-if="!hideMapCoverLayer && isRunning"
         class="run-bottom-sheet"
         :class="{
-          'run-bottom-sheet--expanded': runSheetExpanded,
+          'run-bottom-sheet--expanded': runSheetExpandProgress >= 0.55,
           'run-bottom-sheet--dragging': runSheetDragging
         }"
         :style="runSheetStyle"
-        @touchstart.stop="onRunSheetTouchStart"
-        @touchmove.stop.prevent="onRunSheetTouchMove"
-        @touchend.stop="onRunSheetTouchEnd"
-        @touchcancel.stop="onRunSheetTouchEnd"
       >
-        <view class="run-sheet-handle-wrap" @tap.stop="toggleRunSheetExpand">
+        <view
+          class="run-sheet-handle-wrap"
+          @tap.stop="toggleRunSheetExpand"
+          @touchstart.stop="onRunSheetTouchStart"
+          @touchmove.stop.prevent="onRunSheetTouchMove"
+          @touchend.stop="onRunSheetTouchEnd"
+          @touchcancel.stop="onRunSheetTouchEnd"
+        >
           <view class="run-sheet-handle" />
         </view>
 
-        <view v-if="!runSheetExpanded" class="run-sheet-compact">
-          <view v-if="isRunPaused" class="run-sheet-paused-tag">已暂停</view>
-          <view class="run-sheet-metric">
-            <text class="run-sheet-metric-val">{{ hudDistanceKm }}</text>
-            <text class="run-sheet-metric-lbl">公里</text>
-          </view>
-          <view class="run-sheet-metric">
-            <text class="run-sheet-metric-val run-sheet-metric-val--dim">{{ formatHudDuration(duration) }}</text>
-            <text class="run-sheet-metric-lbl">用时</text>
-          </view>
-          <view class="run-sheet-metric">
-            <text class="run-sheet-metric-val run-sheet-metric-val--dim">{{ hudAvgPace }}</text>
-            <text class="run-sheet-metric-lbl">配速</text>
-          </view>
-        </view>
+        <view v-if="isRunPaused" class="run-sheet-paused-chip">已暂停</view>
 
-        <view v-else class="run-sheet-expanded">
-          <text v-if="isRunPaused" class="run-sheet-paused-banner">已暂停</text>
-          <text class="run-sheet-hero-val">{{ hudDistanceKm }}</text>
-          <text class="run-sheet-hero-lbl">总距离（公里）</text>
-          <view class="run-sheet-grid">
-            <view class="run-sheet-grid-item">
-              <text class="run-sheet-grid-val">{{ formatHudDuration(duration) }}</text>
-              <text class="run-sheet-grid-lbl">总时长</text>
+        <view
+          class="run-sheet-body"
+          @touchstart.stop="onRunSheetTouchStart"
+          @touchmove.stop.prevent="onRunSheetTouchMove"
+          @touchend.stop="onRunSheetTouchEnd"
+          @touchcancel.stop="onRunSheetTouchEnd"
+        >
+          <view class="run-sheet-layer run-sheet-layer--compact" :style="runSheetCompactStyle">
+            <view class="run-sheet-metric">
+              <text class="run-sheet-metric-val">{{ hudDistanceKm }}</text>
+              <text class="run-sheet-metric-lbl">公里</text>
             </view>
-            <view class="run-sheet-grid-item">
-              <text class="run-sheet-grid-val">{{ hudAvgPace }}</text>
-              <text class="run-sheet-grid-lbl">平均配速</text>
+            <view class="run-sheet-metric">
+              <text class="run-sheet-metric-val run-sheet-metric-val--dim">{{ formatHudDuration(duration) }}</text>
+              <text class="run-sheet-metric-lbl">用时</text>
             </view>
-            <view class="run-sheet-grid-item">
-              <text class="run-sheet-grid-val">{{ stepCount }}</text>
-              <text class="run-sheet-grid-lbl">步数</text>
+            <view class="run-sheet-metric">
+              <text class="run-sheet-metric-val run-sheet-metric-val--dim">{{ hudAvgPace }}</text>
+              <text class="run-sheet-metric-lbl">配速</text>
             </view>
-            <view class="run-sheet-grid-item">
-              <text class="run-sheet-grid-val">{{ runHudCalories }}</text>
-              <text class="run-sheet-grid-lbl">消耗(千卡)</text>
+          </view>
+
+          <view
+            v-show="runSheetExpandProgress > 0.04"
+            class="run-sheet-layer run-sheet-layer--expanded"
+            :style="runSheetExpandedLayerStyle"
+          >
+            <text class="run-sheet-hero-val">{{ hudDistanceKm }}</text>
+            <text class="run-sheet-hero-lbl">总距离（公里）</text>
+            <view class="run-sheet-grid">
+              <view class="run-sheet-grid-item">
+                <text class="run-sheet-grid-val">{{ formatHudDuration(duration) }}</text>
+                <text class="run-sheet-grid-lbl">总时长</text>
+              </view>
+              <view class="run-sheet-grid-item">
+                <text class="run-sheet-grid-val">{{ hudAvgPace }}</text>
+                <text class="run-sheet-grid-lbl">平均配速</text>
+              </view>
+              <view class="run-sheet-grid-item">
+                <text class="run-sheet-grid-val">{{ stepCount }}</text>
+                <text class="run-sheet-grid-lbl">步数</text>
+              </view>
+              <view class="run-sheet-grid-item">
+                <text class="run-sheet-grid-val">{{ runHudCalories }}</text>
+                <text class="run-sheet-grid-lbl">消耗(千卡)</text>
+              </view>
             </view>
           </view>
         </view>
@@ -171,41 +186,36 @@
           <view class="run-sheet-progress-fill" :style="{ width: runHudProgressPct + '%' }" />
         </view>
 
-        <view v-if="runSheetExpanded" class="run-sheet-controls">
+        <view class="run-sheet-controls" :style="runSheetControlsStyle">
           <view
             class="run-ctrl-side"
+            hover-class="run-ctrl-hover"
             :class="{ 'run-ctrl-side--on': runControlsLocked }"
-            @tap.stop="toggleRunLock"
+            @tap="toggleRunLock"
           >
             <text class="run-ctrl-side-icon">{{ runControlsLocked ? '🔒' : '🔓' }}</text>
             <text class="run-ctrl-side-lbl">{{ runControlsLocked ? '已锁' : '锁定' }}</text>
           </view>
           <view
             class="run-ctrl-main"
+            hover-class="run-ctrl-hover"
             :class="{ 'run-ctrl-main--resume': isRunPaused }"
-            @tap.stop="toggleRunPause"
+            @tap="toggleRunPause"
           >
             <text class="run-ctrl-main-icon">{{ isRunPaused ? '▶' : '❚❚' }}</text>
             <text class="run-ctrl-main-lbl">{{ isRunPaused ? '继续' : '暂停' }}</text>
           </view>
-          <view class="run-ctrl-side" @tap.stop="openRunSheetSettings">
+          <view class="run-ctrl-side" hover-class="run-ctrl-hover" @tap="openRunSheetSettings">
             <text class="run-ctrl-side-icon">⚙</text>
             <text class="run-ctrl-side-lbl">设置</text>
           </view>
         </view>
-        <view v-else class="run-sheet-actions">
-          <view
-            class="run-sheet-pause-btn"
-            :class="{ 'run-sheet-pause-btn--resume': isRunPaused }"
-            @tap.stop="toggleRunPause"
-          >
-            <text>{{ isRunPaused ? '继续' : '暂停' }}</text>
-          </view>
-          <view class="run-sheet-stop run-sheet-stop--inline" @tap.stop="onCompactStopTap">
-            <text>{{ stopRunLabel }}</text>
-          </view>
-        </view>
-        <view v-if="runSheetExpanded" class="run-sheet-end-link" @tap.stop="onCompactStopTap">
+        <view
+          class="run-sheet-end-link"
+          hover-class="run-ctrl-hover"
+          :style="runSheetEndLinkStyle"
+          @tap="onCompactStopTap"
+        >
           {{ stopRunLabel }}
         </view>
       </view>
@@ -1059,7 +1069,7 @@ const updateMapPolyline = () => {
     } else if (runPolyline.value.points && runPolyline.value.points.length >= 2) {
       lines.push({ ...runPolyline.value, points: [...runPolyline.value.points] });
     }
-  } else if (runPolyline.value.points && runPolyline.value.points.length >= 1) {
+  } else if (runPolyline.value.points && runPolyline.value.points.length >= 2) {
     lines.push({ ...runPolyline.value, points: [...runPolyline.value.points] });
   }
   if (navPolyline.value && navPolyline.value.points && navPolyline.value.points.length >= 2) {
@@ -2412,6 +2422,43 @@ const runSheetExpanded = ref(false);
 const runSheetDragging = ref(false);
 let runSheetDragStartY = 0;
 let runSheetDragStartH = 200;
+let runSheetDragStartAt = 0;
+let runSheetDragLastY = 0;
+
+const runSheetExpandProgress = computed(() => {
+  const min = runSheetSnap.value.collapsed;
+  const max = runSheetSnap.value.expanded;
+  const range = max - min;
+  if (range <= 0) return runSheetExpanded.value ? 1 : 0;
+  return Math.max(0, Math.min(1, (runSheetHeightPx.value - min) / range));
+});
+
+const runSheetCompactStyle = computed(() => {
+  const p = runSheetExpandProgress.value;
+  return {
+    opacity: Math.max(0, 1 - p * 1.35)
+  };
+});
+
+const runSheetExpandedLayerStyle = computed(() => {
+  const p = runSheetExpandProgress.value;
+  const fade = Math.max(0, Math.min(1, (p - 0.08) / 0.72));
+  return { opacity: fade };
+});
+
+const runSheetControlsStyle = computed(() => {
+  const p = runSheetExpandProgress.value;
+  return {
+    opacity: 0.78 + p * 0.22
+  };
+});
+
+const runSheetEndLinkStyle = computed(() => {
+  const p = runSheetExpandProgress.value;
+  return {
+    opacity: 0.42 + p * 0.58
+  };
+});
 
 const initRunSheetSnap = () => {
   try {
@@ -2420,8 +2467,8 @@ const initRunSheetSnap = () => {
     const safe = sys.safeAreaInsets?.bottom || 0;
     runSheetSafeBottomPx.value = safe;
     runSheetSnap.value = {
-      collapsed: Math.round(h * 0.26),
-      expanded: Math.round(h * 0.52)
+      collapsed: Math.round(h * 0.30 + safe * 0.35),
+      expanded: Math.round(h * 0.54)
     };
     if (!runSheetDragging.value) {
       runSheetHeightPx.value = runSheetExpanded.value
@@ -2449,15 +2496,16 @@ const snapRunSheetHeight = (heightPx) => {
   return Math.max(min, Math.min(max, heightPx));
 };
 
-const settleRunSheetHeight = () => {
+const settleRunSheetHeight = (velocityPxMs = 0) => {
   const mid = (runSheetSnap.value.collapsed + runSheetSnap.value.expanded) / 2;
-  if (runSheetHeightPx.value >= mid) {
-    runSheetHeightPx.value = runSheetSnap.value.expanded;
-    runSheetExpanded.value = true;
-  } else {
-    runSheetHeightPx.value = runSheetSnap.value.collapsed;
-    runSheetExpanded.value = false;
+  let expand = runSheetHeightPx.value >= mid;
+  if (Math.abs(velocityPxMs) > 0.28) {
+    expand = velocityPxMs > 0;
+  } else if (Math.abs(runSheetHeightPx.value - mid) < 18) {
+    expand = runSheetExpanded.value;
   }
+  runSheetExpanded.value = expand;
+  runSheetHeightPx.value = expand ? runSheetSnap.value.expanded : runSheetSnap.value.collapsed;
 };
 
 const toggleRunSheetExpand = () => {
@@ -2472,19 +2520,25 @@ const onRunSheetTouchStart = (e) => {
   runSheetDragging.value = true;
   runSheetDragStartY = e.touches[0].clientY;
   runSheetDragStartH = runSheetHeightPx.value;
+  runSheetDragStartAt = Date.now();
+  runSheetDragLastY = runSheetDragStartY;
 };
 
 const onRunSheetTouchMove = (e) => {
   if (!runSheetDragging.value || !e.touches?.length) return;
-  const dy = runSheetDragStartY - e.touches[0].clientY;
+  const y = e.touches[0].clientY;
+  const dy = runSheetDragStartY - y;
   runSheetHeightPx.value = snapRunSheetHeight(runSheetDragStartH + dy);
-  runSheetExpanded.value = runSheetHeightPx.value > (runSheetSnap.value.collapsed + 40);
+  runSheetDragLastY = y;
 };
 
 const onRunSheetTouchEnd = () => {
   if (!runSheetDragging.value) return;
+  const now = Date.now();
+  const dt = Math.max(16, now - runSheetDragStartAt);
+  const velocity = (runSheetDragStartY - runSheetDragLastY) / dt;
   runSheetDragging.value = false;
-  settleRunSheetHeight();
+  settleRunSheetHeight(velocity);
 };
 
 const resetRunSheet = () => {
@@ -3975,7 +4029,7 @@ const buildHistory = (records) => {
 .sport-recenter-float {
   position: absolute;
   right: 24rpx;
-  z-index: 18;
+  z-index: 120;
   width: 72rpx;
   height: 72rpx;
   border-radius: 36rpx;
@@ -3984,7 +4038,7 @@ const buildHistory = (records) => {
   align-items: center;
   justify-content: center;
   box-shadow: 0 6rpx 20rpx rgba(0, 0, 0, 0.1);
-  transition: bottom 0.25s ease;
+  transition: bottom 0.32s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .sport-recenter-icon {
   color: #333333;
@@ -3998,7 +4052,7 @@ const buildHistory = (records) => {
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 24;
+  z-index: 130;
   box-sizing: border-box;
   background: linear-gradient(180deg, #252b38 0%, #141820 100%);
   border-top-left-radius: 28rpx;
@@ -4007,27 +4061,65 @@ const buildHistory = (records) => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  transition: height 0.28s ease;
+  transition: height 0.34s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .run-bottom-sheet--dragging {
   transition: none;
+}
+.run-bottom-sheet--expanded .run-sheet-handle {
+  background-color: rgba(255, 255, 255, 0.42);
 }
 .run-sheet-handle-wrap {
   padding: 16rpx 0 8rpx;
   display: flex;
   justify-content: center;
+  flex-shrink: 0;
 }
 .run-sheet-handle {
   width: 72rpx;
   height: 8rpx;
   border-radius: 4rpx;
   background-color: rgba(255, 255, 255, 0.32);
+  transition: background-color 0.24s ease;
 }
-.run-sheet-compact {
+.run-sheet-paused-chip {
+  align-self: center;
+  margin: 0 0 4rpx;
+  padding: 4rpx 16rpx;
+  border-radius: 999rpx;
+  background: rgba(255, 179, 71, 0.16);
+  color: #ffb347;
+  font-size: 22rpx;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.run-sheet-body {
   position: relative;
+  flex: 1;
+  min-height: 120rpx;
+  overflow: hidden;
+}
+.run-sheet-layer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
   display: flex;
+  box-sizing: border-box;
+}
+.run-sheet-layer--compact {
   flex-direction: row;
-  padding: 8rpx 24rpx 12rpx;
+  align-items: center;
+  padding: 4rpx 24rpx 8rpx;
+  pointer-events: none;
+}
+.run-sheet-layer--expanded {
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 0 32rpx 8rpx;
+  pointer-events: none;
 }
 .run-sheet-metric {
   flex: 1;
@@ -4050,20 +4142,6 @@ const buildHistory = (records) => {
   color: rgba(255, 255, 255, 0.55);
   font-size: 22rpx;
   margin-top: 8rpx;
-}
-.run-sheet-expanded {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 0 32rpx 8rpx;
-}
-.run-sheet-paused-banner {
-  color: #ffb347;
-  font-size: 26rpx;
-  font-weight: 600;
-  margin-bottom: 8rpx;
 }
 .run-sheet-hero-val {
   color: #ffffff;
@@ -4121,21 +4199,18 @@ const buildHistory = (records) => {
   background-color: #20c997;
   border-radius: 4rpx;
 }
-.run-sheet-paused-tag {
-  position: absolute;
-  top: 52rpx;
-  left: 24rpx;
-  color: #ffb347;
-  font-size: 22rpx;
-  font-weight: 600;
-}
 .run-sheet-controls {
   display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  padding: 12rpx 32rpx 8rpx;
+  padding: 4rpx 32rpx 0;
   flex-shrink: 0;
+  position: relative;
+  z-index: 2;
+}
+.run-ctrl-hover {
+  opacity: 0.72;
 }
 .run-ctrl-side {
   width: 120rpx;
@@ -4157,8 +4232,8 @@ const buildHistory = (records) => {
   margin-top: 6rpx;
 }
 .run-ctrl-main {
-  width: 168rpx;
-  height: 168rpx;
+  width: 152rpx;
+  height: 152rpx;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.12);
   border: 4rpx solid rgba(255, 255, 255, 0.35);
@@ -4182,49 +4257,15 @@ const buildHistory = (records) => {
   font-size: 22rpx;
   margin-top: 8rpx;
 }
-.run-sheet-actions {
-  display: flex;
-  flex-direction: row;
-  gap: 16rpx;
-  margin: 12rpx 24rpx 8rpx;
-  flex-shrink: 0;
-}
-.run-sheet-pause-btn {
-  flex: 1;
-  background-color: rgba(255, 255, 255, 0.1);
-  color: #f2f4f8;
-  font-size: 30rpx;
-  font-weight: 600;
-  text-align: center;
-  padding: 22rpx;
-  border-radius: 16rpx;
-}
-.run-sheet-pause-btn--resume {
-  color: #2ee6b8;
-  border: 2rpx solid rgba(46, 230, 184, 0.6);
-}
-.run-sheet-stop {
-  background-color: rgba(255, 255, 255, 0.08);
-  border: 2rpx solid rgba(46, 230, 184, 0.85);
-  color: #2ee6b8;
-  font-size: 30rpx;
-  font-weight: 600;
-  text-align: center;
-  padding: 22rpx;
-  border-radius: 16rpx;
-  flex-shrink: 0;
-}
-.run-sheet-stop--inline {
-  flex: 1;
-  margin: 0;
-}
 .run-sheet-end-link {
-  margin: 0 24rpx 12rpx;
-  padding: 16rpx;
+  margin: 0 24rpx 8rpx;
+  padding: 12rpx 16rpx 4rpx;
   text-align: center;
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(255, 255, 255, 0.5);
   font-size: 26rpx;
   flex-shrink: 0;
+  position: relative;
+  z-index: 2;
 }
 .sport-teacher-task {
   flex-shrink: 0;
