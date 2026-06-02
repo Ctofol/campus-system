@@ -205,68 +205,67 @@
             <text class="run-ctrl-main-icon">{{ isRunPaused ? '▶' : '❚❚' }}</text>
             <text class="run-ctrl-main-lbl">{{ isRunPaused ? '继续' : '暂停' }}</text>
           </view>
-          <view class="run-ctrl-side" hover-class="run-ctrl-hover" @tap="openRunSheetSettings">
-            <text class="run-ctrl-side-icon">⚙</text>
-            <text class="run-ctrl-side-lbl">设置</text>
+          <view class="run-ctrl-end" hover-class="run-ctrl-end--hover" @tap="onCompactStopTap">
+            <text class="run-ctrl-end-txt">{{ stopRunLabel }}</text>
           </view>
         </view>
+      </view>
+
+      <view
+        v-if="!hideMapCoverLayer && showRunPrepSheet"
+        class="run-prep-sheet"
+        :style="runPrepSheetStyle"
+      >
+        <view class="run-sheet-handle-wrap">
+          <view class="run-sheet-handle" />
+        </view>
+        <text class="run-prep-title">{{ runPrepSheetTitle }}</text>
+
+        <view v-if="currentMode === 'police'" class="run-prep-body">
+          <view class="run-prep-card">
+            <text class="run-prep-card-head">{{ taskRunLocked ? '本次任务要求' : '专项体能训练' }}</text>
+            <view class="run-prep-row">
+              <text class="run-prep-row-lbl">最低距离</text>
+              <text class="run-prep-row-val">{{ (policeTargetDistance / 1000).toFixed(1) }} 公里</text>
+            </view>
+            <view v-if="taskMinDurationSec > 0" class="run-prep-row">
+              <text class="run-prep-row-lbl">最低时长</text>
+              <text class="run-prep-row-val">{{ Math.floor(taskMinDurationSec / 60) }} 分 {{ taskMinDurationSec % 60 }} 秒</text>
+            </view>
+            <view class="run-prep-row">
+              <text class="run-prep-row-lbl">参考配速</text>
+              <text class="run-prep-row-val">{{ policeTargetPace }} 分钟/公里</text>
+            </view>
+            <text v-if="taskRunLocked && taskDescription" class="run-prep-desc">{{ taskDescription }}</text>
+          </view>
+        </view>
+
+        <view v-else-if="currentMode === 'campus'" class="run-prep-body">
+          <view class="run-prep-select" hover-class="run-prep-select--hover" @tap="handleMapSelect">
+            <text class="run-prep-select-icon">📍</text>
+            <view class="run-prep-select-copy">
+              <text class="run-prep-select-title">{{ checkpoint.name || '选择校园打卡点' }}</text>
+              <text class="run-prep-select-desc">
+                {{ checkpoint.name ? `半径约 ${checkpoint.radius || 100} 米 · 点按可更换` : '点选地图上的打卡位置' }}
+              </text>
+            </view>
+            <text class="run-prep-select-arrow">›</text>
+          </view>
+        </view>
+
         <view
-          class="run-sheet-end-link"
-          hover-class="run-ctrl-hover"
-          :style="runSheetEndLinkStyle"
-          @tap="onCompactStopTap"
+          class="run-prep-start"
+          hover-class="run-prep-start--hover"
+          :class="{ 'run-prep-start--disabled': !canStartFromPrepSheet }"
+          @tap="onMainStartTap"
         >
-          {{ stopRunLabel }}
+          <text class="run-prep-start-txt">{{ mainStartLabel }}</text>
         </view>
       </view>
     </view>
 
     <view v-if="!isRunning && teacherRunTask" class="sport-teacher-task">
       <text>教师任务：{{ teacherRunTask }}</text>
-    </view>
-
-  <!-- 仅校园/专项需要额外设置区；普通跑不显示底部「更多」条 -->
-    <view v-if="showRunSportSheet" class="run-sport-sheet">
-      <view class="run-sport-sheet-head" @click="toggleRunSportSheet">
-        <text class="run-sport-sheet-title">{{ runSportSheetTitle }}</text>
-        <text class="run-sport-sheet-toggle">{{ runSportSheetExpanded ? '收起' : '展开' }}</text>
-      </view>
-      <view v-if="runSportSheetExpanded || currentMode === 'campus'" class="run-sport-sheet-body">
-        <view v-if="currentMode === 'campus'" class="search-bar">
-          <view class="map-select-panel">
-            <view class="map-select-btn" @click="handleMapSelect">
-              <text class="map-icon">📍</text>
-              <view class="map-select-copy">
-                <text class="map-select-title">选择校园打卡点</text>
-                <text class="map-select-desc">点这里从地图上选位置</text>
-              </view>
-              <view class="map-select-arrow link-arrow" />
-            </view>
-            <text class="map-select-hint">选点后会自动匹配最近的有效打卡点</text>
-            <text v-if="checkpoint.name" class="checkpoint-info sheet-checkpoint">
-              已选：{{ checkpoint.name }}（半径约 {{ checkpoint.radius || 100 }} 米）
-            </text>
-          </view>
-        </view>
-        <view v-if="currentMode === 'police'" class="police-plan">
-          <text class="plan-title">{{ taskRunLocked ? '本次任务要求' : '专项体能训练' }}</text>
-          <view class="plan-info">
-            <view class="info-item">
-              <text>最低距离：</text>
-              <text class="highlight">{{ (policeTargetDistance / 1000).toFixed(1) }} 公里</text>
-            </view>
-            <view class="info-item" v-if="taskMinDurationSec > 0">
-              <text>最低时长：</text>
-              <text class="highlight">{{ Math.floor(taskMinDurationSec / 60) }} 分 {{ taskMinDurationSec % 60 }} 秒</text>
-            </view>
-            <view class="info-item">
-              <text>参考配速：</text>
-              <text class="highlight">{{ policeTargetPace }} 分钟/公里</text>
-            </view>
-            <text class="info-item task-desc" v-if="taskRunLocked && taskDescription">{{ taskDescription }}</text>
-          </view>
-        </view>
-      </view>
     </view>
 
     <view v-if="showFaceCamera" class="face-camera-mask">
@@ -331,6 +330,7 @@ onMounted(() => {
   const sys = uni.getSystemInfoSync();
   statusBarHeight.value = sys.statusBarHeight || 20;
   initRunSheetSnap();
+  initRunPrepSheetHeight();
 
   // 寤惰繜鍔犺浇鍦板浘锛岄槻姝㈠鍣ㄦ湭灏辩华瀵艰嚧鐨勬覆鏌撻敊璇?
   setTimeout(() => {
@@ -2018,7 +2018,12 @@ watch(isRunning, (running) => {
     startRunSessionAutosave();
   } else {
     stopRunSessionAutosave();
+    initRunPrepSheetHeight();
   }
+});
+
+watch(currentMode, () => {
+  initRunPrepSheetHeight();
 });
 
 defineExpose({ onPageShow, onPageHide, saveRunSession, tryRestoreRunSession });
@@ -2387,7 +2392,39 @@ const showMapTopHintTappable = computed(
   () => showLocationStatusBar.value && !(isRunning.value && runMileageHint.value)
 );
 
-const runSportSheetExpanded = ref(false);
+const runPrepSheetHeightPx = ref(280);
+
+const showRunPrepSheet = computed(
+  () => !isRunning.value && (currentMode.value === 'campus' || currentMode.value === 'police')
+);
+
+const runPrepSheetTitle = computed(() => {
+  if (currentMode.value === 'campus') return '校园打卡';
+  if (currentMode.value === 'police') return '专项任务';
+  return '';
+});
+
+const canStartFromPrepSheet = computed(() => {
+  if (currentMode.value === 'campus') return !!checkpoint.value?.name;
+  return true;
+});
+
+const runPrepSheetStyle = computed(() => ({
+  height: `${runPrepSheetHeightPx.value}px`,
+  paddingBottom: `${runSheetSafeBottomPx.value}px`
+}));
+
+const initRunPrepSheetHeight = () => {
+  try {
+    const sys = uni.getSystemInfoSync();
+    const h = sys.windowHeight || 667;
+    const safe = sys.safeAreaInsets?.bottom || 0;
+    const campus = currentMode.value === 'campus';
+    runPrepSheetHeightPx.value = Math.round(h * (campus ? 0.36 : 0.30) + safe * 0.35);
+  } catch (e) {
+    runPrepSheetHeightPx.value = currentMode.value === 'campus' ? 320 : 280;
+  }
+};
 
 const formatHudDuration = (sec) => {
   const s = Math.max(0, Math.floor(Number(sec) || 0));
@@ -2453,13 +2490,6 @@ const runSheetControlsStyle = computed(() => {
   };
 });
 
-const runSheetEndLinkStyle = computed(() => {
-  const p = runSheetExpandProgress.value;
-  return {
-    opacity: 0.42 + p * 0.58
-  };
-});
-
 const initRunSheetSnap = () => {
   try {
     const sys = uni.getSystemInfoSync();
@@ -2486,7 +2516,12 @@ const runSheetStyle = computed(() => ({
 }));
 
 const recenterFloatStyle = computed(() => {
-  const bottomPx = isRunning.value ? runSheetHeightPx.value + 12 : 200;
+  let bottomPx = 120;
+  if (isRunning.value) {
+    bottomPx = runSheetHeightPx.value + 12;
+  } else if (showRunPrepSheet.value) {
+    bottomPx = runPrepSheetHeightPx.value + 12;
+  }
   return { bottom: `${bottomPx}px` };
 });
 
@@ -2585,16 +2620,6 @@ const toggleRunLock = () => {
   });
 };
 
-const openRunSheetSettings = () => {
-  uni.showActionSheet({
-    itemList: ['重新定位', stopRunLabel.value],
-    success: (res) => {
-      if (res.tapIndex === 0) recenterMap();
-      if (res.tapIndex === 1) onCompactStopTap();
-    }
-  });
-};
-
 const onCompactStopTap = () => {
   if (runControlsLocked.value) {
     uni.showToast({ title: '已锁定，请先解锁', icon: 'none' });
@@ -2602,20 +2627,10 @@ const onCompactStopTap = () => {
   }
   stopRun();
 };
-/** 底部展开区：仅校园选点、专项说明；普通跑无此项 */
-const showRunSportSheet = computed(
-  () => !isRunning.value && (currentMode.value === 'campus' || currentMode.value === 'police')
-);
-
-const runSportSheetTitle = computed(() => {
-  if (currentMode.value === 'campus') return '校园打卡 · 选择打卡点';
-  if (currentMode.value === 'police') return '专项跑 · 任务要求';
-  return '';
-});
-
+/** 专项/校园：地图底部深色准备面板（与跑步中面板统一） */
 const canShowStartFab = computed(() => {
   if (isRunning.value) return false;
-  if (currentMode.value === 'campus' && !checkpoint.value?.name) return false;
+  if (currentMode.value === 'campus' || currentMode.value === 'police') return false;
   return true;
 });
 
@@ -2646,14 +2661,13 @@ const recenterMap = () => {
 };
 
 const onMainStartTap = () => {
+  if (currentMode.value === 'campus' && !checkpoint.value?.name) {
+    uni.showToast({ title: '请先选择校园打卡点', icon: 'none' });
+    return;
+  }
   if (currentMode.value === 'normal') startNormalRun();
   else if (currentMode.value === 'police') startPoliceRun();
   else if (checkpoint.value?.name) startCampusRun();
-  else uni.showToast({ title: '请先选择校园打卡点', icon: 'none' });
-};
-
-const toggleRunSportSheet = () => {
-  runSportSheetExpanded.value = !runSportSheetExpanded.value;
 };
 
 const selectCheckpoint = (target) => {
@@ -2978,7 +2992,7 @@ const switchMode = (mode) => {
   refreshMarkers();
   updateMapPolyline();
   currentMode.value = mode;
-  if (mode === 'campus') runSportSheetExpanded.value = true;
+  initRunPrepSheetHeight();
 };
 
 // 8. 步数统计（加速度传感器，step-counter 步频带通计步）
@@ -4257,15 +4271,154 @@ const buildHistory = (records) => {
   font-size: 22rpx;
   margin-top: 8rpx;
 }
-.run-sheet-end-link {
-  margin: 0 24rpx 8rpx;
-  padding: 12rpx 16rpx 4rpx;
-  text-align: center;
-  color: rgba(255, 255, 255, 0.5);
+.run-ctrl-end {
+  width: 148rpx;
+  min-height: 120rpx;
+  padding: 12rpx 8rpx;
+  box-sizing: border-box;
+  border-radius: 20rpx;
+  background-color: rgba(255, 255, 255, 0.08);
+  border: 2rpx solid rgba(46, 230, 184, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.run-ctrl-end--hover {
+  background-color: rgba(46, 230, 184, 0.16);
+}
+.run-ctrl-end-txt {
+  color: #2ee6b8;
   font-size: 26rpx;
+  font-weight: 700;
+  text-align: center;
+  line-height: 1.35;
+}
+.run-prep-sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 125;
+  box-sizing: border-box;
+  background: linear-gradient(180deg, #252b38 0%, #141820 100%);
+  border-top-left-radius: 28rpx;
+  border-top-right-radius: 28rpx;
+  box-shadow: 0 -12rpx 40rpx rgba(0, 0, 0, 0.22);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.run-prep-title {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 24rpx;
+  text-align: center;
+  margin-bottom: 8rpx;
   flex-shrink: 0;
-  position: relative;
-  z-index: 2;
+}
+.run-prep-body {
+  flex: 1;
+  min-height: 0;
+  padding: 0 24rpx;
+  overflow: hidden;
+}
+.run-prep-card {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1rpx solid rgba(255, 255, 255, 0.08);
+  border-radius: 20rpx;
+  padding: 20rpx 24rpx;
+}
+.run-prep-card-head {
+  display: block;
+  color: #ffb347;
+  font-size: 28rpx;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 16rpx;
+}
+.run-prep-row {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10rpx 0;
+}
+.run-prep-row-lbl {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 26rpx;
+}
+.run-prep-row-val {
+  color: #2ee6b8;
+  font-size: 28rpx;
+  font-weight: 700;
+}
+.run-prep-desc {
+  display: block;
+  margin-top: 12rpx;
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 24rpx;
+  line-height: 1.5;
+}
+.run-prep-select {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16rpx;
+  min-height: 120rpx;
+  padding: 20rpx 24rpx;
+  border-radius: 20rpx;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1rpx solid rgba(46, 230, 184, 0.35);
+}
+.run-prep-select--hover {
+  background: rgba(46, 230, 184, 0.12);
+}
+.run-prep-select-icon {
+  font-size: 40rpx;
+  line-height: 1;
+}
+.run-prep-select-copy {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.run-prep-select-title {
+  color: #f2f4f8;
+  font-size: 30rpx;
+  font-weight: 700;
+}
+.run-prep-select-desc {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 24rpx;
+  margin-top: 8rpx;
+}
+.run-prep-select-arrow {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 40rpx;
+  line-height: 1;
+}
+.run-prep-start {
+  margin: 12rpx 24rpx 8rpx;
+  height: 96rpx;
+  border-radius: 48rpx;
+  background: #20c997;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10rpx 24rpx rgba(32, 201, 151, 0.35);
+  flex-shrink: 0;
+}
+.run-prep-start--hover {
+  opacity: 0.88;
+}
+.run-prep-start--disabled {
+  opacity: 0.45;
+  box-shadow: none;
+}
+.run-prep-start-txt {
+  color: #ffffff;
+  font-size: 32rpx;
+  font-weight: 700;
 }
 .sport-teacher-task {
   flex-shrink: 0;
@@ -4274,36 +4427,6 @@ const buildHistory = (records) => {
   color: #0d8f6e;
   font-size: 24rpx;
 }
-.run-sport-sheet {
-  flex-shrink: 0;
-  max-height: 38vh;
-  background: #fff;
-  border-top: 1rpx solid #eee;
-  border-top-left-radius: 24rpx;
-  border-top-right-radius: 24rpx;
-  padding: 16rpx 24rpx calc(16rpx + env(safe-area-inset-bottom));
-  box-sizing: border-box;
-  box-shadow: 0 -4rpx 20rpx rgba(0, 0, 0, 0.06);
-}
-.run-sport-sheet-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12rpx 0;
-}
-.run-sport-sheet-title {
-  color: #333;
-  font-size: 28rpx;
-  font-weight: 600;
-}
-.run-sport-sheet-toggle {
-  color: #20c997;
-  font-size: 24rpx;
-}
-.run-sport-sheet-body {
-  max-height: 30vh;
-  overflow-y: auto;
-}
 .legend-line-pace {
   width: 36rpx;
   height: 8rpx;
@@ -4311,39 +4434,7 @@ const buildHistory = (records) => {
   margin-right: 10rpx;
   background: linear-gradient(to right, #ff5252, #ffc107, #4caf50);
 }
-/* 璀﹀姟涓撻」璁″垝妯″潡 */
-.police-plan {
-  background-color: #fdf2f0;
-  border: 1px solid #fef0f0;
-  border-radius: 10rpx;
-  padding: 20rpx;
-  margin-bottom: 20rpx;
-}
-.plan-title {
-  font-size: 32rpx;
-  font-weight: bold;
-  color: #d81e06;
-  display: block;
-  text-align: center;
-  margin-bottom: 15rpx;
-}
-.plan-info {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 12rpx;
-}
-.info-item {
-  font-size: 26rpx;
-  color: #666;
-  margin: 0;
-  line-height: 1.6;
-}
-.highlight {
-  color: #d81e06;
-  font-weight: bold;
-}
-/* 閫氱敤璺戞妯″潡鏍峰紡 */
+/* 通用跑步模块样式 */
 .run-mode-box {
   margin-bottom: 20rpx;
 }
