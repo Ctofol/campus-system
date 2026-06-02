@@ -583,8 +583,16 @@ class CourseDetailOut(CourseOut):
     enrolled: bool = False  # 褰撳墠鐢ㄦ埛鏄惁宸查€夎
     enrollment_count: int = 0  # 閫夎浜烘暟
 
+class CourseListItemOut(CourseOut):
+    enrolled: bool = False
+    teacher_name: str = ""
+    lesson_total: int = 0
+    lesson_completed: int = 0
+    progress_percent: int = 0
+    duration_minutes: int = 0
+
 class CourseListResponse(BaseModel):
-    items: List[CourseOut]
+    items: List[CourseListItemOut]
     total: int
     page: int
     size: int

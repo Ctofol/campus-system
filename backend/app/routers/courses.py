@@ -13,6 +13,75 @@ from ..database import get_db
 router = APIRouter(prefix="/courses", tags=["courses"])
 
 
+def _build_course_list_item(
+    course: models.Course,
+    db: Session,
+    current_user: Optional[models.User],
+) -> dict:
+    """列表项：选课状态、进度、课时、讲师等（供课程学习页卡片展示）"""
+    contents = (
+        db.query(models.CourseContent)
+        .filter(models.CourseContent.course_id == course.id)
+        .order_by(models.CourseContent.order)
+        .all()
+    )
+    lesson_total = len(contents)
+    duration_minutes = sum((c.duration or 0) for c in contents) // 60
+
+    teacher_name = "授课教师"
+    if course.teacher_id:
+        teacher = course.teacher or db.query(models.User).filter(
+            models.User.id == course.teacher_id
+        ).first()
+        if teacher and teacher.name:
+            teacher_name = teacher.name
+
+    enrolled = False
+    progress_percent = 0
+    lesson_completed = 0
+    if current_user and current_user.role == "student":
+        enrollment = db.query(models.Enrollment).filter(
+            models.Enrollment.student_id == current_user.id,
+            models.Enrollment.course_id == course.id,
+            models.Enrollment.status == "active",
+        ).first()
+        enrolled = enrollment is not None
+        if enrolled and contents:
+            content_ids = [c.id for c in contents]
+            progress_records = db.query(models.CourseProgress).filter(
+                models.CourseProgress.student_id == current_user.id,
+                models.CourseProgress.content_id.in_(content_ids),
+            ).all()
+            lesson_completed = sum(1 for p in progress_records if p.completed)
+            if progress_records:
+                total_progress = sum(float(p.progress or 0) for p in progress_records)
+                progress_percent = int(total_progress / len(contents))
+            progress_percent = max(0, min(100, progress_percent))
+
+    enrollment_count = db.query(models.Enrollment).filter(
+        models.Enrollment.course_id == course.id,
+        models.Enrollment.status == "active",
+    ).count()
+
+    return {
+        "id": course.id,
+        "title": course.title,
+        "description": course.description,
+        "cover_url": course.cover_url,
+        "category": course.category,
+        "is_public": course.is_public,
+        "teacher_id": course.teacher_id,
+        "created_at": course.created_at,
+        "enrollment_count": enrollment_count,
+        "enrolled": enrolled,
+        "teacher_name": teacher_name,
+        "lesson_total": lesson_total,
+        "lesson_completed": lesson_completed,
+        "progress_percent": progress_percent,
+        "duration_minutes": duration_minutes,
+    }
+
+
 # ==================== 课程 CRUD ====================
 
 @router.post("/", response_model=schemas.CourseOut)
@@ -123,39 +192,9 @@ async def get_courses(
     total = query.count()
     courses = query.order_by(models.Course.created_at.desc()).offset((page - 1) * size).limit(size).all()
     
-    # 为每个课程添加 enrolled 和 enrollment_count 字段
-    items = []
-    for course in courses:
-        # 检查是否已选课
-        enrolled = False
-        if current_user and current_user.role == "student":
-            enrollment = db.query(models.Enrollment).filter(
-                models.Enrollment.student_id == current_user.id,
-                models.Enrollment.course_id == course.id,
-                models.Enrollment.status == "active"
-            ).first()
-            enrolled = enrollment is not None
-        
-        # 统计选课人数
-        enrollment_count = db.query(models.Enrollment).filter(
-            models.Enrollment.course_id == course.id,
-            models.Enrollment.status == "active"
-        ).count()
-        
-        # 构造课程数据
-        course_dict = {
-            "id": course.id,
-            "title": course.title,
-            "description": course.description,
-            "cover_url": course.cover_url,
-            "category": course.category,
-            "is_public": course.is_public,
-            "teacher_id": course.teacher_id,
-            "created_at": course.created_at,
-            "enrolled": enrolled,
-            "enrollment_count": enrollment_count
-        }
-        items.append(course_dict)
+    items = [
+        _build_course_list_item(course, db, current_user) for course in courses
+    ]
     
     return {
         "items": items,
