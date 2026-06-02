@@ -163,8 +163,7 @@ async def get_my_run_group(
     ).order_by(models.RunGroupMember.joined_at.asc()).first()
 
     if not member:
-        from fastapi.responses import JSONResponse
-        return JSONResponse(content=None, status_code=204)
+        return Response(status_code=204)
 
     return _build_group_detail(db, member.group)
 
