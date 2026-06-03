@@ -5,19 +5,20 @@
         <view class="avatar-row">
           <text class="label">头像</text>
           <view class="avatar-preview">
-            <view class="avatar-img-wrap" @click="chooseAvatarFromAlbum">
+            <view class="avatar-img-wrap">
               <image :src="avatarUrl" mode="aspectFill" class="avatar-img" />
             </view>
-            <view class="avatar-actions">
-              <text class="change-text" @click="chooseAvatarFromAlbum">相册/拍照</text>
-              <!-- #ifdef MP-WEIXIN -->
-              <button
-                class="wx-avatar-btn"
-                open-type="chooseAvatar"
-                @chooseavatar="onWxChooseAvatar"
-              >微信头像</button>
-              <!-- #endif -->
-            </view>
+            <!-- #ifdef MP-WEIXIN -->
+            <button
+              class="change-avatar-btn"
+              open-type="chooseAvatar"
+              @chooseavatar="onWxChooseAvatar"
+              @error="onChooseAvatarErr"
+            >更改头像</button>
+            <!-- #endif -->
+            <!-- #ifndef MP-WEIXIN -->
+            <text class="change-text" @click="chooseAvatarFromAlbum">更改头像</text>
+            <!-- #endif -->
           </view>
         </view>
       </view>
@@ -84,7 +85,7 @@ import {
   patchStoredUserInfo,
   avatarImageSrc
 } from '@/utils/request.js';
-import { pickAvatarFromAlbum } from '@/utils/avatar-picker.js';
+import { pickAvatarFromAlbum, onChooseAvatarButtonError } from '@/utils/avatar-picker.js';
 
 const avatarUrl = ref('/static/avatar.png');
 const saving = ref(false);
@@ -143,6 +144,10 @@ const chooseAvatarFromAlbum = async () => {
     if (e && e.cancelled) return;
     // 已在 pickAvatarFromAlbum 内提示隐私配置
   }
+};
+
+const onChooseAvatarErr = (e) => {
+  onChooseAvatarButtonError(e, (filePath) => uploadAvatar(filePath));
 };
 
 const onWxChooseAvatar = async (e) => {
@@ -383,30 +388,23 @@ const handleSave = async () => {
   display: block;
 }
 
-.avatar-actions {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 12rpx;
-}
-
-.change-text {
+.change-text,
+.change-avatar-btn {
   flex-shrink: 0;
   font-size: 28rpx;
   color: #20c997;
 }
 
-.wx-avatar-btn {
+.change-avatar-btn {
   margin: 0;
-  padding: 0 8rpx;
-  font-size: 26rpx;
-  color: #20c997;
+  padding: 0;
   background: transparent;
   border: none;
   line-height: 1.4;
+  font-weight: normal;
 }
 
-.wx-avatar-btn::after {
+.change-avatar-btn::after {
   border: none;
 }
 
