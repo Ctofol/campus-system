@@ -52,16 +52,6 @@
           <cover-view class="sport-task-hint-t">任务跑步 · 专项模式已锁定</cover-view>
         </cover-view>
 
-        <cover-view v-if="showMapLegend" class="map-legend cover-panel">
-          <cover-view class="legend-row">
-            <cover-view class="legend-pin legend-pin-me" />
-            <cover-view class="legend-txt">我的位置</cover-view>
-          </cover-view>
-          <cover-view v-if="isRunning && trajectoryPointCount >= 2" class="legend-row">
-            <cover-view class="legend-line-pace" />
-            <cover-view class="legend-txt">轨迹按配速上色</cover-view>
-          </cover-view>
-        </cover-view>
       </map>
 
       <view
@@ -122,24 +112,52 @@
             class="run-sheet-layer run-sheet-layer--expanded"
             :style="runSheetExpandedLayerStyle"
           >
-            <text class="run-sheet-hero-val">{{ hudDistanceKm }}</text>
-            <text class="run-sheet-hero-lbl">总距离（公里）</text>
-            <view class="run-sheet-grid">
-              <view class="run-sheet-grid-item">
-                <text class="run-sheet-grid-val">{{ formatHudDuration(duration) }}</text>
-                <text class="run-sheet-grid-lbl">总时长</text>
+            <view class="run-sheet-expanded-stack">
+              <text class="run-sheet-hero-val">{{ hudDistanceKm }}</text>
+              <text class="run-sheet-hero-lbl">总距离（公里）</text>
+              <view class="run-sheet-grid">
+                <view class="run-sheet-grid-item">
+                  <text class="run-sheet-grid-val">{{ formatHudDuration(duration) }}</text>
+                  <text class="run-sheet-grid-lbl">总时长</text>
+                </view>
+                <view class="run-sheet-grid-item">
+                  <text class="run-sheet-grid-val">{{ hudAvgPace }}</text>
+                  <text class="run-sheet-grid-lbl">平均配速</text>
+                </view>
+                <view class="run-sheet-grid-item">
+                  <text class="run-sheet-grid-val">{{ stepCount }}</text>
+                  <text class="run-sheet-grid-lbl">步数</text>
+                </view>
+                <view class="run-sheet-grid-item">
+                  <text class="run-sheet-grid-val">{{ runHudCalories }}</text>
+                  <text class="run-sheet-grid-lbl">消耗(千卡)</text>
+                </view>
               </view>
-              <view class="run-sheet-grid-item">
-                <text class="run-sheet-grid-val">{{ hudAvgPace }}</text>
-                <text class="run-sheet-grid-lbl">平均配速</text>
-              </view>
-              <view class="run-sheet-grid-item">
-                <text class="run-sheet-grid-val">{{ stepCount }}</text>
-                <text class="run-sheet-grid-lbl">步数</text>
-              </view>
-              <view class="run-sheet-grid-item">
-                <text class="run-sheet-grid-val">{{ runHudCalories }}</text>
-                <text class="run-sheet-grid-lbl">消耗(千卡)</text>
+              <view
+                v-if="runSheetControlsInline"
+                class="run-sheet-controls run-sheet-controls--inline"
+              >
+                <view
+                  class="run-ctrl-side"
+                  hover-class="run-ctrl-hover"
+                  :class="{ 'run-ctrl-side--on': runControlsLocked }"
+                  @tap="toggleRunLock"
+                >
+                  <text class="run-ctrl-side-icon">{{ runControlsLocked ? '🔒' : '🔓' }}</text>
+                  <text class="run-ctrl-side-lbl">{{ runControlsLocked ? '已锁' : '锁定' }}</text>
+                </view>
+                <view
+                  class="run-ctrl-main"
+                  hover-class="run-ctrl-hover"
+                  :class="{ 'run-ctrl-main--resume': isRunPaused }"
+                  @tap="toggleRunPause"
+                >
+                  <text class="run-ctrl-main-icon">{{ isRunPaused ? '▶' : '❚❚' }}</text>
+                  <text class="run-ctrl-main-lbl">{{ isRunPaused ? '继续' : '暂停' }}</text>
+                </view>
+                <view class="run-ctrl-end" hover-class="run-ctrl-end--hover" @tap="onCompactStopTap">
+                  <text class="run-ctrl-end-txt">{{ stopRunLabel }}</text>
+                </view>
               </view>
             </view>
           </view>
@@ -155,7 +173,11 @@
           <view class="run-sheet-progress-fill" :style="{ width: runHudProgressPct + '%' }" />
         </view>
 
-        <view class="run-sheet-controls" :style="runSheetControlsStyle">
+        <view
+          v-if="!runSheetControlsInline"
+          class="run-sheet-controls"
+          :style="runSheetControlsStyle"
+        >
           <view
             class="run-ctrl-side"
             hover-class="run-ctrl-hover"
@@ -1069,14 +1091,6 @@ const stopCompassWatch = () => {
 
 /** 人脸验证打开时隐藏地图 cover-view（原生层会压在普通 view 之上） */
 const hideMapCoverLayer = computed(() => showFaceCamera.value);
-
-const showMapLegend = computed(
-  () =>
-    !hideMapCoverLayer.value &&
-    isRunning.value &&
-    locationState.value === 'success' &&
-    hasPlausibleCoords()
-);
 
 const showLocationStatusBar = computed(
   () =>
@@ -2675,6 +2689,8 @@ const runSheetExpandedLayerStyle = computed(() => {
   return { opacity: fade };
 });
 
+const runSheetControlsInline = computed(() => runSheetExpandProgress.value >= 0.55);
+
 const runSheetControlsStyle = computed(() => {
   const p = runSheetExpandProgress.value;
   return {
@@ -2690,7 +2706,7 @@ const initRunSheetSnap = () => {
     runSheetSafeBottomPx.value = safe;
     runSheetSnap.value = {
       collapsed: Math.round(h * 0.30 + safe * 0.35),
-      expanded: Math.round(h * 0.54)
+      expanded: Math.round(h * 0.48 + safe * 0.15)
     };
     if (!runSheetDragging.value) {
       runSheetHeightPx.value = runSheetExpanded.value
@@ -4312,6 +4328,9 @@ const buildHistory = (records) => {
 .run-bottom-sheet--expanded .run-sheet-handle {
   background-color: rgba(255, 255, 255, 0.42);
 }
+.run-bottom-sheet--expanded .run-sheet-body {
+  justify-content: center;
+}
 .run-sheet-handle-wrap {
   padding: 16rpx 0 8rpx;
   display: flex;
@@ -4360,9 +4379,17 @@ const buildHistory = (records) => {
 .run-sheet-layer--expanded {
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: center;
   padding: 0 32rpx 8rpx;
-  pointer-events: none;
+  pointer-events: auto;
+}
+.run-sheet-expanded-stack {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
 }
 .run-sheet-metric {
   flex: 1;
@@ -4403,7 +4430,7 @@ const buildHistory = (records) => {
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
-  margin-top: 28rpx;
+  margin-top: 20rpx;
 }
 .run-sheet-grid-item {
   width: 50%;
@@ -4451,6 +4478,13 @@ const buildHistory = (records) => {
   flex-shrink: 0;
   position: relative;
   z-index: 2;
+  width: 100%;
+  box-sizing: border-box;
+}
+.run-sheet-controls--inline {
+  margin-top: 36rpx;
+  padding: 0 8rpx 4rpx;
+  pointer-events: auto;
 }
 .run-ctrl-hover {
   opacity: 0.72;
