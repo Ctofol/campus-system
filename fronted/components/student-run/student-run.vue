@@ -631,7 +631,8 @@ const getLastTrackAnchor = () => {
  */
 const isRunGpsUnlocked = () =>
   gpsAcceptedPointCount >= 2 ||
-  distance.value >= 18 ||
+  distance.value >= 12 ||
+  displayTrackPoints.value.length >= 4 ||
   (gpsAcceptedPointCount >= 1 && hasRecentGpsMotionEvidence()) ||
   (hasStrongStepMotion() && distance.value >= 6) ||
   (hasRecentGpsMotionEvidence() && distance.value >= 5) ||
@@ -1043,10 +1044,12 @@ const runPolyline = ref({
   borderWidth: 2
 });
 
-/** 未确认真实跑动前：轨迹点合并间距（防漂移画线） */
-const MERGE_POLYLINE_GAP_IDLE_M = 5;
+/** 未确认真实跑动前：计里程轨迹点合并间距 */
+const MERGE_POLYLINE_GAP_IDLE_M = 2.5;
 /** 已确认在跑后：合并间距（慢走也能连续记里程） */
-const MERGE_POLYLINE_GAP_RUN_M = 2.2;
+const MERGE_POLYLINE_GAP_RUN_M = 1.8;
+/** 地图展示轨迹间距（与计里程解耦，保证折线连续可见） */
+const DISPLAY_TRACK_GAP_M = 1.2;
 /** 未解锁前：相对末点 GPS 位移过小视为静止抖动 */
 const STATIONARY_RAW_IDLE_M = 3.2;
 const navPolyline = ref(null);
@@ -1054,14 +1057,24 @@ const navPolyline = ref(null);
 const polyline = ref([]); // Final array for map component
 const checkpoint = ref({});
 const trajectoryPoints = ref([]); // Store real GPS points
+/** 地图折线专用点列（GPS 位移即记录，不受计里程阈值影响） */
+const displayTrackPoints = ref([]);
 const checkinRecords = ref([]); // Store successful check-ins
 
-const trajectoryPointCount = computed(() => trajectoryPoints.value.length);
+const trajectoryPointCount = computed(() => {
+  const d = displayTrackPoints.value.length;
+  return d >= 2 ? d : trajectoryPoints.value.length;
+});
+
+const getPolylineSourcePoints = () => {
+  if (displayTrackPoints.value.length >= 2) return displayTrackPoints.value;
+  return trajectoryPoints.value;
+};
 
 // Helper to update map polyline with deep clone to force render
 const updateMapPolyline = () => {
   const lines = [];
-  const raw = trajectoryPoints.value;
+  const raw = getPolylineSourcePoints();
   if (raw.length >= 2) {
     const paceLines = buildPaceColoredPolylines(raw);
     if (paceLines.length > 0) {
@@ -1084,7 +1097,7 @@ const DISPLAY_POLYLINE_MIN_INTERVAL_MS = 500;
 
 /** 由原始 GPS 点生成配速分段上色折线（仅 map 展示，不影响里程） */
 const rebuildDisplayPolyline = () => {
-  const raw = trajectoryPoints.value;
+  const raw = getPolylineSourcePoints();
   if (raw.length < 2) {
     runPolyline.value.points =
       raw.length === 1
@@ -1117,6 +1130,25 @@ const scheduleRebuildDisplayPolyline = (force = false) => {
   }, delay);
 };
 
+/** 地图展示轨迹：有位移即记点，与计里程阈值解耦 */
+const appendDisplayTrackPoint = (latIn, lngIn, extra = {}) => {
+  if (!isRunning.value || isRunPaused.value) return false;
+  const last = displayTrackPoints.value[displayTrackPoints.value.length - 1];
+  if (last) {
+    const gap = getDistance(last.latitude, last.longitude, latIn, lngIn);
+    if (gap < DISPLAY_TRACK_GAP_M) return false;
+  }
+  displayTrackPoints.value.push({
+    latitude: latIn,
+    longitude: lngIn,
+    timestamp: extra.timestamp ?? Date.now(),
+    speed: extra.speed
+  });
+  scheduleRebuildDisplayPolyline();
+  syncStepsFromDistanceFallback();
+  return true;
+};
+
 /** 追加原始轨迹点；间距不足时不记点。展示折线由 rebuildDisplayPolyline 平滑生成 */
 const appendRunTrackPoint = (workLat, workLng, point) => {
   const last = trajectoryPoints.value[trajectoryPoints.value.length - 1];
@@ -1127,7 +1159,10 @@ const appendRunTrackPoint = (workLat, workLng, point) => {
     }
   }
   trajectoryPoints.value.push(point);
-  scheduleRebuildDisplayPolyline();
+  appendDisplayTrackPoint(workLat, workLng, {
+    timestamp: point.timestamp,
+    speed: point.speed
+  });
 };
 
 // Distance Calculation (Haversine Formula)
@@ -1192,13 +1227,31 @@ const getStrideLengthM = () => {
 };
 
 const estimateStepsByDistance = (distanceM) => {
-  if (!Number.isFinite(distanceM) || distanceM < 6) return 0;
+  if (!Number.isFinite(distanceM) || distanceM < 4) return 0;
   return Math.floor(distanceM / getStrideLengthM());
+};
+
+/** 加速度计无步数时，用 GPS 里程估算步数（兜底） */
+const syncStepsFromDistanceFallback = () => {
+  if (!isRunning.value || isRunPaused.value) return;
+  if (hasRecentStepMotion() && stepCount.value >= 4) return;
+  const est = estimateStepsByDistance(distance.value);
+  if (est <= 0) return;
+  const hasMotion =
+    gpsAcceptedPointCount >= 1 ||
+    displayTrackPoints.value.length >= 2 ||
+    hasRecentGpsMotionEvidence();
+  if (!hasMotion || distance.value < 5) return;
+  if (est > stepCount.value) {
+    stepCount.value = est;
+    if (runStepCounter) runStepCounter.setStepCount(est);
+  }
 };
 
 /** GPS 距离与传感器步数融合：仅持续偏差 >25% 且满 30s 时缓慢校正，不粗暴取 max */
 const maybeEstimateStepsFromDistance = () => {
-  if (!hasRecentGpsMotionEvidence() || distance.value < 15) return;
+  if (!hasRecentGpsMotionEvidence() && displayTrackPoints.value.length < 2) return;
+  if (distance.value < 8) return;
   const estimatedSteps = estimateStepsByDistance(distance.value);
   if (estimatedSteps <= 0) return;
   const sensor = stepCount.value;
@@ -1261,6 +1314,7 @@ const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
       lng.value = newLng;
       runLocationSmooth = { lat: newLat, lng: newLng };
       patchCurrentLocationMarker();
+      appendDisplayTrackPoint(newLat, newLng, { timestamp: nowTs, speed: 0 });
     } else if (anchor) {
       lat.value = anchor.latitude;
       lng.value = anchor.longitude;
@@ -1321,6 +1375,13 @@ const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
   lat.value = isRunning.value ? workLat : newLat;
   lng.value = isRunning.value ? workLng : newLng;
   patchCurrentLocationMarker();
+
+  if (isRunning.value && !isRunPaused.value) {
+    appendDisplayTrackPoint(workLat, workLng, {
+      timestamp: nowTs,
+      speed: typeof speed === 'number' && speed >= 0 ? speed : currentSpeed.value
+    });
+  }
 
   if (isRunning.value) {
     if (!isRunPaused.value) {
@@ -1563,6 +1624,7 @@ const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
            policeProgress.value = Math.min(100, (distance.value / policeTargetDistance.value) * 100);
         }
         maybeEstimateStepsFromDistance();
+        syncStepsFromDistanceFallback();
     }
   }
 };
@@ -1791,8 +1853,10 @@ const distance = ref(0); // 已跑距离（米）
 /** 展示用里程：GPS 累计与轨迹长度取较大值，减少界面长期显示 0 */
 const displayRunDistanceM = computed(() => {
   const acc = distance.value || 0;
-  if (!isRunning.value || trajectoryPoints.value.length < 2) return acc;
-  const trajM = computeTrajectoryPathLengthM(trajectoryPoints.value);
+  if (!isRunning.value) return acc;
+  const src = getPolylineSourcePoints();
+  if (src.length < 2) return acc;
+  const trajM = computeTrajectoryPathLengthM(src);
   return Math.max(acc, trajM * 0.92);
 });
 const distanceToCheckpoint = ref('---');
@@ -1870,7 +1934,10 @@ const currentPace = computed(() => {
   const vMs = currentSpeed.value;
   const overall = km > 0.0005 ? min / km : 0;
 
-  if (km >= 0.08 && overall > 0 && overall < 999) {
+  if (km >= 0.02 && overall > 0 && overall < 999) {
+    return overall;
+  }
+  if (duration.value >= 30 && km >= 0.005 && overall > 0 && overall < 999) {
     return overall;
   }
   if (vMs > 0.12) {
@@ -2845,6 +2912,7 @@ const saveRunSession = () => {
     runSegmentStartMs: runSegmentStartMs.value,
     isRunPaused: isRunPaused.value,
     trajectoryPoints: trajectoryPoints.value,
+    displayTrackPoints: displayTrackPoints.value,
     lat: lat.value,
     lng: lng.value,
     gpsAcceptedPointCount,
@@ -2898,6 +2966,14 @@ const tryRestoreRunSession = () => {
   distance.value = snap.distance || 0;
   stepCount.value = snap.stepCount || 0;
   trajectoryPoints.value = Array.isArray(snap.trajectoryPoints) ? snap.trajectoryPoints : [];
+  displayTrackPoints.value = Array.isArray(snap.displayTrackPoints)
+    ? snap.displayTrackPoints
+    : trajectoryPoints.value.map((p) => ({
+        latitude: p.latitude,
+        longitude: p.longitude,
+        timestamp: p.timestamp,
+        speed: p.speed
+      }));
   runPolyline.value.points = [];
   lat.value = snap.lat ?? lat.value;
   lng.value = snap.lng ?? lng.value;
@@ -2966,6 +3042,7 @@ const switchMode = (mode) => {
   stepCount.value = 0;
   runPolyline.value.points = [];
   trajectoryPoints.value = [];
+  displayTrackPoints.value = [];
   runStartMarker.value = null;
   runEndMarker.value = null;
   runLocationSmooth = null;
@@ -3139,6 +3216,7 @@ const initializeRunState = () => {
   // Clear previous trajectory
   runPolyline.value.points = [];
   trajectoryPoints.value = [];
+  displayTrackPoints.value = [];
   runEndMarker.value = null;
   runLocationSmooth = null;
   lastRawLocationSample = null;
@@ -3148,6 +3226,7 @@ const initializeRunState = () => {
   if (lat.value && lng.value) {
     const startPoint = { latitude: lat.value, longitude: lng.value, timestamp: Date.now(), speed: 0 };
     trajectoryPoints.value.push(startPoint);
+    displayTrackPoints.value.push({ ...startPoint });
     runStartMarker.value = createRunPointMarker(2, lat.value, lng.value, '起');
     refreshMarkers();
     scheduleRebuildDisplayPolyline(true);
@@ -3498,10 +3577,11 @@ const submitCurrentRunToServer = async (runData) => {
       campus_checkpoint: currentMode.value === 'campus' ? (checkpoint.value?.name || '') : ''
     });
     // 同时保存轨迹数据用于结算页展示
+    const trajForDisplay = getPolylineSourcePoints();
     uni.setStorageSync('tempRunTrajectory', {
-      points: trajectoryPoints.value.map((p) => ({ latitude: p.latitude, longitude: p.longitude })),
-      startLat: trajectoryPoints.value.length > 0 ? trajectoryPoints.value[0].latitude : lat.value,
-      startLng: trajectoryPoints.value.length > 0 ? trajectoryPoints.value[0].longitude : lng.value,
+      points: trajForDisplay.map((p) => ({ latitude: p.latitude, longitude: p.longitude })),
+      startLat: trajForDisplay.length > 0 ? trajForDisplay[0].latitude : lat.value,
+      startLng: trajForDisplay.length > 0 ? trajForDisplay[0].longitude : lng.value,
       endLat: lat.value,
       endLng: lng.value
     });
@@ -3559,8 +3639,8 @@ const stopRun = async () => {
   const filtM = distance.value;
   /** 闈炰换鍔¤窇锛氫笂鎶ラ噷绋嬩笌杞ㄨ抗鍑犱綍闀垮榻愶紙闃叉护娉㈠亸浣庯級锛涗换鍔¤窇浠嶄互绔笂绱涓哄噯锛岄伩鍏嶄笌浠诲姟瑙勫垯鍐茬獊 */
   let reportM = filtM;
-  if (!taskId.value && trajectoryPoints.value.length >= 2) {
-    const trajM = computeTrajectoryPathLengthM(trajectoryPoints.value);
+  if (!taskId.value && getPolylineSourcePoints().length >= 2) {
+    const trajM = computeTrajectoryPathLengthM(getPolylineSourcePoints());
     if (filtM < 20) {
       reportM = Math.max(filtM, trajM * 0.92);
     } else {
