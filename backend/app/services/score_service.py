@@ -50,35 +50,38 @@ def verify_activity(user: models.User, activity: models.Activity, db) -> Tuple[b
     # 1. 性别 + 里程校验
     gender = (user.gender or "male").lower()
     min_dist = config.MIN_DISTANCE_MALE if gender == "male" else config.MIN_DISTANCE_FEMALE
+    sport_reason: str | None = None
     if distance_km < min_dist:
-        return False, "里程不足", face_verified
+        sport_reason = "里程不足"
+    elif pace_val is None or pace_val < config.MIN_PACE_MIN_KM or pace_val > config.MAX_PACE_MIN_KM:
+        sport_reason = "配速异常"
+    else:
+        today: date = datetime.utcnow().date()
+        start = datetime(today.year, today.month, today.day)
+        end = datetime(today.year, today.month, today.day, 23, 59, 59)
 
-    # 2. 配速区间校验
-    if pace_val is None or pace_val < config.MIN_PACE_MIN_KM or pace_val > config.MAX_PACE_MIN_KM:
-        return False, "配速异常", face_verified
-
-    # 3. 频次限制：当天只允许一条达标记录
-    today: date = datetime.utcnow().date()
-    start = datetime(today.year, today.month, today.day)
-    end = datetime(today.year, today.month, today.day, 23, 59, 59)
-
-    valid_today_count = (
-        db.query(models.Activity)
-        .filter(
-            models.Activity.user_id == user.id,
-            models.Activity.is_valid.is_(True),
-            models.Activity.started_at >= start,
-            models.Activity.started_at <= end,
+        valid_today_count = (
+            db.query(models.Activity)
+            .filter(
+                models.Activity.user_id == user.id,
+                models.Activity.is_valid.is_(True),
+                models.Activity.started_at >= start,
+                models.Activity.started_at <= end,
+            )
+            .filter(sunshine_run_filter())
+            .count()
         )
-        .filter(sunshine_run_filter())
-        .count()
-    )
-    if valid_today_count > 0:
-        return False, "今日已达标", face_verified
+        if valid_today_count > 0:
+            sport_reason = "今日已达标"
+
+    # 人脸失败时优先返回人脸原因（短距离测试时避免 fail_reason 被「里程不足」覆盖）
+    if not face_outcome.ok and config.FACE_BLOCK_ON_FAIL:
+        return False, face_outcome.reason, face_verified
+
+    if sport_reason:
+        return False, sport_reason, face_verified
 
     if not face_outcome.ok:
-        if config.FACE_BLOCK_ON_FAIL:
-            return False, face_outcome.reason, face_verified
         return True, "", face_verified
 
     return True, "", face_verified

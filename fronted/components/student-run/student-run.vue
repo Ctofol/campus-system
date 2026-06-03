@@ -46,44 +46,13 @@
         </cover-view>
 
         <cover-view
-          v-if="!hideMapCoverLayer && !isRunning && !taskRunLocked"
-          class="sport-mode-pill cover-panel"
-        >
-          <cover-view
-            class="sport-pill-item"
-            :class="{ active: currentMode === 'normal' }"
-            @tap="switchMode('normal')"
-          >普通跑步</cover-view>
-          <cover-view
-            class="sport-pill-item"
-            :class="{ active: currentMode === 'police' }"
-            @tap="switchMode('police')"
-          >专项测试</cover-view>
-          <cover-view
-            class="sport-pill-item"
-            :class="{ active: currentMode === 'campus' }"
-            @tap="switchMode('campus')"
-          >校园打卡</cover-view>
-        </cover-view>
-
-        <cover-view
           v-if="!hideMapCoverLayer && taskRunLocked && !isRunning"
           class="sport-task-hint cover-panel"
         >
           <cover-view class="sport-task-hint-t">任务跑步 · 专项模式已锁定</cover-view>
         </cover-view>
 
-        <cover-view
-          v-if="!hideMapCoverLayer && canShowStartFab"
-          class="sport-start-fab cover-panel"
-          @tap="onMainStartTap"
-        >
-          <cover-view class="sport-start-inner">
-            <cover-view class="sport-start-text">{{ mainStartLabel }}</cover-view>
-          </cover-view>
-        </cover-view>
-
-        <cover-view v-if="showMapLegend" class="map-legend">
+        <cover-view v-if="showMapLegend" class="map-legend cover-panel">
           <cover-view class="legend-row">
             <cover-view class="legend-pin legend-pin-me" />
             <cover-view class="legend-txt">我的位置</cover-view>
@@ -219,24 +188,75 @@
         <view class="run-sheet-handle-wrap">
           <view class="run-sheet-handle" />
         </view>
-        <text class="run-prep-title">{{ runPrepSheetTitle }}</text>
 
-        <view v-if="currentMode === 'police'" class="run-prep-body">
+        <view v-if="!taskRunLocked" class="run-prep-mode-pill">
+          <view
+            class="run-prep-pill-item"
+            :class="{ active: currentMode === 'normal' }"
+            hover-class="run-prep-pill-item--hover"
+            @tap="switchMode('normal')"
+          >普通跑步</view>
+          <view
+            v-if="hasRunTaskAvailable"
+            class="run-prep-pill-item"
+            :class="{ active: currentMode === 'police' }"
+            hover-class="run-prep-pill-item--hover"
+            @tap="switchMode('police')"
+          >专项测试</view>
+          <view
+            class="run-prep-pill-item"
+            :class="{ active: currentMode === 'campus' }"
+            hover-class="run-prep-pill-item--hover"
+            @tap="switchMode('campus')"
+          >校园打卡</view>
+        </view>
+        <text v-else class="run-prep-title">{{ runPrepSheetTitle }}</text>
+        <text v-if="!taskRunLocked" class="run-prep-title">{{ runPrepSheetTitle }}</text>
+
+        <view v-if="currentMode === 'normal'" class="run-prep-body">
           <view class="run-prep-card">
-            <text class="run-prep-card-head">{{ taskRunLocked ? '本次任务要求' : '专项体能训练' }}</text>
-            <view class="run-prep-row">
+            <text class="run-prep-card-head">户外跑步</text>
+            <text class="run-prep-desc run-prep-desc--center">自动记录里程、轨迹与配速，结束后可提交成绩</text>
+          </view>
+        </view>
+
+        <view v-else-if="currentMode === 'police'" class="run-prep-body">
+          <view
+            v-if="!taskRunLocked && activeRunTasks.length > 1"
+            class="run-prep-task-pick"
+          >
+            <text class="run-prep-task-pick-hint">请选择要完成的跑步任务</text>
+            <view
+              v-for="t in activeRunTasks"
+              :key="t.id"
+              class="run-prep-task-pick-item"
+              :class="{ 'run-prep-task-pick-item--active': String(taskId) === String(t.id) }"
+              hover-class="run-prep-task-pick-item--hover"
+              @tap="selectRunTask(t)"
+            >
+              <text class="run-prep-task-pick-title">{{ t.title }}</text>
+              <text class="run-prep-task-pick-meta">{{ formatRunTaskMeta(t) }}</text>
+            </view>
+          </view>
+          <view v-if="taskId" class="run-prep-card">
+            <text class="run-prep-card-head">{{ teacherRunTask || '本次任务' }}</text>
+            <view v-if="policeTargetDistance > 0" class="run-prep-row">
               <text class="run-prep-row-lbl">最低距离</text>
-              <text class="run-prep-row-val">{{ (policeTargetDistance / 1000).toFixed(1) }} 公里</text>
+              <text class="run-prep-row-val">{{ (policeTargetDistance / 1000).toFixed(2) }} 公里</text>
             </view>
             <view v-if="taskMinDurationSec > 0" class="run-prep-row">
               <text class="run-prep-row-lbl">最低时长</text>
-              <text class="run-prep-row-val">{{ Math.floor(taskMinDurationSec / 60) }} 分 {{ taskMinDurationSec % 60 }} 秒</text>
+              <text class="run-prep-row-val">{{ formatTaskDurationLabel(taskMinDurationSec) }}</text>
             </view>
-            <view class="run-prep-row">
+            <view v-if="policeReferencePaceLabel" class="run-prep-row">
               <text class="run-prep-row-lbl">参考配速</text>
-              <text class="run-prep-row-val">{{ policeTargetPace }} 分钟/公里</text>
+              <text class="run-prep-row-val">{{ policeReferencePaceLabel }}</text>
             </view>
-            <text v-if="taskRunLocked && taskDescription" class="run-prep-desc">{{ taskDescription }}</text>
+            <text v-if="taskDescription" class="run-prep-desc">{{ taskDescription }}</text>
+            <text v-if="taskSubmitHint" class="run-prep-desc run-prep-desc--warn">{{ taskSubmitHint }}</text>
+          </view>
+          <view v-else-if="!runTasksLoading" class="run-prep-card">
+            <text class="run-prep-desc run-prep-desc--center">暂无进行中的跑步任务，请先在「我的任务」查看</text>
           </view>
         </view>
 
@@ -298,7 +318,14 @@
 <script setup>
 // 缁熶竴瀵煎叆瑙勮寖
 import { ref, computed, watch, onUnmounted, onMounted, nextTick } from 'vue';
-import { submitActivity, getCheckpoints, checkIn, uploadFile, getStudentTaskDetail } from '@/utils/request.js';
+import {
+  submitActivity,
+  getCheckpoints,
+  checkIn,
+  uploadFile,
+  getStudentTaskDetail,
+  getStudentTasks
+} from '@/utils/request.js';
 import { getCurrentLocation } from '@/utils/location.js';
 import { smoothTrajectoryForMap } from '@/utils/trajectory-smooth.js';
 import { buildPaceColoredPolylines } from '@/utils/trajectory-pace-polyline.js';
@@ -504,12 +531,105 @@ const onPageShow = (options = {}) => {
           teacherRunTask.value = '';
         }
       }
+      refreshActiveRunTasks();
+    } else {
+      reconcilePoliceMode();
     }
 };
 
 const taskRunLocked = ref(false);
 const taskDescription = ref('');
 const taskMinDurationSec = ref(0);
+const taskSubmitHint = ref('');
+const activeRunTasks = ref([]);
+const runTasksLoading = ref(false);
+
+const isActionableRunTask = (t) =>
+  t && t.type === 'run' && (t.status === 'pending' || t.status === 'failed');
+
+const hasRunTaskAvailable = computed(
+  () => !!taskId.value || activeRunTasks.value.some(isActionableRunTask)
+);
+
+const formatTaskDurationLabel = (sec) => {
+  const s = Math.max(0, Math.floor(Number(sec) || 0));
+  const m = Math.floor(s / 60);
+  const ss = s % 60;
+  return `${m} 分 ${ss} 秒`;
+};
+
+const formatRunTaskMeta = (t) => {
+  const parts = [];
+  const km = Number(t.min_distance);
+  if (km > 0) parts.push(`≥${km.toFixed(2)}km`);
+  if (t.min_duration) parts.push(`≥${formatTaskDurationLabel(t.min_duration)}`);
+  return parts.length ? parts.join(' · ') : '查看任务说明';
+};
+
+const policeReferencePaceLabel = computed(() => {
+  const km = policeTargetDistance.value / 1000;
+  if (!(taskMinDurationSec.value > 0 && km > 0)) return '';
+  const pace = taskMinDurationSec.value / 60 / km;
+  if (!Number.isFinite(pace) || pace <= 0) return '';
+  return `${pace.toFixed(1)} 分钟/公里`;
+});
+
+const applyRunTaskSnapshot = (task) => {
+  if (!task?.id) return;
+  taskId.value = String(task.id);
+  taskType.value = 'run';
+  teacherRunTask.value = task.title || '';
+  taskDescription.value = task.description || '';
+  taskMinDurationSec.value = Number(task.min_duration) || 0;
+  taskSubmitHint.value = '';
+  const km = Number(task.min_distance) || 0;
+  if (km > 0) {
+    policeTargetDistance.value = Math.round(km * 1000);
+    if (taskMinDurationSec.value > 0) {
+      policeTargetPace.value = taskMinDurationSec.value / 60 / km;
+    }
+  } else {
+    policeTargetDistance.value = 0;
+  }
+};
+
+const selectRunTask = (task) => {
+  if (!task?.id) return;
+  applyRunTaskSnapshot(task);
+  loadTaskRequirements(task.id);
+  initRunPrepSheetHeight();
+};
+
+const reconcilePoliceMode = () => {
+  if (taskRunLocked.value) return;
+  if (!hasRunTaskAvailable.value) {
+    if (currentMode.value === 'police') {
+      currentMode.value = 'normal';
+      taskId.value = null;
+      taskType.value = null;
+      initRunPrepSheetHeight();
+    }
+    return;
+  }
+  if (currentMode.value === 'police' && !taskId.value && activeRunTasks.value.length === 1) {
+    selectRunTask(activeRunTasks.value[0]);
+  }
+};
+
+const refreshActiveRunTasks = async () => {
+  if (taskRunLocked.value && taskId.value) return;
+  runTasksLoading.value = true;
+  try {
+    const res = await getStudentTasks({ page: 1, size: 50 });
+    activeRunTasks.value = (res.items || []).filter(isActionableRunTask);
+  } catch (e) {
+    console.error(e);
+    activeRunTasks.value = [];
+  } finally {
+    runTasksLoading.value = false;
+    reconcilePoliceMode();
+  }
+};
 const showFaceCamera = ref(false);
 const faceCapturePhase = ref('start');
 const faceCameraBusy = ref(false);
@@ -521,21 +641,19 @@ const loadTaskRequirements = async (tid) => {
   if (!tid) return;
   try {
     const d = await getStudentTaskDetail(tid);
-    teacherRunTask.value = d.title || teacherRunTask.value;
-    taskType.value = d.type || 'run';
-    taskDescription.value = d.description || '';
-    taskMinDurationSec.value = Number(d.min_duration) || 0;
-    const km = Number(d.min_distance);
-    if (km > 0) {
-      policeTargetDistance.value = Math.round(km * 1000);
-    } else {
-      policeTargetDistance.value = 2000;
-    }
-    if (d.min_duration && km > 0) {
-      policeTargetPace.value = Number(d.min_duration) / 60 / km;
-    }
+    applyRunTaskSnapshot({
+      id: d.id,
+      title: d.title,
+      type: d.type || 'run',
+      description: d.description,
+      min_distance: d.min_distance,
+      min_duration: d.min_duration
+    });
     if (d.can_submit === false && d.submit_hint) {
+      taskSubmitHint.value = d.submit_hint;
       uni.showToast({ title: d.submit_hint, icon: 'none', duration: 2500 });
+    } else {
+      taskSubmitHint.value = '';
     }
   } catch (e) {
     console.error(e);
@@ -953,7 +1071,11 @@ const stopCompassWatch = () => {
 const hideMapCoverLayer = computed(() => showFaceCamera.value);
 
 const showMapLegend = computed(
-  () => !hideMapCoverLayer.value && locationState.value === 'success' && hasPlausibleCoords()
+  () =>
+    !hideMapCoverLayer.value &&
+    isRunning.value &&
+    locationState.value === 'success' &&
+    hasPlausibleCoords()
 );
 
 const showLocationStatusBar = computed(
@@ -2461,18 +2583,19 @@ const showMapTopHintTappable = computed(
 
 const runPrepSheetHeightPx = ref(280);
 
-const showRunPrepSheet = computed(
-  () => !isRunning.value && (currentMode.value === 'campus' || currentMode.value === 'police')
-);
+const showRunPrepSheet = computed(() => !isRunning.value);
 
 const runPrepSheetTitle = computed(() => {
-  if (currentMode.value === 'campus') return '校园打卡';
-  if (currentMode.value === 'police') return '专项任务';
-  return '';
+  if (currentMode.value === 'campus') return '校园打卡 · 选择打卡点';
+  if (currentMode.value === 'police') {
+    return teacherRunTask.value ? `${teacherRunTask.value} · 任务要求` : '专项跑 · 任务要求';
+  }
+  return '普通跑步 · 准备开跑';
 });
 
 const canStartFromPrepSheet = computed(() => {
   if (currentMode.value === 'campus') return !!checkpoint.value?.name;
+  if (currentMode.value === 'police') return !!taskId.value && !taskSubmitHint.value;
   return true;
 });
 
@@ -2486,10 +2609,12 @@ const initRunPrepSheetHeight = () => {
     const sys = uni.getSystemInfoSync();
     const h = sys.windowHeight || 667;
     const safe = sys.safeAreaInsets?.bottom || 0;
-    const campus = currentMode.value === 'campus';
-    runPrepSheetHeightPx.value = Math.round(h * (campus ? 0.36 : 0.30) + safe * 0.35);
+    const mode = currentMode.value;
+    const ratio = mode === 'campus' ? 0.38 : mode === 'police' ? 0.34 : 0.32;
+    runPrepSheetHeightPx.value = Math.round(h * ratio + safe * 0.35);
   } catch (e) {
-    runPrepSheetHeightPx.value = currentMode.value === 'campus' ? 320 : 280;
+    const mode = currentMode.value;
+    runPrepSheetHeightPx.value = mode === 'campus' ? 320 : mode === 'police' ? 300 : 280;
   }
 };
 
@@ -2694,16 +2819,9 @@ const onCompactStopTap = () => {
   }
   stopRun();
 };
-/** 专项/校园：地图底部深色准备面板（与跑步中面板统一） */
-const canShowStartFab = computed(() => {
-  if (isRunning.value) return false;
-  if (currentMode.value === 'campus' || currentMode.value === 'police') return false;
-  return true;
-});
-
 const mainStartLabel = computed(() => {
   if (currentMode.value === 'campus') return '开始打卡';
-  if (currentMode.value === 'police') return '开始专项训练';
+  if (currentMode.value === 'police') return taskId.value ? '开始任务跑步' : '请先选择任务';
   return '开始跑步';
 });
 
@@ -2728,6 +2846,14 @@ const recenterMap = () => {
 };
 
 const onMainStartTap = () => {
+  if (!canStartFromPrepSheet.value) {
+    if (currentMode.value === 'police' && taskSubmitHint.value) {
+      uni.showToast({ title: taskSubmitHint.value, icon: 'none' });
+    } else if (currentMode.value === 'police') {
+      uni.showToast({ title: '请先选择跑步任务', icon: 'none' });
+    }
+    return;
+  }
   if (currentMode.value === 'campus' && !checkpoint.value?.name) {
     uni.showToast({ title: '请先选择校园打卡点', icon: 'none' });
     return;
@@ -3015,7 +3141,11 @@ const tryRestoreRunSession = () => {
 // 7. 切换跑步模式（普通/专项/校园）
 const switchMode = (mode) => {
   if (taskRunLocked.value) {
-    uni.showToast({ title: '任务跑步请使用专项跑页面', icon: 'none' });
+    uni.showToast({ title: '任务跑步模式已锁定', icon: 'none' });
+    return;
+  }
+  if (mode === 'police' && !hasRunTaskAvailable.value) {
+    uni.showToast({ title: '暂无进行中的跑步任务', icon: 'none' });
     return;
   }
   if (currentMode.value === mode) return;
@@ -3069,6 +3199,17 @@ const switchMode = (mode) => {
   refreshMarkers();
   updateMapPolyline();
   currentMode.value = mode;
+  if (mode === 'police' && !taskId.value) {
+    if (activeRunTasks.value.length === 1) {
+      selectRunTask(activeRunTasks.value[0]);
+    }
+  } else if (mode !== 'police') {
+    if (!taskRunLocked.value) {
+      taskId.value = null;
+      taskType.value = null;
+      taskSubmitHint.value = '';
+    }
+  }
   initRunPrepSheetHeight();
 };
 
@@ -3453,6 +3594,14 @@ const startNormalRun = async () => {
 
 // 涓撻」璁粌锛堝浐瀹?000绫筹紝鎸夎揪鏍囬厤閫熻窇锛?
 const startPoliceRun = async () => {
+  if (!taskId.value) {
+    uni.showToast({ title: '请先选择或进入跑步任务', icon: 'none' });
+    return;
+  }
+  if (taskSubmitHint.value) {
+    uni.showToast({ title: taskSubmitHint.value, icon: 'none' });
+    return;
+  }
   if (locationState.value !== 'success') {
     uni.showToast({ title: '定位未成功，请稍候或点击地图旁定位按钮刷新后再试', icon: 'none' });
     doGetLocation();
@@ -4388,12 +4537,79 @@ const buildHistory = (records) => {
   flex-direction: column;
   overflow: hidden;
 }
+.run-prep-mode-pill {
+  display: flex;
+  flex-direction: row;
+  margin: 0 24rpx 12rpx;
+  padding: 6rpx;
+  border-radius: 999rpx;
+  background: rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+.run-prep-pill-item {
+  flex: 1;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 24rpx;
+  padding: 16rpx 8rpx;
+  border-radius: 999rpx;
+}
+.run-prep-pill-item.active {
+  background: #20c997;
+  color: #ffffff;
+  font-weight: 700;
+}
+.run-prep-pill-item--hover {
+  opacity: 0.85;
+}
 .run-prep-title {
   color: rgba(255, 255, 255, 0.55);
   font-size: 24rpx;
   text-align: center;
   margin-bottom: 8rpx;
   flex-shrink: 0;
+}
+.run-prep-desc--center {
+  text-align: center;
+}
+.run-prep-desc--warn {
+  color: #ffb347;
+  margin-top: 12rpx;
+}
+.run-prep-task-pick {
+  margin-bottom: 16rpx;
+}
+.run-prep-task-pick-hint {
+  display: block;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 24rpx;
+  margin-bottom: 12rpx;
+}
+.run-prep-task-pick-item {
+  padding: 20rpx 24rpx;
+  border-radius: 16rpx;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1rpx solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 12rpx;
+}
+.run-prep-task-pick-item--active {
+  border-color: rgba(46, 230, 184, 0.85);
+  background: rgba(46, 230, 184, 0.12);
+}
+.run-prep-task-pick-item--hover {
+  opacity: 0.9;
+}
+.run-prep-task-pick-title {
+  display: block;
+  color: #fff;
+  font-size: 28rpx;
+  font-weight: 600;
+}
+.run-prep-task-pick-meta {
+  display: block;
+  margin-top: 8rpx;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 24rpx;
 }
 .run-prep-body {
   flex: 1;

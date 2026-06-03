@@ -201,8 +201,46 @@ const modeTitle = computed(() => {
 
 const isPaceQualified = ref(false);
 
+const faceFailCode = ref('');
+
+const buildFaceVerifyText = (data) => {
+  const scoreExtra =
+    data.face_match_score != null
+      ? `（相似度 ${Number(data.face_match_score).toFixed(1)}）`
+      : '';
+  if (data.face_verified === true) {
+    return `起止人脸核验通过${scoreExtra}`;
+  }
+  if (data.face_verified !== false) return '';
+
+  const code = data.face_fail_code || '';
+  if (code === 'NOT_SAME_PERSON') {
+    return `起止人脸核验未通过${scoreExtra}：起止照片非同一人`;
+  }
+  if (code === 'LIVENESS_FAIL') {
+    return '起止人脸核验未通过：未通过活体检测';
+  }
+  if (code === 'MISSING_PHOTO') {
+    return '起止人脸核验未通过：缺少起跑或结束人脸照片';
+  }
+  if (code === 'LOCAL_DETECT_FAIL') {
+    const fr = String(data.fail_reason || '');
+    if (fr.includes('人脸')) return fr;
+    return '起止人脸核验未通过：未检测到有效人脸';
+  }
+  if (data.face_match_score != null) {
+    return `起止人脸核验未通过${scoreExtra}：起止照片非同一人或相似度过低`;
+  }
+  const fr = String(data.fail_reason || '');
+  if (fr.includes('人脸')) return fr;
+  return '起止人脸核验未通过';
+};
+
 const failReasonText = computed(() => {
   const r = failReason.value || '';
+  if (r.includes('人脸验证') || r.includes('人脸核验')) {
+    return '本次未计入成绩（起止人脸核验未通过）';
+  }
   if (r.includes('里程不足') && distance.value < 50) {
     return '里程不足（GPS 可能未正常记录，请到室外重试）';
   }
@@ -329,19 +367,13 @@ onLoad((options) => {
     if (data.face_match_score != null) {
       faceMatchScore.value = data.face_match_score;
     }
-    const scoreExtra =
-      faceMatchScore.value != null
-        ? `（相似度 ${Number(faceMatchScore.value).toFixed(1)}）`
-        : '';
-    if (data.face_verified === true) {
-      faceVerifyText.value = `起止人脸核验通过${scoreExtra}`;
-    } else if (faceMatchScore.value != null) {
-      const sportFail = data.fail_reason && !String(data.fail_reason).includes('人脸');
-      faceVerifyText.value = sportFail
-        ? `起止已比对${scoreExtra}，本次因${data.fail_reason}未计入成绩`
-        : `起止人脸核验未通过${scoreExtra}`;
-    } else if (data.face_verified === false) {
-      faceVerifyText.value = data.fail_reason || '起止人脸核验未通过';
+    if (data.face_fail_code) {
+      faceFailCode.value = data.face_fail_code;
+    }
+    faceVerifyText.value = buildFaceVerifyText(data);
+
+    if (data.is_valid === false || data.face_verified === false) {
+      showMoreDetail.value = true;
     }
 
     if (isTaskRun.value) {
