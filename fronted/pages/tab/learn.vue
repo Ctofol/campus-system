@@ -2,7 +2,11 @@
   <view class="learn-page">
     <page-tab-header title="课程学习" theme="brand" :fixed="false">
       <template #right>
-        <view class="nav-action" v-if="userRole === 'teacher'" @click="createCourse">
+        <view
+          v-if="userRole === 'teacher'"
+          class="page-tab-header-icon-action"
+          @click="createCourse"
+        >
           <text class="action-icon">+</text>
         </view>
       </template>
@@ -337,22 +341,6 @@ onReachBottom(() => loadCourses(false));
   min-height: 100vh;
   background: #f0f4f8;
   padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
-}
-
-.nav-action {
-  width: 60rpx;
-  height: 60rpx;
-  background: rgba(255, 255, 255, 0.25);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  .action-icon {
-    font-size: 40rpx;
-    color: #fff;
-    font-weight: bold;
-  }
 }
 
 .learn-hero {

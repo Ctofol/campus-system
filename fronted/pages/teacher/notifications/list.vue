@@ -2,9 +2,10 @@
   <view class="notifications-page">
     <page-tab-header title="系统通知" show-back theme="white">
       <template #right>
-        <view class="nav-action" @click="markAllRead">
-          <text class="action-text">全部已读</text>
-        </view>
+        <text
+          class="page-tab-header-text-action page-tab-header-text-action--plain"
+          @click="markAllRead"
+        >全部已读</text>
       </template>
     </page-tab-header>
 

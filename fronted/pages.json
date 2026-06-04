@@ -427,6 +427,7 @@
     {
       "path": "pages/run-group/rank",
       "style": {
+        "navigationStyle": "custom",
         "navigationBarTitleText": "跑团排行榜"
       }
     }

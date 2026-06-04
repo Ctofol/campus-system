@@ -7,7 +7,11 @@
       theme="white"
     >
       <template #right>
-        <text class="rank-btn" @click="goToRank" v-if="!showCreateForm">排行榜</text>
+        <text
+          v-if="!showCreateForm"
+          class="page-tab-header-text-action"
+          @click="goToRank"
+        >排行榜</text>
       </template>
     </page-tab-header>
 
@@ -245,14 +249,6 @@ onMounted(() => {
 .discover-page {
   min-height: 100vh;
   background: #f5f7fa;
-}
-
-.rank-btn {
-  font-size: 26rpx;
-  color: #20c997;
-  padding: 8rpx 20rpx;
-  border: 1rpx solid #20c997;
-  border-radius: 20rpx;
 }
 
 .create-form {

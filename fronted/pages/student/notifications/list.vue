@@ -2,9 +2,11 @@
   <view class="notifications-page">
     <page-tab-header title="我的通知" show-back theme="white">
       <template #right>
-        <view v-if="notifications.length" class="nav-action" @click="markAllRead">
-          <text class="action-text">全部已读</text>
-        </view>
+        <text
+          v-if="notifications.length"
+          class="page-tab-header-text-action page-tab-header-text-action--plain"
+          @click="markAllRead"
+        >全部已读</text>
       </template>
     </page-tab-header>
 

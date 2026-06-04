@@ -15,9 +15,11 @@
             <text class="page-tab-header__back-icon">‹</text>
           </view>
         </view>
-        <text class="page-tab-header__title">{{ title }}</text>
-        <view class="page-tab-header__side page-tab-header__side--right" :style="rightSideStyle">
-          <view v-if="$slots.right" class="page-tab-header__right">
+        <view class="page-tab-header__center">
+          <text class="page-tab-header__title">{{ title }}</text>
+        </view>
+        <view class="page-tab-header__side page-tab-header__side--right">
+          <view v-if="hasRightSlot" class="page-tab-header__right">
             <slot name="right" />
           </view>
         </view>
@@ -32,7 +34,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, useSlots } from 'vue';
 
 const props = defineProps({
   title: { type: String, default: '' },
@@ -46,12 +48,13 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['back']);
+const slots = useSlots();
+const hasRightSlot = computed(() => !!slots.right);
 
 const statusBarHeight = ref(20);
 const navBarHeight = ref(44);
-/** 右侧留白，避免标题/按钮与微信小程序胶囊重叠 */
+/** 右侧留白，避免与微信小程序胶囊重叠 */
 const capsuleSafeRightPx = ref(12);
-const sideMinWidthPx = ref(44);
 
 const initNavLayout = () => {
   try {
@@ -60,7 +63,6 @@ const initNavLayout = () => {
     statusBarHeight.value = sb;
     let barH = 44;
     let safeRight = 12;
-    let sideW = 44;
 
     // #ifdef MP-WEIXIN
     const menu = typeof uni.getMenuButtonBoundingClientRect === 'function'
@@ -69,18 +71,15 @@ const initNavLayout = () => {
     if (menu && menu.width && menu.top != null) {
       barH = Math.max(44, (menu.top - sb) * 2 + menu.height);
       safeRight = Math.max(12, (sys.windowWidth || 375) - menu.left + 8);
-      sideW = Math.max(menu.width, 44);
     }
     // #endif
 
     navBarHeight.value = barH;
     capsuleSafeRightPx.value = safeRight;
-    sideMinWidthPx.value = props.showBack ? Math.max(sideW, 44) : sideW;
   } catch (e) {
     statusBarHeight.value = 20;
     navBarHeight.value = 44;
     capsuleSafeRightPx.value = 12;
-    sideMinWidthPx.value = 44;
   }
 };
 
@@ -97,11 +96,8 @@ const headerStyle = computed(() => ({
 
 const barStyle = computed(() => ({
   height: `${navBarHeight.value}px`,
-  paddingRight: `calc(var(--page-padding-x, 30rpx) + ${capsuleSafeRightPx.value}px)`
-}));
-
-const rightSideStyle = computed(() => ({
-  minWidth: `${Math.max(sideMinWidthPx.value, capsuleSafeRightPx.value * 0.45)}px`
+  paddingRight: `${capsuleSafeRightPx.value}px`,
+  paddingLeft: 'var(--page-padding-x, 30rpx)'
 }));
 
 const placeholderStyle = computed(() => ({
@@ -174,29 +170,40 @@ onMounted(() => {
 .page-tab-header__bar {
   position: relative;
   height: var(--nav-bar-height-px, var(--nav-bar-height, 44px));
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr minmax(0, auto) 1fr;
   align-items: center;
-  padding-left: var(--page-padding-x, 30rpx);
+  column-gap: 12rpx;
   box-sizing: border-box;
 }
 
 .page-tab-header__side {
   position: relative;
   z-index: 2;
-  flex-shrink: 0;
   display: flex;
   align-items: center;
+  min-width: 0;
   height: 100%;
 }
 
 .page-tab-header__side--left {
   justify-content: flex-start;
-  min-width: 88rpx;
+  padding-right: 8rpx;
 }
 
 .page-tab-header__side--right {
   justify-content: flex-end;
-  margin-left: auto;
+  padding-left: 8rpx;
+}
+
+.page-tab-header__center {
+  grid-column: 2;
+  min-width: 0;
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
 }
 
 .page-tab-header__back {
@@ -206,6 +213,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
+  pointer-events: auto;
 }
 
 .page-tab-header__back-icon {
@@ -224,12 +232,7 @@ onMounted(() => {
 }
 
 .page-tab-header__title {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 1;
-  max-width: min(480rpx, calc(100% - var(--capsule-safe-right, 96px) - 120rpx));
+  max-width: 100%;
   font-size: var(--nav-title-size, 34rpx);
   font-weight: bold;
   line-height: 1.2;
@@ -237,7 +240,6 @@ onMounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  pointer-events: none;
 }
 
 .page-tab-header--light .page-tab-header__title,
@@ -253,7 +255,9 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  flex-shrink: 0;
   pointer-events: auto;
+  max-width: 100%;
 }
 
 .page-tab-header__placeholder {

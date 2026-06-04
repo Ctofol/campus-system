@@ -2,7 +2,7 @@
   <view class="resources-container">
     <page-tab-header title="教学资源" show-back theme="white">
       <template #right>
-        <view class="nav-action" @click="createResource">
+        <view class="page-tab-header-icon-action" @click="createResource">
           <text class="action-icon">+</text>
         </view>
       </template>

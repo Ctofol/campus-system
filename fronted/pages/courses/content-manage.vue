@@ -2,7 +2,7 @@
   <view class="content-manage-container">
     <page-tab-header title="课程内容管理" show-back theme="white">
       <template #right>
-        <view class="nav-action" @click="addContent">
+        <view class="page-tab-header-icon-action" @click="addContent">
           <text class="action-icon">+</text>
         </view>
       </template>

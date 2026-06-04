@@ -2,7 +2,11 @@
   <view class="students-page">
     <page-tab-header title="学员管理" show-back theme="white">
       <template #right>
-        <view class="batch-btn" @click="toggleBatchMode" :class="{active: isBatchMode}">
+        <view
+          class="page-tab-header-text-action page-tab-header-text-action--plain batch-btn"
+          @click="toggleBatchMode"
+          :class="{ active: isBatchMode }"
+        >
           <text>{{ isBatchMode ? '完成' : '批量管理' }}</text>
         </view>
       </template>
@@ -850,10 +854,8 @@ const handleBack = () => {
   font-weight: 800; 
   color: #333; 
 }
-.batch-btn { 
-  font-size: 28rpx; 
-  color: #20C997; 
-  padding: 10rpx 20rpx;
+.batch-btn {
+  font-size: 26rpx;
   background: rgba(32, 201, 151, 0.1);
   border-radius: 30rpx;
   transition: all 0.2s;

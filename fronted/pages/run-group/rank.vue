@@ -1,16 +1,17 @@
 <template>
   <view class="rank-page">
-    <view class="header">
-      <text class="title">跑团排行榜</text>
-      <text class="subtitle">按总里程排名</text>
+    <page-tab-header title="跑团排行榜" show-back theme="brand" />
+
+    <view class="rank-hero page-tab-body">
+      <text class="rank-subtitle">按总里程排名</text>
     </view>
-    
+
     <view class="rank-list">
-      <view 
-        class="rank-item" 
-        v-for="(group, index) in rankList" 
+      <view
+        class="rank-item"
+        v-for="(group, index) in rankList"
         :key="group.group_id"
-        :class="{'top-three': index < 3}"
+        :class="{ 'top-three': index < 3 }"
       >
         <view class="rank-number" :class="'rank-' + (index + 1)">
           <text v-if="index < 3">{{ ['🥇', '🥈', '🥉'][index] }}</text>
@@ -22,11 +23,11 @@
         </view>
         <text class="mileage">{{ (group.total_mileage || 0).toFixed(1) }}km</text>
       </view>
-      
+
       <view class="loading" v-if="loading">
         <text>加载中...</text>
       </view>
-      
+
       <view class="empty" v-if="!loading && rankList.length === 0">
         <text>暂无数据</text>
       </view>
@@ -61,105 +62,77 @@ onMounted(() => {
 <style scoped>
 .rank-page {
   min-height: 100vh;
-  background: linear-gradient(180deg, #20C997 0%, #f5f7fa 300rpx);
+  background: #f5f7fa;
 }
 
-.header {
-  padding: 60rpx 30rpx 40rpx;
+.rank-hero {
+  padding-top: 16rpx;
+  padding-bottom: 8rpx;
   text-align: center;
 }
 
-.title {
-  font-size: 40rpx;
-  font-weight: bold;
-  color: #fff;
-  display: block;
-  margin-bottom: 12rpx;
-}
-
-.subtitle {
-  font-size: 24rpx;
-  color: rgba(255, 255, 255, 0.9);
+.rank-subtitle {
+  font-size: 26rpx;
+  color: #6b7c8f;
 }
 
 .rank-list {
-  padding: 0 30rpx 30rpx;
+  padding: 0 30rpx 40rpx;
 }
 
 .rank-item {
-  background: #fff;
-  border-radius: 20rpx;
-  padding: 30rpx;
-  margin-bottom: 16rpx;
   display: flex;
   align-items: center;
-  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.06);
+  background: #fff;
+  border-radius: 20rpx;
+  padding: 28rpx 24rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.06);
 }
 
 .rank-item.top-three {
-  box-shadow: 0 4rpx 20rpx rgba(32, 201, 151, 0.2);
+  border: 2rpx solid rgba(32, 201, 151, 0.35);
 }
 
 .rank-number {
-  width: 60rpx;
-  height: 60rpx;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 32rpx;
-  font-weight: bold;
-  margin-right: 20rpx;
-  background: #f0f0f0;
-  color: #666;
-}
-
-.rank-1 {
-  background: linear-gradient(135deg, #FFD700, #FFA500);
-  color: #fff;
-  font-size: 40rpx;
-}
-
-.rank-2 {
-  background: linear-gradient(135deg, #C0C0C0, #808080);
-  color: #fff;
-  font-size: 40rpx;
-}
-
-.rank-3 {
-  background: linear-gradient(135deg, #CD7F32, #8B4513);
-  color: #fff;
-  font-size: 40rpx;
+  width: 72rpx;
+  text-align: center;
+  font-size: 36rpx;
+  flex-shrink: 0;
 }
 
 .group-info {
   flex: 1;
-  display: flex;
-  flex-direction: column;
+  min-width: 0;
+  margin-left: 16rpx;
 }
 
 .group-name {
-  font-size: 28rpx;
+  display: block;
+  font-size: 30rpx;
   font-weight: bold;
   color: #333;
-  margin-bottom: 8rpx;
 }
 
 .member-count {
-  font-size: 22rpx;
+  display: block;
+  font-size: 24rpx;
   color: #999;
+  margin-top: 6rpx;
 }
 
 .mileage {
   font-size: 32rpx;
   font-weight: bold;
-  color: #20C997;
+  color: #20c997;
+  flex-shrink: 0;
 }
 
-.loading, .empty {
+.loading,
+.empty {
   text-align: center;
-  padding: 80rpx;
+  padding: 60rpx 0;
   color: #999;
-  font-size: 24rpx;
+  font-size: 28rpx;
 }
 </style>

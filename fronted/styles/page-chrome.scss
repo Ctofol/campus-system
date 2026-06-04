@@ -44,6 +44,58 @@ page {
   box-sizing: border-box;
 }
 
+/* 顶栏右侧操作（配合 page-tab-header #right 插槽，避免与标题重叠） */
+.page-tab-header-text-action {
+  font-size: 26rpx;
+  line-height: 1.2;
+  padding: 8rpx 20rpx;
+  border-radius: 20rpx;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.page-tab-header--white .page-tab-header-text-action,
+.page-tab-header--light .page-tab-header-text-action {
+  color: #20c997;
+  border: 1rpx solid #20c997;
+}
+
+.page-tab-header-text-action--plain {
+  border: none;
+  padding: 8rpx 12rpx;
+  color: #20c997;
+}
+
+.page-tab-header-icon-action {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.page-tab-header--brand .page-tab-header-icon-action {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.page-tab-header--brand .page-tab-header-icon-action .action-icon,
+.page-tab-header--brand .page-tab-header-icon-action {
+  color: #fff;
+  font-size: 40rpx;
+  font-weight: bold;
+  line-height: 1;
+}
+
+.page-tab-header--white .page-tab-header-icon-action,
+.page-tab-header--light .page-tab-header-icon-action {
+  background: rgba(32, 201, 151, 0.12);
+  color: #20c997;
+  font-size: 40rpx;
+  font-weight: bold;
+}
+
 /* 子页正文左右留白（与卡片边距一致） */
 .page-tab-body--pad-x {
   padding-left: var(--page-padding-x);
