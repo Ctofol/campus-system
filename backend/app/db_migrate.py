@@ -14,6 +14,9 @@ def ensure_schema_upgrades() -> None:
     inspector = inspect(database.engine)
     dialect = database.engine.dialect.name
 
+    user_cols = {
+        "weekly_run_goal_km": "REAL" if dialect == "sqlite" else "FLOAT",
+    }
     activity_cols = {
         "face_liveness_pass": "INTEGER" if dialect == "sqlite" else "BOOLEAN",
         "face_match_score": "REAL" if dialect == "sqlite" else "FLOAT",
@@ -26,6 +29,12 @@ def ensure_schema_upgrades() -> None:
     }
 
     with database.engine.begin() as conn:
+        if inspector.has_table("users"):
+            existing = _column_names(inspector, "users")
+            for col, typ in user_cols.items():
+                if col not in existing:
+                    conn.execute(text(f"ALTER TABLE users ADD COLUMN {col} {typ}"))
+
         if inspector.has_table("activities"):
             existing = _column_names(inspector, "activities")
             for col, typ in activity_cols.items():
