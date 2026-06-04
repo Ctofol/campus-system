@@ -47,8 +47,15 @@
       "path": "pages/test/test",
       "style": {
         "navigationStyle": "custom",
-        "navigationBarTitleText": "体能测试",
+        "navigationBarTitleText": "AI 体能测试",
         "enablePullDownRefresh": false
+      }
+    },
+    {
+      "path": "pages/test/session",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "体测进行"
       }
     },
     {

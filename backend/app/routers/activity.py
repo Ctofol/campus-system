@@ -254,17 +254,29 @@ def get_history(
     current_user: models.User = Depends(auth.get_current_user),
     db: Session = Depends(get_db),
 ):
+    from sqlalchemy.orm import joinedload
+    from ..services.home_dashboard_service import enrich_activity_trajectory_fields
+
     query = db.query(models.Activity).filter(models.Activity.user_id == current_user.id)
     total = query.count()
     activities = (
-        query.order_by(models.Activity.started_at.desc())
+        query.options(joinedload(models.Activity.metrics))
+        .order_by(models.Activity.started_at.desc())
         .offset((page - 1) * size)
         .limit(size)
         .all()
     )
 
+    items = []
+    for act in activities:
+        base = schemas.ActivityOut.model_validate(act).model_dump()
+        extra = enrich_activity_trajectory_fields(act)
+        base["has_trajectory"] = extra["has_trajectory"]
+        base["trajectory_preview"] = extra["trajectory_preview"]
+        items.append(schemas.ActivityOut(**base))
+
     return {
-        "items": activities,
+        "items": items,
         "total": total,
         "page": page,
         "size": size,

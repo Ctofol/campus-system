@@ -1,0 +1,356 @@
+/* 学生首页 Dashboard — 设计稿 #26B586 */
+
+.home-page {
+  min-height: 100vh;
+  background: #f5f7fa;
+  display: flex;
+  flex-direction: column;
+  max-width: 750rpx;
+  margin: 0 auto;
+}
+
+.home-scroll {
+  flex: 1;
+  height: 100vh;
+  box-sizing: border-box;
+}
+
+.home-hero {
+  position: relative;
+  padding: 0 28rpx 52rpx;
+  background: linear-gradient(165deg, #2ed9a8 0%, #26b586 40%, #1a9d72 100%);
+  overflow: hidden;
+  min-height: 360rpx;
+}
+
+.home-hero__illus {
+  position: absolute;
+  right: -10rpx;
+  bottom: 0;
+  width: 460rpx;
+  height: 340rpx;
+  opacity: 0.95;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.home-hero__runner {
+  position: absolute;
+  right: 24rpx;
+  bottom: 20rpx;
+  width: 200rpx;
+  height: 200rpx;
+  border-radius: 50% 50% 40% 40%;
+  background: radial-gradient(circle at 40% 35%, rgba(255, 255, 255, 0.35) 0%, transparent 55%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.home-hero__runner::before {
+  content: '🏃';
+  position: absolute;
+  font-size: 120rpx;
+  right: 20rpx;
+  bottom: 10rpx;
+  opacity: 0.45;
+  filter: grayscale(1) brightness(2);
+}
+
+/* 顶栏：问候 + 右侧操作按钮 */
+.home-hero__topbar {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  position: relative;
+  z-index: 2;
+  padding-top: 16rpx;
+}
+
+.home-hero__greet {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.home-hero__greet-title {
+  display: block;
+  font-size: 40rpx;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1.3;
+  text-shadow: 0 2rpx 8rpx rgba(0, 60, 40, 0.15);
+}
+
+.home-hero__greet-sub {
+  display: block;
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.9);
+  margin-top: 8rpx;
+}
+
+.home-hero__actions {
+  display: flex;
+  flex-direction: row;
+  gap: 8rpx;
+  flex-shrink: 0;
+  margin-left: 16rpx;
+}
+
+.home-hero__action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8rpx 10rpx;
+  min-width: 84rpx;
+}
+
+.home-hero__action-icon {
+  font-size: 36rpx;
+  line-height: 1;
+}
+
+.home-hero__action-label {
+  font-size: 20rpx;
+  color: rgba(255, 255, 255, 0.95);
+  margin-top: 6rpx;
+  white-space: nowrap;
+}
+
+.home-hero__bell-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.home-hero__badge {
+  position: absolute;
+  top: -6rpx;
+  right: -12rpx;
+  min-width: 28rpx;
+  height: 28rpx;
+  padding: 0 6rpx;
+  border-radius: 14rpx;
+  background: #ff6b6b;
+  font-size: 18rpx;
+  color: #fff;
+  text-align: center;
+  line-height: 28rpx;
+}
+
+/* 底部天气卡片 */
+.home-hero__bottom {
+  position: relative;
+  z-index: 2;
+  margin-top: 32rpx;
+  display: flex;
+  align-items: flex-end;
+}
+
+.home-body {
+  padding: 0 24rpx 32rpx;
+}
+
+.home-card {
+  background: #fff;
+  border-radius: 28rpx;
+  padding: 28rpx 24rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 8rpx 36rpx rgba(26, 43, 60, 0.06);
+}
+
+.home-card--grid {
+  padding: 28rpx 12rpx 24rpx;
+}
+
+.home-card__sub {
+  display: block;
+  font-size: 22rpx;
+  color: #8a9bab;
+  margin: -8rpx 0 20rpx;
+}
+
+/* 目标弹窗 */
+.home-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48rpx;
+}
+
+.home-goal-panel {
+  width: 100%;
+  max-width: 600rpx;
+  background: #fff;
+  border-radius: 24rpx;
+  padding: 40rpx 32rpx 32rpx;
+}
+
+.home-goal-panel__title {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: #1a2b3c;
+  display: block;
+}
+
+.home-goal-panel__hint {
+  font-size: 24rpx;
+  color: #8a9bab;
+  margin-top: 12rpx;
+  display: block;
+}
+
+.home-goal-panel__input-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-top: 32rpx;
+  padding: 20rpx 24rpx;
+  background: #f5f7fa;
+  border-radius: 16rpx;
+}
+
+.home-goal-panel__input {
+  flex: 1;
+  font-size: 40rpx;
+  font-weight: 700;
+  color: #1a2b3c;
+}
+
+.home-goal-panel__unit {
+  font-size: 26rpx;
+  color: #8a9bab;
+  margin-left: 12rpx;
+}
+
+.home-goal-panel__btns {
+  display: flex;
+  flex-direction: row;
+  gap: 20rpx;
+  margin-top: 36rpx;
+}
+
+.home-goal-panel__btn {
+  flex: 1;
+  text-align: center;
+  padding: 22rpx 0;
+  border-radius: 16rpx;
+  font-size: 28rpx;
+}
+
+.home-goal-panel__btn--ghost {
+  background: #f0f3f6;
+  color: #6b7c8f;
+}
+
+.home-goal-panel__btn--primary {
+  background: #26b586;
+  color: #fff;
+  font-weight: 600;
+}
+
+/* 任务弹窗 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.task-modal {
+  width: 600rpx;
+  background: #fff;
+  border-radius: 20rpx;
+  padding: 30rpx;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 30rpx;
+  align-items: center;
+}
+
+.modal-title {
+  font-size: 32rpx;
+  font-weight: bold;
+}
+
+.close-btn {
+  font-size: 40rpx;
+  color: #999;
+  line-height: 1;
+}
+
+.task-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.task-modal-item {
+  display: flex;
+  align-items: center;
+  padding: 20rpx;
+  background: #f9f9f9;
+  border-radius: 12rpx;
+}
+
+.task-icon-box {
+  width: 60rpx;
+  height: 60rpx;
+  background: #e8f5e9;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 20rpx;
+}
+
+.task-icon {
+  font-size: 32rpx;
+}
+
+.task-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.task-title {
+  font-size: 26rpx;
+  font-weight: bold;
+  color: #333;
+}
+
+.task-desc {
+  font-size: 22rpx;
+  color: #666;
+  margin-top: 4rpx;
+}
+
+.task-action {
+  background: #ff6b6b;
+  padding: 8rpx 20rpx;
+  border-radius: 30rpx;
+}
+
+.btn-text {
+  color: #fff;
+  font-size: 22rpx;
+  font-weight: bold;
+}

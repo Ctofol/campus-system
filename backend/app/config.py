@@ -37,6 +37,11 @@ FACE_LOCAL_MIN_SIMILARITY = float(os.getenv("FACE_LOCAL_MIN_SIMILARITY", "0.42")
 TENCENT_SECRET_ID = os.getenv("TENCENT_SECRET_ID", "")
 TENCENT_SECRET_KEY = os.getenv("TENCENT_SECRET_KEY", "")
 TENCENT_REGION = os.getenv("TENCENT_REGION", "ap-guangzhou")
+
+# 腾讯位置服务 WebService（天气等），Key 仅放服务端
+TENCENT_MAP_KEY = os.getenv("TENCENT_MAP_KEY", "").strip()
+TENCENT_MAP_API_BASE = os.getenv("TENCENT_MAP_API_BASE", "https://apis.map.qq.com").rstrip("/")
+WEATHER_CACHE_TTL_SEC = int(os.getenv("WEATHER_CACHE_TTL_SEC", "1800"))
 FACE_MATCH_THRESHOLD = float(os.getenv("FACE_MATCH_THRESHOLD", "70"))
 FACE_VERIFY_TIMEOUT_SEC = int(os.getenv("FACE_VERIFY_TIMEOUT_SEC", "8"))
 FACE_BLOCK_ON_FAIL = os.getenv("FACE_BLOCK_ON_FAIL", "true").lower() in ("1", "true", "yes")

@@ -39,6 +39,7 @@ def upgrade_database():
             ("group_name", "VARCHAR"),
             ("signature", "VARCHAR"),
             ("avatar_url", "VARCHAR"),
+            ("weekly_run_goal_km", "FLOAT"),
         ],
         "tasks": [
             ("video_url", "VARCHAR"),

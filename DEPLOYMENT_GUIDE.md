@@ -9,6 +9,11 @@
 
 **[docs/人脸识别与体测分析-部署说明.md](./docs/人脸识别与体测分析-部署说明.md)**
 
+### 学生首页天气 API（发版时别忘了）
+
+后端 **`backend/.env`** 须配置 `TENCENT_MAP_KEY`（与腾讯控制台「大学生运动健康平台」Key 一致，并开启 **WebService + 天气服务**）。接口：`GET /student/weather`。  
+粘贴给 OpenCode 的专项说明：**[docs/skill-3.3/Skill_3.3_Weather_Env_Deploy_Note.md](./docs/skill-3.3/Skill_3.3_Weather_Env_Deploy_Note.md)**
+
 ---
 
 ## 部署步骤

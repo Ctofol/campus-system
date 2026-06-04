@@ -2,6 +2,8 @@
 
 **技能总索引（3.1 / 配图 / 3.3）**：`docs/skills/README.md` — 需要时 `@` 该文件即可按需选用。
 
+**后端发版含学生首页天气时**：必读 `docs/skill-3.3/Skill_3.3_Weather_Env_Deploy_Note.md`（`backend/.env` → `TENCENT_MAP_KEY`）。
+
 ## Skill 3.3 — 故障诊断与修复分发
 
 当用户粘贴**报错、日志、截图说明**或明确在做**排障/运维**时，按仓库内完整说明执行：

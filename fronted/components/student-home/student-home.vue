@@ -1,179 +1,181 @@
 <template>
-  <view class="home-container">
-    <page-tab-header title="首页" theme="brand" />
-    <view class="content-wrapper page-tab-body">
-      <view class="student-dashboard">
-      
-      <!-- Hero Section: 开始运动 -->
-      <view class="hero-card">
-        <!-- 中间大圆形按钮 -->
-        <view class="center-button" @click="showExerciseActionSheet">
-          <view class="go-circle">
-            <text class="go-text">GO</text>
-            <text class="go-label">开始运动</text>
+  <view class="home-page">
+    <scroll-view
+      scroll-y
+      class="home-scroll"
+      :style="{ paddingBottom: safeBottom + 'px' }"
+      refresher-enabled
+      :refresher-triggered="refreshing"
+      @refresherrefresh="onPullRefresh"
+    >
+      <view class="home-hero" :style="{ paddingTop: statusBarHeight + 'px' }">
+        <image
+          class="home-hero__illus"
+          src="/static/home/hero-bg.png"
+          mode="aspectFill"
+          @error="heroImgFailed = true"
+        />
+        <view v-if="heroImgFailed" class="home-hero__runner" />
+
+        <!-- 顶栏：左侧问候 + 右侧操作按钮 -->
+        <view class="home-hero__topbar">
+          <view class="home-hero__greet">
+            <text class="home-hero__greet-title">{{ greetingText }}{{ greetingIcon }}</text>
+            <text class="home-hero__greet-sub">{{ greetingSub }}</text>
+          </view>
+          <view class="home-hero__actions">
+            <view class="home-hero__action" @tap="goSunshineDetail">
+              <text class="home-hero__action-icon">📅</text>
+              <text class="home-hero__action-label">打卡日历</text>
+            </view>
+            <view class="home-hero__action" @tap="goNotifications">
+              <view class="home-hero__bell-wrap">
+                <text class="home-hero__action-icon">🔔</text>
+                <text
+                  v-if="unreadNotifyCount > 0"
+                  class="home-hero__badge"
+                >{{ unreadNotifyCount > 99 ? '99+' : unreadNotifyCount }}</text>
+              </view>
+              <text class="home-hero__action-label">通知</text>
+            </view>
           </view>
         </view>
-        
-        <!-- 底部3个操作按钮 -->
-        <view class="action-buttons">
-          <view class="action-btn-item" @click="startOutdoorRun">
-            <text class="btn-icon">🏃</text>
-            <text class="btn-label">户外跑</text>
-          </view>
-          <view class="action-btn-item" @click="startPhysicalTest">
-            <text class="btn-icon">💪</text>
-            <text class="btn-label">体能测试</text>
-          </view>
-          <view class="action-btn-item" @click="uni.switchTab({url: '/pages/tab/learn'})">
-            <text class="btn-icon">📚</text>
-            <text class="btn-label">课程</text>
-          </view>
+
+        <!-- 底部天气 -->
+        <view class="home-hero__bottom">
+          <HomeWeatherCard :weather="homeWeather" :placeholder="!homeWeatherReady" />
         </view>
       </view>
-      
-      <!-- Task Stream: 任务流 -->
-      <view class="section-container page-card" v-if="teacherTasks.length > 0">
-        <view class="section-header">
-          <text class="page-section-title page-section-title--compact">我的任务</text>
-          <view class="section-more link-more" @click="handleTaskClick()">
-            <text>查看全部</text>
-            <view class="link-arrow" />
-          </view>
+
+      <HomeQuickStartCard
+        :distance-km="totalDistanceKm"
+        :goal-km="runGoalKm"
+        :goal-progress="weekGoalProgress"
+        :goal-hint="goalHintText"
+        @go="showExerciseActionSheet"
+        @settings="onRunSettings"
+        @set-goal="openGoalModal"
+      />
+
+      <view class="home-body">
+        <view class="home-card home-card--grid">
+          <HomeFeatureGrid :items="featureItems" @tap="onFeatureTap" />
         </view>
-        <view class="task-stream">
-          <view class="task-card" v-for="task in teacherTasks.slice(0, 3)" :key="task.id" @click="handleTaskClick(task)">
-            <view class="task-type-icon" :class="getTaskTypeClass(task)">
-              <text>{{ getTaskTypeIcon(task) }}</text>
-            </view>
-            <view class="task-info">
-              <text class="task-name">{{ task.title }}</text>
-              <text class="task-meta">{{ task.desc }}</text>
-            </view>
-            <view class="task-status-badge" :class="getTaskStatusClass(task)">
-              <text>{{ getTaskStatusText(task) }}</text>
-            </view>
-          </view>
+
+        <view class="home-card">
+          <HomeSectionHeader title="本周数据" more-text="查看全部" @more="viewHistory" />
+          <text class="home-card__sub">{{ weeklySubTitle }}</text>
+          <HomeWeekStats
+            :stats="weeklyStats"
+            :loading="loading"
+            @start-run="startOutdoorRun"
+          />
+        </view>
+
+        <view class="home-card">
+          <HomeSectionHeader title="最近活动" more-text="全部记录" @more="viewHistory" />
+          <HomeRecentList
+            :items="recentRuns"
+            :loading="loading"
+            @detail="goRunDetail"
+            @start-run="startOutdoorRun"
+          />
         </view>
       </view>
-      
-      <!-- Run Group Alliance: 跑团联盟 -->
-      <view class="section-container page-card">
-        <view class="section-header-enhanced">
-          <text class="page-section-title page-section-title--compact">跑团联盟</text>
-          <view class="section-actions">
-            <text class="action-link" @click="createRunGroup">创建</text>
-            <text class="action-divider">|</text>
-            <text class="action-link" @click="joinRunGroup">加入</text>
-            <text class="action-divider">|</text>
-            <text class="action-link" @click="browseActivities">活动浏览</text>
-          </view>
+
+      <view style="height: 32rpx;" />
+    </scroll-view>
+
+    <!-- 本周跑步目标 -->
+    <view v-if="showGoalModal" class="home-overlay" @tap="closeGoalModal">
+      <view class="home-goal-panel" @tap.stop>
+        <text class="home-goal-panel__title">设置本周跑步目标</text>
+        <text class="home-goal-panel__hint">按自然周（周一至周日）统计里程</text>
+        <view class="home-goal-panel__input-row">
+          <input
+            v-model="goalInput"
+            class="home-goal-panel__input"
+            type="digit"
+            placeholder="例如 15"
+          />
+          <text class="home-goal-panel__unit">公里 / 周</text>
         </view>
-        
-        <!-- 跑团核心数据卡片 -->
-        <view class="run-group-card" v-if="myRunGroup" @click="goToRunGroupDetail">
-          <view class="card-gradient-bg"></view>
-          <view class="card-content">
-            <view class="group-info">
-              <view class="group-header">
-                <text class="group-name">{{ myRunGroup.name }}</text>
-                <view class="rank-badge" v-if="myRunGroup.rank">
-                  <text class="rank-text">No.{{ myRunGroup.rank }}</text>
-                </view>
-              </view>
-              <view class="group-stats">
-                <view class="stat-item">
-                  <text class="stat-value">{{ myRunGroup.member_count }}</text>
-                  <text class="stat-label">成员</text>
-                </view>
-                <view class="stat-item">
-                  <text class="stat-value">{{ myRunGroup.total_mileage?.toFixed(1) || '0.0' }}km</text>
-                  <text class="stat-label">总里程</text>
-                </view>
-                <view class="stat-item">
-                  <text class="stat-value">{{ myRunGroup.month_activity_count }}</text>
-                  <text class="stat-label">本月活动</text>
-                </view>
-              </view>
-            </view>
-            <view class="rank-action" @click.stop="showRankList">
-              <text class="rank-icon">🏆</text>
-              <text class="rank-label">排行榜</text>
-            </view>
-          </view>
+        <view class="home-goal-panel__btns">
+          <view class="home-goal-panel__btn home-goal-panel__btn--ghost" @tap="clearGoal">清除目标</view>
+          <view class="home-goal-panel__btn home-goal-panel__btn--primary" @tap="saveGoal">保存</view>
         </view>
-        
-        <!-- 未加入跑团提示 -->
-        <view class="no-group-tip" v-else>
-          <text class="tip-text">您还未加入跑团</text>
-          <view class="tip-actions">
-            <button class="tip-btn primary" @click="createRunGroup">创建跑团</button>
-            <button class="tip-btn" @click="joinRunGroup">加入跑团</button>
-          </view>
-        </view>
-        
-        <!-- 最新动态列表 -->
-        <view class="activity-section">
-          <view class="activity-header">
-            <view class="header-decorator"></view>
-            <text class="activity-title">最新动态</text>
-          </view>
-          <scroll-view scroll-x class="activity-scroll" v-if="latestActivities.length > 0">
-            <view 
-              class="activity-card" 
-              v-for="activity in latestActivities" 
-              :key="activity.id"
-              @click="goToActivityDetail(activity.id)"
-            >
-              <view class="activity-status-badge" :class="getActivityStatusClass(activity.status)">
-                <text class="badge-text">{{ getActivityStatusText(activity.status) }}</text>
-              </view>
-              <text class="activity-name">{{ activity.title }}</text>
-              <view class="activity-time">
-                <text class="time-icon">📅</text>
-                <text class="time-text">{{ formatActivityTime(activity.activity_time) }}</text>
-              </view>
-              <view class="activity-apply">
-                <text class="apply-text">{{ activity.apply_count }}人已报名</text>
-                <view class="apply-progress">
-                  <view class="progress-fill" :style="{width: (activity.apply_count / activity.total_quota * 100) + '%'}"></view>
-                </view>
-              </view>
-            </view>
-          </scroll-view>
-          <view class="no-activity" v-else>
-            <text class="no-activity-text">暂无活动</text>
-          </view>
-        </view>
-    </view>
-    </view>
+      </view>
     </view>
 
-    <!-- 底部占位 -->
-    <view style="height: 20rpx;"></view>
-    
-    <!-- 任务提醒弹窗 -->
-    <view class="modal-overlay" v-if="showTaskModal" @click="closeTaskModal">
-      <view class="task-modal" @click.stop>
-        <view class="modal-header">
-            <text class="modal-title">🔔 您有新的任务</text>
-            <text class="close-btn" @click="closeTaskModal">×</text>
+    <!-- 新任务通知弹窗（设计稿风格，逐条展示） -->
+    <view v-if="showTaskModal" class="notif-overlay" @tap="closeTaskModal">
+      <view
+        class="notif-card"
+        :class="'notif-card--' + currentNotifTheme"
+        @tap.stop
+      >
+        <!-- 关闭按钮 -->
+        <text class="notif-close" @tap="closeTaskModal">×</text>
+
+        <!-- 顶部图标 -->
+        <view class="notif-icon-wrap" :class="'notif-icon-wrap--' + currentNotifTheme">
+          <text class="notif-icon-emoji">{{ currentNotifIcon }}</text>
         </view>
-        <view class="task-list"> 
-           <view class="task-modal-item" v-for="task in teacherTasks" :key="task.id" @click="handleTaskClick(task)">
-              <view class="task-icon-box">
-                <text class="task-icon">{{ getTaskTypeIcon(task) }}</text>
-              </view>
-              <view class="task-content">
-                <text class="task-title">{{ task.title }}</text>
-                <text class="task-desc">{{ task.desc }}</text>
-              </view>
-              <view class="task-action">
-                <text class="btn-text">去完成</text>
-              </view>
-           </view>
+
+        <!-- 类型标签 -->
+        <text class="notif-type" :class="'notif-type--' + currentNotifTheme">{{ currentNotifTypeLabel }}</text>
+
+        <!-- 标题 -->
+        <text class="notif-title">{{ currentTask.title }}</text>
+
+        <!-- 详情列表 -->
+        <view class="notif-rows">
+          <view v-if="currentTask.starts_at" class="notif-row">
+            <text class="notif-row-label">开始时间：</text>
+            <text class="notif-row-val">{{ currentTask.starts_at }}</text>
+          </view>
+          <view v-if="currentTask.deadline" class="notif-row">
+            <text class="notif-row-label">截止时间：</text>
+            <text class="notif-row-val">{{ currentTask.deadline }}</text>
+          </view>
+          <view v-if="currentTask.min_distance" class="notif-row">
+            <text class="notif-row-label">单次要求：</text>
+            <text class="notif-row-val">距离不少于 {{ currentTask.min_distance }} 公里</text>
+          </view>
         </view>
-        <view style="margin-top: 20rpx; text-align: center;">
-            <button size="mini" type="primary" @click="closeTaskModal" style="background-color: #20C997;">我知道了</button>
+
+        <!-- 提示框 -->
+        <view v-if="currentTask.desc" class="notif-tip" :class="'notif-tip--' + currentNotifTheme">
+          <text class="notif-tip-icon">💡</text>
+          <text class="notif-tip-text">{{ currentTask.desc }}</text>
+        </view>
+
+        <!-- 发布人 -->
+        <view class="notif-footer">
+          <text class="notif-publisher">发布人：{{ currentTask.publisher || '体育部老师' }}</text>
+          <text class="notif-time">{{ currentTask.publishTime || '今天' }}</text>
+        </view>
+
+        <!-- 多任务分页点 -->
+        <view v-if="teacherTasks.length > 1" class="notif-dots">
+          <view
+            v-for="(_, i) in teacherTasks"
+            :key="i"
+            class="notif-dot"
+            :class="{ 'notif-dot--active': i === notifIndex }"
+            @tap="notifIndex = i"
+          />
+        </view>
+
+        <!-- 操作按钮 -->
+        <view class="notif-btns">
+          <view
+            class="notif-btn notif-btn--primary"
+            :class="'notif-btn--' + currentNotifTheme"
+            @tap="handleNotifConfirm"
+          >
+            <text>{{ notifIndex < teacherTasks.length - 1 ? '下一条' : '我知道了' }}</text>
+          </view>
         </view>
       </view>
     </view>
@@ -181,138 +183,65 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
-import {
-  getStudentTasks,
-  getMyRunGroup,
-  getRunGroupActivities,
-  getStoredToken,
-  isAuthError
-} from '@/utils/request.js';
+import { ref, onMounted, computed } from 'vue';
+import { getStoredToken } from '@/utils/request.js';
 import { warmUpLocationCache } from '@/utils/location.js';
+import { fetchWeather } from '@/utils/weather.js';
+import { saveRunGoalKm } from '@/utils/run-goal.js';
+import { useStudentHomeDashboard } from '@/composables/useStudentHomeDashboard.js';
+import HomeWeatherCard from './HomeWeatherCard.vue';
+import HomeQuickStartCard from './HomeQuickStartCard.vue';
+import HomeFeatureGrid from './HomeFeatureGrid.vue';
+import HomeSectionHeader from './HomeSectionHeader.vue';
+import HomeWeekStats from './HomeWeekStats.vue';
+import HomeRecentList from './HomeRecentList.vue';
 
-// 状态栏高度
 const statusBarHeight = ref(20);
-
-// 角色状态
-const role = ref('student');
-const userInfo = ref({});
-
-// 任务数据
-const teacherTasks = ref([]);
+const safeBottom = ref(0);
+const refreshing = ref(false);
+const heroImgFailed = ref(false);
 const showTaskModal = ref(false);
+const showGoalModal = ref(false);
+const notifIndex = ref(0);
+const goalInput = ref('');
+const homeWeather = ref(null);
+const homeWeatherReady = ref(false);
 
-// 跑团数据
-const myRunGroup = ref(null);
-const latestActivities = ref([]);
+const {
+  loading,
+  greetingText,
+  greetingIcon,
+  greetingSub,
+  weeklySubTitle,
+  totalDistanceKm,
+  weeklyStats,
+  recentRuns,
+  teacherTasks,
+  unreadNotifyCount,
+  runGoalKm,
+  weekGoalProgress,
+  goalHintText,
+  loadDashboard,
+  applyRunGoal
+} = useStudentHomeDashboard();
 
-const fetchTasks = async () => {
-  if (!getStoredToken()) return;
-  try {
-    const res = await getStudentTasks({ page: 1, size: 20 });
-    
-    if (res.items && res.items.length > 0) {
-      const ongoingStatuses = ['pending', 'in_progress', 'uncompleted', 'not_started', 'failed'];
-      teacherTasks.value = res.items
-        .filter(task => ongoingStatuses.includes(task.status))
-        .map(task => ({
-         id: task.id,
-         title: task.title,
-         status: task.status, 
-         type: task.type || task.task_type || 'run',
-         deadline: task.deadline,
-         urgent: task.urgent || false,
-         desc: task.description || (task.min_distance ? `目标: ${task.min_distance}km` : '请查看详情')
-      }));
-      
-      if (teacherTasks.value.length > 0) {
-        const viewedIds = uni.getStorageSync('viewed_task_ids') || [];
-        const hasNewTask = teacherTasks.value.some(task => !viewedIds.includes(task.id));
-        
-        if (hasNewTask) {
-           showTaskModal.value = true;
-        }
-      }
-    } else {
-        teacherTasks.value = [];
-    }
-  } catch (e) {
-    if (isAuthError(e)) return;
-    console.error('Fetch tasks failed', e);
-    teacherTasks.value = [];
+const featureItems = [
+  { id: 'outdoor', icon: '🏃', label: '户外跑', desc: '记录户外路线' },
+  { id: 'test', icon: '💪', label: '体能测试', desc: '评估身体状态' },
+  { id: 'learn', icon: '📚', label: '课程', desc: '科学训练指导' },
+  { id: 'rungroup', icon: '👥', label: '跑团', desc: '一起跑步' }
+];
+
+const checkNewTasks = (tasks) => {
+  if (!tasks?.length) return;
+  const viewedIds = uni.getStorageSync('viewed_task_ids') || [];
+  const hasNew = tasks.some((t) => !viewedIds.includes(t.id));
+  if (hasNew) {
+    notifIndex.value = 0;
+    showTaskModal.value = true;
   }
 };
 
-// Exposed method for parent to call onShow
-const onPageShow = () => {
-  statusBarHeight.value = uni.getSystemInfoSync().statusBarHeight || 20;
-  
-  if (!getStoredToken()) {
-    uni.reLaunch({ url: '/pages/login/login' });
-    return;
-  }
-
-  const userRole = uni.getStorageSync('userRole') || uni.getStorageSync('role');
-  if (userRole) role.value = userRole;
-  
-  const storedUser = uni.getStorageSync('userInfo');
-  if (storedUser) {
-    try {
-        userInfo.value = typeof storedUser === 'string' ? JSON.parse(storedUser) : storedUser;
-    } catch (e) {
-        console.error('JSON parse error', e);
-        userInfo.value = {};
-    }
-  }
-  
-  fetchTasks();
-  loadRunGroupData(); // 每次显示页面时重新加载跑团数据
-  warmUpLocationCache();
-};
-
-// Initial load
-onMounted(() => {
-  statusBarHeight.value = uni.getSystemInfoSync().statusBarHeight || 20;
-  onPageShow();
-});
-
-// Expose methods
-defineExpose({
-  onPageShow
-});
-
-// 任务类型相关
-const getTaskTypeIcon = (task) => {
-  if (task.type === 'learn' || task.type === 'learning' || task.title.includes('课程') || task.title.includes('学习')) {
-    return '📚';
-  }
-  return '🏃';
-};
-
-const getTaskTypeClass = (task) => {
-  if (task.type === 'learn' || task.type === 'learning' || task.title.includes('课程') || task.title.includes('学习')) {
-    return 'task-type-learning';
-  }
-  return 'task-type-exercise';
-};
-
-const getTaskStatusClass = (task) => {
-  if (task.urgent) return 'status-urgent';
-  if (task.status === 'not_started') return 'status-uncompleted';
-  if (task.status === 'pending') return 'status-pending';
-  if (task.status === 'in_progress') return 'status-progress';
-  return 'status-uncompleted';
-};
-
-const getTaskStatusText = (task) => {
-  if (task.urgent) return '紧急';
-  if (task.status === 'not_started') return '未开始';
-  if (task.status === 'pending') return '待开始';
-  if (task.status === 'in_progress') return '进行中';
-  return '未完成';
-};
-
-// 运动选项 - 使用 ActionSheet
 const startOutdoorRun = () => {
   uni.navigateTo({ url: '/pages/run/run' });
 };
@@ -329,483 +258,199 @@ const startFreeExercise = () => {
   uni.navigateTo({ url: '/pages/sport/free-practice' });
 };
 
-// 显示运动选项 ActionSheet
 const showExerciseActionSheet = () => {
   uni.showActionSheet({
     itemList: ['户外跑步', '体测', '自由练习'],
     success: (res) => {
-      if (res.tapIndex === 0) {
-        startOutdoorRun();
-      } else if (res.tapIndex === 1) {
-        startAiTest();
-      } else if (res.tapIndex === 2) {
-        startFreeExercise();
-      }
-    },
-    fail: (err) => {
-      console.log('ActionSheet cancelled', err);
+      if (res.tapIndex === 0) startOutdoorRun();
+      else if (res.tapIndex === 1) startAiTest();
+      else if (res.tapIndex === 2) startFreeExercise();
     }
   });
 };
 
-// 任务操作
-const handleTaskClick = (task) => { 
-  if (task) {
-    uni.navigateTo({
-      url: `/pages/student/tasks/list?taskId=${task.id}`
-    });
-  } else {
-    uni.navigateTo({
-      url: '/pages/student/tasks/list'
-    });
+const onFeatureTap = (id) => {
+  if (id === 'outdoor') startOutdoorRun();
+  else if (id === 'test') startPhysicalTest();
+  else if (id === 'learn') uni.switchTab({ url: '/pages/tab/learn' });
+  else if (id === 'rungroup') uni.navigateTo({ url: '/pages/run-group/discover' });
+};
+
+const onRunSettings = () => {
+  uni.showActionSheet({
+    itemList: ['运动记录', '阳光跑规则'],
+    success: (res) => {
+      if (res.tapIndex === 0) viewHistory();
+      else if (res.tapIndex === 1) goSunshineDetail();
+    }
+  });
+};
+
+const openGoalModal = () => {
+  goalInput.value = runGoalKm.value > 0 ? String(runGoalKm.value) : '';
+  showGoalModal.value = true;
+};
+
+const closeGoalModal = () => {
+  showGoalModal.value = false;
+};
+
+const saveGoal = async () => {
+  const n = Number(goalInput.value);
+  if (!Number.isFinite(n) || n <= 0) {
+    uni.showToast({ title: '请输入有效公里数', icon: 'none' });
+    return;
+  }
+  try {
+    const km = await saveRunGoalKm(n);
+    applyRunGoal(km);
+    closeGoalModal();
+    uni.showToast({ title: '目标已保存', icon: 'success' });
+  } catch (e) {
+    uni.showToast({ title: '保存失败', icon: 'none' });
   }
 };
 
-const closeTaskModal = () => { 
-  showTaskModal.value = false; 
-  const viewedIds = uni.getStorageSync('viewed_task_ids') || [];
-  const newIds = teacherTasks.value.map(t => t.id);
-  const updatedIds = [...new Set([...viewedIds, ...newIds])];
-  uni.setStorageSync('viewed_task_ids', updatedIds);
+const clearGoal = async () => {
+  try {
+    await saveRunGoalKm(0);
+    applyRunGoal(0);
+    closeGoalModal();
+    uni.showToast({ title: '已清除目标', icon: 'none' });
+  } catch (e) {
+    uni.showToast({ title: '操作失败', icon: 'none' });
+  }
 };
 
-// 快捷功能
-const browseActivities = () => { 
-  uni.navigateTo({url: '/pages/activity/list'}); 
+const handleTaskClick = (task) => {
+  if (task) {
+    uni.navigateTo({ url: `/pages/student/tasks/list?taskId=${task.id}` });
+  } else {
+    uni.navigateTo({ url: '/pages/student/tasks/list' });
+  }
+};
+
+const closeTaskModal = () => {
+  showTaskModal.value = false;
+  notifIndex.value = 0;
+  const viewedIds = uni.getStorageSync('viewed_task_ids') || [];
+  const newIds = teacherTasks.value.map((t) => t.id);
+  uni.setStorageSync('viewed_task_ids', [...new Set([...viewedIds, ...newIds])]);
+};
+
+const handleNotifConfirm = () => {
+  if (notifIndex.value < teacherTasks.value.length - 1) {
+    notifIndex.value++;
+  } else {
+    closeTaskModal();
+  }
 };
 
 const viewHistory = () => {
-  uni.navigateTo({url: '/pages/history/history'});
+  uni.navigateTo({ url: '/pages/history/history' });
 };
 
-// 跑团功能
-const createRunGroup = () => {
-  uni.navigateTo({url: '/pages/run-group/discover?action=create'});
+const goSunshineDetail = () => {
+  uni.navigateTo({ url: '/pages/sunshine/detail' });
 };
 
-const joinRunGroup = () => {
-  uni.navigateTo({url: '/pages/run-group/discover'});
+const goNotifications = () => {
+  uni.navigateTo({ url: '/pages/student/notifications/list' });
 };
 
-const goToRunGroupDetail = () => {
-  if (myRunGroup.value) {
-    uni.navigateTo({url: `/pages/run-group/detail?groupId=${myRunGroup.value.id}`});
+const goRunDetail = (run) => {
+  const payload = run?.activity || run?.raw;
+  if (!payload) {
+    viewHistory();
+    return;
   }
-};
-
-const showRankList = () => {
-  uni.navigateTo({url: '/pages/run-group/rank'});
-};
-
-const goToActivityDetail = (activityId) => {
-  uni.navigateTo({url: `/pages/run-group/activity-detail?activityId=${activityId}`});
-};
-
-const getActivityStatusClass = (status) => {
-  const classMap = {
-    'upcoming': 'status-upcoming',
-    'ongoing': 'status-ongoing',
-    'finished': 'status-finished'
-  };
-  return classMap[status] || 'status-upcoming';
-};
-
-const getActivityStatusText = (status) => {
-  const textMap = {
-    'upcoming': '报名中',
-    'ongoing': '进行中',
-    'finished': '已结束'
-  };
-  return textMap[status] || '报名中';
-};
-
-const formatActivityTime = (timeStr) => {
-  const date = new Date(timeStr);
-  const month = date.getMonth() + 1;
-  const day = date.getDate();
-  const hour = date.getHours().toString().padStart(2, '0');
-  const minute = date.getMinutes().toString().padStart(2, '0');
-  return `${month}月${day}日 ${hour}:${minute}`;
-};
-
-// 加载跑团数据
-const loadRunGroupData = async () => {
-  if (!getStoredToken()) return;
-
   try {
-    const groupRes = await getMyRunGroup();
-    myRunGroup.value = groupRes || null;
+    const dataStr = encodeURIComponent(JSON.stringify(payload));
+    uni.navigateTo({ url: `/pages/history/detail?data=${dataStr}` });
   } catch (e) {
-    if (isAuthError(e)) return;
-    myRunGroup.value = null;
-  }
-
-  try {
-    const activityRes = await getRunGroupActivities({ page: 1, size: 5 });
-    latestActivities.value = activityRes?.items || [];
-  } catch (e) {
-    if (isAuthError(e)) return;
-    latestActivities.value = [];
+    console.error('Go detail failed', e);
   }
 };
 
+const getTaskTypeIcon = (task) => {
+  if (
+    task.type === 'learn' ||
+    task.type === 'learning' ||
+    task.title?.includes('课程') ||
+    task.title?.includes('学习')
+  ) {
+    return '📚';
+  }
+  return '🏃';
+};
+
+// 通知弹窗 computed
+const currentTask = computed(() => teacherTasks.value[notifIndex.value] || {});
+
+const currentNotifTheme = computed(() => {
+  const t = currentTask.value;
+  if (t.type === 'leave' || t.title?.includes('请假') || t.title?.includes('审批')) return 'orange';
+  if (t.type === 'run' || t.title?.includes('跑') || t.title?.includes('打卡')) return 'purple';
+  return 'green';
+});
+
+const currentNotifIcon = computed(() => {
+  const theme = currentNotifTheme.value;
+  if (theme === 'orange') return '📋';
+  if (theme === 'purple') return '🏃';
+  return '📝';
+});
+
+const currentNotifTypeLabel = computed(() => {
+  const t = currentTask.value;
+  if (t.title?.includes('请假') || t.title?.includes('审批')) return '请假审批通知';
+  if (t.title?.includes('跑') || t.title?.includes('打卡')) return '晨跑打卡通知';
+  return '考核通知';
+});
+
+const loadHomeWeather = async () => {
+  const res = await fetchWeather();
+  if (res.ok && res.weather) {
+    homeWeather.value = res.weather;
+    homeWeatherReady.value = true;
+  } else {
+    homeWeatherReady.value = false;
+  }
+};
+
+const reloadAll = async () => {
+  await Promise.all([loadDashboard(checkNewTasks), loadHomeWeather()]);
+  warmUpLocationCache();
+};
+
+const onPullRefresh = async () => {
+  refreshing.value = true;
+  await reloadAll();
+  refreshing.value = false;
+};
+
+const onPageShow = async () => {
+  const sys = uni.getSystemInfoSync();
+  statusBarHeight.value = sys.statusBarHeight || 20;
+  safeBottom.value = sys.safeAreaInsets?.bottom || 0;
+
+  if (!getStoredToken()) {
+    uni.reLaunch({ url: '/pages/login/login' });
+    return;
+  }
+
+  await reloadAll();
+};
+
+onMounted(() => {
+  onPageShow();
+});
+
+defineExpose({
+  onPageShow
+});
 </script>
 
-<style scoped>
-@import './run-group-styles.scss';
-
-.home-container {
-  min-height: 100vh;
-  background: #f5f7fa;
-  display: flex;
-  flex-direction: column;
-  max-width: 750rpx;
-  margin: 0 auto;
-}
-
-.student-dashboard {
-  padding-bottom: 20rpx;
-}
-
-/* Hero Card */
-.hero-card {
-  background: linear-gradient(180deg, #20C997 0%, #17a589 100%);
-  margin: 20rpx 30rpx 30rpx;
-  padding: 40rpx 30rpx 50rpx;
-  border-radius: 40rpx;
-  box-shadow: 0 10rpx 40rpx rgba(32, 201, 151, 0.3);
-  position: relative;
-  overflow: hidden;
-}
-
-.hero-card::before {
-  content: '';
-  position: absolute;
-  top: -100rpx;
-  right: -100rpx;
-  width: 300rpx;
-  height: 300rpx;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 50%;
-}
-
-.center-button {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 45rpx;
-  position: relative;
-  z-index: 1;
-}
-
-.go-circle {
-  width: 180rpx;
-  height: 180rpx;
-  background: #fff;
-  border-radius: 50%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.12);
-  transition: transform 0.2s ease;
-}
-
-.go-circle:active {
-  transform: scale(0.95);
-}
-
-.go-text {
-  font-size: 52rpx;
-  font-weight: bold;
-  color: #20C997;
-  font-family: Arial, sans-serif;
-  letter-spacing: 2rpx;
-  line-height: 1;
-}
-
-.go-label {
-  font-size: 24rpx;
-  color: #666;
-  margin-top: 6rpx;
-}
-
-.action-buttons {
-  display: flex;
-  justify-content: space-around;
-  gap: 20rpx;
-  position: relative;
-  z-index: 1;
-  padding: 0 10rpx;
-}
-
-.action-btn-item {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(10px);
-  border-radius: 24rpx;
-  padding: 20rpx 16rpx;
-  min-height: 120rpx;
-  transition: all 0.2s ease;
-}
-
-.action-btn-item:active {
-  background: rgba(255, 255, 255, 0.3);
-  transform: translateY(2rpx);
-}
-
-.btn-icon {
-  font-size: 44rpx;
-  margin-bottom: 6rpx;
-}
-
-.btn-label {
-  font-size: 22rpx;
-  color: #fff;
-  font-weight: 500;
-}
-
-/* Section Container */
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24rpx;
-}
-
-.section-more {
-  font-size: 24rpx;
-  color: #999;
-}
-
-.section-more .link-arrow {
-  border-color: #999;
-}
-
-/* Task Stream */
-.task-stream {
-  display: flex;
-  flex-direction: column;
-  gap: 16rpx;
-}
-
-.task-card {
-  display: flex;
-  align-items: center;
-  padding: 20rpx;
-  background: #f8f9fa;
-  border-radius: 16rpx;
-  border-left: 4rpx solid #20C997;
-}
-
-.task-type-icon {
-  width: 70rpx;
-  height: 70rpx;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 36rpx;
-  margin-right: 16rpx;
-  flex-shrink: 0;
-}
-
-.task-type-exercise {
-  background: linear-gradient(135deg, #20C997, #17a589);
-}
-
-.task-type-learning {
-  background: linear-gradient(135deg, #4dabf7, #3b8fd9);
-}
-
-.task-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.task-name {
-  font-size: 26rpx;
-  font-weight: bold;
-  color: #333;
-  margin-bottom: 6rpx;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.task-meta {
-  font-size: 22rpx;
-  color: #999;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.task-status-badge {
-  padding: 6rpx 16rpx;
-  border-radius: 20rpx;
-  font-size: 20rpx;
-  color: #fff;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.status-pending {
-  background: #ff9f43;
-}
-
-.status-progress {
-  background: #20C997;
-}
-
-.status-uncompleted {
-  background: #adb5bd;
-}
-
-.status-urgent {
-  background: #ff6b6b;
-}
-
-/* Quick Actions */
-.quick-actions {
-  display: flex;
-  justify-content: space-between;
-  gap: 16rpx;
-}
-
-.action-item {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 24rpx 16rpx;
-  background: #f8f9fa;
-  border-radius: 16rpx;
-}
-
-.action-icon {
-  width: 70rpx;
-  height: 70rpx;
-  background: #fff;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 36rpx;
-  margin-bottom: 12rpx;
-  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.05);
-}
-
-.action-name {
-  font-size: 22rpx;
-  color: #666;
-  font-weight: 500;
-}
-
-/* Modal Overlay */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 1000;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 30rpx;
-  align-items: center;
-}
-
-.modal-title {
-  font-size: 32rpx;
-  font-weight: bold;
-}
-
-.close-btn {
-  font-size: 40rpx;
-  color: #999;
-  line-height: 1;
-}
-
-/* Task Modal */
-.task-modal {
-  width: 600rpx;
-  background: #fff;
-  border-radius: 20rpx;
-  padding: 30rpx;
-  max-height: 80vh;
-  overflow-y: auto;
-}
-
-.task-list {
-  display: flex;
-  flex-direction: column;
-  gap: 20rpx;
-}
-
-.task-modal-item {
-  display: flex;
-  align-items: center;
-  padding: 20rpx;
-  background: #f9f9f9;
-  border-radius: 12rpx;
-}
-
-.task-icon-box {
-  width: 60rpx;
-  height: 60rpx;
-  background: #e8f5e9;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-right: 20rpx;
-}
-
-.task-icon {
-  font-size: 32rpx;
-}
-
-.task-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-
-.task-title {
-  font-size: 26rpx;
-  font-weight: bold;
-  color: #333;
-}
-
-.task-desc {
-  font-size: 22rpx;
-  color: #666;
-  margin-top: 4rpx;
-}
-
-.task-action {
-  background: #ff6b6b;
-  padding: 8rpx 20rpx;
-  border-radius: 30rpx;
-}
-
-.btn-text {
-  color: #fff;
-  font-size: 22rpx;
-  font-weight: bold;
-}
-
+<style scoped lang="scss">
+@import './home-dashboard.scss';
 </style>

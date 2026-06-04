@@ -60,6 +60,7 @@ class User(Base):
     signature = Column(String, nullable=True)
     avatar_url = Column(String, nullable=True)
     regular_score = Column(Float, default=0.0)
+    weekly_run_goal_km = Column(Float, nullable=True)  # 学生首页本周跑步目标（公里）
 
     profile = relationship("StudentProfile", back_populates="user", foreign_keys=[student_id])
     student_class = relationship("Class", back_populates="students", foreign_keys=[class_id])

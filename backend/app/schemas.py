@@ -53,6 +53,7 @@ class UserProfile(BaseModel):
     health_status: Optional[str] = "normal"
     signature: Optional[str] = None
     avatar_url: Optional[str] = None
+    weekly_run_goal_km: Optional[float] = 0.0
     created_at: Optional[datetime] = None
 
     class Config:
@@ -63,6 +64,7 @@ class UserProfileUpdate(BaseModel):
     phone: Optional[str] = None
     signature: Optional[str] = None
     avatar_url: Optional[str] = None
+    weekly_run_goal_km: Optional[float] = None
 
 class TokenData(BaseModel):
     phone: str | None = None
@@ -232,6 +234,8 @@ class ActivityOut(BaseModel):
     metrics: Optional[ActivityMetricsOut] = None
     evidence: List[ActivityEvidenceOut] = []
     review: Optional[ActivityReviewOut] = None
+    has_trajectory: bool = False
+    trajectory_preview: List["HomeMapPoint"] = []
     # 鑷敱璺戯細闃冲厜璺戞牳楠岋紱浠诲姟璺戯細鏄惁婊¤冻浠诲姟瑕佹眰
     is_valid: Optional[bool] = None
     fail_reason: Optional[str] = None
@@ -733,3 +737,57 @@ class UserNotificationOut(BaseModel):
 
 class UserNotificationUnread(BaseModel):
     count: int
+
+
+class WeatherOut(BaseModel):
+    temp: int
+    condition: str
+    aqi_label: str = ""
+    humidity: Optional[int] = None
+    icon: str = "default"
+
+
+class WeatherResponse(BaseModel):
+    ok: bool
+    weather: Optional[WeatherOut] = None
+    error: Optional[str] = None
+    message: Optional[str] = None
+
+
+class HomeMapPoint(BaseModel):
+    lat: float
+    lng: float
+
+
+class HomeRecentRunOut(BaseModel):
+    id: int
+    title: str = "自由跑"
+    distance_km: str
+    time_label: str
+    pace_label: str
+    has_track: bool = False
+    is_valid: bool = False
+    trajectory_preview: List[HomeMapPoint] = []
+    activity: Optional[dict] = None
+
+
+class HomeWeeklyStatsOut(BaseModel):
+    distance_km: str = "0.00"
+    duration_label: str = "0:00"
+    pace_label: str = "--'--\""
+    calories: int = 0
+    run_count: int = 0
+    sunshine_km: str = "0.00"
+    has_data: bool = False
+
+
+class HomeDashboardOut(BaseModel):
+    total_distance_km: str = "0.0"
+    weekly: HomeWeeklyStatsOut
+    recent_runs: List[HomeRecentRunOut] = []
+    weekly_run_goal_km: float = 0.0
+    unread_notify_count: int = 0
+
+
+class RunGoalUpdate(BaseModel):
+    weekly_goal_km: float = 0.0

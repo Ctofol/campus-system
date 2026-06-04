@@ -1,85 +1,54 @@
 <template>
-  <view class="test-container">
-    <page-tab-header title="体能测试" show-back theme="dark" />
+  <view class="test-prep-page">
+    <page-tab-header title="AI 体能测试" show-back theme="brand" />
 
-    <view class="content-wrapper page-tab-body">
-      <!-- 测试项目选择 -->
-      <view class="test-header">
-        <text class="test-title">{{ currentTest.name }}</text>
-        <view class="standard-badge">
-          <text class="badge-text">国家学生体质健康标准</text>
-        </view>
-        <text class="standard-desc">{{ currentTest.desc }}</text>
-        
-        <button class="switch-btn" @click="showTestSelector">
-          切换测试类型
-        </button>
-      </view>
-      
-      <!-- 文件上传区域 -->
-      <view class="upload-area">
-        <view v-if="!uploadedFile" class="upload-placeholder" @click="showUploadOptions">
-          <text class="upload-icon">📹</text>
-          <text class="upload-text">点击上传测试视频</text>
-          <text class="upload-hint">支持MP4格式，最大100MB</text>
-          <text class="upload-hint">侧面全身入镜、单人拍摄，提交后自动分析次数</text>
-        </view>
-        
-        <view v-else class="upload-preview">
-          <video 
-            v-if="uploadedFile.type === 'video'" 
-            :src="uploadedFile.url" 
-            class="preview-video"
-            controls
-            poster=""
-          ></video>
-          <image 
-            v-else 
-            :src="uploadedFile.url" 
-            class="preview-image"
-            mode="aspectFit"
-          ></image>
-          <view class="upload-actions">
-            <button class="reupload-btn" @click="showUploadOptions">重新上传</button>
+    <scroll-view scroll-y class="test-prep-scroll">
+      <view class="test-prep-body">
+        <view class="section">
+          <text class="section-title">选择测试项目</text>
+          <view class="exercise-grid">
+            <view
+              v-for="item in exercises"
+              :key="item.id"
+              class="exercise-card"
+              :class="{ 'exercise-card--active': selectedId === item.id }"
+              @tap="selectExercise(item.id)"
+            >
+              <view v-if="selectedId === item.id" class="exercise-card__badge">✓</view>
+              <text class="exercise-card__icon">{{ item.icon }}</text>
+              <text class="exercise-card__label">{{ item.label }}</text>
+            </view>
           </view>
         </view>
-      </view>
-      
-      <!-- 提交按钮 -->
-      <view class="submit-section" v-if="uploadedFile">
-        <button 
-          class="submit-btn" 
-          @click="submitTest"
-          :disabled="isSubmitting"
-        >
-          {{ isSubmitting ? '提交中...' : '提交测试' }}
-        </button>
-        <text class="submit-hint">提交后后台分析视频，请稍候查看结果</text>
-      </view>
-      
-      <!-- 分析中 -->
-      <view class="test-result analyzing" v-if="analysisPending">
-        <text class="result-title">视频分析中</text>
-        <text class="result-hint">请稍候，系统正在识别动作次数…</text>
-      </view>
 
-      <!-- 测试结果 -->
-      <view class="test-result" v-if="testResult && !analysisPending">
-        <text class="result-title">评测结果</text>
-        <view class="result-data">
-          <text class="result-count">完成次数：{{ testResult.count }}</text>
-          <text class="result-status" :class="{ qualified: testResult.qualified }">
-            {{ testResult.qualified ? '✓ 达标' : '✗ 未达标' }}
-          </text>
+        <view class="section">
+          <text class="section-title">测试须知</text>
+          <view class="instruction-list">
+            <view
+              v-for="(line, idx) in instructions"
+              :key="idx"
+              class="instruction-item"
+            >
+              <view class="instruction-check">✓</view>
+              <text class="instruction-text">{{ line }}</text>
+            </view>
+          </view>
         </view>
-        
-        <!-- AI评分显示 -->
-        <view v-if="testResult.score" class="ai-score">
-          <text class="score-title">AI评分</text>
-          <text class="score-value">{{ testResult.score }}分</text>
-          <text class="score-detail" v-if="testResult.score_detail">{{ testResult.score_detail }}</text>
+
+        <view v-if="taskId" class="task-hint">
+          <text class="task-hint-text">已关联教师任务，开始测试后将计入任务成绩</text>
         </view>
       </view>
+    </scroll-view>
+
+    <view class="test-prep-footer">
+      <button
+        class="start-btn"
+        :disabled="!selectedId"
+        @tap="onStartTest"
+      >
+        开始测试
+      </button>
     </view>
   </view>
 </template>
@@ -87,600 +56,201 @@
 <script setup>
 import { ref } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
-import { uploadFile, submitActivity, getTestAnalysisStatus } from '@/utils/request.js';
+import {
+  TEST_EXERCISES,
+  TEST_INSTRUCTIONS,
+  DEFAULT_EXERCISE_ID,
+  normalizeExerciseId
+} from '@/utils/test-exercise-config.js';
 
-const currentTest = ref({
-  name: '引体向上',
-  type: 'pull-up',
-  desc: '动作标准：下颏过杠，双臂伸直'
-});
-
-const testTypes = [
-  { name: '引体向上', type: 'pull-up', desc: '动作标准：下颏过杠，双臂伸直' },
-  { name: '仰卧起坐', type: 'sit-up', desc: '动作标准：双手抱头，起身触膝' },
-  { name: '俯卧撑', type: 'push-up', desc: '动作标准：身体平直，胸部触地' }
-];
-
-const testResult = ref(null);
-const uploadedFile = ref(null);
-const isSubmitting = ref(false);
-const analysisPending = ref(false);
+const exercises = TEST_EXERCISES;
+const instructions = TEST_INSTRUCTIONS;
+const selectedId = ref(DEFAULT_EXERCISE_ID);
 const taskId = ref(null);
-let pollTimer = null;
-
-const exerciseApiType = (t) => {
-  const map = { 'pull-up': 'pull_up', 'sit-up': 'sit_up', 'push-up': 'push_up' };
-  return map[t] || t;
-};
 
 onLoad((options) => {
-  if (options && options.taskId) {
+  if (options?.taskId) {
     const id = parseInt(options.taskId, 10);
     if (!Number.isNaN(id)) taskId.value = id;
   }
+  if (options?.exercise) {
+    selectedId.value = normalizeExerciseId(options.exercise);
+  }
 });
 
-const showTestSelector = () => {
-  const itemList = testTypes.map(t => t.name);
-  uni.showActionSheet({
-    itemList,
-    success: (res) => {
-      currentTest.value = testTypes[res.tapIndex];
-      testResult.value = null;
-    }
-  });
+const selectExercise = (id) => {
+  selectedId.value = id;
 };
 
-const showUploadOptions = () => {
-  uni.showActionSheet({
-    itemList: ['从相册选择视频', '从相册选择图片', '拍摄视频', '拍摄照片'],
-    success: (res) => {
-      if (res.tapIndex === 0) {
-        chooseVideoFromGallery();
-      } else if (res.tapIndex === 1) {
-        chooseImageFromGallery();
-      } else if (res.tapIndex === 2) {
-        recordVideo();
-      } else if (res.tapIndex === 3) {
-        takePhoto();
-      }
-    }
-  });
-};
-
-const chooseVideoFromGallery = () => {
-  // #ifdef MP-WEIXIN
-  // 微信小程序使用 chooseMedia
-  uni.chooseMedia({
-    count: 1,
-    mediaType: ['video'],
-    sourceType: ['album'],
-    maxDuration: 300,
-    success: (res) => {
-      console.log('Choose video success:', res);
-      const media = res.tempFiles[0];
-      validateAndUpload(media.tempFilePath, 'video');
-    },
-    fail: (err) => {
-      console.error('Choose video failed:', err);
-      uni.showToast({
-        title: '选择视频失败',
-        icon: 'none'
-      });
-    }
-  });
-  // #endif
-  
-  // #ifndef MP-WEIXIN
-  uni.chooseVideo({
-    sourceType: ['album'],
-    maxDuration: 300,
-    success: (res) => {
-      validateAndUpload(res.tempFilePath, 'video');
-    },
-    fail: (err) => {
-      console.error('Choose video failed:', err);
-      uni.showToast({
-        title: '选择视频失败',
-        icon: 'none'
-      });
-    }
-  });
-  // #endif
-};
-
-const chooseImageFromGallery = () => {
-  uni.chooseImage({
-    count: 1,
-    sourceType: ['album'],
-    success: (res) => {
-      console.log('Choose image success:', res);
-      validateAndUpload(res.tempFilePaths[0], 'image');
-    },
-    fail: (err) => {
-      console.error('Choose image failed:', err);
-      uni.showToast({
-        title: '选择图片失败',
-        icon: 'none'
-      });
-    }
-  });
-};
-
-const recordVideo = () => {
-  // #ifdef MP-WEIXIN
-  uni.chooseMedia({
-    count: 1,
-    mediaType: ['video'],
-    sourceType: ['camera'],
-    maxDuration: 300,
-    success: (res) => {
-      console.log('Record video success:', res);
-      const media = res.tempFiles[0];
-      validateAndUpload(media.tempFilePath, 'video');
-    },
-    fail: (err) => {
-      console.error('Record video failed:', err);
-      uni.showToast({
-        title: '拍摄视频失败',
-        icon: 'none'
-      });
-    }
-  });
-  // #endif
-  
-  // #ifndef MP-WEIXIN
-  uni.chooseVideo({
-    sourceType: ['camera'],
-    maxDuration: 300,
-    success: (res) => {
-      validateAndUpload(res.tempFilePath, 'video');
-    },
-    fail: (err) => {
-      console.error('Record video failed:', err);
-      uni.showToast({
-        title: '拍摄视频失败',
-        icon: 'none'
-      });
-    }
-  });
-  // #endif
-};
-
-const takePhoto = () => {
-  uni.chooseImage({
-    count: 1,
-    sourceType: ['camera'],
-    success: (res) => {
-      console.log('Take photo success:', res);
-      validateAndUpload(res.tempFilePaths[0], 'image');
-    },
-    fail: (err) => {
-      console.error('Take photo failed:', err);
-      uni.showToast({
-        title: '拍照失败',
-        icon: 'none'
-      });
-    }
-  });
-};
-
-// 移除旧的 chooseFromGallery 函数
-
-const validateAndUpload = async (filePath, fileType) => {
-  try {
-    // 获取文件信息进行前端验证
-    const fileInfo = await new Promise((resolve, reject) => {
-      uni.getFileInfo({
-        filePath,
-        success: resolve,
-        fail: reject
-      });
-    });
-    
-    // 文件大小验证
-    const maxSize = fileType === 'video' ? 100 * 1024 * 1024 : 5 * 1024 * 1024; // 100MB for video, 5MB for image
-    if (fileInfo.size > maxSize) {
-      uni.showToast({
-        title: `文件大小超过限制（${fileType === 'video' ? '100MB' : '5MB'}）`,
-        icon: 'none'
-      });
-      return;
-    }
-    
-    // 显示上传进度
-    uni.showLoading({ title: '上传中...' });
-    
-    // 上传文件
-    const uploadResult = await uploadFile(filePath, fileType);
-    
-    console.log('上传结果:', uploadResult);
-    
-    uploadedFile.value = {
-      url: uploadResult.url,
-      type: fileType, // 使用传入的fileType而不是uploadResult.type
-      size: uploadResult.size,
-      originalName: uploadResult.original_filename
-    };
-    
-    console.log('uploadedFile设置为:', uploadedFile.value);
-    
-    uni.hideLoading();
-    uni.showToast({
-      title: '上传成功',
-      icon: 'success'
-    });
-    
-  } catch (error) {
-    uni.hideLoading();
-    console.error('Upload error:', error);
-    uni.showToast({
-      title: '上传失败，请重试',
-      icon: 'none'
-    });
+const onStartTest = () => {
+  if (!selectedId.value) return;
+  let url = `/pages/test/session?exercise=${encodeURIComponent(selectedId.value)}`;
+  if (taskId.value) {
+    url += `&taskId=${taskId.value}`;
   }
+  uni.navigateTo({ url });
 };
-
-const applyAnalysisResult = (data) => {
-  testResult.value = {
-    count: data.count ?? 0,
-    qualified: !!data.qualified,
-    score: data.score,
-    score_detail: data.score_detail
-  };
-};
-
-const pollAnalysis = (activityId) => {
-  if (pollTimer) clearInterval(pollTimer);
-  analysisPending.value = true;
-  testResult.value = null;
-  let tries = 0;
-  const maxTries = 40;
-  pollTimer = setInterval(async () => {
-    tries += 1;
-    try {
-      const st = await getTestAnalysisStatus(activityId);
-      if (st.analysis_status === 'success') {
-        clearInterval(pollTimer);
-        pollTimer = null;
-        analysisPending.value = false;
-        applyAnalysisResult(st);
-        uni.showToast({ title: '分析完成', icon: 'success' });
-      } else if (st.analysis_status === 'failed') {
-        clearInterval(pollTimer);
-        pollTimer = null;
-        analysisPending.value = false;
-        uni.showToast({
-          title: st.analysis_error || '分析失败',
-          icon: 'none'
-        });
-      } else if (tries >= maxTries) {
-        clearInterval(pollTimer);
-        pollTimer = null;
-        analysisPending.value = false;
-        uni.showToast({ title: '分析超时，请稍后在记录中查看', icon: 'none' });
-      }
-    } catch (e) {
-      if (tries >= maxTries) {
-        clearInterval(pollTimer);
-        pollTimer = null;
-        analysisPending.value = false;
-      }
-    }
-  }, 2000);
-};
-
-const submitTest = async () => {
-  if (!uploadedFile.value) {
-    uni.showToast({ title: '请先上传视频', icon: 'none' });
-    return;
-  }
-
-  isSubmitting.value = true;
-
-  const activityData = {
-    type: 'test',
-    source: taskId.value ? 'task' : 'free',
-    task_id: taskId.value || undefined,
-    started_at: new Date().toISOString(),
-    ended_at: new Date().toISOString(),
-    metrics: {
-      duration: 0,
-      video_url: uploadedFile.value.url,
-      qualified: false,
-      count: 0,
-      exercise_type: exerciseApiType(currentTest.value.type)
-    },
-    evidence: []
-  };
-
-  try {
-    uni.showLoading({ title: '提交中...' });
-    const result = await submitActivity(activityData);
-    uni.hideLoading();
-
-    const status = result.metrics?.analysis_status;
-    if (status === 'pending' && result.id) {
-      uni.showToast({ title: '已提交，正在分析', icon: 'none' });
-      pollAnalysis(result.id);
-    } else if (result.metrics) {
-      applyAnalysisResult(result.metrics);
-      uni.showToast({ title: '提交成功', icon: 'success' });
-    }
-  } catch (error) {
-    uni.hideLoading();
-    console.error('Submit error:', error);
-    const errorMsg = error.message || error.detail || '提交失败，请重试';
-    uni.showToast({ title: errorMsg, icon: 'none' });
-  } finally {
-    isSubmitting.value = false;
-  }
-};
-
-const formatTime = (seconds) => {
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-};
-
 </script>
 
 <style lang="scss" scoped>
-.test-container {
+.test-prep-page {
   min-height: 100vh;
-  background-color: #1a1a1a;
+  background: #f5f7fa;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
 }
 
-.content-wrapper {
-  padding: 20rpx;
+.test-prep-scroll {
+  flex: 1;
+  height: 0;
 }
 
-.test-header {
-  text-align: center;
+.test-prep-body {
+  padding: 32rpx 30rpx 24rpx;
+  box-sizing: border-box;
+}
+
+.section {
   margin-bottom: 40rpx;
 }
 
-.test-title {
-  font-size: 48rpx;
-  color: #fff;
-  font-weight: bold;
+.section-title {
   display: block;
-  margin-bottom: 20rpx;
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #1a2b3c;
+  margin-bottom: 24rpx;
 }
 
-.standard-badge {
-  display: inline-block;
-  padding: 8rpx 24rpx;
-  background: rgba(32, 201, 151, 0.2);
-  border: 2rpx solid #20C997;
-  border-radius: 30rpx;
-  margin-bottom: 20rpx;
+.exercise-grid {
+  display: flex;
+  flex-direction: row;
+  gap: 20rpx;
 }
 
-.badge-text {
-  color: #20C997;
-  font-size: 24rpx;
-}
-
-.standard-desc {
-  display: block;
-  color: #999;
-  font-size: 28rpx;
-  margin-bottom: 30rpx;
-}
-
-.switch-btn {
-  background: rgba(255, 255, 255, 0.1);
-  color: #20C997;
-  border: 2rpx solid #20C997;
-  border-radius: 40rpx;
-  padding: 16rpx 48rpx;
-  font-size: 28rpx;
-}
-
-.camera-area {
-  width: 100%;
-  height: 500rpx;
-  background: #000;
+.exercise-card {
+  flex: 1;
+  min-width: 0;
+  background: #fff;
   border-radius: 20rpx;
-  overflow: hidden;
-  margin-bottom: 40rpx;
-}
-
-.upload-area {
-  width: 100%;
-  height: 500rpx;
-  background: #000;
-  border-radius: 20rpx;
-  overflow: hidden;
-  margin-bottom: 40rpx;
-}
-
-.upload-placeholder {
-  width: 100%;
-  height: 100%;
+  border: 2rpx solid #e8ecef;
+  padding: 28rpx 12rpx 24rpx;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.05);
-  border: 2rpx dashed #20C997;
-  cursor: pointer;
-}
-
-.upload-icon {
-  font-size: 80rpx;
-  margin-bottom: 20rpx;
-}
-
-.upload-text {
-  color: #fff;
-  font-size: 32rpx;
-  margin-bottom: 10rpx;
-}
-
-.upload-hint {
-  color: #999;
-  font-size: 24rpx;
-  margin-top: 10rpx;
-}
-
-.upload-preview {
-  width: 100%;
-  height: 100%;
   position: relative;
+  box-sizing: border-box;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.preview-video {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+.exercise-card--active {
+  border-color: #20c997;
+  box-shadow: 0 8rpx 24rpx rgba(32, 201, 151, 0.18);
+  background: #f0faf6;
 }
 
-.preview-image {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.upload-actions {
+.exercise-card__badge {
   position: absolute;
-  bottom: 20rpx;
-  right: 20rpx;
-}
-
-.reupload-btn {
-  background: rgba(32, 201, 151, 0.8);
+  top: 12rpx;
+  right: 12rpx;
+  width: 36rpx;
+  height: 36rpx;
+  border-radius: 50%;
+  background: #20c997;
   color: #fff;
-  border: none;
-  border-radius: 20rpx;
-  padding: 10rpx 20rpx;
-  font-size: 24rpx;
-}
-
-.submit-section {
+  font-size: 22rpx;
+  line-height: 36rpx;
   text-align: center;
-  margin-bottom: 40rpx;
 }
 
-.submit-btn {
-  width: 80%;
-  height: 100rpx;
-  background: #20C997;
-  color: #fff;
-  border-radius: 50rpx;
-  font-size: 32rpx;
-  font-weight: bold;
-  border: none;
-  margin-bottom: 20rpx;
-  
-  &:disabled {
-    background: #666;
-    opacity: 0.6;
-  }
+.exercise-card__icon {
+  font-size: 64rpx;
+  line-height: 1.1;
+  margin-bottom: 16rpx;
 }
 
-.submit-hint {
-  display: block;
-  color: #999;
-  font-size: 24rpx;
-}
-
-.h5-placeholder {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.placeholder-text {
-  color: #fff;
-  font-size: 32rpx;
-  margin-bottom: 20rpx;
-}
-
-.placeholder-hint {
-  color: #999;
-  font-size: 24rpx;
-}
-
-.camera {
-  width: 100%;
-  height: 100%;
-}
-
-.test-result {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 20rpx;
-  padding: 40rpx;
-}
-
-.test-result.analyzing .result-hint {
-  display: block;
-  color: #aaa;
+.exercise-card__label {
   font-size: 26rpx;
-  text-align: center;
-  margin-top: 16rpx;
-}
-
-.result-title {
-  display: block;
-  color: #fff;
-  font-size: 32rpx;
-  font-weight: bold;
-  margin-bottom: 30rpx;
+  color: #333;
+  font-weight: 600;
   text-align: center;
 }
 
-.result-data {
+.instruction-list {
+  background: #fff;
+  border-radius: 20rpx;
+  padding: 28rpx 24rpx;
+  box-shadow: 0 4rpx 20rpx rgba(26, 43, 60, 0.05);
+}
+
+.instruction-item {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: row;
+  align-items: flex-start;
+  margin-bottom: 20rpx;
 }
 
-.result-count {
-  color: #fff;
-  font-size: 28rpx;
+.instruction-item:last-child {
+  margin-bottom: 0;
 }
 
-.result-status {
-  color: #ff6b6b;
-  font-size: 32rpx;
-  font-weight: bold;
-  
-  &.qualified {
-    color: #20C997;
-  }
-}
-
-.ai-score {
-  margin-top: 30rpx;
-  padding-top: 30rpx;
-  border-top: 2rpx solid rgba(255, 255, 255, 0.1);
+.instruction-check {
+  width: 36rpx;
+  height: 36rpx;
+  border-radius: 50%;
+  background: rgba(32, 201, 151, 0.15);
+  color: #20c997;
+  font-size: 22rpx;
+  line-height: 36rpx;
   text-align: center;
+  flex-shrink: 0;
+  margin-right: 16rpx;
 }
 
-.score-title {
-  display: block;
-  color: #20C997;
+.instruction-text {
+  flex: 1;
   font-size: 28rpx;
-  margin-bottom: 10rpx;
+  color: #4a5568;
+  line-height: 1.5;
 }
 
-.score-value {
-  display: block;
+.task-hint {
+  padding: 20rpx 24rpx;
+  background: rgba(32, 201, 151, 0.1);
+  border-radius: 16rpx;
+  border: 1rpx solid rgba(32, 201, 151, 0.35);
+}
+
+.task-hint-text {
+  font-size: 26rpx;
+  color: #0d8f6e;
+  line-height: 1.45;
+}
+
+.test-prep-footer {
+  flex-shrink: 0;
+  padding: 20rpx 30rpx;
+  padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
+  background: #f5f7fa;
+  box-sizing: border-box;
+}
+
+.start-btn {
+  width: 100%;
+  height: 96rpx;
+  line-height: 96rpx;
+  background: #20c997;
   color: #fff;
-  font-size: 48rpx;
-  font-weight: bold;
-  margin-bottom: 10rpx;
+  font-size: 32rpx;
+  font-weight: 700;
+  border-radius: 48rpx;
+  border: none;
 }
 
-.score-detail {
-  display: block;
-  color: #999;
-  font-size: 24rpx;
+.start-btn[disabled] {
+  background: #c5d0d8;
+  color: #fff;
+  opacity: 1;
 }
 </style>

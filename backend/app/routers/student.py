@@ -84,22 +84,22 @@ async def get_total_stats(
         models.Activity.type == "run"
     ).all()
     
-    total_distance = 0.0  # in meters
-    total_duration = 0  # in seconds
+    total_distance_km = 0.0
+    total_duration = 0
     total_calories = 0
-    
+
     for activity in activities:
         if activity.metrics:
             if activity.metrics.distance:
-                total_distance += activity.metrics.distance
+                d = float(activity.metrics.distance)
+                total_distance_km += d / 1000.0 if d > 100 else d
             if activity.metrics.duration:
                 total_duration += activity.metrics.duration
-    
-    # Calculate calories (rough estimation: 1km = 60 kcal)
-    total_calories = int((total_distance / 1000) * 60)
-    
+
+    total_calories = int(total_distance_km * 60)
+
     return {
-        "total_distance": round(total_distance / 1000, 1),  # Convert to km
+        "total_distance": round(total_distance_km, 1),
         "total_duration": round(total_duration / 60),  # Convert to minutes
         "total_calories": total_calories,
         "total_count": len(activities)
@@ -274,6 +274,57 @@ def get_student_task_run_history(
     return {"items": out, "total": total, "page": page, "size": size}
 
 
+@router.get("/home/dashboard", response_model=schemas.HomeDashboardOut)
+def get_home_dashboard(
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
+    """学生首页：累计里程、本周数据、最近活动（含轨迹预览）、目标、未读通知。"""
+    from ..services.home_dashboard_service import get_home_dashboard as build_home_dashboard
+
+    if current_user.role != "student":
+        raise HTTPException(status_code=403, detail="Only students can access home dashboard")
+    try:
+        return build_home_dashboard(current_user, db)
+    except ValueError:
+        raise HTTPException(status_code=403, detail="Only students can access home dashboard")
+
+
+@router.put("/home/run-goal")
+def update_weekly_run_goal(
+    body: schemas.RunGoalUpdate,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
+    """保存学生本周跑步目标（公里）；传 0 表示清除。"""
+    from ..services.home_dashboard_service import set_weekly_run_goal
+
+    if current_user.role != "student":
+        raise HTTPException(status_code=403, detail="Only students can set run goal")
+    km = set_weekly_run_goal(current_user, float(body.weekly_goal_km or 0), db)
+    return {"success": True, "weekly_run_goal_km": km}
+
+
+@router.get("/weather", response_model=schemas.WeatherResponse)
+def get_weather(
+    lat: float = Query(..., description="纬度 GCJ-02"),
+    lng: float = Query(..., description="经度 GCJ-02"),
+    current_user: models.User = Depends(auth.get_current_user),
+):
+    """首页天气：服务端代理腾讯位置服务，前端仅传经纬度。"""
+    from ..services.weather_service import get_realtime_weather
+
+    if lat < -90 or lat > 90 or lng < -180 or lng > 180:
+        raise HTTPException(status_code=400, detail="无效的经纬度")
+    result = get_realtime_weather(lat, lng)
+    return schemas.WeatherResponse(
+        ok=bool(result.get("ok")),
+        weather=result.get("weather"),
+        error=result.get("error"),
+        message=result.get("message"),
+    )
+
+
 @router.get("/sunshine-stats")
 def get_sunshine_dashboard(
     current_user: models.User = Depends(auth.get_current_user),
@@ -291,6 +342,126 @@ def get_sunshine_dashboard(
         raise HTTPException(status_code=403, detail="Only students can access sunshine stats")
 
     return get_sunshine_stats(current_user, db)
+
+
+@router.get("/checkin-calendar")
+def get_checkin_calendar(
+    year: int = None,
+    month: int = None,
+    selected_day: int = None,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    打卡日历数据（按月）：
+    返回指定月份每天是否有有效阳光跑打卡，以及统计数据。
+    """
+    from ..services.score_service import get_sunshine_stats, sunshine_run_filter
+    from datetime import datetime, date, timedelta
+    import calendar as cal_module
+
+    if current_user.role != "student":
+        raise HTTPException(status_code=403, detail="Only students can access calendar")
+
+    today = date.today()
+    if not year:
+        year = today.year
+    if not month:
+        month = today.month
+
+    # 该月第一天和最后一天
+    first_day = date(year, month, 1)
+    last_day = date(year, month, cal_module.monthrange(year, month)[1])
+
+    # 查询该月所有有效阳光跑
+    month_activities = (
+        db.query(models.Activity)
+        .filter(
+            models.Activity.user_id == current_user.id,
+            models.Activity.is_valid.is_(True),
+            models.Activity.started_at >= datetime(year, month, 1),
+            models.Activity.started_at < datetime(year, month, last_day.day, 23, 59, 59),
+        )
+        .filter(sunshine_run_filter())
+        .order_by(models.Activity.started_at.asc())
+        .all()
+    )
+
+    # 构建打卡日期集合
+    checkin_dates = set()
+    for act in month_activities:
+        checkin_dates.add(act.started_at.date().day)
+
+    # 本月打卡天数
+    month_count = len(checkin_dates)
+
+    # 连续打卡天数（从今天往前算）
+    streak = 0
+    check_date = today
+    while True:
+        has_valid = (
+            db.query(models.Activity)
+            .filter(
+                models.Activity.user_id == current_user.id,
+                models.Activity.is_valid.is_(True),
+                models.Activity.started_at >= datetime(check_date.year, check_date.month, check_date.day),
+                models.Activity.started_at < datetime(check_date.year, check_date.month, check_date.day, 23, 59, 59),
+            )
+            .filter(sunshine_run_filter())
+            .count()
+        )
+        if has_valid:
+            streak += 1
+            check_date -= timedelta(days=1)
+        else:
+            break
+
+    # 累计打卡天数（历史所有有效记录的不重复天数）
+    all_valid = (
+        db.query(models.Activity)
+        .filter(
+            models.Activity.user_id == current_user.id,
+            models.Activity.is_valid.is_(True),
+        )
+        .filter(sunshine_run_filter())
+        .all()
+    )
+    total_days = len(set(a.started_at.date() for a in all_valid))
+
+    # 选中日期的打卡记录（默认今日，或传入的 selected_day）
+    if selected_day:
+        sel_day = selected_day
+    elif year == today.year and month == today.month:
+        sel_day = today.day
+    else:
+        sel_day = last_day.day
+    selected_activities = [
+        a for a in month_activities
+        if a.started_at.date().day == sel_day
+    ]
+    selected_records = []
+    for act in selected_activities:
+        m = act.metrics
+        selected_records.append({
+            "id": act.id,
+            "started_at": act.started_at.isoformat(),
+            "distance_km": round(m.distance, 2) if m and m.distance else 0,
+            "duration": m.duration if m else 0,
+            "pace": m.pace if m else None,
+            "is_valid": bool(act.is_valid),
+        })
+
+    return {
+        "year": year,
+        "month": month,
+        "checkin_days": sorted(list(checkin_dates)),
+        "month_count": month_count,
+        "streak": streak,
+        "total_days": total_days,
+        "today": today.day if year == today.year and month == today.month else None,
+        "selected_day": sel_day,
+        "selected_records": selected_records,
+    }
 
 @router.post("/health/request")
 def create_health_request(
