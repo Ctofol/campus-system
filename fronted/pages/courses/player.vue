@@ -126,7 +126,6 @@ const loadContent = async (id) => {
         videoUrl.value = '';
         displayUrl.value = truncateUrl(fullUrl);
       }
-      }
     } else {
       loadError.value = contentType.value === 'video' ? '暂无视频地址' : '暂无内容地址';
     }
