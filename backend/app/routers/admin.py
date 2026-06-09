@@ -1,13 +1,16 @@
 
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 from typing import List, Optional, Any
+import json
 import numbers
 import math
 import pandas as pd
 import io
+from datetime import datetime
 
 from ..database import get_db
 from .. import models, schemas, auth
@@ -1059,3 +1062,145 @@ def remove_teacher_bound_student(
     db.delete(row)
     db.commit()
     return {"ok": True}
+
+
+# --- Notifications ---
+
+class NotificationCreate(BaseModel):
+    title: str
+    content: str = ""
+    ntype: str = "system"
+    target: str = "all"  # 'all' | 'students' | 'teachers'
+    target_user_id: Optional[int] = None
+
+class NotificationOut(BaseModel):
+    id: int
+    user_id: int
+    title: str
+    body: Optional[str] = None
+    ntype: str = "system"
+    is_read: bool = False
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class NotificationListOut(BaseModel):
+    items: List[NotificationOut]
+    total: int
+    page: int
+    size: int
+
+
+@router.post("/notifications")
+def create_notification(
+    body: NotificationCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_admin),
+):
+    if body.target_user_id:
+        user = db.query(models.User).filter(models.User.id == body.target_user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="目标用户不存在")
+        note = models.UserNotification(
+            user_id=body.target_user_id,
+            title=body.title,
+            body=body.content,
+            ntype=body.ntype,
+        )
+        db.add(note)
+        db.commit()
+        db.refresh(note)
+        return {"sent": 1, "notification_id": note.id}
+
+    if body.target == "students":
+        users = db.query(models.User).filter(models.User.role == "student").all()
+    elif body.target == "teachers":
+        users = db.query(models.User).filter(models.User.role == "teacher").all()
+    else:
+        users = db.query(models.User).filter(models.User.role.in_(["student", "teacher"])).all()
+
+    count = 0
+    for u in users:
+        db.add(models.UserNotification(
+            user_id=u.id,
+            title=body.title,
+            body=body.content,
+            ntype=body.ntype,
+        ))
+        count += 1
+    db.commit()
+    return {"sent": count}
+
+
+@router.get("/notifications", response_model=NotificationListOut)
+def list_notifications(
+    page: int = 1,
+    size: int = 20,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_admin),
+):
+    q = db.query(models.UserNotification)
+    total = q.count()
+    rows = (
+        q.order_by(models.UserNotification.created_at.desc())
+        .offset((page - 1) * size)
+        .limit(size)
+        .all()
+    )
+    return NotificationListOut(items=rows, total=total, page=page, size=size)
+
+
+# --- Feedback List ---
+
+class FeedbackLogItem(BaseModel):
+    original_feedback: str = ""
+    category: str = ""
+    severity: str = ""
+    diagnosis: str = ""
+    suggested_action: str = ""
+    logged_at: str = ""
+
+class FeedbackListOut(BaseModel):
+    items: List[FeedbackLogItem]
+    total: int
+    page: int
+    size: int
+
+
+@router.get("/feedback")
+def list_feedback(
+    page: int = 1,
+    size: int = 20,
+    current_user: models.User = Depends(get_current_admin),
+):
+    from ..services.feedback_diagnosis import _audit_log_path
+    path = _audit_log_path()
+    items: List[FeedbackLogItem] = []
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    obj = json.loads(line)
+                    items.append(FeedbackLogItem(
+                        original_feedback=obj.get("original_feedback", ""),
+                        category=obj.get("category", ""),
+                        severity=obj.get("severity", ""),
+                        diagnosis=obj.get("diagnosis", ""),
+                        suggested_action=obj.get("suggested_action", ""),
+                        logged_at=obj.get("logged_at", ""),
+                    ))
+                except json.JSONDecodeError:
+                    continue
+    except FileNotFoundError:
+        pass
+
+    items.reverse()
+    total = len(items)
+    start = (page - 1) * size
+    end = start + size
+    paged = items[start:end]
+    return FeedbackListOut(items=paged, total=total, page=page, size=size)

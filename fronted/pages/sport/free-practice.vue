@@ -3,32 +3,12 @@
     <page-tab-header title="自由练习" show-back theme="white" :back-handler="goBack" />
 
     <view class="content-wrapper page-tab-body">
-      <!-- 占位内容 -->
       <view class="placeholder-section">
-        <view class="placeholder-icon">💪</view>
+        <view class="placeholder-icon">🏃</view>
         <text class="placeholder-title">自由练习</text>
-        <text class="placeholder-desc">手动记录您的运动数据</text>
-        
-        <view class="feature-list">
-          <view class="feature-item">
-            <text class="feature-icon">✓</text>
-            <text class="feature-text">灵活记录运动类型</text>
-          </view>
-          <view class="feature-item">
-            <text class="feature-icon">✓</text>
-            <text class="feature-text">手动输入运动数据</text>
-          </view>
-          <view class="feature-item">
-            <text class="feature-icon">✓</text>
-            <text class="feature-text">上传运动凭证</text>
-          </view>
-        </view>
+        <text class="placeholder-desc">自由跑步，自动记录里程与配速</text>
 
-        <view class="status-badge">
-          <text class="status-text">功能开发中，敬请期待</text>
-        </view>
-
-        <button class="back-btn" @click="goBack">返回首页</button>
+        <view class="start-btn" @click="startRun">开始跑步</view>
       </view>
     </view>
   </view>
@@ -36,9 +16,10 @@
 
 <script setup>
 const goBack = () => {
-  uni.switchTab({
-    url: '/pages/tab/home'
-  });
+  uni.switchTab({ url: '/pages/tab/home' });
+};
+const startRun = () => {
+  uni.redirectTo({ url: '/pages/run/run' });
 };
 </script>
 
@@ -47,24 +28,20 @@ const goBack = () => {
   min-height: 100vh;
   background: #f5f7fa;
 }
-
 .content-wrapper {
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
 }
-
 .placeholder-section {
   padding: 80rpx 60rpx;
   text-align: center;
 }
-
 .placeholder-icon {
   font-size: 160rpx;
   margin-bottom: 40rpx;
 }
-
 .placeholder-title {
   font-size: 48rpx;
   font-weight: bold;
@@ -72,66 +49,25 @@ const goBack = () => {
   display: block;
   margin-bottom: 20rpx;
 }
-
 .placeholder-desc {
   font-size: 28rpx;
   color: #999;
   display: block;
-  margin-bottom: 60rpx;
+  margin-bottom: 80rpx;
 }
-
-.feature-list {
-  margin-bottom: 60rpx;
-}
-
-.feature-item {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 30rpx;
-}
-
-.feature-icon {
-  width: 40rpx;
-  height: 40rpx;
-  background: #20C997;
-  color: #fff;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24rpx;
-  margin-right: 20rpx;
-}
-
-.feature-text {
-  font-size: 28rpx;
-  color: #666;
-}
-
-.status-badge {
-  background: #fff3cd;
-  border: 2rpx solid #ffc107;
-  border-radius: 40rpx;
-  padding: 20rpx 40rpx;
-  margin-bottom: 60rpx;
-  display: inline-block;
-}
-
-.status-text {
-  font-size: 26rpx;
-  color: #856404;
-}
-
-.back-btn {
+.start-btn {
   width: 400rpx;
-  height: 88rpx;
-  background: #20C997;
+  height: 96rpx;
+  background: #33C9AB;
   color: #fff;
-  border-radius: 44rpx;
+  border-radius: 48rpx;
   font-size: 32rpx;
   font-weight: bold;
-  border: none;
+  line-height: 96rpx;
   margin: 0 auto;
+  box-shadow: 0 8rpx 24rpx rgba(51, 201, 171, 0.3);
+}
+.start-btn:active {
+  opacity: 0.86;
 }
 </style>

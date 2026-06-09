@@ -99,12 +99,13 @@
           </view>
 
           <view class="form-item" v-if="contentForm.content_type === 'link'">
-            <text class="form-label">视频链接 <text class="required">*</text></text>
+            <text class="form-label">外部链接 <text class="required">*</text></text>
             <input 
               class="form-input" 
               v-model="contentForm.content_url" 
-              placeholder="请输入视频链接（如B站、优酷等）"
+              placeholder="粘贴视频或文档链接（小程序内将复制到剪贴板打开）"
             />
+            <text class="form-hint">提示：小程序不支持直接打开外链，学生端将自动复制链接到剪贴板</text>
           </view>
 
           <view class="form-item" v-if="contentForm.content_type === 'document'">

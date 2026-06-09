@@ -354,16 +354,10 @@ const playContent = (content) => {
     });
     return;
   }
-  
-  // TODO: 跳转到播放页面
-  uni.showToast({ 
-    title: '播放功能开发中', 
-    icon: 'none' 
+
+  uni.navigateTo({
+    url: `/pages/courses/player?courseId=${courseId.value}&contentId=${content.id}`
   });
-  
-  // uni.navigateTo({
-  //   url: `/pages/courses/player?courseId=${courseId.value}&contentId=${content.id}`
-  // });
 };
 
 // 编辑课程

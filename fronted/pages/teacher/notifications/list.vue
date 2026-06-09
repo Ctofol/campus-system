@@ -52,34 +52,21 @@ const loading = ref(false);
 const loadNotifications = async () => {
   loading.value = true;
   try {
-    // TODO: 替换为实际的通知API
-    // const res = await request({
-    //   url: '/notifications',
-    //   method: 'GET'
-    // });
-    // notifications.value = res.items || [];
-    
-    // 模拟数据
-    notifications.value = [
-      {
-        id: 1,
-        title: '系统维护通知',
-        content: '系统将于今晚22:00-24:00进行维护，期间可能无法访问',
-        type: 'system',
-        is_read: true,
-        created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
-      },
-      {
-        id: 2,
-        title: '功能更新提醒',
-        content: '新增数据导出功能，可导出学生成绩和任务完成情况',
-        type: 'update',
-        is_read: true,
-        created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
-      }
-    ];
+    const res = await request({
+      url: '/student/notifications',
+      method: 'GET'
+    });
+    notifications.value = (res || []).map(item => ({
+      id: item.id,
+      title: item.title || '通知',
+      content: item.content || item.message || '',
+      type: item.ntype || item.type || 'system',
+      is_read: !!item.is_read,
+      created_at: item.created_at || new Date().toISOString()
+    }));
   } catch (e) {
     console.error('Load notifications failed:', e);
+    notifications.value = [];
   } finally {
     loading.value = false;
   }
@@ -115,20 +102,20 @@ const viewDetail = (item) => {
     showCancel: false,
     confirmText: '我知道了'
   });
-  
-  // 标记为已读
+
   if (!item.is_read) {
     item.is_read = true;
-    // TODO: 调用标记已读API
+    request({ url: `/student/notifications/${item.id}/read`, method: 'PUT' }).catch(() => {});
   }
 };
 
 const markAllRead = () => {
-  notifications.value.forEach(item => {
-    item.is_read = true;
+  request({ url: '/student/notifications/read-all', method: 'PUT' }).then(() => {
+    notifications.value.forEach(item => { item.is_read = true; });
+    uni.showToast({ title: '已全部标记为已读', icon: 'success' });
+  }).catch(() => {
+    uni.showToast({ title: '操作失败', icon: 'none' });
   });
-  uni.showToast({ title: '已全部标记为已读', icon: 'success' });
-  // TODO: 调用批量标记已读API
 };
 
 const goBack = () => {

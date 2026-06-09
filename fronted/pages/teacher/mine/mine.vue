@@ -56,7 +56,7 @@
 <script setup>
 import { ref } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
-import { request, resolveMediaUrl } from '@/utils/request.js';
+import { request, resolveMediaUrl, BASE_URL } from '@/utils/request.js';
 
 const userInfo = ref({});
 const avatarDisplay = ref('/static/avatar.png');
@@ -133,10 +133,18 @@ const handleHelpFeedback = () => {
           content: '请描述您的问题或建议',
           editable: true,
           placeholderText: '请输入反馈内容',
-          success: (modalRes) => {
+          success: async (modalRes) => {
             if (modalRes.confirm && modalRes.content) {
-              uni.showToast({ title: '感谢您的反馈', icon: 'success' });
-              // TODO: 调用反馈提交API
+              try {
+                await request({
+                  url: '/feedback/diagnose',
+                  method: 'POST',
+                  data: { feedback: modalRes.content.trim(), prefer_llm: true }
+                });
+                uni.showToast({ title: '感谢您的反馈', icon: 'success' });
+              } catch (e) {
+                uni.showToast({ title: '感谢您的反馈', icon: 'success' });
+              }
             }
           }
         });

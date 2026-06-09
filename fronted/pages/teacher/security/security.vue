@@ -62,31 +62,17 @@ const changePassword = () => {
 };
 
 const bindPhone = () => {
-  uni.showToast({ title: '手机号绑定功能开发中', icon: 'none' });
+  uni.navigateTo({
+    url: '/pages/teacher/profile/edit'
+  });
 };
 
 const deleteAccount = () => {
   uni.showModal({
     title: '账号注销',
-    content: '注销后将无法恢复，所有数据将被清除。\n\n确认要注销账号吗？',
-    confirmText: '确认注销',
-    confirmColor: '#ff4d4f',
-    success: (res) => {
-      if (res.confirm) {
-        uni.showModal({
-          title: '二次确认',
-          content: '这是最后一次确认，注销后无法恢复！',
-          confirmText: '我确定',
-          confirmColor: '#ff4d4f',
-          success: async (res2) => {
-            if (res2.confirm) {
-              // TODO: 调用注销API
-              uni.showToast({ title: '账号注销功能开发中', icon: 'none' });
-            }
-          }
-        });
-      }
-    }
+    content: '账号注销需要管理员审核处理。\n\n请联系管理员：\n电话：138-0013-8000\n邮箱：admin@campus.edu.cn',
+    showCancel: false,
+    confirmText: '我知道了'
   });
 };
 

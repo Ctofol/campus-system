@@ -263,7 +263,7 @@ const startFreeExercise = () => {
 
 const showExerciseActionSheet = () => {
   uni.showActionSheet({
-    itemList: ['户外跑步', '体测', '自由练习'],
+    itemList: ['户外跑步', '体测'],
     success: (res) => {
       if (res.tapIndex === 0) startOutdoorRun();
       else if (res.tapIndex === 1) startAiTest();

@@ -18,11 +18,12 @@
       <text class="placeholder-text">{{ loadError || '加载视频中…' }}</text>
     </view>
     <view v-else class="resource-panel">
-      <text class="resource-title">{{ contentType === 'document' ? '文档资料' : '外部链接' }}</text>
-      <text class="resource-url">{{ resourceUrl || '暂无可访问地址' }}</text>
-      <button class="resource-btn" @click="openResource">
-        {{ contentType === 'document' ? '打开文档' : '打开链接' }}
-      </button>
+      <text class="resource-title">{{ contentTitle }}</text>
+      <view class="resource-url-box">
+        <text class="resource-url">{{ displayUrl || '暂无地址' }}</text>
+      </view>
+      <button class="resource-btn" @click="openResource">复制链接到剪贴板</button>
+      <text class="resource-tip">链接已复制到剪贴板，请粘贴至手机浏览器打开</text>
     </view>
     
     <!-- 课程信息 -->
@@ -75,17 +76,12 @@ const progressTimer = ref(null);
 const currentTime = ref(0);
 const loadError = ref('');
 
-const truncateUrl = (url, max = 120) => {
+const truncateUrl = (url, max = 80) => {
   if (!url) return '';
   return url.length > max ? `${url.slice(0, max)}...` : url;
 };
 
-const copyExternalLink = (url) => {
-  uni.setClipboardData({
-    data: url,
-    success: () => uni.showToast({ title: '链接已复制', icon: 'none' })
-  });
-};
+const displayUrl = ref('');
 
 const openExternalLink = (url) => {
   if (!url) {
@@ -93,26 +89,17 @@ const openExternalLink = (url) => {
     return;
   }
 
-  if (/^https?:\/\//i.test(url)) {
-    uni.showModal({
-      title: '打开外部链接',
-      content: `即将打开：\n${truncateUrl(url)}`,
-      confirmText: '打开',
-      cancelText: '复制链接',
-      success: (res) => {
-        if (res.confirm) {
-          uni.navigateTo({
-            url: `/pages/common/webview?url=${encodeURIComponent(url)}`
-          });
-        } else if (res.cancel) {
-          copyExternalLink(url);
-        }
-      }
-    });
-    return;
-  }
-
-  copyExternalLink(url);
+  uni.setClipboardData({
+    data: url,
+    success: () => {
+      uni.showModal({
+        title: '链接已复制',
+        content: '已复制到剪贴板，请粘贴至浏览器打开',
+        showCancel: false,
+        confirmText: '知道了'
+      });
+    }
+  });
 };
 
 const loadContent = async (id) => {
@@ -137,6 +124,8 @@ const loadContent = async (id) => {
         videoUrl.value = fullUrl;
       } else {
         videoUrl.value = '';
+        displayUrl.value = truncateUrl(fullUrl);
+      }
       }
     } else {
       loadError.value = contentType.value === 'video' ? '暂无视频地址' : '暂无内容地址';
@@ -350,6 +339,12 @@ onUnload(() => {
   font-weight: 600;
   margin-bottom: 16rpx;
 }
+.resource-url-box {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 12rpx;
+  padding: 20rpx;
+  word-break: break-all;
+}
 .resource-url {
   font-size: 24rpx;
   line-height: 1.5;
@@ -358,13 +353,19 @@ onUnload(() => {
 }
 .resource-btn {
   margin-top: 24rpx;
-  width: 240rpx;
+  width: 300rpx;
   height: 72rpx;
   line-height: 72rpx;
   border-radius: 36rpx;
-  background: #20C997;
+  background: #33C9AB;
   color: #fff;
-  font-size: 28rpx;
+  font-size: 26rpx;
+}
+.resource-tip {
+  font-size: 20rpx;
+  color: rgba(255, 255, 255, 0.4);
+  text-align: center;
+  margin-top: 12rpx;
 }
 
 .content-info {

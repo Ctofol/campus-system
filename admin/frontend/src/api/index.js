@@ -62,4 +62,8 @@ export const getSubjects = () => api.get('/manage/subjects')
 export const createSubject = (data) => api.post('/manage/subjects', data)
 export const deleteSubject = (id) => api.delete(`/manage/subjects/${id}`)
 
+export const getNotifications = (params) => api.get('/manage/notifications', { params })
+export const createNotification = (data) => api.post('/manage/notifications', data)
+export const getFeedback = (params) => api.get('/manage/feedback', { params })
+
 export default api

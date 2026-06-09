@@ -225,14 +225,10 @@ const remindUnfinished = (task) => {
 
 const showActionSheet = (task) => {
   uni.showActionSheet({
-    itemList: ['编辑任务', '删除任务'],
+    itemList: ['删除任务'],
     itemColor: '#000000',
     success: async (res) => {
       if (res.tapIndex === 0) {
-        // Edit task - Future implementation
-        uni.showToast({ title: '编辑功能开发中', icon: 'none' });
-      } else if (res.tapIndex === 1) {
-        // Delete task
         handleDelete(task);
       }
     }

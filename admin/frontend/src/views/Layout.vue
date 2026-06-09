@@ -9,6 +9,8 @@
         <el-menu-item index="/subjects"><el-icon><List /></el-icon>选科管理</el-menu-item>
 
         <el-menu-item index="/import"><el-icon><Upload /></el-icon>批量导入</el-menu-item>
+        <el-menu-item index="/notifications"><el-icon><Bell /></el-icon>通知管理</el-menu-item>
+        <el-menu-item index="/feedback"><el-icon><ChatLineSquare /></el-icon>反馈诊断</el-menu-item>
       </el-menu>
     </el-aside>
     <el-container>
