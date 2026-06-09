@@ -80,7 +80,7 @@ export function patchStoredUserInfo(patch) {
 
 /** 头像展示 URL，附带版本参数避免微信 image 缓存旧图 */
 export function avatarImageSrc(avatarPathOrUrl) {
-  if (!avatarPathOrUrl) return '/static/avatar.png';
+  if (!avatarPathOrUrl) return '/static/default-avatar.svg';
   const base = resolveMediaUrl(avatarPathOrUrl);
   const token = encodeURIComponent(String(avatarPathOrUrl));
   return `${base}${base.includes('?') ? '&' : '?'}v=${token}`;

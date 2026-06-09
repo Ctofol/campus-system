@@ -87,7 +87,7 @@ import {
 } from '@/utils/request.js';
 import { pickAvatarFromAlbum, onChooseAvatarButtonError } from '@/utils/avatar-picker.js';
 
-const avatarUrl = ref('/static/avatar.png');
+const avatarUrl = ref('/static/default-avatar.svg');
 const saving = ref(false);
 
 const formData = ref({
@@ -100,7 +100,7 @@ const formData = ref({
 });
 
 const syncAvatarPreview = (path) => {
-  avatarUrl.value = path ? avatarImageSrc(path) : '/static/avatar.png';
+  avatarUrl.value = path ? avatarImageSrc(path) : '/static/default-avatar.svg';
 };
 
 onMounted(() => {

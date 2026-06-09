@@ -126,7 +126,7 @@ const activities = ref([]);
 const activeGroup = computed(() => joinedGroups.value.find(group => group.id === activeGroupId.value) || null);
 
 const activeGroupAvatar = computed(() => {
-  if (!activeGroup.value?.avatar) return '/static/default-avatar.png';
+  if (!activeGroup.value?.avatar) return '/static/default-avatar.svg';
   return resolveMediaUrl(activeGroup.value.avatar);
 });
 

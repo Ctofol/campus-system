@@ -39,7 +39,7 @@ import { pickAvatarFromAlbum } from '@/utils/avatar-picker.js';
 
 const groupId = ref(0);
 const saving = ref(false);
-const avatarPreview = ref('/static/default-avatar.png');
+const avatarPreview = ref('/static/default-avatar.svg');
 const formData = ref({
   name: '',
   description: '',
@@ -62,7 +62,7 @@ const loadGroup = async () => {
       description: current.description || '',
       avatar: current.avatar || ''
     };
-    avatarPreview.value = current.avatar ? resolveMediaUrl(current.avatar) : '/static/default-avatar.png';
+    avatarPreview.value = current.avatar ? resolveMediaUrl(current.avatar) : '/static/default-avatar.svg';
   } catch (e) {
     uni.showToast({ title: e.message || '加载失败', icon: 'none' });
   }

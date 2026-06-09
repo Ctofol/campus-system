@@ -162,7 +162,7 @@ import { ref, computed, onMounted } from 'vue';
 import { request, getStudentTaskRunHistory, avatarImageSrc } from '@/utils/request.js';
 import { mapRecordStatus, isValidSunshineRun } from '@/utils/activity-record.js';
 
-const avatarUrl = ref('/static/avatar.png');
+const avatarUrl = ref('/static/default-avatar.svg');
 
 const userName = ref('同学');
 const userSignature = ref('');
@@ -295,7 +295,7 @@ const fetchUserProfile = async () => {
         if (res.name) userName.value = res.name;
         if (res.class_name) className.value = res.class_name;
         userSignature.value = (res.signature || '').trim();
-        avatarUrl.value = res.avatar_url ? avatarImageSrc(res.avatar_url) : '/static/avatar.png';
+        avatarUrl.value = res.avatar_url ? avatarImageSrc(res.avatar_url) : '/static/default-avatar.svg';
         
         // Update storage
             let currentUser = uni.getStorageSync('userInfo');
@@ -335,7 +335,7 @@ const onPageShow = () => {
         if(u.name) userName.value = u.name;
         if(u.class_name) className.value = u.class_name;
         userSignature.value = (u.signature || '').trim();
-        avatarUrl.value = u.avatar_url ? avatarImageSrc(u.avatar_url) : '/static/avatar.png';
+        avatarUrl.value = u.avatar_url ? avatarImageSrc(u.avatar_url) : '/static/default-avatar.svg';
     }
   }
   

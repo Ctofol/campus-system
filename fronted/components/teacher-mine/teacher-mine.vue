@@ -60,7 +60,7 @@ import {
 } from '@/utils/request.js';
 
 const userInfo = ref({});
-const avatarDisplay = ref('/static/avatar.png');
+const avatarDisplay = ref('/static/default-avatar.svg');
 const notificationCount = ref(0);
 
 const syncAvatar = () => {

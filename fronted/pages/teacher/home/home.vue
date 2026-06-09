@@ -114,7 +114,7 @@ import {
 } from '@/utils/request.js';
 
 const userInfo = ref({});
-const avatarDisplay = ref('/static/avatar.png');
+const avatarDisplay = ref('/static/default-avatar.svg');
 const todos = ref([]);
 
 // 功能打通：跳转到请假审批列表
