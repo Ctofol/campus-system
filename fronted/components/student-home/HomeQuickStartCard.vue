@@ -1,21 +1,19 @@
 <template>
   <view class="home-quick">
-    <view class="home-quick__col home-quick__col--left">
+    <view class="home-quick__left">
       <text class="home-quick__title">开始跑步</text>
       <text class="home-quick__sub" @tap="$emit('go')">自由跑 · 随心跑 ›</text>
-      <view class="home-quick__link" @tap="$emit('settings')">
-        <text class="home-quick__gear">⚙</text>
-        <text>设置</text>
-      </view>
     </view>
     <view class="home-quick__center" @tap="$emit('go')">
-      <view class="home-quick__go">
-        <text class="home-quick__go-icon">🏃</text>
-        <text class="home-quick__go-txt">GO</text>
+      <view class="home-quick__go-ring">
+        <view class="home-quick__go">
+          <text class="home-quick__go-icon">🏃</text>
+          <text class="home-quick__go-txt">GO</text>
+        </view>
       </view>
     </view>
-    <view class="home-quick__col home-quick__col--right">
-      <text class="home-quick__title home-quick__title--sm">累计跑步</text>
+    <view class="home-quick__right">
+      <text class="home-quick__label">累计跑步</text>
       <view class="home-quick__km-row">
         <text class="home-quick__km">{{ distanceKm }}</text>
         <text class="home-quick__unit">公里</text>
@@ -27,7 +25,8 @@
         <text class="home-quick__progress-txt">{{ goalHint }}</text>
       </view>
       <view class="home-quick__goal" @tap="$emit('setGoal')">
-        <text>{{ goalKm > 0 ? '修改目标 ›' : '设置目标 ›' }}</text>
+        <text>{{ goalKm > 0 ? '修改目标' : '设置目标' }}</text>
+        <text class="home-quick__goal-arrow">›</text>
       </view>
     </view>
   </view>
@@ -45,130 +44,150 @@ defineEmits(['go', 'settings', 'setGoal']);
 
 <style lang="scss" scoped>
 .home-quick {
-  margin: -44rpx 24rpx 0;
-  padding: 36rpx 28rpx 32rpx;
+  margin: -48rpx 28rpx 0;
+  padding: 40rpx 28rpx 36rpx;
   background: #fff;
-  border-radius: 28rpx;
-  box-shadow: 0 16rpx 48rpx rgba(26, 43, 60, 0.1);
+  border-radius: 32rpx;
+  box-shadow: 0 10rpx 50rpx rgba(0, 0, 0, 0.04), 0 4rpx 20rpx rgba(0, 0, 0, 0.02);
   display: flex;
   flex-direction: row;
   align-items: center;
   position: relative;
   z-index: 2;
 }
-.home-quick__col {
+.home-quick__left {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
 }
-.home-quick__col--left {
-  align-items: flex-start;
-}
-.home-quick__col--right {
-  align-items: flex-end;
-}
 .home-quick__title {
-  font-size: 32rpx;
-  font-weight: 700;
-  color: #1a2b3c;
-}
-.home-quick__title--sm {
-  font-size: 26rpx;
-  color: #6b7c8f;
-  font-weight: 600;
+  font-size: 34rpx;
+  font-weight: 800;
+  color: #191C1E;
 }
 .home-quick__sub {
-  font-size: 24rpx;
-  color: #8a9bab;
+  font-size: 22rpx;
+  color: #8E8E93;
   margin-top: 8rpx;
-}
-.home-quick__link {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  margin-top: 20rpx;
-  font-size: 24rpx;
-  color: #8a9bab;
-}
-.home-quick__gear {
-  margin-right: 8rpx;
-  font-size: 26rpx;
+  font-weight: 600;
 }
 .home-quick__center {
   flex-shrink: 0;
   padding: 0 16rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.home-quick__go-ring {
+  width: 168rpx;
+  height: 168rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 0 18rpx rgba(51, 201, 171, 0.1), 0 16rpx 40rpx rgba(51, 201, 171, 0.35);
+  transition: transform 0.15s;
+}
+.home-quick__go-ring:active {
+  transform: scale(0.95);
 }
 .home-quick__go {
-  width: 148rpx;
-  height: 148rpx;
+  width: 140rpx;
+  height: 140rpx;
   border-radius: 50%;
-  background: linear-gradient(145deg, #2ed9a8 0%, #26b586 55%, #1fa67a 100%);
+  background: #33C9AB;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 12rpx 32rpx rgba(38, 181, 134, 0.45);
 }
 .home-quick__go-icon {
-  font-size: 44rpx;
+  font-size: 42rpx;
   line-height: 1;
 }
 .home-quick__go-txt {
-  font-size: 38rpx;
+  font-size: 36rpx;
   font-weight: 800;
   color: #fff;
-  margin-top: 6rpx;
-  letter-spacing: 3rpx;
+  letter-spacing: 4rpx;
+  margin-top: 2rpx;
+}
+.home-quick__right {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+.home-quick__label {
+  font-size: 22rpx;
+  font-weight: 700;
+  color: #8E8E93;
+  text-transform: uppercase;
+  letter-spacing: 2rpx;
 }
 .home-quick__km-row {
   display: flex;
   flex-direction: row;
   align-items: baseline;
-  margin-top: 6rpx;
+  margin-top: 8rpx;
 }
 .home-quick__km {
-  font-size: 48rpx;
-  font-weight: 800;
-  color: #1a2b3c;
-  line-height: 1.1;
+  font-size: 56rpx;
+  font-weight: 900;
+  color: #191C1E;
+  line-height: 1;
 }
 .home-quick__unit {
-  font-size: 24rpx;
-  color: #6b7c8f;
+  font-size: 22rpx;
+  color: #8E8E93;
+  font-weight: 700;
   margin-left: 6rpx;
 }
 .home-quick__progress {
   width: 100%;
-  margin-top: 12rpx;
-  align-items: flex-end;
+  margin-top: 16rpx;
   display: flex;
   flex-direction: column;
+  align-items: flex-end;
 }
 .home-quick__progress-bar {
   width: 100%;
-  height: 8rpx;
-  background: #eef2f5;
-  border-radius: 4rpx;
+  height: 10rpx;
+  background: #EEF2F5;
+  border-radius: 5rpx;
   overflow: hidden;
 }
 .home-quick__progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #2ed9a8, #26b586);
-  border-radius: 4rpx;
+  background: #33C9AB;
+  border-radius: 5rpx;
   transition: width 0.3s ease;
 }
 .home-quick__progress-txt {
   font-size: 20rpx;
-  color: #26b586;
-  margin-top: 6rpx;
+  color: #33C9AB;
+  margin-top: 8rpx;
+  font-weight: 600;
 }
 .home-quick__goal {
-  margin-top: 10rpx;
-  padding: 8rpx 20rpx;
-  border: 2rpx solid #26b586;
-  border-radius: 28rpx;
+  margin-top: 16rpx;
+  padding: 10rpx 24rpx;
+  border: 2rpx solid rgba(51, 201, 171, 0.3);
+  border-radius: 30rpx;
+  display: flex;
+  align-items: center;
+  gap: 4rpx;
   font-size: 22rpx;
-  color: #26b586;
+  font-weight: 700;
+  color: #33C9AB;
+  background: #fff;
+}
+.home-quick__goal:active {
+  background: rgba(51, 201, 171, 0.05);
+}
+.home-quick__goal-arrow {
+  font-size: 26rpx;
 }
 </style>

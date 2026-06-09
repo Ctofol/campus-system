@@ -354,6 +354,7 @@ export const uploadFile = (filePath, fileType = 'image') => {
       url: `${BASE_URL}/upload/file`,
       filePath: filePath,
       name: 'file',
+      timeout: 120000,
       header: {
         'Authorization': token ? `Bearer ${token}` : ''
       },

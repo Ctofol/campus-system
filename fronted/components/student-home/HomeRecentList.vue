@@ -9,7 +9,7 @@
         <text>开始第一次跑步</text>
       </view>
     </view>
-    <view v-else>
+    <view v-else class="home-recent__list">
       <view
         v-for="run in items"
         :key="run.id"
@@ -18,15 +18,19 @@
       >
         <HomeRecentMapThumb :preview="run.trajectoryPreview" :has-track="run.hasTrack" />
         <view class="home-recent-item__info">
-          <view class="home-recent-item__title-row">
-            <text class="home-recent-item__title">{{ run.title }}</text>
-            <text v-if="run.isValid" class="home-recent-item__badge">有效</text>
+          <view class="home-recent-item__type-row">
+            <text class="home-recent-item__type-icon">🏃</text>
+            <text class="home-recent-item__type-label">{{ run.title }}</text>
           </view>
-          <text class="home-recent-item__dist">{{ run.distanceKm }} 公里</text>
-          <text class="home-recent-item__meta">{{ run.timeLabel }}</text>
+          <view class="home-recent-item__dist-row">
+            <text class="home-recent-item__dist">{{ run.distanceKm }}</text>
+            <text class="home-recent-item__dist-unit">公里</text>
+          </view>
+          <text class="home-recent-item__time">{{ run.timeLabel }}</text>
         </view>
         <view class="home-recent-item__right">
           <text class="home-recent-item__pace">{{ run.paceLabel }}</text>
+          <text class="home-recent-item__pace-unit"> 配速</text>
           <text class="home-recent-item__chev">›</text>
         </view>
       </view>
@@ -45,48 +49,70 @@ defineEmits(['detail', 'startRun']);
 </script>
 
 <style lang="scss" scoped>
+.home-recent__list {
+  display: flex;
+  flex-direction: column;
+}
 .home-recent-item {
   display: flex;
   flex-direction: row;
   align-items: center;
   padding: 22rpx 0;
-  border-bottom: 2rpx solid #f0f3f6;
+  border-bottom: 2rpx solid #F0F3F6;
 }
 .home-recent-item:last-child {
   border-bottom: none;
 }
+.home-recent-item:active {
+  background: #FAFBFC;
+  border-radius: 12rpx;
+  margin: 0 -8rpx;
+  padding-left: 8rpx;
+  padding-right: 8rpx;
+}
 .home-recent-item__info {
   flex: 1;
   min-width: 0;
+  margin-left: 16rpx;
 }
-.home-recent-item__title-row {
+.home-recent-item__type-row {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 8rpx;
+  gap: 6rpx;
+  margin-bottom: 6rpx;
 }
-.home-recent-item__title {
-  font-size: 28rpx;
+.home-recent-item__type-icon {
+  font-size: 22rpx;
+  color: #33C9AB;
+}
+.home-recent-item__type-label {
+  font-size: 22rpx;
   font-weight: 700;
-  color: #1a2b3c;
+  color: #8E8E93;
 }
-.home-recent-item__badge {
-  font-size: 18rpx;
-  color: #26b586;
-  background: #e8f8f2;
-  padding: 2rpx 10rpx;
-  border-radius: 8rpx;
+.home-recent-item__dist-row {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
 }
 .home-recent-item__dist {
-  font-size: 24rpx;
-  color: #4a5d6e;
-  margin-top: 4rpx;
-  display: block;
+  font-size: 36rpx;
+  font-weight: 900;
+  color: #191C1E;
+  line-height: 1;
 }
-.home-recent-item__meta {
-  font-size: 22rpx;
-  color: #8a9bab;
-  margin-top: 4rpx;
+.home-recent-item__dist-unit {
+  font-size: 20rpx;
+  font-weight: 700;
+  color: #8E8E93;
+  margin-left: 6rpx;
+}
+.home-recent-item__time {
+  font-size: 20rpx;
+  font-weight: 600;
+  color: #C5CED6;
+  margin-top: 6rpx;
   display: block;
 }
 .home-recent-item__right {
@@ -94,17 +120,21 @@ defineEmits(['detail', 'startRun']);
   flex-direction: row;
   align-items: center;
   flex-shrink: 0;
-  margin-left: 8rpx;
 }
 .home-recent-item__pace {
-  font-size: 26rpx;
-  font-weight: 700;
-  color: #26b586;
+  font-size: 28rpx;
+  font-weight: 800;
+  color: #33C9AB;
+}
+.home-recent-item__pace-unit {
+  font-size: 18rpx;
+  font-weight: 600;
+  color: #C5CED6;
 }
 .home-recent-item__chev {
-  font-size: 34rpx;
-  color: #c5ced6;
-  margin-left: 4rpx;
+  font-size: 36rpx;
+  color: #C5CED6;
+  margin-left: 6rpx;
   line-height: 1;
 }
 .home-recent__skeleton .home-recent__sk-row {
@@ -119,15 +149,15 @@ defineEmits(['detail', 'startRun']);
 }
 .home-recent__empty-txt {
   font-size: 26rpx;
-  color: #8a9bab;
+  color: #8E8E93;
 }
 .home-recent__empty-btn {
   display: inline-block;
   margin-top: 20rpx;
   padding: 12rpx 36rpx;
-  border: 2rpx solid #26b586;
+  border: 2rpx solid #33C9AB;
   border-radius: 32rpx;
   font-size: 26rpx;
-  color: #26b586;
+  color: #33C9AB;
 }
 </style>

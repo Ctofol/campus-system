@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue';
-import { getStudentTasks, getStoredToken, isAuthError, request } from '@/utils/request.js';
+import { getStudentTasks, getStoredToken, isAuthError, request, getRunGroupActivities } from '@/utils/request.js';
 
 const emptyWeekly = () => ({
   distanceKm: '0.00',
@@ -47,6 +47,7 @@ export function useStudentHomeDashboard() {
   const unreadNotifyCount = ref(0);
   const recentRuns = ref([]);
   const teacherTasks = ref([]);
+  const runGroupActivities = ref([]);
   const weeklyStats = ref(emptyWeekly());
   const runGoalKm = ref(0);
 
@@ -90,6 +91,55 @@ export function useStudentHomeDashboard() {
     return `本周 ${dist.toFixed(1)} / ${goal} 公里`;
   });
 
+  const latestActivity = computed(() => {
+    if (runGroupActivities.value?.length) {
+      const a = runGroupActivities.value[0];
+      const date = new Date(a.activity_time);
+      const dateLabel = `${date.getMonth() + 1}月${date.getDate()}日 ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+      return {
+        id: a.id,
+        name: a.title,
+        status: a.status || 'enrolling',
+        statusLabel: a.statusLabel || '报名中',
+        dateLabel: a.activity_time ? dateLabel : '近期',
+        participants: a.apply_count || 0,
+        progress: a.apply_count ? Math.min(100, Math.round((a.apply_count / 20) * 100)) : 0,
+        cover: a.cover_image || ''
+      };
+    }
+    return {
+      id: '',
+      name: '暂无活动，去发现更多跑团活动',
+      status: 'enrolling',
+      statusLabel: '报名中',
+      dateLabel: '近期',
+      participants: 0,
+      progress: 0,
+      cover: ''
+    };
+  });
+
+  const fetchActivities = async () => {
+    try {
+      const res = await getRunGroupActivities({ page: 1, size: 5 });
+      runGroupActivities.value = (res?.items || []).map((item) => {
+        const statusMap = { 'upcoming': '报名中', 'ongoing': '进行中', 'finished': '已结束' };
+        return {
+          id: item.id,
+          title: item.title,
+          activity_time: item.activity_time,
+          location: item.location || '待定',
+          status: item.status,
+          statusLabel: statusMap[item.status] || '报名中',
+          apply_count: item.apply_count,
+          cover_image: item.cover_image || '/static/home/hero-bg.png'
+        };
+      });
+    } catch (e) {
+      runGroupActivities.value = [];
+    }
+  };
+
   const fetchDashboard = async () => {
     const res = await request({ url: '/student/home/dashboard', method: 'GET' });
     totalDistanceKm.value = res?.total_distance_km ?? '0.0';
@@ -128,7 +178,7 @@ export function useStudentHomeDashboard() {
     if (!getStoredToken()) return;
     loading.value = true;
     try {
-      await Promise.all([fetchDashboard(), fetchTasks(onNewTasks)]);
+      await Promise.all([fetchDashboard(), fetchTasks(onNewTasks), fetchActivities()]);
     } catch (e) {
       if (!isAuthError(e)) {
         console.error('[home] dashboard load failed', e);
@@ -158,6 +208,8 @@ export function useStudentHomeDashboard() {
     runGoalKm,
     weekGoalProgress,
     goalHintText,
+    latestActivity,
+    runGroupActivities,
     loadDashboard,
     applyRunGoal
   };

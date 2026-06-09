@@ -80,9 +80,9 @@ import { onLoad } from '@dcloudio/uni-app';
 import { createCourse, uploadFile, resolveMediaUrl } from '@/utils/request.js';
 
 const getFullImageUrl = (url) => {
-  if (!url) return '/static/activity-placeholder.png';
+  if (!url) return '/static/home/hero-bg.png';
   if (url.startsWith('blob:') || url.startsWith('wxfile:')) return url;
-  return resolveMediaUrl(url) || '/static/activity-placeholder.png';
+  return resolveMediaUrl(url) || '/static/home/hero-bg.png';
 };
 
 const categories = [

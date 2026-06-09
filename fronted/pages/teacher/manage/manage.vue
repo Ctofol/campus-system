@@ -1,6 +1,6 @@
 <template>
   <view class="manage-container">
-    <page-tab-header title="综合管理" theme="white" />
+    <page-tab-header title="综合管理" theme="white" show-back />
 
     <view class="content-wrapper page-tab-body">
       <view class="grid-container">
@@ -76,7 +76,7 @@
 <script setup>
 import { ref } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
-import { request } from '@/utils/request.js';
+import { request, BASE_URL } from '@/utils/request.js';
 
 const stats = ref({
   studentCount: 0,
@@ -114,62 +114,91 @@ const handleDataExport = () => {
   uni.showActionSheet({
     itemList: ['导出学生成绩', '导出任务完成情况', '导出学生信息'],
     success: async (res) => {
-      if (res.tapIndex === 0) {
-        // 导出学生成绩
-        await exportScores();
-      } else if (res.tapIndex === 1) {
-        // 导出任务完成情况
-        await exportTasks();
-      } else if (res.tapIndex === 2) {
-        // 导出学生信息
-        uni.showToast({ title: '学生信息导出功能开发中', icon: 'none' });
-      }
+      if (res.tapIndex === 0) await exportScores();
+      else if (res.tapIndex === 1) await exportTasks();
+      else if (res.tapIndex === 2) await exportStudents();
     }
   });
+};
+
+const downloadCsvFile = (csvContent, filename) => {
+  const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
+
+const saveCsvFile = (csvContent, filename, onSuccess) => {
+  // #ifdef H5
+  downloadCsvFile(csvContent, filename);
+  if (onSuccess) onSuccess();
+  // #endif
+
+  // #ifndef H5
+  const fs = uni.getFileSystemManager();
+  const tempPath = `${uni.env.USER_DATA_PATH}/${filename}`;
+  fs.writeFile({
+    filePath: tempPath,
+    data: '\uFEFF' + csvContent,
+    encoding: 'utf8',
+    success: () => {
+      uni.openDocument({
+        filePath: tempPath,
+        showMenu: true,
+        success: () => {
+          if (onSuccess) onSuccess();
+        },
+        fail: () => {
+          uni.setClipboardData({
+            data: csvContent,
+            success: () => {
+              uni.showToast({ title: '已复制到剪贴板', icon: 'success' });
+              if (onSuccess) onSuccess();
+            }
+          });
+        }
+      });
+    },
+    fail: () => {
+      uni.setClipboardData({
+        data: csvContent,
+        success: () => {
+          uni.showToast({ title: '已复制到剪贴板', icon: 'success' });
+          if (onSuccess) onSuccess();
+        }
+      });
+    }
+  });
+  // #endif
 };
 
 // 导出学生成绩
 const exportScores = async () => {
   uni.showLoading({ title: '正在导出...' });
   try {
-    const res = await request({
-      url: '/teacher/export/scores',
-      method: 'GET'
-    });
-    
+    const res = await request({ url: '/teacher/export/scores', method: 'GET' });
     if (res.data && res.data.length > 0) {
-      // 生成CSV内容
       const headers = ['学号', '学生姓名', '班级', '平均分', '最高分', '最低分', '打分次数'];
-      const csvContent = [
-        headers.join(','),
-        ...res.data.map(item => [
-          item.student_id,
-          item.student_name,
-          item.class_name || '未分班',
-          item.avg_score,
-          item.max_score,
-          item.min_score,
-          item.score_count
-        ].join(','))
-      ].join('\n');
-      
-      // 显示导出结果
+      const rows = res.data.map(item => [
+        item.student_id, item.student_name, item.class_name || '未分班',
+        item.avg_score, item.max_score, item.min_score, item.score_count
+      ].join(','));
+      const csvContent = [headers.join(','), ...rows].join('\n');
       uni.hideLoading();
-      uni.showModal({
-        title: '导出成功',
-        content: `已导出 ${res.data.length} 条成绩记录\n\n数据预览：\n${res.data.slice(0, 3).map(d => `${d.student_name}: 平均${d.avg_score}分`).join('\n')}`,
-        confirmText: '我知道了'
+      saveCsvFile(csvContent, `学生成绩_${formatDate()}.csv`, () => {
+        uni.showToast({ title: `已导出${res.data.length}条`, icon: 'success' });
       });
-      
-      // TODO: 在实际应用中，这里应该触发文件下载
-      console.log('CSV Content:', csvContent);
     } else {
       uni.hideLoading();
       uni.showToast({ title: '暂无数据可导出', icon: 'none' });
     }
   } catch (e) {
     uni.hideLoading();
-    console.error('Export scores failed:', e);
     uni.showToast({ title: '导出失败', icon: 'none' });
   }
 };
@@ -178,54 +207,62 @@ const exportScores = async () => {
 const exportTasks = async () => {
   uni.showLoading({ title: '正在导出...' });
   try {
-    const res = await request({
-      url: '/teacher/export/tasks',
-      method: 'GET'
-    });
-    
+    const res = await request({ url: '/teacher/export/tasks', method: 'GET' });
     if (res.data && res.data.length > 0) {
-      // 生成CSV内容
       const headers = ['任务ID', '任务标题', '任务类型', '开始时间', '结束时间', '目标学生数', '已完成人数', '完成率'];
-      const csvContent = [
-        headers.join(','),
-        ...res.data.map(item => [
-          item.task_id,
-          item.task_title,
-          item.task_type,
-          item.start_time,
-          item.end_time,
-          item.total_students,
-          item.completed_count,
-          item.completion_rate + '%'
-        ].join(','))
-      ].join('\n');
-      
-      // 显示导出结果
+      const rows = res.data.map(item => [
+        item.task_id, item.task_title, item.task_type,
+        item.start_time, item.end_time, item.total_students,
+        item.completed_count, `${item.completion_rate}%`
+      ].join(','));
+      const csvContent = [headers.join(','), ...rows].join('\n');
       uni.hideLoading();
-      uni.showModal({
-        title: '导出成功',
-        content: `已导出 ${res.data.length} 个任务记录\n\n数据预览：\n${res.data.slice(0, 3).map(d => `${d.task_title}: ${d.completion_rate}%完成`).join('\n')}`,
-        confirmText: '我知道了'
+      saveCsvFile(csvContent, `任务完成情况_${formatDate()}.csv`, () => {
+        uni.showToast({ title: `已导出${res.data.length}条`, icon: 'success' });
       });
-      
-      // TODO: 在实际应用中，这里应该触发文件下载
-      console.log('CSV Content:', csvContent);
     } else {
       uni.hideLoading();
       uni.showToast({ title: '暂无数据可导出', icon: 'none' });
     }
   } catch (e) {
     uni.hideLoading();
-    console.error('Export tasks failed:', e);
     uni.showToast({ title: '导出失败', icon: 'none' });
   }
 };
 
-const showToast = (title) => {
-  uni.showToast({
-    title: `${title}功能开发中`,
-    icon: 'none'
-  });
+// 导出学生信息（对接已有的 CSV 导出接口）
+const exportStudents = async () => {
+  uni.showLoading({ title: '正在导出...' });
+  try {
+    const token = uni.getStorageSync('token');
+    const res = await new Promise((resolve, reject) => {
+      uni.request({
+        url: `${BASE_URL}/teacher/students/export`,
+        method: 'POST',
+        header: { 'Authorization': `Bearer ${token}` },
+        data: {},
+        responseType: 'text',
+        success: (r) => resolve(r.data),
+        fail: reject
+      });
+    });
+    uni.hideLoading();
+    if (res && typeof res === 'string' && res.trim().length > 0) {
+      saveCsvFile(res, `学生信息_${formatDate()}.csv`, () => {
+        uni.showToast({ title: '已导出', icon: 'success' });
+      });
+    } else {
+      uni.showToast({ title: '暂无数据可导出', icon: 'none' });
+    }
+  } catch (e) {
+    uni.hideLoading();
+    uni.showToast({ title: '导出失败', icon: 'none' });
+  }
+};
+
+const formatDate = () => {
+  const d = new Date();
+  return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
 };
 </script>
 

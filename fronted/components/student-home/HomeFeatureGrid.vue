@@ -44,12 +44,12 @@ defineEmits(['tap']);
   width: 88rpx;
   height: 88rpx;
   border-radius: 24rpx;
-  background: linear-gradient(180deg, #f4fcf9 0%, #e8f8f2 100%);
+  background: linear-gradient(180deg, #E8F8F2 0%, #F0FDF6 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   margin-bottom: 12rpx;
-  box-shadow: 0 4rpx 16rpx rgba(38, 181, 134, 0.08);
+  box-shadow: 0 4rpx 16rpx rgba(51, 201, 171, 0.08);
 }
 .home-feature-grid__icon {
   font-size: 44rpx;

@@ -1,7 +1,7 @@
 <template>
   <view class="activity-detail-page">
     <view class="banner">
-      <image class="banner-img" src="/static/activity-placeholder.png" mode="aspectFill"></image>
+      <image class="banner-img" src="/static/home/hero-bg.png" mode="aspectFill"></image>
       <view class="banner-overlay">
         <text class="act-title">{{ activity.name }}</text>
         <text class="act-status">{{ activity.status }}</text>

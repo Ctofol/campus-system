@@ -141,7 +141,7 @@ onMounted(() => {
 }
 
 .page-tab-header--brand {
-  background-color: var(--color-brand, #20c997);
+  background-color: var(--color-brand, #33C9AB);
 }
 
 .page-tab-header--white {
@@ -170,11 +170,10 @@ onMounted(() => {
 .page-tab-header__bar {
   position: relative;
   height: var(--nav-bar-height-px, var(--nav-bar-height, 44px));
-  display: grid;
-  grid-template-columns: 1fr minmax(0, auto) 1fr;
+  display: flex;
   align-items: center;
-  column-gap: 12rpx;
   box-sizing: border-box;
+  width: 100%;
 }
 
 .page-tab-header__side {
@@ -184,26 +183,30 @@ onMounted(() => {
   align-items: center;
   min-width: 0;
   height: 100%;
+  flex-shrink: 0;
 }
 
 .page-tab-header__side--left {
   justify-content: flex-start;
-  padding-right: 8rpx;
 }
 
 .page-tab-header__side--right {
   justify-content: flex-end;
-  padding-left: 8rpx;
+  margin-left: auto;
 }
 
 .page-tab-header__center {
-  grid-column: 2;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
   min-width: 0;
-  max-width: 100%;
+  max-width: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   pointer-events: none;
+  z-index: 1;
 }
 
 .page-tab-header__back {

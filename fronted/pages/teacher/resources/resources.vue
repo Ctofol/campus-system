@@ -155,9 +155,9 @@ const getCategoryName = (category) => {
 };
 
 const getFullImageUrl = (url, id) => {
-  if (!url) return '/static/activity-placeholder.png';
-  if (brokenImages.value.has(id)) return '/static/activity-placeholder.png';
-  return resolveMediaUrl(url) || '/static/activity-placeholder.png';
+  if (!url) return '/static/home/hero-bg.png';
+  if (brokenImages.value.has(id)) return '/static/home/hero-bg.png';
+  return resolveMediaUrl(url) || '/static/home/hero-bg.png';
 };
 
 const handleImageError = (id) => {

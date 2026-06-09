@@ -151,7 +151,8 @@
             "onLocationChange",
             "startLocationUpdate",
             "startLocationUpdateBackground",
-            "chooseLocation"
+            "chooseLocation",
+            "accelerometer"
         ]
     },
     "mp-alipay" : {

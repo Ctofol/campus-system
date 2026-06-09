@@ -1,10 +1,15 @@
 <template>
   <view class="home-weather">
     <text class="home-weather__icon">{{ weatherIcon }}</text>
-    <view class="home-weather__body">
-      <text class="home-weather__temp">{{ displayTemp }}</text>
-      <text class="home-weather__cond">{{ displayCondition }}</text>
+    <text class="home-weather__temp">{{ displayTemp }}</text>
+    <view class="home-weather__divider">|</view>
+    <text class="home-weather__cond">{{ displayCondition }}</text>
+    <view class="home-weather__divider">|</view>
+    <view class="home-weather__extra">
+      <text class="home-weather__aqi">{{ displayAqi }}</text>
     </view>
+    <view v-if="displayHumidity" class="home-weather__divider">|</view>
+    <text v-if="displayHumidity" class="home-weather__humid">{{ displayHumidity }}</text>
   </view>
 </template>
 
@@ -12,14 +17,8 @@
 import { computed } from 'vue';
 
 const props = defineProps({
-  weather: {
-    type: Object,
-    default: null
-  },
-  placeholder: {
-    type: Boolean,
-    default: true
-  }
+  weather: { type: Object, default: null },
+  placeholder: { type: Boolean, default: true }
 });
 
 const weatherIcon = computed(() => {
@@ -32,55 +31,72 @@ const weatherIcon = computed(() => {
 });
 
 const displayTemp = computed(() => {
-  if (props.weather?.temp != null && !props.placeholder) {
-    return `${props.weather.temp}°C`;
-  }
+  if (props.weather?.temp != null && !props.placeholder) return `${props.weather.temp}°C`;
   return '--°C';
 });
 
 const displayCondition = computed(() => {
-  if (props.weather?.condition && !props.placeholder) {
-    const parts = [props.weather.condition];
-    if (props.weather.aqiLabel) parts.push(props.weather.aqiLabel);
-    if (props.weather.humidity != null) parts.push(String(props.weather.humidity));
-    return parts.join(' | ');
-  }
-  return '天气加载中';
+  if (props.weather?.condition && !props.placeholder) return props.weather.condition;
+  return '加载中';
+});
+
+const displayAqi = computed(() => {
+  if (props.weather?.aqiLabel && !props.placeholder) return props.weather.aqiLabel;
+  return '---';
+});
+
+const displayHumidity = computed(() => {
+  if (props.weather?.humidity != null && !props.placeholder) return String(props.weather.humidity);
+  return '';
 });
 </script>
 
 <style lang="scss" scoped>
 .home-weather {
-  flex: 0 0 auto;
-  min-width: 0;
-  max-width: 340rpx;
-  padding: 16rpx 20rpx;
-  border-radius: 20rpx;
-  background: rgba(255, 255, 255, 0.25);
-  backdrop-filter: blur(12px);
   display: flex;
   flex-direction: row;
   align-items: center;
+  padding: 18rpx 28rpx;
+  border-radius: 24rpx;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(12px);
+  border: 2rpx solid rgba(255, 255, 255, 0.3);
+  gap: 12rpx;
 }
 .home-weather__icon {
-  font-size: 48rpx;
-  margin-right: 12rpx;
+  font-size: 36rpx;
   flex-shrink: 0;
 }
-.home-weather__body {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
 .home-weather__temp {
-  font-size: 36rpx;
+  font-size: 40rpx;
   font-weight: 700;
   color: #fff;
-  line-height: 1.2;
+  flex-shrink: 0;
+}
+.home-weather__divider {
+  font-size: 18rpx;
+  color: rgba(255, 255, 255, 0.3);
+  flex-shrink: 0;
 }
 .home-weather__cond {
   font-size: 22rpx;
-  color: rgba(255, 255, 255, 0.92);
-  margin-top: 4rpx;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  flex-shrink: 0;
+}
+.home-weather__extra {
+  display: flex;
+  align-items: center;
+  gap: 4rpx;
+}
+.home-weather__aqi {
+  font-size: 20rpx;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+}
+.home-weather__humid {
+  font-size: 20rpx;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
 }
 </style>

@@ -9,24 +9,15 @@
       @refresherrefresh="onPullRefresh"
     >
       <view class="home-hero" :style="{ paddingTop: statusBarHeight + 'px' }">
-        <image
-          class="home-hero__illus"
-          src="/static/home/hero-bg.png"
-          mode="aspectFill"
-          @error="heroImgFailed = true"
-        />
-        <view v-if="heroImgFailed" class="home-hero__runner" />
-
-        <!-- 顶栏：左侧问候 + 右侧操作按钮 -->
+        <!-- 顶栏：居中标题胶囊 + 日历通知 -->
         <view class="home-hero__topbar">
-          <view class="home-hero__greet">
-            <text class="home-hero__greet-title">{{ greetingText }}{{ greetingIcon }}</text>
-            <text class="home-hero__greet-sub">{{ greetingSub }}</text>
+          <view class="home-hero__title-capsule">
+            <text class="home-hero__title">首页</text>
           </view>
           <view class="home-hero__actions">
             <view class="home-hero__action" @tap="goSunshineDetail">
               <text class="home-hero__action-icon">📅</text>
-              <text class="home-hero__action-label">打卡日历</text>
+              <text class="home-hero__action-label">日历</text>
             </view>
             <view class="home-hero__action" @tap="goNotifications">
               <view class="home-hero__bell-wrap">
@@ -41,7 +32,13 @@
           </view>
         </view>
 
-        <!-- 底部天气 -->
+        <!-- 居中问候 -->
+        <view class="home-hero__greet">
+          <text class="home-hero__greet-title">{{ greetingText }}{{ greetingIcon }}</text>
+          <text class="home-hero__greet-sub">{{ greetingSub }}</text>
+        </view>
+
+        <!-- 天气信息 -->
         <view class="home-hero__bottom">
           <HomeWeatherCard :weather="homeWeather" :placeholder="!homeWeatherReady" />
         </view>
@@ -60,6 +57,11 @@
       <view class="home-body">
         <view class="home-card home-card--grid">
           <HomeFeatureGrid :items="featureItems" @tap="onFeatureTap" />
+        </view>
+
+        <view class="home-activity-section">
+          <HomeSectionHeader title="最新活动" more-text="查看全部" @more="goActivityList" />
+          <HomeActivityCard :activity="latestActivity" :loading="loading" @tap="goActivityDetail" />
         </view>
 
         <view class="home-card">
@@ -195,11 +197,11 @@ import HomeFeatureGrid from './HomeFeatureGrid.vue';
 import HomeSectionHeader from './HomeSectionHeader.vue';
 import HomeWeekStats from './HomeWeekStats.vue';
 import HomeRecentList from './HomeRecentList.vue';
+import HomeActivityCard from './HomeActivityCard.vue';
 
 const statusBarHeight = ref(20);
 const safeBottom = ref(0);
 const refreshing = ref(false);
-const heroImgFailed = ref(false);
 const showTaskModal = ref(false);
 const showGoalModal = ref(false);
 const notifIndex = ref(0);
@@ -221,6 +223,7 @@ const {
   runGoalKm,
   weekGoalProgress,
   goalHintText,
+  latestActivity,
   loadDashboard,
   applyRunGoal
 } = useStudentHomeDashboard();
@@ -369,6 +372,18 @@ const goRunDetail = (run) => {
     uni.navigateTo({ url: `/pages/history/detail?data=${dataStr}` });
   } catch (e) {
     console.error('Go detail failed', e);
+  }
+};
+
+const goActivityList = () => {
+  uni.navigateTo({ url: '/pages/activity/list' });
+};
+
+const goActivityDetail = (activity) => {
+  if (activity?.id) {
+    uni.navigateTo({ url: `/pages/run-group/activity-detail?activityId=${activity.id}` });
+  } else {
+    goActivityList();
   }
 };
 

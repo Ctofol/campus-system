@@ -1,6 +1,6 @@
 <template>
   <view class="mine-container">
-    <page-tab-header title="个人中心" theme="white" />
+    <page-tab-header title="个人中心" theme="white" show-back />
 
     <view class="content-wrapper page-tab-body">
       <!-- 用户信息卡片 -->

@@ -3968,189 +3968,13 @@ const buildHistory = (records) => {
   max-width: 92%;
 }
 .location-status-tappable {
-  background-color: rgba(32, 201, 151, 0.92);
+  background-color: rgba(51, 201, 171, 0.92);
 }
 .status-text {
   color: #ffffff;
   font-size: 24rpx;
   line-height: 1.4;
   text-align: center;
-}
-.map-legend {
-  position: absolute;
-  left: 16rpx;
-  bottom: 16rpx;
-  background: rgba(255, 255, 255, 0.92);
-  border-radius: 12rpx;
-  padding: 12rpx 16rpx;
-  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.12);
-}
-.legend-row {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  margin-bottom: 8rpx;
-}
-.legend-row:last-child {
-  margin-bottom: 0;
-}
-.legend-pin {
-  width: 20rpx;
-  height: 20rpx;
-  border-radius: 50%;
-  margin-right: 10rpx;
-}
-.legend-pin-me {
-  background: #1976d2;
-  border: 3rpx solid #fff;
-  box-shadow: 0 0 0 2rpx #0d47a1;
-  clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
-  border-radius: 0;
-  width: 18rpx;
-  height: 22rpx;
-}
-.legend-pin-start {
-  background: #2196f3;
-  box-shadow: 0 0 0 2rpx #1565c0;
-}
-.legend-line-sample {
-  width: 28rpx;
-  height: 6rpx;
-  border-radius: 3rpx;
-  background: #1e88e5;
-  margin-right: 10rpx;
-}
-.legend-txt {
-  font-size: 22rpx;
-  color: #333;
-  line-height: 1.2;
-}
-
-/* 鏂板椤堕儴鏍峰紡 */
-.top-widgets {
-  margin-bottom: 20rpx;
-}
-.weather-widget {
-  background: linear-gradient(135deg, #74ebd5 0%, #ACB6E5 100%);
-  border-radius: 12rpx;
-  padding: 20rpx;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 15rpx;
-  color: #fff;
-  box-shadow: 0 4rpx 10rpx rgba(0,0,0,0.1);
-}
-.weather-left { display: flex; flex-direction: column; }
-.weather-temp { font-size: 40rpx; font-weight: bold; }
-.weather-status { font-size: 26rpx; opacity: 0.9; }
-.weather-tips { font-size: 24rpx; background: rgba(255,255,255,0.2); padding: 4rpx 12rpx; border-radius: 20rpx; }
-
-.achievements-scroll {
-  white-space: nowrap;
-  width: 100%;
-}
-.badge-item {
-  display: inline-block;
-  background: #fff;
-  padding: 10rpx 20rpx;
-  border-radius: 30rpx;
-  margin-right: 15rpx;
-  box-shadow: 0 2rpx 5rpx rgba(0,0,0,0.05);
-}
-.badge-icon { margin-right: 8rpx; }
-.badge-name { font-size: 24rpx; color: #333; }
-
-.overview-card {
-  background: rgba(255, 255, 255, 0.92);
-  border-radius: 16rpx;
-  padding: 14rpx 18rpx;
-  margin-bottom: 0;
-  position: fixed;
-  top: calc(44px + var(--status-bar-height, 20px) + 16rpx);
-  right: 20rpx;
-  z-index: 100;
-  box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.15);
-  min-width: 220rpx;
-}
-.overview-title {
-  font-size: 26rpx;
-  font-weight: bold;
-  color: #333;
-  display: inline;
-  margin-right: 16rpx;
-}
-.overview-meta {
-  font-size: 24rpx;
-  color: #666;
-  display: inline-flex;
-  gap: 24rpx;
-  flex-wrap: wrap;
-}
-.task-tip {
-  margin-top: 10rpx;
-  font-size: 26rpx;
-  color: #d81e06;
-}
-.progress-wrap { padding: 10rpx 20rpx; }
-.progress-bar { width: 100%; height: 16rpx; background: #eee; border-radius: 10rpx; overflow: hidden; }
-.progress-fill { height: 100%; background: #20C997; width: 0; }
-.progress-text { font-size: 26rpx; color: #666; text-align: center; margin-top: 6rpx; display: block; }
-/* 鎼滅储鏍忎粎鏍″洯妯″紡鏄剧ず */
-.search-bar {
-  margin-bottom: 20rpx;
-}
-.map-select-panel {
-  width: 100%;
-}
-.map-select-btn {
-  display: flex;
-  align-items: center;
-  gap: 18rpx;
-  min-height: 108rpx;
-  background: linear-gradient(135deg, #1fc48d, #22c55e);
-  border-radius: 18rpx;
-  padding: 0 24rpx;
-  box-shadow: 0 10rpx 24rpx rgba(32, 201, 151, 0.2);
-}
-.map-icon {
-  width: 62rpx;
-  height: 62rpx;
-  line-height: 62rpx;
-  text-align: center;
-  font-size: 34rpx;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 50%;
-}
-.map-select-copy {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-.map-select-title {
-  font-size: 30rpx;
-  line-height: 1.2;
-  color: #fff;
-  font-weight: 700;
-}
-.map-select-desc {
-  margin-top: 8rpx;
-  font-size: 24rpx;
-  line-height: 1.35;
-  color: rgba(255, 255, 255, 0.9);
-}
-.map-select-arrow {
-  width: 18rpx;
-  height: 18rpx;
-  border-color: #fff;
-}
-.map-select-hint {
-  display: block;
-  margin-top: 12rpx;
-  padding: 0 8rpx;
-  font-size: 24rpx;
-  line-height: 1.4;
-  color: #5f6b7a;
 }
 .map.map-full {
   width: 100%;
@@ -4195,7 +4019,7 @@ const buildHistory = (records) => {
   margin-top: 8rpx;
 }
 .sport-dash-km {
-  color: #20c997;
+  color: #33C9AB;
   font-size: 64rpx;
   font-weight: bold;
   line-height: 1;
@@ -4219,34 +4043,9 @@ const buildHistory = (records) => {
   padding-left: 20rpx;
 }
 .sport-dash-link-t {
-  color: #20c997;
+  color: #33C9AB;
   font-size: 26rpx;
   font-weight: 600;
-}
-.sport-mode-pill {
-  left: 32rpx;
-  right: 32rpx;
-  bottom: 200rpx;
-  display: flex;
-  flex-direction: row;
-  background-color: rgba(255, 255, 255, 0.95);
-  border-radius: 999rpx;
-  padding: 6rpx;
-  box-sizing: border-box;
-  box-shadow: 0 6rpx 20rpx rgba(0, 0, 0, 0.08);
-}
-.sport-pill-item {
-  flex: 1;
-  text-align: center;
-  color: #666;
-  font-size: 24rpx;
-  padding: 16rpx 8rpx;
-  border-radius: 999rpx;
-}
-.sport-pill-item.active {
-  background-color: #20c997;
-  color: #ffffff;
-  font-weight: bold;
 }
 .sport-task-hint {
   left: 32rpx;
@@ -4260,30 +4059,6 @@ const buildHistory = (records) => {
   color: #0d8f6e;
   font-size: 26rpx;
   text-align: center;
-}
-.sport-start-fab {
-  left: 48rpx;
-  right: 48rpx;
-  bottom: 48rpx;
-  width: auto;
-  height: auto;
-  margin-left: 0;
-}
-.sport-start-inner {
-  width: 100%;
-  height: 96rpx;
-  border-radius: 48rpx;
-  background-color: #20c997;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 10rpx 24rpx rgba(32, 201, 151, 0.35);
-}
-.sport-start-text {
-  color: #ffffff;
-  font-size: 32rpx;
-  font-weight: bold;
 }
 .sport-recenter-float {
   position: absolute;
@@ -4305,7 +4080,6 @@ const buildHistory = (records) => {
   line-height: 1;
 }
 
-/* 跑步中底部上拉面板 */
 .run-bottom-sheet {
   position: absolute;
   left: 0;
@@ -4466,7 +4240,7 @@ const buildHistory = (records) => {
 }
 .run-sheet-progress-fill {
   height: 8rpx;
-  background-color: #20c997;
+  background-color: #33C9AB;
   border-radius: 4rpx;
 }
 .run-sheet-controls {
@@ -4589,7 +4363,7 @@ const buildHistory = (records) => {
   border-radius: 999rpx;
 }
 .run-prep-pill-item.active {
-  background: #20c997;
+  background: #33C9AB;
   color: #ffffff;
   font-weight: 700;
 }
@@ -4731,11 +4505,11 @@ const buildHistory = (records) => {
   margin: 12rpx 24rpx 8rpx;
   height: 96rpx;
   border-radius: 48rpx;
-  background: #20c997;
+  background: #33C9AB;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 10rpx 24rpx rgba(32, 201, 151, 0.35);
+  box-shadow: 0 10rpx 24rpx rgba(51, 201, 171, 0.35);
   flex-shrink: 0;
 }
 .run-prep-start--hover {
@@ -4757,165 +4531,7 @@ const buildHistory = (records) => {
   color: #0d8f6e;
   font-size: 24rpx;
 }
-.legend-line-pace {
-  width: 36rpx;
-  height: 8rpx;
-  border-radius: 4rpx;
-  margin-right: 10rpx;
-  background: linear-gradient(to right, #ff5252, #ffc107, #4caf50);
-}
-/* 通用跑步模块样式 */
-.run-mode-box {
-  margin-bottom: 20rpx;
-}
-.tip {
-  font-size: 28rpx;
-  color: #666;
-  text-align: center;
-  margin-bottom: 20rpx;
-  padding: 0 20rpx;
-}
-.no-checkpoint {
-  text-align: center;
-  padding: 20rpx 0;
-}
-.checkpoint-info {
-  font-size: 30rpx;
-  color: #333;
-  text-align: center;
-  margin-bottom: 20rpx;
-  display: block;
-}
-.start-box {
-  text-align: center;
-}
-.start-btn {
-  width: 600rpx;
-  height: 80rpx;
-  line-height: 80rpx;
-  background-color: #20C997;
-  color: #fff;
-  border: none;
-  border-radius: 10rpx;
-  font-size: 32rpx;
-}
-.running-box {
-  text-align: center;
-  padding: 10rpx 0;
-}
-.step-sensor-hint {
-  display: block;
-  text-align: center;
-  font-size: 22rpx;
-  color: #888;
-  margin: 0 0 8rpx;
-  line-height: 1.4;
-}
-.mileage-hint {
-  display: block;
-  text-align: center;
-  font-size: 24rpx;
-  color: #0d9668;
-  background: rgba(32, 201, 151, 0.12);
-  padding: 14rpx 20rpx;
-  border-radius: 12rpx;
-  margin: 4rpx 0 16rpx;
-  line-height: 1.45;
-}
-.run-stats {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 16rpx 12rpx;
-  margin-bottom: 20rpx;
-  padding: 0 8rpx;
-}
-.stat-cell {
-  width: 48%;
-  box-sizing: border-box;
-  background: #f8f9fa;
-  border-radius: 12rpx;
-  padding: 16rpx 12rpx;
-  text-align: left;
-}
-.stat-label {
-  display: block;
-  font-size: 22rpx;
-  color: #888;
-  line-height: 1.4;
-  margin-bottom: 6rpx;
-}
-.stat-value {
-  display: block;
-  font-size: 28rpx;
-  color: #333;
-  font-weight: 600;
-  line-height: 1.35;
-  word-break: break-all;
-}
-.data {
-  font-size: 28rpx;
-  color: #333;
-  margin-bottom: 10rpx;
-  display: block;
-  line-height: 1.5;
-  word-break: break-all;
-}
-.pace-status {
-  font-size: 28rpx;
-  margin-bottom: 15rpx;
-  display: block;
-}
-.finish-tip {
-  font-size: 28rpx;
-  color: #20C997;
-  font-weight: bold;
-  margin-bottom: 15rpx;
-  display: block;
-}
-.reach-status {
-  font-size: 28rpx;
-  margin-bottom: 15rpx;
-  display: block;
-}
-.stop-btn {
-  width: 600rpx;
-  height: 80rpx;
-  line-height: 80rpx;
-  background-color: #d81e06;
-  color: #fff;
-  border: none;
-  border-radius: 10rpx;
-  font-size: 32rpx;
-}
-
-.overview-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8rpx 16rpx;
-}
-/* Map Controls */
-.map-controls {
-  position: absolute;
-  bottom: 20rpx;
-  right: 20rpx;
-  z-index: 999;
-}
-.control-btn {
-  width: 80rpx;
-  height: 80rpx;
-  background-color: #ffffff;
-  border-radius: 50%;
-  box-shadow: 0 2rpx 10rpx rgba(0,0,0,0.2);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-.control-icon {
-  width: 40rpx;
-  height: 40rpx;
-}
+/* 跑步通用模块样式 */
 
 .face-camera-mask {
   position: fixed;
@@ -4988,14 +4604,14 @@ const buildHistory = (records) => {
 }
 
 .face-camera-shoot {
-  background: #20c997;
+  background: #33C9AB;
   color: #fff;
 }
 
 @keyframes pulse {
-  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(32, 201, 151, 0.4); }
-  70% { transform: scale(1.05); box-shadow: 0 0 0 20rpx rgba(32, 201, 151, 0); }
-  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(32, 201, 151, 0); }
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(51, 201, 171, 0.4); }
+  70% { transform: scale(1.05); box-shadow: 0 0 0 20rpx rgba(51, 201, 171, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(51, 201, 171, 0); }
 }
 </style>
 

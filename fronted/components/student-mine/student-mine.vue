@@ -12,8 +12,6 @@
             <text class="user-signature" v-if="userSignature">{{ userSignature }}</text>
             <text class="user-desc">{{ className ? className + ' · ' : '校园运动打卡 · ' }}{{userType}}</text>
           </view>
-        </view>
-        <view class="edit-profile-row">
           <view class="edit-profile-btn" @click="gotoUserProfile">编辑资料</view>
         </view>
         <view class="user-stats">
@@ -445,21 +443,18 @@ const logout = () => {
   border: 4rpx solid #fff;
   box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.08);
 }
-.edit-profile-row {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 32rpx;
-}
 .edit-profile-btn {
+  flex-shrink: 0;
+  align-self: center;
+  margin-left: 16rpx;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 200rpx;
-  padding: 14rpx 40rpx;
-  font-size: 26rpx;
-  color: #20c997;
-  background-color: rgba(32, 201, 151, 0.1);
-  border: 1rpx solid #20c997;
+  padding: 12rpx 28rpx;
+  font-size: 24rpx;
+  color: #33C9AB;
+  background-color: rgba(51, 201, 171, 0.1);
+  border: 1rpx solid #33C9AB;
   border-radius: 32rpx;
   box-sizing: border-box;
 }
