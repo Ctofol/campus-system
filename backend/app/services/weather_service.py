@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import time
 import urllib.error
 import urllib.parse
@@ -9,6 +10,8 @@ import urllib.request
 from typing import Any, Dict, Optional, Tuple
 
 from .. import config
+
+logger = logging.getLogger(__name__)
 
 _cache: Dict[str, Tuple[float, Dict[str, Any]]] = {}
 
@@ -71,6 +74,7 @@ def get_realtime_weather(lat: float, lng: float) -> Dict[str, Any]:
     返回 { ok, weather?, error?, message? }
     """
     if not config.TENCENT_MAP_KEY:
+        logger.warning("weather no_key — TENCENT_MAP_KEY 未配置，天气接口不可用")
         return {"ok": False, "error": "no_key", "message": "未配置 TENCENT_MAP_KEY"}
 
     key = _cache_key(lat, lng)
@@ -95,20 +99,27 @@ def get_realtime_weather(lat: float, lng: float) -> Dict[str, Any]:
             raw = resp.read().decode("utf-8")
         body = json.loads(raw)
     except urllib.error.HTTPError as e:
-        return {"ok": False, "error": "upstream_http", "message": str(e.reason)}
+        reason = str(e.reason) if hasattr(e, "reason") else str(e)
+        logger.warning("weather upstream_http — code=%s reason=%s", e.code, reason)
+        return {"ok": False, "error": "upstream_http", "message": reason, "status": e.code}
     except urllib.error.URLError as e:
-        return {"ok": False, "error": "upstream_network", "message": str(e.reason)}
+        reason = str(e.reason) if hasattr(e, "reason") else str(e)
+        logger.warning("weather upstream_network — %s", reason)
+        return {"ok": False, "error": "upstream_network", "message": reason}
     except (json.JSONDecodeError, TimeoutError, OSError) as e:
+        logger.warning("weather upstream_parse — %s", e)
         return {"ok": False, "error": "upstream_parse", "message": str(e)}
 
     weather = _parse_tencent_body(body)
     if not weather:
         msg = body.get("message") if isinstance(body, dict) else "parse_failed"
+        st = body.get("status") if isinstance(body, dict) else None
+        logger.warning("weather upstream_status — status=%s message=%s", st, msg)
         return {
             "ok": False,
             "error": "upstream_status",
             "message": msg,
-            "status": body.get("status") if isinstance(body, dict) else None,
+            "status": st,
         }
 
     _cache[key] = (now, weather)

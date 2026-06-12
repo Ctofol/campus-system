@@ -322,6 +322,7 @@ def get_weather(
         weather=result.get("weather"),
         error=result.get("error"),
         message=result.get("message"),
+        status=result.get("status"),
     )
 
 

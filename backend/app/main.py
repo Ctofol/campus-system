@@ -32,6 +32,18 @@ app.add_middleware(
     expose_headers=["*"]
 )
 
+# 预加载人脸识别模型（启动时加载，避免首次请求时 OOM）
+if os.getenv("FACE_PROVIDER", "none").lower() == "local":
+    try:
+        from .services.face_local_insightface import _get_face_app
+        _app, _err = _get_face_app()
+        if _app is None:
+            print(f"[startup] InsightFace 加载失败: {_err}")
+        else:
+            print("[startup] InsightFace 模型已预加载")
+    except Exception as e:
+        print(f"[startup] InsightFace 预加载异常: {e}")
+
 # 挂载静态文件目录（必须在路由注册之前）
 # 开发环境: 使用项目目录下的 uploads 文件夹
 # 生产环境(Docker): 使用 /app/uploads

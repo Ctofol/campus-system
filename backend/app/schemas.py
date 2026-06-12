@@ -305,7 +305,8 @@ class TaskCreate(BaseModel):
     min_distance: Optional[float] = 0.0
     min_duration: Optional[int] = 0
     min_count: Optional[int] = 0
-    starts_at: Optional[datetime] = None  # 鏈埌璇ユ椂闂村鐢熶笉鍙彁浜?    deadline: Optional[datetime] = None
+    starts_at: Optional[datetime] = None
+    deadline: Optional[datetime] = None
     description: Optional[str] = None
     # 鏁欏笀鍙戝竷锛氭寚瀹?class_id 鍗曠彮锛屾垨 class_ids 澶氱彮锛堝悓涓€浠诲姟鍐呭澶嶅埗鍒板悇鐝級锛涗紭鍏堜娇鐢ㄩ潪绌虹殑 class_ids
     target_group: Optional[str] = "class"
@@ -752,6 +753,7 @@ class WeatherResponse(BaseModel):
     weather: Optional[WeatherOut] = None
     error: Optional[str] = None
     message: Optional[str] = None
+    status: Optional[int] = None  # 上游腾讯接口返回的 status 码，仅 error=upstream_status 时有意义
 
 
 class HomeMapPoint(BaseModel):
