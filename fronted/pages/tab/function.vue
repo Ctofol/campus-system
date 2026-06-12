@@ -9,7 +9,7 @@
           <view class="entry-card" @click="goToRun">
             <view class="entry-icon-wrap">
               <view class="entry-icon entry-icon--run">
-                <text class="entry-icon-text">🏃</text>
+                <image class="entry-icon-text" src="/static/主页户外跑图标.png" mode="aspectFit" />
               </view>
             </view>
             <view class="entry-info">
@@ -21,7 +21,7 @@
           <view class="entry-card" @click="goToPhysicalTest">
             <view class="entry-icon-wrap">
               <view class="entry-icon entry-icon--test">
-                <text class="entry-icon-text">💪</text>
+                <image class="entry-icon-text" src="/static/主页体能测试图标.PNG" mode="aspectFit" />
               </view>
             </view>
             <view class="entry-info">
@@ -49,11 +49,9 @@
                 </view>
               </view>
             </view>
-            <view class="today-indicators">
+              <view class="today-indicators">
               <view class="today-indicator">
-                <view class="today-ind-icon today-ind-icon--check">
-                  <text class="today-ind-emoji">✅</text>
-                </view>
+                <image class="today-ind-emoji-img" src="/static/勾号图标.png" mode="aspectFit" />
                 <view class="today-ind-body">
                   <text class="today-ind-label">今日状态</text>
                   <text class="today-ind-val today-ind-val--ok" v-if="sunshine.today_status === 'success'">审核通过</text>
@@ -61,18 +59,16 @@
                 </view>
               </view>
               <view class="today-indicator" v-if="sunshine.today_status === 'failed'">
-                <view class="today-ind-icon today-ind-icon--fail">
-                  <text class="today-ind-emoji">❌</text>
-                </view>
+                <image class="today-ind-emoji-img" src="/static/叉号图标.png" mode="aspectFit" />
                 <view class="today-ind-body">
                   <text class="today-ind-label">未通过原因</text>
                   <text class="today-ind-val today-ind-val--fail">{{ sunshine.today_fail_reason || '里程不足' }}</text>
                 </view>
               </view>
               <view class="today-indicator" v-else>
-                <view class="today-ind-icon today-ind-icon--count">
-                  <text class="today-ind-emoji">🏃</text>
-                </view>
+              <view class="today-ind-icon today-ind-icon--count">
+                <image class="today-ind-emoji-img" src="/static/有效次数图标.png" mode="aspectFit" />
+              </view>
                 <view class="today-ind-body">
                   <text class="today-ind-label">有效次数</text>
                   <text class="today-ind-val today-ind-val--count">{{ sunshine.total_valid_count }} / 20</text>
@@ -89,22 +85,22 @@
           </view>
           <view class="overview-grid">
             <view class="overview-item">
-              <text class="overview-icon">📍</text>
+              <image class="overview-icon" src="/static/主页里程图标.PNG" mode="aspectFit" />
               <text class="overview-val">{{ totalStats.distance }}</text>
               <text class="overview-unit">总里程(km)</text>
             </view>
             <view class="overview-item">
-              <text class="overview-icon">⏱</text>
+              <image class="overview-icon" src="/static/主页时长图标.png" mode="aspectFit" />
               <text class="overview-val">{{ totalStats.duration }}</text>
               <text class="overview-unit">总时长(min)</text>
             </view>
             <view class="overview-item">
-              <text class="overview-icon">🔥</text>
+              <image class="overview-icon" src="/static/主页卡路里图标.png" mode="aspectFit" />
               <text class="overview-val">{{ totalStats.calories }}</text>
               <text class="overview-unit">总消耗(kcal)</text>
             </view>
             <view class="overview-item">
-              <text class="overview-icon">📊</text>
+              <image class="overview-icon" src="/static/数据图标.png" mode="aspectFit" />
               <text class="overview-val">{{ totalStats.count }}</text>
               <text class="overview-unit">运动次数</text>
             </view>
@@ -123,7 +119,7 @@
           <view class="plan-body">
             <view class="plan-body-left">
               <view class="plan-icon">
-                <text class="plan-icon-emoji">🎯</text>
+                <image class="plan-icon-img" src="/static/训练图标.png" mode="aspectFit" />
               </view>
               <view class="plan-info">
                 <text class="plan-name">{{ activeTask.title }}</text>
@@ -149,32 +145,12 @@
               <text class="card-more-arrow">›</text>
             </view>
           </view>
-          <view class="history-list" v-if="recentRecords.length > 0">
-            <view class="history-item" v-for="(item, idx) in recentRecords" :key="idx" @click="goToHistory">
-              <view class="history-thumb">
-                <image v-if="item.thumb" :src="item.thumb" class="history-thumb-img" mode="aspectFill" />
-                <view v-else class="history-thumb-placeholder">
-                  <text class="history-thumb-icon">🏃</text>
-                </view>
-              </view>
-              <view class="history-info">
-                <view class="history-title-row">
-                  <text class="history-title">{{ item.typeLabel }}</text>
-                  <text class="history-dist">{{ item.distance }} 公里</text>
-                </view>
-                <text class="history-date">{{ item.dateLabel }}</text>
-                <view class="history-meta">
-                  <text class="history-meta-item">{{ item.duration }}</text>
-                  <text class="history-meta-item">{{ item.pace }}</text>
-                  <text class="history-meta-item">{{ item.calories }} 千卡</text>
-                </view>
-              </view>
-              <text class="history-arrow">›</text>
-            </view>
-          </view>
-          <view class="history-empty" v-else>
-            <text class="history-empty-txt">暂无运动记录</text>
-          </view>
+          <HomeRecentList
+            :items="recentRecords"
+            :loading="loading"
+            @detail="goToHistory"
+            @start-run="goToHistory"
+          />
         </view>
 
         <view style="height: 32rpx;"></view>
@@ -189,6 +165,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { onShow, onHide } from '@dcloudio/uni-app';
 import TeacherManage from '@/components/teacher-manage/teacher-manage.vue';
+import HomeRecentList from '@/components/student-home/HomeRecentList.vue';
 import { request, getSunshineStats, getStudentTasks } from '@/utils/request.js';
 
 const role = ref('student');
@@ -204,6 +181,7 @@ const sunshine = ref({
 });
 
 const recentRecords = ref([]);
+const loading = ref(false);
 const activeTask = ref(null);
 
 const ringStyle = computed(() => {
@@ -255,20 +233,24 @@ const fetchSunshineStats = async () => {
 };
 
 const fetchRecentRecords = async () => {
+  loading.value = true;
   try {
     const res = await request({ url: '/student/home/dashboard', method: 'GET' });
     const runs = res?.recent_runs || [];
     recentRecords.value = runs.slice(0, 3).map(r => ({
-      typeLabel: r.title || '户外跑步',
-      distance: r.distance_km || 0,
-      dateLabel: r.time_label || '',
-      duration: r.duration || '',
-      pace: r.pace_label || '',
-      calories: r.calories || 0,
-      thumb: r.thumb || ''
+      id: r.id,
+      title: r.title || '户外跑步',
+      distanceKm: r.distance_km || '0.00',
+      timeLabel: r.time_label || '',
+      paceLabel: r.pace_label || '',
+      hasTrack: !!r.has_track,
+      isValid: !!r.is_valid,
+      trajectoryPreview: (r.trajectory_preview || []).map(p => ({ lat: p.lat, lng: p.lng }))
     }));
   } catch (e) {
     recentRecords.value = [];
+  } finally {
+    loading.value = false;
   }
 };
 
@@ -340,7 +322,7 @@ onMounted(() => {
 .entry-icon { width: 72rpx; height: 72rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
 .entry-icon--run { background: #E8F8F2; }
 .entry-icon--test { background: #FFF3E0; }
-.entry-icon-text { font-size: 32rpx; }
+.entry-icon-text { width: 56rpx; height: 56rpx; }
 .entry-info { flex: 1; min-width: 0; }
 .entry-title { font-size: 28rpx; font-weight: 700; color: #191C1E; display: block; }
 .entry-desc { font-size: 20rpx; color: #8E8E93; margin-top: 4rpx; display: block; }
@@ -375,6 +357,7 @@ onMounted(() => {
 .today-ind-icon--fail { background: #FFF0F0; }
 .today-ind-icon--count { background: #E8F4FC; }
 .today-ind-emoji { font-size: 26rpx; }
+.today-ind-emoji-img { width: 56rpx; height: 56rpx; }
 .today-ind-body { flex: 1; }
 .today-ind-label { font-size: 22rpx; color: #8E8E93; display: block; }
 .today-ind-val { font-size: 24rpx; font-weight: 700; display: block; margin-top: 4rpx; }
@@ -393,7 +376,7 @@ onMounted(() => {
   content: ''; position: absolute; left: 0; top: 50%; transform: translateY(-50%);
   width: 1rpx; height: 60rpx; background: #F0F3F6;
 }
-.overview-icon { font-size: 28rpx; margin-bottom: 8rpx; }
+.overview-icon { width: 52rpx; height: 52rpx; margin-bottom: 8rpx; }
 .overview-val { font-size: 32rpx; font-weight: 900; color: #191C1E; }
 .overview-unit { font-size: 20rpx; color: #8E8E93; font-weight: 600; margin-top: 4rpx; }
 
@@ -402,6 +385,7 @@ onMounted(() => {
 .plan-body-left { display: flex; align-items: center; width: 100%; }
 .plan-icon { width: 96rpx; height: 96rpx; border-radius: 16rpx; background: #E8F8F2; display: flex; align-items: center; justify-content: center; margin-right: 20rpx; flex-shrink: 0; }
 .plan-icon-emoji { font-size: 42rpx; }
+.plan-icon-img { width: 70rpx; height: 70rpx; }
 .plan-info { flex: 1; min-width: 0; }
 .plan-name { font-size: 28rpx; font-weight: 700; color: #191C1E; display: block; }
 .plan-meta { display: flex; gap: 16rpx; margin-top: 6rpx; }
@@ -411,21 +395,5 @@ onMounted(() => {
 .plan-bar-label { font-size: 20rpx; font-weight: 700; color: #33C9AB; margin-top: 6rpx; display: block; }
 
 /* 最近记录 */
-.history-list { display: flex; flex-direction: column; gap: 20rpx; }
-.history-item { display: flex; align-items: center; }
-.history-item:active { opacity: 0.7; }
-.history-thumb { width: 120rpx; height: 90rpx; border-radius: 14rpx; overflow: hidden; flex-shrink: 0; margin-right: 18rpx; }
-.history-thumb-img { width: 100%; height: 100%; }
-.history-thumb-placeholder { width: 100%; height: 100%; background: #F0F3F6; display: flex; align-items: center; justify-content: center; }
-.history-thumb-icon { font-size: 36rpx; opacity: 0.4; }
-.history-info { flex: 1; min-width: 0; }
-.history-title-row { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 4rpx; }
-.history-title { font-size: 26rpx; font-weight: 700; color: #191C1E; }
-.history-dist { font-size: 32rpx; font-weight: 900; color: #191C1E; }
-.history-date { font-size: 20rpx; color: #8E8E93; display: block; margin-bottom: 8rpx; }
-.history-meta { display: flex; gap: 16rpx; }
-.history-meta-item { font-size: 20rpx; color: #8E8E93; }
-.history-arrow { font-size: 30rpx; color: #C5CED6; flex-shrink: 0; margin-left: 8rpx; }
-.history-empty { text-align: center; padding: 24rpx 0; }
-.history-empty-txt { font-size: 26rpx; color: #8E8E93; }
+
 </style>

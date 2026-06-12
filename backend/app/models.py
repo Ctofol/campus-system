@@ -59,6 +59,7 @@ class User(Base):
     group_name = Column(String, nullable=True)
     signature = Column(String, nullable=True)
     avatar_url = Column(String, nullable=True)
+    header_bg_url = Column(String, nullable=True)
     regular_score = Column(Float, default=0.0)
     weekly_run_goal_km = Column(Float, nullable=True)  # 学生首页本周跑步目标（公里）
 

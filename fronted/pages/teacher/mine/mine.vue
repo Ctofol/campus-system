@@ -16,21 +16,21 @@
       <view class="menu-list">
         <view class="menu-item" @click="handlePersonalInfo">
           <view class="menu-left">
-            <text class="menu-icon">👤</text>
+            <image class="menu-icon" src='/static/"关于我的"图标.png' mode="aspectFit" />
             <text class="menu-text">个人信息设置</text>
           </view>
           <text class="arrow">→</text>
         </view>
         <view class="menu-item" @click="handleAccountSecurity">
           <view class="menu-left">
-            <text class="menu-icon">🔒</text>
+            <image class="menu-icon" src="/static/叉号图标.png" mode="aspectFit" />
             <text class="menu-text">账号安全</text>
           </view>
           <text class="arrow">→</text>
         </view>
         <view class="menu-item" @click="handleNotifications">
           <view class="menu-left">
-            <text class="menu-icon">🔔</text>
+            <image class="menu-icon-img" src="/static/通知图标.png" mode="aspectFit" />
             <text class="menu-text">系统通知</text>
           </view>
           <view class="badge" v-if="notificationCount > 0">{{ notificationCount }}</view>
@@ -38,7 +38,7 @@
         </view>
         <view class="menu-item" @click="handleHelpFeedback">
           <view class="menu-left">
-            <text class="menu-icon">💬</text>
+            <image class="menu-icon" src="/static/消息图标.png" mode="aspectFit" />
             <text class="menu-text">帮助与反馈</text>
           </view>
           <text class="arrow">→</text>
@@ -261,8 +261,10 @@ const handleLogout = () => {
   gap: 20rpx;
 }
 .menu-icon {
-  font-size: 36rpx;
+  width: 36rpx;
+  height: 36rpx;
 }
+.menu-icon-img { width: 56rpx; height: 56rpx; }
 .menu-text {
   font-size: 30rpx;
   color: #333;

@@ -14,7 +14,7 @@
         :class="{ 'top-three': index < 3 }"
       >
         <view class="rank-number" :class="'rank-' + (index + 1)">
-          <text v-if="index < 3">{{ ['🥇', '🥈', '🥉'][index] }}</text>
+          <image v-if="index < 3" class="rank-medal-img" src="/static/奖杯图标.png" mode="aspectFit" />
           <text v-else>{{ index + 1 }}</text>
         </view>
         <view class="group-info">
@@ -93,6 +93,8 @@ onMounted(() => {
 .rank-item.top-three {
   border: 2rpx solid rgba(32, 201, 151, 0.35);
 }
+
+.rank-medal-img { width: 32rpx; height: 32rpx; }
 
 .rank-number {
   width: 72rpx;

@@ -17,7 +17,7 @@
             :class="{active: formData.type === 'leave'}"
             @click="formData.type = 'leave'"
           >
-            <text class="icon">📅</text>
+            <image class="icon-img" src="/static/日历.PNG" mode="aspectFit" />
             <text>请假申请</text>
           </view>
           <view 
@@ -25,7 +25,7 @@
             :class="{active: formData.type === 'injury'}"
             @click="formData.type = 'injury'"
           >
-            <text class="icon">🏥</text>
+            <image class="icon-img" src="/static/叉号图标.png" mode="aspectFit" />
             <text>伤病报告</text>
           </view>
         </view>
@@ -423,8 +423,9 @@ onShow(() => {
     gap: 10rpx;
     transition: all 0.3s;
     
-    .icon {
-      font-size: 40rpx;
+    .icon-img {
+      width: 40rpx;
+      height: 40rpx;
     }
     
     &.active {

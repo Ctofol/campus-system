@@ -21,7 +21,7 @@
         <text class="label required">体测示范视频</text>
         <view class="video-upload-area">
           <view v-if="!form.videoUrl" class="upload-placeholder" @click="chooseVideo">
-            <text class="upload-icon">📹</text>
+            <image class="upload-icon" src="/static/通知图标.png" mode="aspectFit" />
             <text class="upload-text">点击上传体测示范视频</text>
             <text class="upload-hint">支持mp4/webm格式，最大50MB</text>
           </view>
@@ -814,7 +814,8 @@ const submitTask = async () => {
 }
 
 .upload-icon {
-  font-size: 60rpx;
+  width: 60rpx;
+  height: 60rpx;
 }
 
 .upload-text {

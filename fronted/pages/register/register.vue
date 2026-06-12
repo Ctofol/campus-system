@@ -15,7 +15,7 @@
             :class="{active: registerForm.role === 'student'}"
             @click="selectRole('student')"
           >
-            <text class="role-icon">👨‍🎓</text>
+            <image class="role-icon-img" src="/static/主页GO图标.PNG" mode="aspectFit" />
             <text class="role-name">我是学生</text>
           </view>
           <view 
@@ -23,7 +23,7 @@
             :class="{active: registerForm.role === 'teacher'}"
             @click="selectRole('teacher')"
           >
-            <text class="role-icon">👨‍🏫</text>
+            <image class="role-icon-img" src="/static/主页GO图标.PNG" mode="aspectFit" />
             <text class="role-name">我是教师</text>
           </view>
         </view>
@@ -321,8 +321,9 @@ const handleRegister = async () => {
   border-color: #20C997;
 }
 
-.role-icon {
-  font-size: 60rpx;
+.role-icon-img {
+  width: 60rpx;
+  height: 60rpx;
   margin-bottom: 20rpx;
 }
 

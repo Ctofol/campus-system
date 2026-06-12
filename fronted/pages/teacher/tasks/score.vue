@@ -28,7 +28,10 @@
 
     <!-- Video Preview (if exists) -->
     <view class="video-card" v-if="videoUrl">
-      <text class="card-title">📹 活动视频</text>
+      <view class="card-title">
+        <image class="card-title-img" src="/static/通知图标.png" mode="aspectFit" />
+        <text>活动视频</text>
+      </view>
       <video 
         :src="videoUrl" 
         class="activity-video"
@@ -39,7 +42,7 @@
 
     <!-- Score Input -->
     <view class="score-card">
-      <text class="card-title">教师打分</text>
+      <view class="card-title">教师打分</view>
       
       <view class="score-input-area">
         <text class="score-label">分数 (0-100)</text>
@@ -72,7 +75,7 @@
 
     <!-- History Scores (if exists) -->
     <view class="history-card" v-if="hasHistory">
-      <text class="card-title">历史打分</text>
+      <view class="card-title">历史打分</view>
       <view class="history-item">
         <text class="history-score">上次打分：{{ lastScore }}分</text>
         <text class="history-time">{{ lastScoreTime }}</text>
@@ -289,9 +292,12 @@ onLoad((options) => {
   font-size: 30rpx;
   font-weight: bold;
   color: #333;
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
   margin-bottom: 20rpx;
 }
+.card-title-img { width: 32rpx; height: 32rpx; }
 
 .activity-video {
   width: 100%;

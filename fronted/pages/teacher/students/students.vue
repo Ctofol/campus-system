@@ -32,7 +32,7 @@
       <!-- 3. 工具栏 -->
       <view class="tools-section">
         <view class="search-bar">
-           <text class="search-icon">🔍</text>
+           <image class="search-icon" src="/static/主页GO图标.PNG" mode="aspectFit" />
            <input v-model="keyword" class="search-input" placeholder="搜索姓名/学号..." confirm-type="search" @confirm="onSearchConfirm" />
         </view>
         
@@ -61,7 +61,7 @@
       <!-- 4. 通知栏: 请假审批 -->
       <view class="notice-bar" v-if="(pendingRequests||[]).length > 0" @click="showHealthModal = true">
         <view class="notice-content">
-          <text class="notice-icon">📋</text>
+          <image class="notice-icon" src="/static/数据图标.png" mode="aspectFit" />
           <text>有 {{ (pendingRequests||[]).length }} 条请假申请待处理</text>
         </view>
         <text class="arrow">去处理 →</text>
@@ -70,7 +70,7 @@
       <!-- 5. 通知栏: 运动异常 (新增) -->
       <view class="notice-bar exception" v-if="pendingExceptionCount > 0" @click="goToExceptions">
         <view class="notice-content">
-          <text class="notice-icon">🏃</text>
+          <image class="notice-icon" src="/static/主页户外跑图标.png" mode="aspectFit" />
           <text>有 {{ pendingExceptionCount }} 条运动异常待核实</text>
         </view>
         <text class="arrow">去核实 →</text>
@@ -80,7 +80,7 @@
     <!-- AI Analysis Reports Notification -->
     <view class="report-notice" v-if="(sharedReports||[]).length > 0" @click="showReportsModal = true">
       <view class="notice-left">
-        <text class="notice-icon">🤖</text>
+        <image class="notice-icon" src="/static/叉号图标.png" mode="aspectFit" />
         <text class="notice-text">收到 {{ (sharedReports||[]).length }} 份新的运动分析报告</text>
       </view>
       <text class="notice-arrow">查看 →</text>
@@ -147,7 +147,10 @@
     <view class="modal-overlay" v-if="showHealthModal" @click="showHealthModal = false">
       <view class="report-modal" @click.stop>
         <view class="modal-header">
-          <text class="modal-title">🔔 请假/伤病审批</text>
+          <view class="modal-title">
+            <image class="notif-inline-icon" src="/static/通知图标.png" mode="aspectFit" />
+            <text>请假/伤病审批</text>
+          </view>
           <text class="close-btn" @click="showHealthModal = false">×</text>
         </view>
         <scroll-view scroll-y class="report-list">
@@ -158,9 +161,11 @@
             </view>
             <view class="report-card" :class="req.type">
               <view class="card-header">
-                <text class="report-type-tag" :class="req.type">
-                  {{ req.type === 'leave' ? '📅 请假申请' : '🏥 伤病报告' }}
-                </text>
+                <view class="report-type-tag" :class="req.type">
+                  <image v-if="req.type === 'leave'" class="report-type-tag-img" src="/static/请假申请图标.png" mode="aspectFit" />
+                  <image v-else class="report-type-tag-img" src="/static/叉号图标.png" mode="aspectFit" />
+                  <text>{{ req.type === 'leave' ? '请假申请' : '伤病报告' }}</text>
+                </view>
               </view>
               <view class="report-body">
                 <text class="report-time-range" v-if="req.type === 'leave' && (req.start_date || req.end_date)">
@@ -185,7 +190,10 @@
     <view class="modal-overlay" v-if="showReportsModal" @click="showReportsModal = false">
       <view class="report-modal" @click.stop>
         <view class="modal-header">
-          <text class="modal-title">📄 学员运动分析报告</text>
+          <view class="modal-title">
+            <image class="notif-inline-icon" src="/static/数据图标.png" mode="aspectFit" />
+            <text>学员运动分析报告</text>
+          </view>
           <text class="close-btn" @click="showReportsModal = false">×</text>
         </view>
         <scroll-view scroll-y class="report-list">
@@ -196,7 +204,10 @@
             </view>
             <view class="report-card">
               <text class="report-title">{{ report.card.title }}</text>
-              <text class="report-suggestion" v-if="report.card.suggestion">💡 {{ report.card.suggestion }}</text>
+              <view class="report-suggestion" v-if="report.card.suggestion">
+                <image class="report-suggestion-img" src="/static/通知图标（收到通知红点版）.png" mode="aspectFit" />
+                <text>{{ report.card.suggestion }}</text>
+              </view>
               <view class="report-chart" v-if="report.card.chartData">
                 <view class="mini-bar" v-for="(d, i) in report.card.chartData" :key="i">
                   <text class="mini-label">{{ d.label }}</text>
@@ -913,7 +924,7 @@ const handleBack = () => {
   height: 72rpx;
   box-sizing: border-box;
 }
-.search-icon { font-size: 32rpx; margin-right: 16rpx; color: #999; }
+.search-icon { width: 32rpx; height: 32rpx; margin-right: 16rpx; }
 .search-input { flex: 1; font-size: 28rpx; color: #333; }
 
 .filters-bar {
@@ -959,7 +970,7 @@ const handleBack = () => {
   font-size: 26rpx;
   color: #d48806;
 }
-.notice-icon { margin-right: 12rpx; }
+.notice-icon { width: 32rpx; height: 32rpx; margin-right: 12rpx; }
 .arrow { font-size: 24rpx; color: #d48806; opacity: 0.8; }
 
 .card-list { margin-top: 20rpx; padding: 0 20rpx 40rpx; }
@@ -1202,7 +1213,7 @@ const handleBack = () => {
   border: 1px solid #BBDEFB;
 }
 .notice-left { display: flex; align-items: center; gap: 10rpx; }
-.notice-icon { font-size: 32rpx; }
+.notice-icon { width: 32rpx; height: 32rpx; }
 .notice-text { font-size: 28rpx; color: #1976D2; }
 .notice-arrow { font-size: 24rpx; color: #1976D2; }
 
@@ -1237,7 +1248,8 @@ const handleBack = () => {
   align-items: center;
   background-color: #f8f9fa;
 }
-.modal-title { font-size: 32rpx; font-weight: bold; }
+.modal-title { font-size: 32rpx; font-weight: bold; display: flex; align-items: center; gap: 8rpx; }
+.notif-inline-icon { width: 44rpx; height: 44rpx; }
 .close-btn { font-size: 40rpx; color: #999; }
 .report-list { flex: 1; padding: 30rpx 0; overflow-y: auto; }
 .report-item { margin-bottom: 40rpx; padding: 0 30rpx; }
@@ -1282,6 +1294,7 @@ const handleBack = () => {
 }
 .report-type-tag.leave { color: #d46b08; }
 .report-type-tag.injury { color: #cf1322; }
+.report-type-tag-img { width: 32rpx; height: 32rpx; margin-right: 8rpx; }
 
 .report-content { 
   font-size: 32rpx; 
@@ -1300,6 +1313,16 @@ const handleBack = () => {
   margin-bottom: 8rpx;
   display: block;
 }
+
+.report-suggestion {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  font-size: 28rpx;
+  color: #333;
+  margin-bottom: 12rpx;
+}
+.report-suggestion-img { width: 32rpx; height: 32rpx; }
 
 .report-actions { 
   display: flex; 

@@ -7,7 +7,7 @@
       @tap="$emit('tap', item.id)"
     >
       <view class="home-feature-grid__icon-wrap">
-        <text class="home-feature-grid__icon">{{ item.icon }}</text>
+        <image class="home-feature-grid__icon" :src="item.icon" mode="aspectFit" />
       </view>
       <text class="home-feature-grid__label">{{ item.label }}</text>
       <text class="home-feature-grid__desc">{{ item.desc }}</text>
@@ -44,7 +44,7 @@ defineEmits(['tap']);
   width: 88rpx;
   height: 88rpx;
   border-radius: 24rpx;
-  background: linear-gradient(180deg, #E8F8F2 0%, #F0FDF6 100%);
+  background: #FFFFFF;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -52,8 +52,8 @@ defineEmits(['tap']);
   box-shadow: 0 4rpx 16rpx rgba(51, 201, 171, 0.08);
 }
 .home-feature-grid__icon {
-  font-size: 44rpx;
-  line-height: 1;
+  width: 76rpx;
+  height: 76rpx;
 }
 .home-feature-grid__label {
   font-size: 26rpx;

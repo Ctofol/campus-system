@@ -6,42 +6,42 @@
       <view class="grid-container">
         <!-- 模块迁移：学员管理（包含原班级管理的排课、考勤） -->
         <view class="grid-item" @click="navTo('/pages/teacher/students/students')">
-          <view class="icon-box purple">👥</view>
+          <view class="icon-box purple"><image class="grid-icon-img" src="/static/主页GO图标.PNG" mode="aspectFit" /></view>
           <text class="grid-label">学员管理</text>
           <text class="grid-desc">分组、档案、排课、考勤</text>
         </view>
 
         <!-- 任务管理 -->
         <view class="grid-item" @click="navTo('/pages/teacher/tasks/tasks')">
-          <view class="icon-box green">📢</view>
+          <view class="icon-box green"><image class="grid-icon-img" src="/static/通知图标.png" mode="aspectFit" /></view>
           <text class="grid-label">任务管理</text>
           <text class="grid-desc">发布、审批</text>
         </view>
 
         <!-- 功能打通：异常处理 -->
         <view class="grid-item" @click="navTo('/pages/teacher/exceptions/exceptions')">
-          <view class="icon-box orange">⚠️</view>
+          <view class="icon-box orange"><image class="grid-icon-img" src="/static/叉号图标.png" mode="aspectFit" /></view>
           <text class="grid-label">异常处理</text>
           <text class="grid-desc">运动异常、防作弊</text>
         </view>
 
         <!-- 教学资源 -->
         <view class="grid-item" @click="navTo('/pages/teacher/resources/resources')">
-          <view class="icon-box pink">📚</view>
+          <view class="icon-box pink"><image class="grid-icon-img" src="/static/主页课程图标.PNG" mode="aspectFit" /></view>
           <text class="grid-label">教学资源</text>
           <text class="grid-desc">课件、视频</text>
         </view>
 
         <!-- 数据导出 -->
         <view class="grid-item" @click="handleDataExport">
-          <view class="icon-box indigo">📥</view>
+          <view class="icon-box indigo"><image class="grid-icon-img" src="/static/数据图标.png" mode="aspectFit" /></view>
           <text class="grid-label">数据导出</text>
           <text class="grid-desc">成绩、任务完成情况</text>
         </view>
         
         <!-- 测试监控 -->
         <view class="grid-item" @click="navTo('/pages/teacher/tests/tests')">
-          <view class="icon-box teal">📊</view>
+          <view class="icon-box teal"><image class="grid-icon-img" src="/static/数据图标.png" mode="aspectFit" /></view>
           <text class="grid-label">测试监控</text>
           <text class="grid-desc">数据分析、历史回顾</text>
         </view>

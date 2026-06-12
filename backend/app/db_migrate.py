@@ -16,6 +16,7 @@ def ensure_schema_upgrades() -> None:
 
     user_cols = {
         "weekly_run_goal_km": "REAL" if dialect == "sqlite" else "FLOAT",
+        "header_bg_url": "VARCHAR(512)",
     }
     activity_cols = {
         "face_liveness_pass": "INTEGER" if dialect == "sqlite" else "BOOLEAN",

@@ -4,7 +4,7 @@
 
     <view class="content-wrapper page-tab-body">
       <view class="placeholder-section">
-        <view class="placeholder-icon">🏃</view>
+        <image class="placeholder-icon-img" src="/static/主页户外跑图标.png" mode="aspectFit" />
         <text class="placeholder-title">自由练习</text>
         <text class="placeholder-desc">自由跑步，自动记录里程与配速</text>
 
@@ -38,8 +38,9 @@ const startRun = () => {
   padding: 80rpx 60rpx;
   text-align: center;
 }
-.placeholder-icon {
-  font-size: 160rpx;
+.placeholder-icon-img {
+  width: 160rpx;
+  height: 160rpx;
   margin-bottom: 40rpx;
 }
 .placeholder-title {

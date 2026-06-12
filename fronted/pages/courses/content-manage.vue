@@ -45,7 +45,7 @@
 
     <!-- 空状态 -->
     <view class="empty-state" v-if="contents.length === 0 && !loading">
-      <text class="empty-icon">📹</text>
+      <image class="empty-icon-img" src="/static/通知图标.png" mode="aspectFit" />
       <text class="empty-text">还没有添加课程内容</text>
       <button class="add-btn" @click="addContent">添加内容</button>
     </view>
@@ -92,9 +92,9 @@
               <button class="upload-btn" @click="uploadVideo" :loading="uploading">
                 {{ contentForm.content_url ? '重新上传' : '上传视频' }}
               </button>
-              <text class="upload-hint" v-if="contentForm.content_url">
-                ✓ 已上传
-              </text>
+              <view class="upload-hint" v-if="contentForm.content_url">
+                <image class="upload-hint-img" src="/static/勾号图标.png" mode="aspectFit" /><text> 已上传</text>
+              </view>
             </view>
           </view>
 
@@ -114,9 +114,9 @@
               <button class="upload-btn" @click="uploadDocument" :loading="uploading">
                 {{ contentForm.content_url ? '重新上传' : '上传文档' }}
               </button>
-              <text class="upload-hint" v-if="contentForm.content_url">
-                ✓ 已上传
-              </text>
+              <view class="upload-hint" v-if="contentForm.content_url">
+                <image class="upload-hint-img" src="/static/勾号图标.png" mode="aspectFit" /><text> 已上传</text>
+              </view>
             </view>
           </view>
 
@@ -636,10 +636,11 @@ onShow(() => {
   text-align: center;
 }
 
-.empty-icon {
-  font-size: 120rpx;
+.empty-icon-img {
+  width: 120rpx;
+  height: 120rpx;
   display: block;
-  margin-bottom: 30rpx;
+  margin: 0 auto 30rpx;
 }
 
 .empty-text {
@@ -812,6 +813,14 @@ onShow(() => {
 .upload-hint {
   font-size: 26rpx;
   color: #4caf50;
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+}
+
+.upload-hint-img {
+  width: 26rpx;
+  height: 26rpx;
 }
 
 .popup-actions {

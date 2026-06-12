@@ -20,6 +20,4 @@ export const mapRecordStatus = (item) => {
 export const isValidSunshineRun = (item) =>
   item &&
   item.type === 'run' &&
-  item.is_valid === true &&
-  item.source !== 'task' &&
-  !item.task_id;
+  item.is_valid === true;

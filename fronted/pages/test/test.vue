@@ -14,7 +14,7 @@
               :class="{ 'exercise-card--active': selectedId === item.id }"
               @tap="selectExercise(item.id)"
             >
-              <view v-if="selectedId === item.id" class="exercise-card__badge">✓</view>
+              <image v-if="selectedId === item.id" class="exercise-card__badge-img" src="/static/勾号图标.png" mode="aspectFit" />
               <text class="exercise-card__icon">{{ item.icon }}</text>
               <text class="exercise-card__label">{{ item.label }}</text>
             </view>
@@ -29,7 +29,7 @@
               :key="idx"
               class="instruction-item"
             >
-              <view class="instruction-check">✓</view>
+              <image class="instruction-check-img" src="/static/勾号图标.png" mode="aspectFit" />
               <text class="instruction-text">{{ line }}</text>
             </view>
           </view>
@@ -150,18 +150,12 @@ const onStartTest = () => {
   background: #f0faf6;
 }
 
-.exercise-card__badge {
+.exercise-card__badge-img {
   position: absolute;
   top: 12rpx;
   right: 12rpx;
   width: 36rpx;
   height: 36rpx;
-  border-radius: 50%;
-  background: #20c997;
-  color: #fff;
-  font-size: 22rpx;
-  line-height: 36rpx;
-  text-align: center;
 }
 
 .exercise-card__icon {
@@ -195,15 +189,9 @@ const onStartTest = () => {
   margin-bottom: 0;
 }
 
-.instruction-check {
+.instruction-check-img {
   width: 36rpx;
   height: 36rpx;
-  border-radius: 50%;
-  background: rgba(32, 201, 151, 0.15);
-  color: #20c997;
-  font-size: 22rpx;
-  line-height: 36rpx;
-  text-align: center;
   flex-shrink: 0;
   margin-right: 16rpx;
 }

@@ -18,7 +18,10 @@
       
       <!-- 第二阶段新增：体测视频展示 -->
       <view v-if="task.videoUrl" class="video-section">
-        <text class="video-label">📹 示范视频</text>
+        <view class="video-label">
+          <image class="video-label-img" src="/static/通知图标.png" mode="aspectFit" />
+          <text>示范视频</text>
+        </view>
         <video 
           :src="task.videoUrl" 
           class="task-video"
@@ -367,9 +370,12 @@ onLoad((options) => {
   .video-label {
     font-size: 28rpx;
     color: #666;
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 8rpx;
     margin-bottom: 16rpx;
   }
+  .video-label-img { width: 32rpx; height: 32rpx; }
   
   .task-video {
     width: 100%;

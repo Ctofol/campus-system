@@ -16,17 +16,15 @@
           </view>
           <view class="home-hero__actions">
             <view class="home-hero__action" @tap="goSunshineDetail">
-              <text class="home-hero__action-icon">📅</text>
+              <image class="home-hero__action-icon-img" src="/static/日历.PNG" mode="aspectFit" />
               <text class="home-hero__action-label">日历</text>
             </view>
-            <view class="home-hero__action" @tap="goNotifications">
-              <view class="home-hero__bell-wrap">
-                <text class="home-hero__action-icon">🔔</text>
-                <text
-                  v-if="unreadNotifyCount > 0"
-                  class="home-hero__badge"
-                >{{ unreadNotifyCount > 99 ? '99+' : unreadNotifyCount }}</text>
-              </view>
+            <view class="home-hero__action home-hero__action--notif" @tap="goNotifications">
+              <image class="home-hero__action-icon-img" src="/static/通知图标2.png" mode="aspectFit" />
+              <text
+                v-if="unreadNotifyCount > 0"
+                class="home-hero__badge"
+              >{{ unreadNotifyCount > 99 ? '99+' : unreadNotifyCount }}</text>
               <text class="home-hero__action-label">通知</text>
             </view>
           </view>
@@ -75,13 +73,33 @@
         </view>
 
         <view class="home-card">
-          <HomeSectionHeader title="最近活动" more-text="全部记录" @more="viewHistory" />
-          <HomeRecentList
-            :items="recentRuns"
-            :loading="loading"
-            @detail="goRunDetail"
-            @start-run="startOutdoorRun"
-          />
+          <HomeSectionHeader title="最近活动" more-text="全部任务" @more="handleTaskClick" />
+          <view v-if="loading" class="home-recent__skeleton">
+            <view v-for="i in 3" :key="i" class="home-recent__sk-row" />
+          </view>
+          <view v-else-if="!teacherTasks.length" class="home-task-empty">
+            <text class="home-task-empty-txt">暂无教师发布的任务</text>
+          </view>
+          <view v-else class="home-task-list">
+            <view
+              v-for="task in teacherTasks"
+              :key="task.id"
+              class="home-task-item"
+              @click="handleTaskClick(task)"
+            >
+              <view class="home-task-left">
+                <view class="home-task-status-dot" :class="'home-task-status-dot--' + task.status" />
+                <view class="home-task-info">
+                  <view class="home-task-title-row">
+                    <text class="home-task-title">{{ task.title }}</text>
+                    <text class="home-task-badge" :class="'home-task-badge--' + task.status">{{ taskStatusLabel(task.status) }}</text>
+                  </view>
+                  <text class="home-task-desc">{{ task.desc }}</text>
+                </view>
+              </view>
+              <text class="home-task-arrow">›</text>
+            </view>
+          </view>
         </view>
       </view>
 
@@ -117,11 +135,11 @@
         @tap.stop
       >
         <!-- 关闭按钮 -->
-        <text class="notif-close" @tap="closeTaskModal">×</text>
+        <image class="notif-close-img" src="/static/叉号图标.png" mode="aspectFit" @tap="closeTaskModal" />
 
         <!-- 顶部图标 -->
         <view class="notif-icon-wrap" :class="'notif-icon-wrap--' + currentNotifTheme">
-          <text class="notif-icon-emoji">{{ currentNotifIcon }}</text>
+          <image class="notif-icon-img" :src="currentNotifIcon" mode="aspectFit" />
         </view>
 
         <!-- 类型标签 -->
@@ -148,7 +166,7 @@
 
         <!-- 提示框 -->
         <view v-if="currentTask.desc" class="notif-tip" :class="'notif-tip--' + currentNotifTheme">
-          <text class="notif-tip-icon">💡</text>
+          <image class="notif-tip-icon-img" src="/static/通知图标（收到通知红点版）.png" mode="aspectFit" />
           <text class="notif-tip-text">{{ currentTask.desc }}</text>
         </view>
 
@@ -196,7 +214,6 @@ import HomeQuickStartCard from './HomeQuickStartCard.vue';
 import HomeFeatureGrid from './HomeFeatureGrid.vue';
 import HomeSectionHeader from './HomeSectionHeader.vue';
 import HomeWeekStats from './HomeWeekStats.vue';
-import HomeRecentList from './HomeRecentList.vue';
 import HomeActivityCard from './HomeActivityCard.vue';
 
 const statusBarHeight = ref(20);
@@ -229,10 +246,10 @@ const {
 } = useStudentHomeDashboard();
 
 const featureItems = [
-  { id: 'outdoor', icon: '🏃', label: '户外跑', desc: '记录户外路线' },
-  { id: 'test', icon: '💪', label: '体能测试', desc: '评估身体状态' },
-  { id: 'learn', icon: '📚', label: '课程', desc: '科学训练指导' },
-  { id: 'rungroup', icon: '👥', label: '跑团', desc: '一起跑步' }
+  { id: 'outdoor', icon: '/static/主页户外跑图标.png', label: '户外跑', desc: '记录户外路线' },
+  { id: 'test', icon: '/static/主页体能测试图标.PNG', label: '体能测试', desc: '评估身体状态' },
+  { id: 'learn', icon: '/static/主页课程图标.PNG', label: '课程', desc: '科学训练指导' },
+  { id: 'rungroup', icon: '/static/主页跑团图标.PNG', label: '跑团', desc: '一起跑步' }
 ];
 
 const checkNewTasks = (tasks) => {
@@ -326,11 +343,16 @@ const clearGoal = async () => {
 };
 
 const handleTaskClick = (task) => {
-  if (task) {
+  if (task?.id) {
     uni.navigateTo({ url: `/pages/student/tasks/list?taskId=${task.id}` });
   } else {
     uni.navigateTo({ url: '/pages/student/tasks/list' });
   }
+};
+
+const taskStatusLabel = (status) => {
+  const map = { pending: '待开始', in_progress: '进行中', uncompleted: '未完成', not_started: '未开始', failed: '未通过' };
+  return map[status] || '待开始';
 };
 
 const closeTaskModal = () => {
@@ -394,9 +416,9 @@ const getTaskTypeIcon = (task) => {
     task.title?.includes('课程') ||
     task.title?.includes('学习')
   ) {
-    return '📚';
+    return '/static/主页课程图标.PNG';
   }
-  return '🏃';
+  return '/static/主页户外跑图标.png';
 };
 
 // 通知弹窗 computed
@@ -411,9 +433,9 @@ const currentNotifTheme = computed(() => {
 
 const currentNotifIcon = computed(() => {
   const theme = currentNotifTheme.value;
-  if (theme === 'orange') return '📋';
-  if (theme === 'purple') return '🏃';
-  return '📝';
+  if (theme === 'orange') return '/static/数据图标.png';
+  if (theme === 'purple') return '/static/主页户外跑图标.png';
+  return '/static/数据图标.png';
 });
 
 const currentNotifTypeLabel = computed(() => {

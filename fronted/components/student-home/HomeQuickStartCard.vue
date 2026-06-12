@@ -5,12 +5,10 @@
       <text class="home-quick__sub" @tap="$emit('go')">自由跑 · 随心跑 ›</text>
     </view>
     <view class="home-quick__center" @tap="$emit('go')">
-      <view class="home-quick__go-ring">
-        <view class="home-quick__go">
-          <text class="home-quick__go-icon">🏃</text>
-          <text class="home-quick__go-txt">GO</text>
-        </view>
+      <view class="home-quick__go">
+        <image class="home-quick__go-icon" src="/static/主页GO图标.PNG" mode="aspectFit" />
       </view>
+      <text class="home-quick__go-txt">GO</text>
     </view>
     <view class="home-quick__right">
       <text class="home-quick__label">累计跑步</text>
@@ -79,39 +77,27 @@ defineEmits(['go', 'settings', 'setGoal']);
   flex-direction: column;
   align-items: center;
 }
-.home-quick__go-ring {
+.home-quick__go {
   width: 168rpx;
   height: 168rpx;
-  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 0 0 18rpx rgba(51, 201, 171, 0.1), 0 16rpx 40rpx rgba(51, 201, 171, 0.35);
   transition: transform 0.15s;
 }
-.home-quick__go-ring:active {
+.home-quick__go:active {
   transform: scale(0.95);
 }
-.home-quick__go {
-  width: 140rpx;
-  height: 140rpx;
-  border-radius: 50%;
-  background: #33C9AB;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-}
 .home-quick__go-icon {
-  font-size: 42rpx;
-  line-height: 1;
+  width: 164rpx;
+  height: 164rpx;
 }
 .home-quick__go-txt {
-  font-size: 36rpx;
-  font-weight: 800;
-  color: #fff;
-  letter-spacing: 4rpx;
-  margin-top: 2rpx;
+  font-size: 34rpx;
+  font-weight: 900;
+  color: #33C9AB;
+  letter-spacing: 6rpx;
+  margin-top: -4rpx;
 }
 .home-quick__right {
   flex: 1;

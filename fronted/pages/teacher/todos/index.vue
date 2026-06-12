@@ -8,7 +8,10 @@
     <view class="todos-list">
       <view class="todo-item" v-for="(todo, index) in todos" :key="index" @click="handleTodoClick(todo)">
         <view class="todo-icon" :class="getTodoIconClass(todo.type)">
-          <text class="icon-text">{{ getTodoIcon(todo.type) }}</text>
+          <image v-if="todo.type === 'approval'" class="icon-text-img" src="/static/勾号图标.png" mode="aspectFit" />
+          <image v-else-if="todo.type === 'task'" class="icon-text-img" src="/static/数据图标.png" mode="aspectFit" />
+          <image v-else-if="todo.type === 'alert'" class="icon-text-img" src="/static/叉号图标.png" mode="aspectFit" />
+          <text v-else class="icon-text">•</text>
         </view>
         <view class="todo-content">
           <text class="todo-title">{{ todo.title }}</text>
@@ -21,7 +24,7 @@
       </view>
       
       <view class="empty-state" v-if="todos.length === 0 && !loading">
-        <text class="empty-icon">✓</text>
+        <image class="empty-icon" src="/static/勾号图标.png" mode="aspectFit" />
         <text class="empty-text">暂无待办事项</text>
         <text class="empty-desc">所有任务已完成</text>
       </view>
@@ -177,6 +180,7 @@ onShow(() => {
   font-size: 36rpx;
   color: #fff;
 }
+.icon-text-img { width: 32rpx; height: 32rpx; }
 
 .todo-content {
   flex: 1;
@@ -253,8 +257,8 @@ onShow(() => {
 }
 
 .empty-icon {
-  font-size: 120rpx;
-  color: #20C997;
+  width: 120rpx;
+  height: 120rpx;
   margin-bottom: 30rpx;
 }
 

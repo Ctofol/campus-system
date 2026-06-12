@@ -25,8 +25,8 @@
         <text class="course-title">{{ course.title }}</text>
         <text class="course-desc">{{ course.description }}</text>
         <view class="course-stats">
-          <text class="stat-item">👥 {{ course.enrollment_count || 0 }}人已选</text>
-          <text class="stat-item">📚 {{ course.contents?.length || 0 }}节课</text>
+          <view class="stat-item"><image class="stat-icon-img" src="/static/主页跑团图标.PNG" mode="aspectFit" /><text> {{ course.enrollment_count || 0 }}人已选</text></view>
+          <view class="stat-item"><image class="stat-icon-img" src="/static/主页课程图标.PNG" mode="aspectFit" /><text> {{ course.contents?.length || 0 }}节课</text></view>
         </view>
         <!-- 学习进度 -->
         <view class="progress-section" v-if="course.enrolled && userRole === 'student'">
@@ -66,7 +66,7 @@
 
     <!-- 空状态 -->
     <view class="empty-state" v-else>
-      <text class="empty-icon">📚</text>
+      <image class="empty-icon-img" src="/static/主页课程图标.PNG" mode="aspectFit" />
       <text class="empty-text">课程不存在</text>
     </view>
 
@@ -115,11 +115,6 @@ const loading = ref(true);
 const enrolling = ref(false);
 const brokenImages = ref(new Set());
 
-const truncateUrl = (url, max = 120) => {
-  if (!url) return '';
-  return url.length > max ? `${url.slice(0, max)}...` : url;
-};
-
 const copyExternalLink = (url) => {
   uni.setClipboardData({
     data: url,
@@ -134,27 +129,15 @@ const openExternalLink = (url) => {
     uni.showToast({ title: '暂无可访问地址', icon: 'none' });
     return;
   }
-
-  if (/^https?:\/\//i.test(url)) {
-    uni.showModal({
-      title: '打开外部链接',
-      content: `即将打开：\n${truncateUrl(url)}`,
-      confirmText: '打开',
-      cancelText: '复制链接',
-      success: (res) => {
-        if (res.confirm) {
-          uni.navigateTo({
-            url: `/pages/common/webview?url=${encodeURIComponent(url)}`
-          });
-        } else if (res.cancel) {
-          copyExternalLink(url);
-        }
-      }
-    });
-    return;
-  }
-
-  copyExternalLink(url);
+  uni.showModal({
+    title: '外部链接',
+    content: `即将复制链接到剪贴板：\n${url}`,
+    confirmText: '复制链接',
+    showCancel: false,
+    success: () => {
+      copyExternalLink(url);
+    }
+  });
 };
 
 const getFullImageUrl = (url) => {
@@ -309,10 +292,6 @@ const playContent = (content) => {
   }
 
   if (content.content_type === 'link') {
-    // #ifdef H5
-    window.open(fullUrl, '_blank');
-    return;
-    // #endif
     openExternalLink(fullUrl);
     return;
   }
@@ -442,9 +421,11 @@ onLoad((options) => {
   padding: 200rpx 60rpx;
 }
 
-.empty-icon {
-  font-size: 120rpx;
-  margin-bottom: 30rpx;
+.empty-icon-img {
+  width: 120rpx;
+  height: 120rpx;
+  display: block;
+  margin: 0 auto 30rpx;
 }
 
 .empty-text {
@@ -489,6 +470,15 @@ onLoad((options) => {
 .stat-item {
   font-size: 26rpx;
   color: #999;
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+}
+
+.stat-icon-img {
+  width: 26rpx;
+  height: 26rpx;
+  flex-shrink: 0;
 }
 
 .progress-section {

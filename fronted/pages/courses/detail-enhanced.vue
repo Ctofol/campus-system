@@ -45,15 +45,15 @@
 
         <view class="course-meta">
           <view class="meta-item">
-            <text class="meta-icon">👥</text>
+            <image class="meta-icon-img" src="/static/主页跑团图标.PNG" mode="aspectFit" />
             <text class="meta-text">{{ course.enrollment_count || 0 }}人参与</text>
           </view>
           <view class="meta-item" v-if="course.teacher_name">
-            <text class="meta-icon">👨‍🏫</text>
+            <image class="meta-icon-img" src="/static/主页GO图标.PNG" mode="aspectFit" />
             <text class="meta-text">{{ course.teacher_name }}</text>
           </view>
           <view class="meta-item" v-if="course.created_at">
-            <text class="meta-icon">📅</text>
+            <image class="meta-icon-img" src="/static/日历.PNG" mode="aspectFit" />
             <text class="meta-text">{{ formatDate(course.created_at) }}</text>
           </view>
         </view>
@@ -115,7 +115,7 @@
 
     <!-- 空状态 -->
     <view class="empty-state" v-else-if="!loading && !course.id">
-      <text class="empty-icon">📚</text>
+      <image class="empty-icon-img" src="/static/主页课程图标.PNG" mode="aspectFit" />
       <text class="empty-text">课程不存在或已删除</text>
       <button class="back-home-btn" @click="goBack">返回</button>
     </view>
@@ -616,8 +616,9 @@ onLoad((options) => {
   gap: 8rpx;
 }
 
-.meta-icon {
-  font-size: 28rpx;
+.meta-icon-img {
+  width: 28rpx;
+  height: 28rpx;
 }
 
 .meta-text {
@@ -797,9 +798,11 @@ onLoad((options) => {
   padding: 200rpx 60rpx;
 }
 
-.empty-icon {
-  font-size: 120rpx;
-  margin-bottom: 30rpx;
+.empty-icon-img {
+  width: 120rpx;
+  height: 120rpx;
+  display: block;
+  margin: 0 auto 30rpx;
 }
 
 .empty-text {

@@ -51,7 +51,7 @@
           <text class="item-title">{{ item.title }}</text>
           <text class="item-duration">{{ formatDuration(item.duration) }}</text>
         </view>
-        <text class="item-status" v-if="item.completed">✓</text>
+        <image class="item-status-img" v-if="item.completed" src="/static/勾号图标.png" mode="aspectFit" />
         <text class="item-icon" v-else>▶️</text>
       </view>
     </view>
@@ -463,9 +463,9 @@ onUnload(() => {
   color: #999;
 }
 
-.item-status {
-  font-size: 32rpx;
-  color: #20C997;
+.item-status-img {
+  width: 32rpx;
+  height: 32rpx;
 }
 
 .item-icon {

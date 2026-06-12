@@ -10,15 +10,15 @@
     
     <view class="content-card">
       <view class="info-row">
-        <text class="label">📅 时间</text>
+        <view class="label"><image class="label-img" src="/static/日历.PNG" mode="aspectFit" /><text>时间</text></view>
         <text class="value">{{ activity.time }}</text>
       </view>
       <view class="info-row">
-        <text class="label">📍 地点</text>
+        <view class="label"><image class="label-img" src="/static/location.png" mode="aspectFit" /><text>地点</text></view>
         <text class="value">{{ activity.location }}</text>
       </view>
       <view class="info-row">
-        <text class="label">👥 人数</text>
+        <view class="label"><image class="label-img" src="/static/主页跑团图标.PNG" mode="aspectFit" /><text>人数</text></view>
         <text class="value">{{ activity.joined }} / {{ activity.limit }}</text>
       </view>
       
@@ -92,7 +92,8 @@ const handleJoin = () => {
   z-index: 10;
 }
 .info-row { display: flex; margin-bottom: 24rpx; }
-.label { width: 120rpx; color: #999; font-size: 28rpx; }
+.label { width: 120rpx; color: #999; font-size: 28rpx; display: flex; align-items: center; gap: 6rpx; }
+.label-img { width: 28rpx; height: 28rpx; flex-shrink: 0; }
 .value { flex: 1; color: #333; font-size: 28rpx; font-weight: 500; }
 .divider { height: 1px; background: #eee; margin: 30rpx 0; }
 .section-title { font-size: 32rpx; font-weight: bold; color: #333; margin-bottom: 20rpx; display: block; }
