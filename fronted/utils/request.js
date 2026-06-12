@@ -80,7 +80,7 @@ export function patchStoredUserInfo(patch) {
 
 /** 头像展示 URL，附带版本参数避免微信 image 缓存旧图 */
 export function avatarImageSrc(avatarPathOrUrl) {
-  if (!avatarPathOrUrl) return '/static/avatar.png';
+  if (!avatarPathOrUrl) return '/static/default-avatar.svg';
   const base = resolveMediaUrl(avatarPathOrUrl);
   const token = encodeURIComponent(String(avatarPathOrUrl));
   return `${base}${base.includes('?') ? '&' : '?'}v=${token}`;
@@ -217,6 +217,20 @@ export const submitActivity = (data) => {
   });
 };
 
+export const getTestAnalysisStatus = (activityId) => {
+  return request({
+    url: `/activity/${activityId}/analysis-status`,
+    method: 'GET'
+  });
+};
+
+export const reanalyzeTestActivity = (activityId) => {
+  return request({
+    url: `/activity/${activityId}/reanalyze`,
+    method: 'POST'
+  });
+};
+
 export const getActivityHistory = (params) => {
   // params: { page, size }
   let queryString = '';
@@ -340,6 +354,7 @@ export const uploadFile = (filePath, fileType = 'image') => {
       url: `${BASE_URL}/upload/file`,
       filePath: filePath,
       name: 'file',
+      timeout: 120000,
       header: {
         'Authorization': token ? `Bearer ${token}` : ''
       },

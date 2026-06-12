@@ -1,6 +1,30 @@
 // 定位工具类 - 封装统一的定位逻辑
 // 优先 App 端优化
 
+const LAST_LOC_KEY = 'lastLocation';
+const LAST_LOC_MAX_AGE_MS = 30 * 60 * 1000;
+
+/** 进入首页等场景时静默预热 GPS，减轻跑步页「定位太慢」体感 */
+export const warmUpLocationCache = (options = {}) => {
+  const last = uni.getStorageSync(LAST_LOC_KEY);
+  const ts = last && last.ts ? Number(last.ts) : 0;
+  if (last && last.lat != null && last.lng != null && Date.now() - ts < LAST_LOC_MAX_AGE_MS) {
+    return Promise.resolve(last);
+  }
+  return getCurrentLocation({ fastFix: true, timeout: 12000, ...options })
+    .then((res) => {
+      if (res && res.success) {
+        uni.setStorageSync(LAST_LOC_KEY, {
+          lat: res.latitude,
+          lng: res.longitude,
+          ts: Date.now()
+        });
+      }
+      return res;
+    })
+    .catch(() => null);
+};
+
 export const getCurrentLocation = (options = {}) => {
   return new Promise((resolve, reject) => {
     const useFastFix = options.fastFix === true;

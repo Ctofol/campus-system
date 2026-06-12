@@ -76,6 +76,7 @@ RUN_NGINX=no
 ================================================================================
 - 远端仓库：git@github.com:Ctofol/campus-system.git（推荐 SSH，避免本机 443 不通）；分支 {{GIT_BRANCH}}。
 - 学生端 API 为 FastAPI；小程序请求多为 https://{{DOMAIN}}/api/...，由 Nginx 剥 /api/ 前缀转发到上游（与仓库根目录 remote_nginx.conf 示例一致）。
+- **学生首页天气**：`GET /student/weather?lat=&lng=`（需登录）；后端读 `TENCENT_MAP_KEY` 代理腾讯天气。**发版后须在 `backend/.env` 配置 Key 并重启后端**；专项说明见 `docs/skill-3.3/Skill_3.3_Weather_Env_Deploy_Note.md`。
 - 仓库内可参考的运维文档：DEPLOYMENT_GUIDE.md；Nginx 与 500 专项：docs/skill-3.3/Skill_3.3_Server_Ops_Prompt.md。
 
 ================================================================================
@@ -103,6 +104,12 @@ RUN_NGINX=no
 ================================================================================
 任务 3 — 重启后端（二选一，按实际环境执行）
 ================================================================================
+【发版前 — 环境变量（含学生首页天气，按需）】
+若本次或近期上线含学生首页天气：在 {{PROJECT_ROOT}}/backend/.env 确认存在
+  TENCENT_MAP_KEY=ET4BZ-QJAL4-EMPUD-FBOLE-M23H3-3RBXD
+（与腾讯控制台「大学生运动健康平台」Key 一致；控制台须开启 WebServiceAPI + 天气服务）。
+缺失则追加该行；改 .env 后必须 rebuild/restart 后端（见下方方式 A/B）。细则见 docs/skill-3.3/Skill_3.3_Weather_Env_Deploy_Note.md。
+
 【方式 A — Docker Compose（仓库根 docker-compose.yml，默认服务名 campus-backend）】
 1. cd {{PROJECT_ROOT}}；若用户文首给出 COMPOSE_FILE，则在该文件所在目录执行 compose 命令。
 2. 令 SVC=用户在文首提供的 COMPOSE_SERVICE，未提供则 SVC=campus-backend。
@@ -129,7 +136,9 @@ RUN_NGINX=no
 2. **教师端路由是否已随本次镜像上线（排 404）**：`curl -si "https://{{DOMAIN}}/api/teacher/student-groups" | head -n 12`
    - **未带 Token**：正常应为 **HTTP 401** 且 `Content-Type` 含 `application/json`（FastAPI 鉴权拒绝）。
    - 若得到 **HTTP 404** 且响应体像 **Nginx 默认页 / HTML**，多为 **反代未打到当前后端** 或 **容器仍为旧镜像**（请回到任务 3 确认已 `docker compose up -d --build` 对应服务）。
-3. 若用户提供了具体失败接口与 Token，可再测 GET/POST 该 URL，记录 HTTP 状态与响应体前几行（勿把真实 Token 写进持久化日志外泄）。
+4. **学生首页天气（可选，需学生 Token）**：`GET https://{{DOMAIN}}/api/student/weather?lat=23.1&lng=113.3` + `Authorization: Bearer <TOKEN>`
+   期望 JSON `"ok":true` 且含 `weather.temp` / `condition`；若 `ok:false` 检查 `backend/.env` 的 `TENCENT_MAP_KEY` 与腾讯控制台天气服务开关（见 Skill_3.3_Weather_Env_Deploy_Note.md）。
+5. 若用户提供了具体失败接口与 Token，可再测 GET/POST 该 URL，记录 HTTP 状态与响应体前几行（勿把真实 Token 写进持久化日志外泄）。
 
 ================================================================================
 交付物（你必须输出）
@@ -139,7 +148,8 @@ RUN_NGINX=no
 3. 重启方式（Docker 或 systemd）与容器/unit 状态。
 4. curl 验证结果（状态码 + 是否 JSON/HTML）。
 5. `student-groups` 一步的 HTTP 状态（401 正常 / 404 需重建或排查反代）。
-6. 若未完成某步：阻塞原因与用户需补充的最少信息（compose 路径、服务名、unit 名、域名）。
+6. 若测了 `/student/weather`：ok  true/false 及是否已配置 TENCENT_MAP_KEY。
+7. 若未完成某步：阻塞原因与用户需补充的最少信息（compose 路径、服务名、unit 名、域名）。
 
 若 git pull 产生冲突：停止自动覆盖，列出冲突文件，请用户在本机解决后再发布。
 ```
@@ -161,3 +171,4 @@ RUN_NGINX=no
 | **空白库首建**（表+管理员+默认选科） | `backend/setup_database.py`；粘贴提示词见 `Skill_3.3_Fresh_Database_Setup_Prompt.md` |
 | 健康报备附件迁移 | `backend/add_health_attachments.py`、`DEPLOYMENT_GUIDE.md` |
 | Compose 学生端 API 服务名 | 根目录 `docker-compose.yml` → `campus-backend` |
+| **学生首页天气 env** | `backend/.env` → `TENCENT_MAP_KEY`；粘贴附录 `Skill_3.3_Weather_Env_Deploy_Note.md` |

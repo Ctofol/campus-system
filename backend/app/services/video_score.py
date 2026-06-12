@@ -1,54 +1,42 @@
 """
-视频评分服务
-提供视频内容分析和评分功能
+视频评分服务：体测分析结果写入 metrics。
 """
 import json
-import random
-from typing import Tuple
+from typing import Optional, Tuple
+
+from .. import models
 
 
-def get_video_score(video_url: str) -> Tuple[int, str]:
-    """
-    分析视频内容并返回评分
-    
-    Args:
-        video_url: 视频文件URL
-        
-    Returns:
-        tuple: (评分(0-100), 评分详情JSON字符串)
-        
-    TODO: 未来对接真实AI视觉接口，保持函数签名不变
-    """
-    # 占位实现：返回模拟评分
-    score = random.randint(70, 95)
-    
-    # 模拟评分详情
-    score_detail = {
-        "posture": "good" if score > 80 else "fair",
-        "consistency": round(score / 100, 2),
-        "technique": "standard" if score > 85 else "needs_improvement",
-        "overall_rating": "excellent" if score > 90 else "good" if score > 80 else "fair"
-    }
-    
-    return score, json.dumps(score_detail, ensure_ascii=False)
+def apply_analysis_to_metrics(
+    metrics: models.ActivityMetrics,
+    count: int,
+    qualified: bool,
+    score: int,
+    score_detail: str,
+    *,
+    success: bool = True,
+) -> None:
+    metrics.count = count
+    metrics.qualified = qualified
+    metrics.score = score
+    metrics.score_detail = score_detail
+    metrics.analysis_status = "success" if success else "failed"
+    metrics.analysis_error = None if success else (score_detail or "分析失败")
 
 
-def analyze_video_content(video_url: str) -> dict:
-    """
-    分析视频内容的详细信息
-    
-    Args:
-        video_url: 视频文件URL
-        
-    Returns:
-        dict: 视频分析结果
-        
-    TODO: 实现真实的视频内容分析
-    """
-    # 占位实现
-    return {
-        "duration": random.randint(10, 60),
-        "quality": "HD",
-        "motion_detected": True,
-        "person_count": 1
-    }
+def init_pending_metrics(metrics: models.ActivityMetrics, exercise_type: Optional[str] = None) -> None:
+    metrics.exercise_type = exercise_type
+    metrics.count = 0
+    metrics.qualified = False
+    metrics.score = None
+    metrics.score_detail = None
+    metrics.analysis_status = "pending"
+    metrics.analysis_error = None
+
+
+def get_video_score(video_url: str, exercise_type: Optional[str] = None) -> Tuple[int, str]:
+    """同步分析入口（供重分析接口）。"""
+    from .pose_analyzer import analyze_test_video
+
+    count, qualified, score, detail = analyze_test_video(video_url, exercise_type)
+    return score, detail

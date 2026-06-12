@@ -2,7 +2,7 @@
   <view class="resources-container">
     <page-tab-header title="教学资源" show-back theme="white">
       <template #right>
-        <view class="nav-action" @click="createResource">
+        <view class="page-tab-header-icon-action" @click="createResource">
           <text class="action-icon">+</text>
         </view>
       </template>
@@ -66,7 +66,7 @@
         </view>
         <view class="resource-actions">
           <button class="action-btn edit" @click.stop="editResource(resource)">编辑</button>
-          <button class="action-btn manage" @click.stop="manageContent(resource)">数据</button>
+          <button class="action-btn manage" @click.stop="manageContent(resource)">内容</button>
           <button 
             class="action-btn publish" 
             @click.stop="togglePublish(resource)"
@@ -95,7 +95,7 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { onLoad, onShow } from '@dcloudio/uni-app';
-import { request, BASE_URL } from '@/utils/request.js';
+import { request, resolveMediaUrl } from '@/utils/request.js';
 
 const activeCategory = ref('all');
 const resources = ref([]);
@@ -155,10 +155,9 @@ const getCategoryName = (category) => {
 };
 
 const getFullImageUrl = (url, id) => {
-  if (!url) return '/static/activity-placeholder.png';
-  if (brokenImages.value.has(id)) return '/static/activity-placeholder.png';
-  if (url.startsWith('http')) return url;
-  return `${BASE_URL}${url}`;
+  if (!url) return '/static/home/hero-bg.png';
+  if (brokenImages.value.has(id)) return '/static/home/hero-bg.png';
+  return resolveMediaUrl(url) || '/static/home/hero-bg.png';
 };
 
 const handleImageError = (id) => {
@@ -179,7 +178,7 @@ const editResource = (resource) => {
 
 const manageContent = (resource) => {
   uni.navigateTo({
-    url: `/pages/courses/detail?id=${resource.id}`
+    url: `/pages/courses/content-manage?courseId=${resource.id}`
   });
 };
 

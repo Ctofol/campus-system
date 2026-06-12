@@ -7,7 +7,11 @@
       theme="white"
     >
       <template #right>
-        <text class="rank-btn" @click="goToRank" v-if="!showCreateForm">排行榜</text>
+        <text
+          v-if="!showCreateForm"
+          class="page-tab-header-text-action"
+          @click="goToRank"
+        >排行榜</text>
       </template>
     </page-tab-header>
 
@@ -94,7 +98,7 @@ const loading = ref(false);
 const refreshing = ref(false);
 const noMore = ref(false);
 const showCreateForm = ref(false);
-const avatarPreview = ref('/static/default-avatar.png');
+const avatarPreview = ref('/static/default-avatar.svg');
 const formData = ref({
   name: '',
   description: '',
@@ -102,7 +106,7 @@ const formData = ref({
 });
 
 const groupAvatar = (avatar) => {
-  if (!avatar) return '/static/default-avatar.png';
+  if (!avatar) return '/static/default-avatar.svg';
   return resolveMediaUrl(avatar);
 };
 
@@ -222,7 +226,7 @@ const goBack = () => {
     description: '',
     avatar: ''
   };
-  avatarPreview.value = '/static/default-avatar.png';
+  avatarPreview.value = '/static/default-avatar.svg';
   loadGroups(true);
 };
 
@@ -245,14 +249,6 @@ onMounted(() => {
 .discover-page {
   min-height: 100vh;
   background: #f5f7fa;
-}
-
-.rank-btn {
-  font-size: 26rpx;
-  color: #20c997;
-  padding: 8rpx 20rpx;
-  border: 1rpx solid #20c997;
-  border-radius: 20rpx;
 }
 
 .create-form {

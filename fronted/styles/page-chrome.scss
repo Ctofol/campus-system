@@ -7,7 +7,7 @@ page {
   --section-accent-width: 8rpx;
   --section-accent-gap: 20rpx;
   --section-title-color: #333;
-  --color-brand: #20c997;
+  --color-brand: #33C9AB;
   --page-bg: #f5f7fa;
 }
 
@@ -39,9 +39,61 @@ page {
 
 /* Tab 页正文区（需配合 page-tab-header 占位，仅额外顶间距） */
 .page-tab-body {
-  padding-top: 30rpx;
+  padding-top: 40rpx;
   padding-bottom: 30rpx;
   box-sizing: border-box;
+}
+
+/* 顶栏右侧操作（配合 page-tab-header #right 插槽，避免与标题重叠） */
+.page-tab-header-text-action {
+  font-size: 26rpx;
+  line-height: 1.2;
+  padding: 8rpx 20rpx;
+  border-radius: 20rpx;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.page-tab-header--white .page-tab-header-text-action,
+.page-tab-header--light .page-tab-header-text-action {
+  color: #33C9AB;
+  border: 1rpx solid #33C9AB;
+}
+
+.page-tab-header-text-action--plain {
+  border: none;
+  padding: 8rpx 12rpx;
+  color: #33C9AB;
+}
+
+.page-tab-header-icon-action {
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.page-tab-header--brand .page-tab-header-icon-action {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.page-tab-header--brand .page-tab-header-icon-action .action-icon,
+.page-tab-header--brand .page-tab-header-icon-action {
+  color: #fff;
+  font-size: 40rpx;
+  font-weight: bold;
+  line-height: 1;
+}
+
+.page-tab-header--white .page-tab-header-icon-action,
+.page-tab-header--light .page-tab-header-icon-action {
+  background: rgba(51, 201, 171, 0.12);
+  color: #33C9AB;
+  font-size: 40rpx;
+  font-weight: bold;
 }
 
 /* 子页正文左右留白（与卡片边距一致） */

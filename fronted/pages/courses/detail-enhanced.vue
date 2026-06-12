@@ -354,16 +354,10 @@ const playContent = (content) => {
     });
     return;
   }
-  
-  // TODO: 跳转到播放页面
-  uni.showToast({ 
-    title: '播放功能开发中', 
-    icon: 'none' 
+
+  uni.navigateTo({
+    url: `/pages/courses/player?courseId=${courseId.value}&contentId=${content.id}`
   });
-  
-  // uni.navigateTo({
-  //   url: `/pages/courses/player?courseId=${courseId.value}&contentId=${content.id}`
-  // });
 };
 
 // 编辑课程
@@ -375,15 +369,9 @@ const editCourse = () => {
 
 // 管理内容
 const manageContent = () => {
-  uni.showToast({ 
-    title: '内容管理功能开发中', 
-    icon: 'none' 
+  uni.navigateTo({
+    url: `/pages/courses/content-manage?courseId=${courseId.value}`
   });
-  
-  // TODO: 跳转到内容管理页面
-  // uni.navigateTo({
-  //   url: `/pages/courses/manage-content?courseId=${courseId.value}`
-  // });
 };
 
 // 图片加载失败

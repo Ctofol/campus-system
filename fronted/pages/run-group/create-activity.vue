@@ -3,8 +3,7 @@
     <page-tab-header title="发布活动" show-back theme="white" />
 
     <scroll-view
-      class="page-tab-body"
-      class="form-scroll"
+      class="form-scroll page-tab-body"
       scroll-y
       :scroll-into-view="scrollIntoViewId"
       scroll-with-animation

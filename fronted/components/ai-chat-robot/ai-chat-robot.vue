@@ -198,7 +198,7 @@ watch(() => props.visible, (val) => {
   left: 0;
   width: 100vw;
   height: 100vh;
-  z-index: 999;
+  z-index: 2100;
   display: flex;
   justify-content: center;
   align-items: flex-end;

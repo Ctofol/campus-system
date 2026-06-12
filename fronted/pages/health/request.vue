@@ -304,8 +304,32 @@ const onEndDateChange = (e) => {
   formData.value.end_date = e.detail.value;
 };
 
+const promptUnreadHealthNotifications = async () => {
+  try {
+    const list = await request('/student/notifications?unread_only=1&ntype=health_review&limit=1');
+    const item = Array.isArray(list) ? list[0] : null;
+    if (!item) return;
+    uni.showModal({
+      title: item.title || '健康报备结果',
+      content: item.body || '您的申请已有审批结果',
+      showCancel: false,
+      confirmText: '知道了',
+      success: async () => {
+        try {
+          await request(`/student/notifications/${item.id}/read`, { method: 'PUT' });
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    });
+  } catch (e) {
+    console.error(e);
+  }
+};
+
 onShow(() => {
   loadHistory();
+  promptUnreadHealthNotifications();
 });
 </script>
 

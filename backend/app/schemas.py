@@ -1,4 +1,4 @@
-﻿from pydantic import BaseModel
+from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
 
@@ -53,6 +53,7 @@ class UserProfile(BaseModel):
     health_status: Optional[str] = "normal"
     signature: Optional[str] = None
     avatar_url: Optional[str] = None
+    weekly_run_goal_km: Optional[float] = 0.0
     created_at: Optional[datetime] = None
 
     class Config:
@@ -63,6 +64,7 @@ class UserProfileUpdate(BaseModel):
     phone: Optional[str] = None
     signature: Optional[str] = None
     avatar_url: Optional[str] = None
+    weekly_run_goal_km: Optional[float] = None
 
 class TokenData(BaseModel):
     phone: str | None = None
@@ -174,13 +176,17 @@ class ActivityMetricsCreate(BaseModel):
     distance: Optional[float] = None
     duration: int
     pace: Optional[str] = None
-    trajectory: Optional[str] = None # JSON string of coordinates
-    checkpoints: Optional[str] = None # JSON string of check-in data
+    trajectory: Optional[str] = None
+    checkpoints: Optional[str] = None
     count: Optional[int] = None
     qualified: bool = False
-    step_count: Optional[int] = None  # 姝ユ暟
-    video_url: Optional[str] = None  # 瑙嗛鏂囦欢URL
-    score: Optional[int] = None  # AI璇勫垎锛?-100锛?    score_detail: Optional[str] = None  # 璇勫垎璇︽儏锛圝SON瀛楃涓诧級
+    step_count: Optional[int] = None
+    video_url: Optional[str] = None
+    score: Optional[int] = None
+    score_detail: Optional[str] = None
+    exercise_type: Optional[str] = None
+    analysis_status: Optional[str] = None
+    analysis_error: Optional[str] = None
 
 class ActivityEvidenceCreate(BaseModel):
     evidence_type: str
@@ -189,6 +195,7 @@ class ActivityEvidenceCreate(BaseModel):
 class ActivityMetricsOut(ActivityMetricsCreate):
     id: int
     activity_id: int
+
     class Config:
         from_attributes = True
 
@@ -227,10 +234,15 @@ class ActivityOut(BaseModel):
     metrics: Optional[ActivityMetricsOut] = None
     evidence: List[ActivityEvidenceOut] = []
     review: Optional[ActivityReviewOut] = None
+    has_trajectory: bool = False
+    trajectory_preview: List["HomeMapPoint"] = []
     # 鑷敱璺戯細闃冲厜璺戞牳楠岋紱浠诲姟璺戯細鏄惁婊¤冻浠诲姟瑕佹眰
     is_valid: Optional[bool] = None
     fail_reason: Optional[str] = None
     face_verified: Optional[bool] = None
+    face_liveness_pass: Optional[bool] = None
+    face_match_score: Optional[float] = None
+    face_fail_code: Optional[str] = None
     today_completed: Optional[bool] = None
     task_id: Optional[int] = None
     task_title: Optional[str] = None
@@ -575,8 +587,16 @@ class CourseDetailOut(CourseOut):
     enrolled: bool = False  # 褰撳墠鐢ㄦ埛鏄惁宸查€夎
     enrollment_count: int = 0  # 閫夎浜烘暟
 
+class CourseListItemOut(CourseOut):
+    enrolled: bool = False
+    teacher_name: Optional[str] = None
+    lesson_total: int = 0
+    lesson_completed: int = 0
+    progress_percent: int = 0
+    duration_minutes: int = 0
+
 class CourseListResponse(BaseModel):
-    items: List[CourseOut]
+    items: List[CourseListItemOut]
     total: int
     page: int
     size: int
@@ -701,3 +721,73 @@ class ClassMemberSunshineList(BaseModel):
 
 class StudentNotify(BaseModel):
     message: str
+
+
+class UserNotificationOut(BaseModel):
+    id: int
+    title: str
+    body: Optional[str] = None
+    ntype: str = "system"
+    is_read: bool = False
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class UserNotificationUnread(BaseModel):
+    count: int
+
+
+class WeatherOut(BaseModel):
+    temp: int
+    condition: str
+    aqi_label: str = ""
+    humidity: Optional[int] = None
+    icon: str = "default"
+
+
+class WeatherResponse(BaseModel):
+    ok: bool
+    weather: Optional[WeatherOut] = None
+    error: Optional[str] = None
+    message: Optional[str] = None
+
+
+class HomeMapPoint(BaseModel):
+    lat: float
+    lng: float
+
+
+class HomeRecentRunOut(BaseModel):
+    id: int
+    title: str = "自由跑"
+    distance_km: str
+    time_label: str
+    pace_label: str
+    has_track: bool = False
+    is_valid: bool = False
+    trajectory_preview: List[HomeMapPoint] = []
+    activity: Optional[dict] = None
+
+
+class HomeWeeklyStatsOut(BaseModel):
+    distance_km: str = "0.00"
+    duration_label: str = "0:00"
+    pace_label: str = "--'--\""
+    calories: int = 0
+    run_count: int = 0
+    sunshine_km: str = "0.00"
+    has_data: bool = False
+
+
+class HomeDashboardOut(BaseModel):
+    total_distance_km: str = "0.0"
+    weekly: HomeWeeklyStatsOut
+    recent_runs: List[HomeRecentRunOut] = []
+    weekly_run_goal_km: float = 0.0
+    unread_notify_count: int = 0
+
+
+class RunGoalUpdate(BaseModel):
+    weekly_goal_km: float = 0.0

@@ -9,7 +9,7 @@
 
 <script setup>
 import { ref, nextTick } from 'vue';
-import { onShow, onLoad, onHide } from '@dcloudio/uni-app';
+import { onShow, onLoad, onHide, onUnload } from '@dcloudio/uni-app';
 import StudentRun from '@/components/student-run/student-run.vue';
 
 const role = ref('student');
@@ -41,10 +41,20 @@ onShow(() => {
   invokeStudentRunShow(0);
 });
 
-onHide(() => {
+const persistRunSession = () => {
   if (studentRunRef.value?.onPageHide) {
     studentRunRef.value.onPageHide();
+  } else if (studentRunRef.value?.saveRunSession) {
+    studentRunRef.value.saveRunSession();
   }
+};
+
+onHide(() => {
+  persistRunSession();
+});
+
+onUnload(() => {
+  persistRunSession();
 });
 </script>
 

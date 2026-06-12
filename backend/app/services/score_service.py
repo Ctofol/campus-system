@@ -25,7 +25,7 @@ def verify_activity(user: models.User, activity: models.Activity, db) -> Tuple[b
     - 性别 + 里程：男生 < 2.0km / 女生 < 1.2km 视为无效
     - 配速区间：3:00 - 10:00 min/km（以分钟/公里的浮点数表示）
     - 频次限制：同一天内已有一条达标记录，则本次无效
-    - 人脸验证：须同时有起跑、结束照片（不做第三方刷脸，上传即采证）
+    - 人脸验证：起跑+结束照片；配置腾讯云后启用活体+同人比对
     返回 (is_valid, fail_reason, face_verified)
     """
     metrics = activity.metrics
@@ -40,53 +40,51 @@ def verify_activity(user: models.User, activity: models.Activity, db) -> Tuple[b
     except ValueError:
         pace_val = None
 
+    # 人脸核验优先执行并写入 activity，便于短距离测试也能看到相似度
+    from .face_verify_service import apply_face_outcome_to_activity, verify_run_faces
+
+    face_outcome = verify_run_faces(activity.evidence)
+    apply_face_outcome_to_activity(activity, face_outcome)
+    face_verified = face_outcome.face_verified
+
     # 1. 性别 + 里程校验
     gender = (user.gender or "male").lower()
     min_dist = config.MIN_DISTANCE_MALE if gender == "male" else config.MIN_DISTANCE_FEMALE
+    sport_reason: str | None = None
     if distance_km < min_dist:
-        return False, "里程不足", False
+        sport_reason = "里程不足"
+    elif pace_val is None or pace_val < config.MIN_PACE_MIN_KM or pace_val > config.MAX_PACE_MIN_KM:
+        sport_reason = "配速异常"
+    else:
+        today: date = datetime.utcnow().date()
+        start = datetime(today.year, today.month, today.day)
+        end = datetime(today.year, today.month, today.day, 23, 59, 59)
 
-    # 2. 配速区间校验
-    if pace_val is None or pace_val < config.MIN_PACE_MIN_KM or pace_val > config.MAX_PACE_MIN_KM:
-        return False, "配速异常", False
-
-    # 3. 频次限制：当天只允许一条达标记录
-    today: date = datetime.utcnow().date()
-    start = datetime(today.year, today.month, today.day)
-    end = datetime(today.year, today.month, today.day, 23, 59, 59)
-
-    valid_today_count = (
-        db.query(models.Activity)
-        .filter(
-            models.Activity.user_id == user.id,
-            models.Activity.is_valid.is_(True),
-            models.Activity.started_at >= start,
-            models.Activity.started_at <= end,
+        valid_today_count = (
+            db.query(models.Activity)
+            .filter(
+                models.Activity.user_id == user.id,
+                models.Activity.is_valid.is_(True),
+                models.Activity.started_at >= start,
+                models.Activity.started_at <= end,
+            )
+            .filter(sunshine_run_filter())
+            .count()
         )
-        .filter(sunshine_run_filter())
-        .count()
-    )
-    if valid_today_count > 0:
-        return False, "今日已达标", False
+        if valid_today_count > 0:
+            sport_reason = "今日已达标"
 
-    # 4. 人脸采证：起跑 + 结束各一张照片（前端 start_face / end_face）
-    has_start = any(e.evidence_type == "start_face" for e in activity.evidence)
-    has_end = any(e.evidence_type == "end_face" for e in activity.evidence)
-    if has_start and has_end:
-        return True, "", True
+    # 人脸失败时优先返回人脸原因（短距离测试时避免 fail_reason 被「里程不足」覆盖）
+    if not face_outcome.ok and config.FACE_BLOCK_ON_FAIL:
+        return False, face_outcome.reason, face_verified
 
-    legacy_camera = [
-        e for e in activity.evidence
-        if e.evidence_type in ("start_face", "end_face", "camera")
-    ]
-    if len(legacy_camera) >= 2:
-        return True, "", True
+    if sport_reason:
+        return False, sport_reason, face_verified
 
-    if not has_start and not has_end:
-        return False, "人脸验证失败：缺少起跑与结束照片", False
-    if not has_start:
-        return False, "人脸验证失败：缺少起跑照片", False
-    return False, "人脸验证失败：缺少结束照片", False
+    if not face_outcome.ok:
+        return True, "", face_verified
+
+    return True, "", face_verified
 
 
 def calculate_total_score(valid_count: int) -> int:

@@ -53,7 +53,7 @@ import {
 } from '@/utils/request.js';
 import { pickAvatarFromAlbum } from '@/utils/avatar-picker.js';
 
-const avatarUrl = ref('/static/avatar.png');
+const avatarUrl = ref('/static/default-avatar.svg');
 const saving = ref(false);
 const formData = ref({
   name: '',
@@ -76,7 +76,7 @@ const loadProfile = async () => {
       signature: res.signature || '',
       avatar_url: res.avatar_url || ''
     };
-    avatarUrl.value = res.avatar_url ? resolveMediaUrl(res.avatar_url) : '/static/avatar.png';
+    avatarUrl.value = res.avatar_url ? resolveMediaUrl(res.avatar_url) : '/static/default-avatar.svg';
   } catch (e) {
     uni.showToast({ title: '加载失败', icon: 'none' });
   }

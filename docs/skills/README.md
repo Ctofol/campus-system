@@ -33,7 +33,10 @@
 3. **线上/本地报错要修**  
    `@docs/skill-3.3/Skill_3.3_Prompt.txt` → 粘贴控制台或日志（勿贴真实密钥）。
 
-4. **用户表单反馈自动分类 / 审计**  
+4. **后端发版 / OpenCode 拉代码（含学生首页天气 env）**  
+   `@docs/skill-3.3/Skill_3.3_Git_Pull_Deploy_Prompt.md` 或 `@docs/skill-3.3/Skill_3.3_Weather_Env_Deploy_Note.md`（`TENCENT_MAP_KEY` + `/student/weather` 验证）。
+
+5. **用户表单反馈自动分类 / 审计**  
    `@docs/skills/cursor-universal-dev-prompt.md` → 调 `POST /feedback/diagnose` 或 `backend/scripts/diagnose_feedback.py`；Path 类按提示设置 `PATH_HEALER_SCRIPT` 后执行 `Skill_3.3_Path_Healer.sh`。
 
 ## 与 `.cursorrules` 的关系

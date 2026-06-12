@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from . import models, database
+from .db_migrate import ensure_schema_upgrades
 from .routers.teacher import router as teacher_router
 from .routers.courses import router as courses_router
 from .routers.student import router as student_router
@@ -17,6 +18,7 @@ from .routers.feedback_diagnose import router as feedback_diagnose_router
 
 # 初始化数据库表
 models.Base.metadata.create_all(bind=database.engine)
+ensure_schema_upgrades()
 
 app = FastAPI(title="Campus Sports Health System API")
 

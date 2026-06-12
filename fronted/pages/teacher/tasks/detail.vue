@@ -73,7 +73,7 @@
           <view class="student-info" @click="openTaskSubmissionDetail(student)">
             <image
               class="avatar"
-              :src="student.avatar || '/static/avatar.png'"
+              :src="student.avatar || '/static/default-avatar.svg'"
               mode="aspectFill"
             ></image>
             <view class="info-col">

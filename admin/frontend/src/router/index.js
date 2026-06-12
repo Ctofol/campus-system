@@ -5,6 +5,8 @@ import Classes from '../views/Classes.vue'
 import Users from '../views/Users.vue'
 import Import from '../views/Import.vue'
 import Subjects from '../views/Subjects.vue'
+import NotificationList from '../views/notifications/list.vue'
+import FeedbackList from '../views/feedback/list.vue'
 import Layout from '../views/Layout.vue'
 
 const routes = [
@@ -19,6 +21,8 @@ const routes = [
       { path: 'users', component: Users, meta: { title: '账号管理' } },
       { path: 'subjects', component: Subjects, meta: { title: '选科管理' } },
       { path: 'import', component: Import, meta: { title: '批量导入' } },
+      { path: 'notifications', component: NotificationList, meta: { title: '通知管理' } },
+      { path: 'feedback', component: FeedbackList, meta: { title: '反馈诊断' } },
     ]
   }
 ]

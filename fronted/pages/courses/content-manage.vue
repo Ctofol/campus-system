@@ -2,7 +2,7 @@
   <view class="content-manage-container">
     <page-tab-header title="课程内容管理" show-back theme="white">
       <template #right>
-        <view class="nav-action" @click="addContent">
+        <view class="page-tab-header-icon-action" @click="addContent">
           <text class="action-icon">+</text>
         </view>
       </template>
@@ -99,12 +99,13 @@
           </view>
 
           <view class="form-item" v-if="contentForm.content_type === 'link'">
-            <text class="form-label">视频链接 <text class="required">*</text></text>
+            <text class="form-label">外部链接 <text class="required">*</text></text>
             <input 
               class="form-input" 
               v-model="contentForm.content_url" 
-              placeholder="请输入视频链接（如B站、优酷等）"
+              placeholder="粘贴视频或文档链接（小程序内将复制到剪贴板打开）"
             />
+            <text class="form-hint">提示：小程序不支持直接打开外链，学生端将自动复制链接到剪贴板</text>
           </view>
 
           <view class="form-item" v-if="contentForm.content_type === 'document'">
@@ -153,8 +154,8 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
-import { onLoad } from '@dcloudio/uni-app';
+import { ref, computed } from 'vue';
+import { onLoad, onShow } from '@dcloudio/uni-app';
 import { request, uploadFile, BASE_URL } from '@/utils/request.js';
 
 const courseId = ref(null);
@@ -404,10 +405,9 @@ const uploadVideo = () => {
 };
 
 const uploadDocument = () => {
-  // 注意：uni-app的chooseFile在H5端可能不支持，建议使用input[type=file]
   uni.showModal({
     title: '提示',
-    content: '文档上传功能开发中，请使用外部链接方式',
+    content: '暂不支持直接上传文档，请选择「外部链接」类型粘贴文档或网盘地址',
     showCancel: false
   });
 };
@@ -434,20 +434,22 @@ const saveContent = async () => {
   submitting.value = true;
   try {
     if (editingContent.value) {
-      // 编辑内容（需要后端支持）
-      uni.showToast({ title: '编辑功能开发中', icon: 'none' });
+      await request({
+        url: `/courses/${courseId.value}/contents/${editingContent.value.id}`,
+        method: 'PUT',
+        data: contentForm.value
+      });
+      uni.showToast({ title: '更新成功', icon: 'success' });
     } else {
-      // 添加新内容
       await request({
         url: `/courses/${courseId.value}/contents`,
         method: 'POST',
         data: contentForm.value
       });
-      
       uni.showToast({ title: '添加成功', icon: 'success' });
-      closePopup();
-      loadContents();
     }
+    closePopup();
+    loadContents();
   } catch (e) {
     console.error('Save content failed:', e);
     uni.showModal({
@@ -467,8 +469,12 @@ const deleteContent = (content) => {
     success: async (res) => {
       if (res.confirm) {
         try {
-          // 删除内容（需要后端支持）
-          uni.showToast({ title: '删除功能开发中', icon: 'none' });
+          await request({
+            url: `/courses/${courseId.value}/contents/${content.id}`,
+            method: 'DELETE'
+          });
+          uni.showToast({ title: '已删除', icon: 'success' });
+          loadContents();
         } catch (e) {
           console.error('Delete failed:', e);
           uni.showToast({ title: '删除失败', icon: 'none' });
@@ -490,6 +496,12 @@ onLoad((options) => {
   if (options.courseId) {
     courseId.value = options.courseId;
     loadCourseInfo();
+    loadContents();
+  }
+});
+
+onShow(() => {
+  if (courseId.value) {
     loadContents();
   }
 });

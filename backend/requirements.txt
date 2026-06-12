@@ -9,3 +9,9 @@ python-multipart
 pandas
 openpyxl
 captcha
+opencv-python-headless>=4.8.0
+onnxruntime>=1.16.0
+insightface>=0.7.3
+# 可选：腾讯云人脸（FACE_PROVIDER=tencent 时需要）
+# tencentcloud-sdk-python>=3.0.0
+# mediapipe>=0.10.0

@@ -158,8 +158,8 @@ const openExternalLink = (url) => {
 };
 
 const getFullImageUrl = (url) => {
-  if (!url) return '/static/activity-placeholder.png';
-  if (brokenImages.value.has(url)) return '/static/activity-placeholder.png';
+  if (!url) return '/static/home/hero-bg.png';
+  if (brokenImages.value.has(url)) return '/static/home/hero-bg.png';
   if (url.startsWith('http') || url.startsWith('blob:') || url.startsWith('wxfile:')) return url;
   return resolveMediaUrl(url);
 };
@@ -323,14 +323,9 @@ const playContent = (content) => {
 };
 
 const manageContent = () => {
-  uni.showToast({ 
-    title: '课程内容管理功能开发中', 
-    icon: 'none' 
+  uni.navigateTo({
+    url: `/pages/courses/content-manage?courseId=${courseId.value}`
   });
-  // TODO: 创建课程内容管理页面
-  // uni.navigateTo({
-  //   url: `/pages/courses/manage-content?courseId=${courseId.value}`
-  // });
 };
 
 const formatDuration = (seconds) => {

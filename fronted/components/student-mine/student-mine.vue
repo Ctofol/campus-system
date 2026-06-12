@@ -1,6 +1,6 @@
 <template>
   <view class="mine-page">
-    <page-tab-header title="个人中心" />
+    <page-tab-header title="个人中心" theme="brand" />
 
     <view class="content-wrapper page-tab-body">
       <!-- 1. 账号主页（顶部） -->
@@ -12,8 +12,6 @@
             <text class="user-signature" v-if="userSignature">{{ userSignature }}</text>
             <text class="user-desc">{{ className ? className + ' · ' : '校园运动打卡 · ' }}{{userType}}</text>
           </view>
-        </view>
-        <view class="edit-profile-row">
           <view class="edit-profile-btn" @click="gotoUserProfile">编辑资料</view>
         </view>
         <view class="user-stats">
@@ -118,6 +116,13 @@
       
       <!-- 4. 设置中心 -->
       <view class="setting-card">
+        <view class="setting-item" @click="gotoNotifications">
+          <text class="setting-icon">🔔</text>
+          <text class="setting-text">我的通知</text>
+          <text class="setting-desc">{{ unreadNotifyCount > 0 ? `${unreadNotifyCount} 条未读` : '审批与任务提醒' }}</text>
+          <view v-if="unreadNotifyCount > 0" class="notify-badge">{{ unreadNotifyCount > 99 ? '99+' : unreadNotifyCount }}</view>
+          <text class="arrow">＞</text>
+        </view>
         <view class="setting-item" @click="gotoHealthRequest">
           <text class="setting-icon">🩺</text>
           <text class="setting-text">健康报备</text>
@@ -157,7 +162,7 @@ import { ref, computed, onMounted } from 'vue';
 import { request, getStudentTaskRunHistory, avatarImageSrc } from '@/utils/request.js';
 import { mapRecordStatus, isValidSunshineRun } from '@/utils/activity-record.js';
 
-const avatarUrl = ref('/static/avatar.png');
+const avatarUrl = ref('/static/default-avatar.svg');
 
 const userName = ref('同学');
 const userSignature = ref('');
@@ -179,6 +184,7 @@ const showRecords = computed(() => runRecords.value.slice(0, 5));
 const taskRunPreview = ref([]);
 
 const deviceId = ref('');
+const unreadNotifyCount = ref(0);
 
 const formatDistance = (val) => {
     const num = Number(val);
@@ -289,7 +295,7 @@ const fetchUserProfile = async () => {
         if (res.name) userName.value = res.name;
         if (res.class_name) className.value = res.class_name;
         userSignature.value = (res.signature || '').trim();
-        avatarUrl.value = res.avatar_url ? avatarImageSrc(res.avatar_url) : '/static/avatar.png';
+        avatarUrl.value = res.avatar_url ? avatarImageSrc(res.avatar_url) : '/static/default-avatar.svg';
         
         // Update storage
             let currentUser = uni.getStorageSync('userInfo');
@@ -305,7 +311,17 @@ const fetchUserProfile = async () => {
 };
 
 // 页面显示逻辑
+const loadUnreadNotifyCount = async () => {
+  try {
+    const res = await request('/student/notifications/unread-count');
+    unreadNotifyCount.value = Number(res?.count) || 0;
+  } catch (e) {
+    unreadNotifyCount.value = 0;
+  }
+};
+
 const onPageShow = () => {
+  loadUnreadNotifyCount();
   const user = uni.getStorageSync('userInfo');
   if (user) {
     let u = user;
@@ -319,7 +335,7 @@ const onPageShow = () => {
         if(u.name) userName.value = u.name;
         if(u.class_name) className.value = u.class_name;
         userSignature.value = (u.signature || '').trim();
-        avatarUrl.value = u.avatar_url ? avatarImageSrc(u.avatar_url) : '/static/avatar.png';
+        avatarUrl.value = u.avatar_url ? avatarImageSrc(u.avatar_url) : '/static/default-avatar.svg';
     }
   }
   
@@ -338,6 +354,10 @@ defineExpose({
 
 const gotoUserProfile = () => {
   uni.navigateTo({ url: '/pages/mine/edit-profile/edit-profile' });
+};
+
+const gotoNotifications = () => {
+  uni.navigateTo({ url: '/pages/student/notifications/list' });
 };
 
 const gotoHealthRequest = () => {
@@ -423,21 +443,18 @@ const logout = () => {
   border: 4rpx solid #fff;
   box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.08);
 }
-.edit-profile-row {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 32rpx;
-}
 .edit-profile-btn {
+  flex-shrink: 0;
+  align-self: center;
+  margin-left: 16rpx;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 200rpx;
-  padding: 14rpx 40rpx;
-  font-size: 26rpx;
-  color: #20c997;
-  background-color: rgba(32, 201, 151, 0.1);
-  border: 1rpx solid #20c997;
+  padding: 12rpx 28rpx;
+  font-size: 24rpx;
+  color: #33C9AB;
+  background-color: rgba(51, 201, 171, 0.1);
+  border: 1rpx solid #33C9AB;
   border-radius: 32rpx;
   box-sizing: border-box;
 }
@@ -721,6 +738,18 @@ const logout = () => {
   font-size: 24rpx;
   color: #999;
   margin-right: 10rpx;
+}
+.notify-badge {
+  min-width: 36rpx;
+  height: 36rpx;
+  line-height: 36rpx;
+  padding: 0 10rpx;
+  margin-right: 8rpx;
+  border-radius: 18rpx;
+  background: #ff4d4f;
+  color: #fff;
+  font-size: 22rpx;
+  text-align: center;
 }
 .arrow {
   color: #ccc;

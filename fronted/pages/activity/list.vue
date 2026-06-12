@@ -6,7 +6,7 @@
     
     <view class="activity-list">
       <view class="activity-card" v-for="(item, index) in activities" :key="index" @click="goDetail(item)">
-        <image class="act-img" :src="item.image || '/static/activity-placeholder.png'" mode="aspectFill"></image>
+        <image class="act-img" :src="item.image || '/static/home/hero-bg.png'" mode="aspectFill"></image>
         <view class="act-info">
           <text class="act-name">{{ item.name }}</text>
           <view class="act-meta">
@@ -50,7 +50,7 @@ const loadActivities = async () => {
       status: getStatusText(item.status),
       statusClass: getStatusClass(item.status),
       joined: item.apply_count,
-      image: item.cover_image || '/static/activity-placeholder.png'
+      image: item.cover_image || '/static/home/hero-bg.png'
     }));
   } catch (e) {
     console.error('加载活动失败:', e);

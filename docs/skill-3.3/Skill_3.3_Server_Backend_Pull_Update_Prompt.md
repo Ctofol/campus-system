@@ -38,8 +38,9 @@ RUN_DB_UPDATE=yes
 ================================================================================
 1. 所有 git 操作在 PROJECT_ROOT 内；pull 前执行 git status（有未提交改动则停止并说明，不要 stash 除非用户明确要求）。
 2. 禁止 git push --force、禁止删除远程分支。
-3. 不要把数据库密码、JWT 密钥写入新文件或粘贴到非受控日志。
+3. 不要把数据库密码、JWT 密钥、TENCENT_MAP_KEY 写入聊天或非受控日志（Key 只写在 backend/.env）。
 4. db_update 仅当 RUN_DB_UPDATE=yes 且你能确认使用与 campus-backend 相同的 DB 连接时再执行；执行前口头提醒「生产库应先备份」（一句即可）。
+5. **学生首页天气**：若发版含首页改版，pull 前/后检查 backend/.env 是否有 TENCENT_MAP_KEY；缺失则追加 ET4BZ-QJAL4-EMPUD-FBOLE-M23H3-3RBXD 并 --build 重启 COMPOSE_SERVICE。细则见同目录 Skill_3.3_Weather_Env_Deploy_Note.md。
 
 ================================================================================
 执行步骤（严格顺序）
@@ -51,6 +52,9 @@ git fetch GIT_REMOTE
 git checkout GIT_BRANCH
 git pull GIT_REMOTE GIT_BRANCH
 # 记录：git log -1 --oneline
+
+# 学生首页天气 env（无则追加，有则跳过）
+grep -q '^TENCENT_MAP_KEY=' PROJECT_ROOT/backend/.env || echo 'TENCENT_MAP_KEY=ET4BZ-QJAL4-EMPUD-FBOLE-M23H3-3RBXD' >> PROJECT_ROOT/backend/.env
 
 若 RUN_DB_UPDATE=yes：
   cd PROJECT_ROOT/backend

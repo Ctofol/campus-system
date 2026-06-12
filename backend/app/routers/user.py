@@ -40,6 +40,9 @@ def get_my_profile(
         "major": _safe_rel_str(lambda: current_user.major),
         "major_id": current_user.major_id,
         "subject": current_user.subject,
+        "weekly_run_goal_km": float(current_user.weekly_run_goal_km or 0)
+        if getattr(current_user, "weekly_run_goal_km", None)
+        else 0.0,
     }
     return profile_data
 
@@ -72,7 +75,11 @@ def update_my_profile(
     
     if profile_update.avatar_url is not None:
         current_user.avatar_url = profile_update.avatar_url
-    
+
+    if profile_update.weekly_run_goal_km is not None:
+        km = float(profile_update.weekly_run_goal_km)
+        current_user.weekly_run_goal_km = None if km <= 0 else round(min(999.0, km), 1)
+
     db.commit()
     db.refresh(current_user)
     result = {"success": True, "message": "Profile updated successfully"}

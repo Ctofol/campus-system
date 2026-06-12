@@ -20,7 +20,8 @@
    - **学员列表**：`GET /teacher/students` 与统计共用 `get_managed_students_query`。
 
 3. **学生端**  
-   - 任务列表、提交校验等与 `class_id` / `starts_at` 一致（见 `student.py`、`task_run_service.py`）。
+   - 任务列表、提交校验等与 `class_id` / `starts_at` 一致（见 `student.py`、`task_run_service.py`）。  
+   - **首页天气**：`GET /student/weather?lat=&lng=`（需登录）；后端 `TENCENT_MAP_KEY` 代理腾讯位置服务；前端 `fronted/utils/weather.js`。发版须在 **`backend/.env`** 配置 Key 并重启后端 — 见 **`Skill_3.3_Weather_Env_Deploy_Note.md`**。
 
 4. **管理端 `/manage`**  
    - 控制台「专业活跃度」等聚合依赖班级 `major_id`；创建用户时补 `major_name`（见 `admin.py`）。  
@@ -38,9 +39,10 @@
 
 1. 备份数据库。  
 2. `git pull` 目标分支。  
-3. 按需执行 `db_update_production.py`，再 **`docker compose up -d --build campus-backend`**（代码在镜像内时 **仅 restart 不会更新 Python**）。  
-4. 按需重建管理端前后端 / H5 / nginx 服务（见根目录 `docker-compose.yml`）。  
-5. 验证：`POST /api/auth/login` 非 5xx；**`GET /api/teacher/student-groups` 无 Token 为 401 JSON（非 404 HTML）**；教师学员列表、发任务、管理端看板抽测。
+3. 确认 **`backend/.env`** 含 `TENCENT_MAP_KEY=ET4BZ-QJAL4-EMPUD-FBOLE-M23H3-3RBXD`（腾讯控制台开启 WebService + 天气服务）；详见 **`Skill_3.3_Weather_Env_Deploy_Note.md`**。  
+4. 按需执行 `db_update_production.py`，再 **`docker compose up -d --build campus-backend`**（代码在镜像内时 **仅 restart 不会更新 Python**）。  
+5. 按需重建管理端前后端 / H5 / nginx 服务（见根目录 `docker-compose.yml`）。  
+6. 验证：`POST /api/auth/login` 非 5xx；**`GET /api/teacher/student-groups` 无 Token 为 401 JSON（非 404 HTML）**；教师学员列表、发任务、管理端看板抽测；**可选** `GET /api/student/weather?lat=&lng=` + 学生 Token 返回 `"ok":true`。
 
 ---
 
@@ -82,11 +84,15 @@ TOUCH_HOST_NGINX=no
 - 学生任务状态可能含 not_started（任务 starts_at 未到）；任务创建须 class_id。
 - 阳光跑统计与任务跑区分依赖 task_id + source；旧数据 source 可能为 NULL，后端已兼容。
 - 可选数据纠偏：app.services.student_major_sync.sync_student_majors_from_class（生产须备份）。
+- **学生首页天气**：backend/.env 必须有 TENCENT_MAP_KEY（本项目 Key：ET4BZ-QJAL4-EMPUD-FBOLE-M23H3-3RBXD）；改 env 后须 --build 重启 campus-backend。附录：Skill_3.3_Weather_Env_Deploy_Note.md。
 
 ================================================================================
 执行步骤（按顺序）
 ================================================================================
 cd PROJECT_ROOT && git fetch origin && git checkout GIT_BRANCH && git pull origin GIT_BRANCH
+
+# 环境变量（学生首页天气 — 若 .env 无 TENCENT_MAP_KEY 则追加，勿删其它行）
+grep -q '^TENCENT_MAP_KEY=' PROJECT_ROOT/backend/.env || echo 'TENCENT_MAP_KEY=ET4BZ-QJAL4-EMPUD-FBOLE-M23H3-3RBXD' >> PROJECT_ROOT/backend/.env
 
 # 数据库结构（在 backend 目录、与线上一致的环境下）
 cd PROJECT_ROOT/backend && python db_update_production.py
