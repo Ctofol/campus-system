@@ -50,15 +50,15 @@
         </view>
         <text class="title">{{ activity.title }}</text>
         <view class="info-row">
-          <text class="icon">📅</text>
+          <image class="info-icon-img" src="/static/日历.PNG" mode="aspectFit" />
           <text class="text">{{ formatTime(activity.activity_time) }}</text>
         </view>
         <view class="info-row" v-if="activity.location">
-          <text class="icon">📍</text>
+          <image class="info-icon-img" src="/static/location.png" mode="aspectFit" />
           <text class="text">{{ activity.location }}</text>
         </view>
         <view class="info-row" v-if="activity.distance">
-          <text class="icon">🏃</text>
+          <image class="info-icon-img" src="/static/主页户外跑图标.png" mode="aspectFit" />
           <text class="text">{{ activity.distance }}km</text>
         </view>
         <view class="apply-info">
@@ -247,10 +247,7 @@ onMounted(() => {
   margin-bottom: 12rpx;
 }
 
-.icon {
-  font-size: 28rpx;
-  margin-right: 12rpx;
-}
+.info-icon-img { width: 28rpx; height: 28rpx; margin-right: 12rpx; vertical-align: middle; }
 
 .text {
   font-size: 24rpx;

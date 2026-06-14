@@ -19,7 +19,7 @@
         <HomeRecentMapThumb :preview="run.trajectoryPreview" :has-track="run.hasTrack" />
         <view class="home-recent-item__info">
           <view class="home-recent-item__type-row">
-            <text class="home-recent-item__type-icon">🏃</text>
+            <image class="home-recent-item__type-icon" src="/static/主页户外跑图标.png" mode="aspectFit" />
             <text class="home-recent-item__type-label">{{ run.title }}</text>
           </view>
           <view class="home-recent-item__dist-row">
@@ -83,8 +83,8 @@ defineEmits(['detail', 'startRun']);
   margin-bottom: 6rpx;
 }
 .home-recent-item__type-icon {
-  font-size: 22rpx;
-  color: #33C9AB;
+  width: 40rpx;
+  height: 40rpx;
 }
 .home-recent-item__type-label {
   font-size: 22rpx;

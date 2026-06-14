@@ -10,8 +10,8 @@
         <view class="act-info">
           <text class="act-name">{{ item.name }}</text>
           <view class="act-meta">
-            <text class="act-time">📅 {{ item.time }}</text>
-            <text class="act-location">📍 {{ item.location }}</text>
+            <view class="act-time"><image class="act-meta-img" src="/static/日历.PNG" mode="aspectFit" /><text>{{ item.time }}</text></view>
+            <view class="act-location"><image class="act-meta-img" src="/static/location.png" mode="aspectFit" /><text>{{ item.location }}</text></view>
           </view>
           <view class="act-status" :class="item.statusClass">
             <text>{{ item.status }}</text>
@@ -118,7 +118,8 @@ onMounted(() => {
 .act-info { padding: 20rpx; }
 .act-name { font-size: 32rpx; font-weight: bold; color: #333; margin-bottom: 10rpx; display: block; }
 .act-meta { display: flex; flex-direction: column; gap: 6rpx; margin-bottom: 20rpx; }
-.act-time, .act-location { font-size: 24rpx; color: #666; }
+.act-time, .act-location { font-size: 24rpx; color: #666; display: flex; align-items: center; gap: 6rpx; }
+.act-meta-img { width: 28rpx; height: 28rpx; flex-shrink: 0; vertical-align: middle; }
 .act-status { display: flex; justify-content: space-between; align-items: center; }
 .status-active { color: #20C997; font-weight: bold; }
 .status-ing { color: #ff9f43; font-weight: bold; }

@@ -54,7 +54,10 @@
               {{ item.status === 'failed' ? '查看/重试' : '去完成' }}
             </button>
             <text v-else-if="item.status === 'not_started'" class="expired-text">未到开始时间</text>
-            <text v-else-if="item.status === 'completed'" class="completed-text">✅ 已完成</text>
+            <view v-else-if="item.status === 'completed'" class="completed-wrap">
+              <image class="completed-icon-img" src="/static/勾号图标.png" mode="aspectFit" />
+              <text class="completed-text">已完成</text>
+            </view>
             <text v-else class="expired-text">已过期</text>
         </view>
       </view>
@@ -240,6 +243,15 @@ const startTestTask = (item) => {
         padding: 10rpx 30rpx;
         border-radius: 30rpx;
         margin: 0;
+    }
+    .completed-wrap {
+        display: flex;
+        align-items: center;
+        gap: 6rpx;
+    }
+    .completed-icon-img {
+        width: 24rpx;
+        height: 24rpx;
     }
     .completed-text {
         color: #4caf50;

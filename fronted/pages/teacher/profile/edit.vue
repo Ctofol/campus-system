@@ -1,5 +1,7 @@
 <template>
   <view class="edit-profile-page">
+    <page-tab-header title="个人信息设置" theme="white" show-back />
+    <view class="page-tab-body">
     <view class="form-section">
       <view class="form-item avatar-item">
         <view class="avatar-row">
@@ -39,6 +41,7 @@
     <view class="button-section">
       <button class="save-btn" :loading="saving" @click="saveProfile">保存</button>
     </view>
+    </view>
   </view>
 </template>
 
@@ -52,6 +55,7 @@ import {
   patchStoredUserInfo
 } from '@/utils/request.js';
 import { pickAvatarFromAlbum } from '@/utils/avatar-picker.js';
+import PageTabHeader from '@/components/page-tab-header/page-tab-header.vue';
 
 const avatarUrl = ref('/static/default-avatar.svg');
 const saving = ref(false);
@@ -163,7 +167,7 @@ onMounted(() => {
 .edit-profile-page {
   min-height: 100vh;
   background: #f5f7fa;
-  padding: 30rpx;
+  padding: 0 30rpx;
 }
 
 .form-section {

@@ -35,6 +35,7 @@ def get_my_profile(
         "health_status": health,
         "signature": getattr(current_user, 'signature', None),
         "avatar_url": getattr(current_user, 'avatar_url', None),
+        "header_bg_url": getattr(current_user, 'header_bg_url', None),
         "class_name": _safe_rel_str(lambda: current_user.class_name),
         "class_id": current_user.class_id,
         "major": _safe_rel_str(lambda: current_user.major),
@@ -75,6 +76,9 @@ def update_my_profile(
     
     if profile_update.avatar_url is not None:
         current_user.avatar_url = profile_update.avatar_url
+
+    if profile_update.header_bg_url is not None:
+        current_user.header_bg_url = profile_update.header_bg_url
 
     if profile_update.weekly_run_goal_km is not None:
         km = float(profile_update.weekly_run_goal_km)

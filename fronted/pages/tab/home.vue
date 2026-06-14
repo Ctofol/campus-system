@@ -30,37 +30,15 @@ onShow(() => {
 
   role.value = uni.getStorageSync('userRole') || 'student';
 
+  const sb = (i) => { uni.setTabBarItem(i).catch(() => {}); };
   if (role.value === 'teacher') {
-    uni.setTabBarItem({
-      index: 1,
-      text: '管理',
-      iconPath: '/static/tab/function.png',
-      selectedIconPath: '/static/tab/function-active.png'
-    });
-    uni.setTabBarItem({
-      index: 2,
-      text: '课程',
-      iconPath: '/static/tab/stats.png',
-      selectedIconPath: '/static/tab/stats-active.png'
-    });
+    sb({ index: 1, text: '管理', iconPath: '/static/tab/function.png', selectedIconPath: '/static/tab/function-active.png' });
+    sb({ index: 2, text: '课程', iconPath: '/static/tab/stats.png', selectedIconPath: '/static/tab/stats-active.png' });
   } else if (role.value === 'admin') {
-    // Admin should not be here, redirect to dashboard
-    uni.reLaunch({
-      url: '/pages/admin/dashboard/index'
-    });
+    uni.reLaunch({ url: '/pages/admin/dashboard/index' });
   } else {
-    uni.setTabBarItem({
-      index: 1,
-      text: '运动',
-      iconPath: '/static/tab/function.png',
-      selectedIconPath: '/static/tab/function-active.png'
-    });
-    uni.setTabBarItem({
-      index: 2,
-      text: '课程',
-      iconPath: '/static/tab/stats.png',
-      selectedIconPath: '/static/tab/stats-active.png'
-    });
+    sb({ index: 1, text: '运动', iconPath: '/static/tab/function.png', selectedIconPath: '/static/tab/function-active.png' });
+    sb({ index: 2, text: '课程', iconPath: '/static/tab/stats.png', selectedIconPath: '/static/tab/stats-active.png' });
   }
 
   // Lifecycle passing

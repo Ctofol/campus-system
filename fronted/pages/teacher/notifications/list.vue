@@ -30,7 +30,7 @@
 
       <!-- 空状态 -->
       <view class="empty-state" v-if="notifications.length === 0 && !loading">
-        <text class="empty-icon">🔔</text>
+        <image class="empty-icon-img" src="/static/通知图标.png" mode="aspectFit" />
         <text class="empty-text">暂无通知</text>
       </view>
 
@@ -255,6 +255,7 @@ onMounted(() => {
   display: block;
   margin-bottom: 30rpx;
 }
+.empty-icon-img { width: 120rpx; height: 120rpx; display: block; margin-bottom: 30rpx; }
 
 .empty-text {
   font-size: 28rpx;

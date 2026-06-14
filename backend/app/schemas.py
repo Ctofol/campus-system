@@ -53,6 +53,7 @@ class UserProfile(BaseModel):
     health_status: Optional[str] = "normal"
     signature: Optional[str] = None
     avatar_url: Optional[str] = None
+    header_bg_url: Optional[str] = None
     weekly_run_goal_km: Optional[float] = 0.0
     created_at: Optional[datetime] = None
 
@@ -64,6 +65,7 @@ class UserProfileUpdate(BaseModel):
     phone: Optional[str] = None
     signature: Optional[str] = None
     avatar_url: Optional[str] = None
+    header_bg_url: Optional[str] = None
     weekly_run_goal_km: Optional[float] = None
 
 class TokenData(BaseModel):

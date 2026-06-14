@@ -384,9 +384,11 @@ onLoad((options) => {
     }
 
     if (currentMode.value === 'test') {
-      testProject.value = '体测项目';
+      testProject.value = data.test_project || '体测项目';
       suggestionText.value = testQualified.value ? '恭喜达标！' : '继续加油！';
-      userScorePercent.value = Math.min(100, (testCount.value / Math.max(standardReq.value, 1)) * 100);
+      const score = data.metrics?.score || 0;
+      userScorePercent.value = Math.min(100, score);
+      standardScorePercent.value = 60;
     }
   } else {
     currentMode.value = options.mode || 'normal';

@@ -73,12 +73,12 @@
             v-if="course.teacher_name || course.duration_minutes > 0 || course.category_label"
             class="course-meta-row"
           >
-            <text v-if="course.teacher_name" class="course-meta">👤 {{ course.teacher_name }}</text>
-            <text v-if="course.duration_minutes > 0" class="course-meta">⏱ {{ course.duration_minutes }}分钟</text>
-            <text v-if="course.category_label" class="course-meta">📚 {{ course.category_label }}</text>
+            <view v-if="course.teacher_name" class="course-meta"><image class="meta-icon-inline" src="/static/主页GO图标.PNG" mode="aspectFit" /><text> {{ course.teacher_name }}</text></view>
+            <view v-if="course.duration_minutes > 0" class="course-meta"><image class="meta-icon-inline" src="/static/主页时长图标.png" mode="aspectFit" /><text> {{ course.duration_minutes }}分钟</text></view>
+            <view v-if="course.category_label" class="course-meta"><image class="meta-icon-inline" src="/static/主页课程图标.PNG" mode="aspectFit" /><text> {{ course.category_label }}</text></view>
           </view>
           <view v-if="course.enrollment_count > 0" class="course-meta-row">
-            <text class="course-meta">👥 {{ course.enrollment_count }}人在学</text>
+            <view class="course-meta"><image class="meta-icon-inline" src="/static/主页跑团图标.PNG" mode="aspectFit" /><text> {{ course.enrollment_count }}人在学</text></view>
           </view>
 
           <view v-if="course.enrolled && userRole === 'student'" class="course-progress-block">
@@ -497,6 +497,15 @@ onReachBottom(() => loadCourses(false));
 .course-meta {
   font-size: 22rpx;
   color: #8a9bab;
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+}
+
+.meta-icon-inline {
+  width: 28rpx;
+  height: 28rpx;
+  flex-shrink: 0;
 }
 
 .course-progress-block {

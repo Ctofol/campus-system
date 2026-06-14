@@ -6,7 +6,7 @@
         <text class="page-title">任务管理</text>
         <view class="header-actions">
           <view class="icon-btn search">
-            <text class="iconfont">🔍</text>
+            <image class="iconfont" src="/static/主页GO图标.PNG" mode="aspectFit" />
           </view>
         </view>
       </view>
@@ -56,7 +56,8 @@
           <view class="tag-row">
             <view class="type-tag" :class="getTypeClass(task.type)">{{ task.type }}</view>
             <view class="deadline-tag" :class="{ urgent: isUrgent(task.deadline) }">
-              📅 {{ task.deadline }} 截止
+              <image class="deadline-img" src="/static/日历.PNG" mode="aspectFit" />
+              <text>{{ task.deadline }} 截止</text>
             </view>
           </view>
           <view class="more-btn" @click.stop="showActionSheet(task)">...</view>
@@ -84,7 +85,7 @@
              <view class="avatar-more" :style="{left: 60 + 'rpx'}">...</view>
           </view>
           <button class="remind-btn" size="mini" @click="remindUnfinished(task)" v-if="task.status === '进行中'">
-            🔔 一键提醒
+            <image class="notif-inline-icon" src="/static/通知图标.png" mode="aspectFit" /> 一键提醒
           </button>
         </view>
       </view>
@@ -456,6 +457,8 @@ const createTask = () => {
 .tag-blue { background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%); color: #446699; }
 .tag-gray { background: #eee; color: #999; }
 
+.iconfont { width: 36rpx; height: 36rpx; }
+
 .deadline-tag {
   font-size: 22rpx;
   color: #999;
@@ -465,6 +468,7 @@ const createTask = () => {
   padding: 6rpx 16rpx;
   border-radius: 30rpx;
 }
+.deadline-img { width: 24rpx; height: 24rpx; margin-right: 4rpx; }
 
 .deadline-tag.urgent {
   color: #ff6b6b;
@@ -591,6 +595,7 @@ const createTask = () => {
   padding: 0 24rpx;
   line-height: 50rpx;
 }
+.notif-inline-icon { width: 40rpx; height: 40rpx; vertical-align: middle; margin-right: 4rpx; }
 
 .empty-state {
   text-align: center;

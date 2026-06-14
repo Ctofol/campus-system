@@ -9,11 +9,11 @@
       <text class="home-activity-card__title">{{ activity.name }}</text>
       <view class="home-activity-card__meta-row">
         <text class="home-activity-card__meta">
-          <text class="home-activity-card__meta-icon">📅</text>
+          <image class="home-activity-card__meta-icon" src="/static/日历.PNG" mode="aspectFit" />
           {{ activity.dateLabel }}
         </text>
         <text class="home-activity-card__meta">
-          <text class="home-activity-card__meta-icon">👥</text>
+          <image class="home-activity-card__meta-icon" src="/static/主页跑团图标.PNG" mode="aspectFit" />
           {{ activity.participants }}人已报名
         </text>
       </view>
@@ -34,7 +34,7 @@
         mode="aspectFill"
       />
       <view v-else class="home-activity-card__cover-placeholder">
-        <text class="home-activity-card__cover-emoji">🏃</text>
+        <image class="home-activity-card__cover-emoji" src="/static/主页户外跑图标.png" mode="aspectFit" />
       </view>
       <text class="home-activity-card__chev">›</text>
     </view>
@@ -122,8 +122,9 @@ function handleTap() {
   align-items: center;
 }
 .home-activity-card__meta-icon {
+  width: 40rpx;
+  height: 40rpx;
   margin-right: 4rpx;
-  font-size: 22rpx;
 }
 .home-activity-card__progress {
   margin-top: 18rpx;
@@ -164,7 +165,8 @@ function handleTap() {
   justify-content: center;
 }
 .home-activity-card__cover-emoji {
-  font-size: 48rpx;
+  width: 80rpx;
+  height: 80rpx;
   opacity: 0.5;
 }
 .home-activity-card__chev {

@@ -18,7 +18,7 @@
           @tap="switchTab(tab.key)"
         >
           <view class="tab-icon-wrap" :style="{ background: tab.color }">
-            <text class="tab-icon">{{ tab.icon }}</text>
+            <image class="tab-icon-img" :src="tab.icon" mode="aspectFit" />
             <view v-if="tabBadge(tab.key) > 0" class="tab-badge">{{ tabBadge(tab.key) }}</view>
           </view>
           <text class="tab-label">{{ tab.label }}</text>
@@ -39,7 +39,7 @@
             >
               <view class="notif-avatar" :style="{ background: getAvatarBg(item) }">
                 <image v-if="item.avatar" :src="item.avatar" class="notif-avatar-img" mode="aspectFill" />
-                <text v-else class="notif-avatar-icon">{{ getAvatarIcon(item) }}</text>
+                <image v-else class="notif-avatar-icon-img" :src="getAvatarIconSrc(item)" mode="aspectFit" />
               </view>
               <view class="notif-content">
                 <view class="notif-row1">
@@ -60,11 +60,8 @@
         </template>
 
         <view v-if="!loading && filteredList.length === 0" class="empty">
-          <text class="empty-icon">🔔</text>
           <text class="empty-txt">暂无消息</text>
         </view>
-
-        <view v-if="loading" class="loading-row"><text>加载中...</text></view>
         <view v-if="!hasMore && filteredList.length > 0" class="no-more"><text>没有更多消息了~</text></view>
       </scroll-view>
     </view>
@@ -80,10 +77,10 @@ const statusBarHeight = ref(20);
 const navHeight = computed(() => statusBarHeight.value + 44);
 
 const tabs = [
-  { key: 'all', label: '全部消息', icon: '🔔', color: '#26b586' },
-  { key: 'run_group', label: '跑团消息', icon: '👥', color: '#26b586' },
-  { key: 'interaction', label: '互动消息', icon: '💬', color: '#5b8cff' },
-  { key: 'system', label: '系统通知', icon: '📢', color: '#f5a623' },
+  { key: 'all', label: '全部消息', icon: '/static/通知图标.png', color: '#fff' },
+  { key: 'run_group', label: '跑团消息', icon: '/static/主页跑团图标.PNG', color: '#fff' },
+  { key: 'interaction', label: '互动消息', icon: '/static/通知图标2.png', color: '#fff' },
+  { key: 'system', label: '系统通知', icon: '/static/通知图标（收到通知红点版）.png', color: '#fff' },
 ];
 
 const activeTab = ref('all');
@@ -140,11 +137,11 @@ const getAvatarBg = (item) => {
   return '#fff4e6';
 };
 
-const getAvatarIcon = (item) => {
+const getAvatarIconSrc = (item) => {
   const type = mapType(item.ntype);
-  if (type === 'run_group') return '👥';
-  if (type === 'interaction') return '💬';
-  return '📢';
+  if (type === 'run_group') return '/static/主页跑团图标.PNG';
+  if (type === 'interaction') return '/static/通知图标2.png';
+  return '/static/通知图标.png';
 };
 
 const getTagColor = (item) => {
@@ -274,6 +271,7 @@ onShow(() => {
   font-size: 40rpx; position: relative; margin-bottom: 10rpx;
 }
 .tab-icon { font-size: 38rpx; }
+.tab-icon-img { width: 44rpx; height: 44rpx; }
 .tab-badge {
   position: absolute; top: -4rpx; right: -4rpx;
   min-width: 30rpx; height: 30rpx; border-radius: 15rpx;
@@ -309,6 +307,7 @@ onShow(() => {
 }
 .notif-avatar-img { width: 100%; height: 100%; border-radius: 50%; }
 .notif-avatar-icon { font-size: 40rpx; }
+.notif-avatar-icon-img { width: 44rpx; height: 44rpx; }
 
 .notif-content { flex: 1; min-width: 0; }
 .notif-row1 { display: flex; align-items: center; margin-bottom: 8rpx; gap: 10rpx; }
@@ -323,8 +322,9 @@ onShow(() => {
 .notif-sub { display: block; font-size: 26rpx; font-weight: 600; color: #333; margin-bottom: 6rpx; }
 .notif-body { display: block; font-size: 24rpx; color: #8a9bab; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 
-.empty { padding: 120rpx 0; text-align: center; }
+.empty { padding: 120rpx 0; display: flex; flex-direction: column; align-items: center; }
 .empty-icon { font-size: 80rpx; display: block; margin-bottom: 20rpx; }
+.empty-icon-img { width: 120rpx; height: 120rpx; display: block; margin-bottom: 20rpx; }
 .empty-txt { font-size: 28rpx; color: #8a9bab; }
 
 .loading-row { text-align: center; padding: 30rpx; color: #8a9bab; font-size: 24rpx; }

@@ -23,6 +23,18 @@
         </view>
       </view>
 
+      <view class="form-item avatar-item">
+        <view class="avatar-row">
+          <text class="label">主页背景</text>
+          <view class="avatar-preview">
+            <view class="header-bg-preview" :style="headerBgStyle">
+              <text v-if="!headerBgUrl" class="header-bg-placeholder">暂无背景</text>
+            </view>
+            <text class="change-text" @click="chooseHeaderBg">更换背景</text>
+          </view>
+        </view>
+      </view>
+
       <view class="form-item">
         <text class="label">姓名</text>
         <input
@@ -75,7 +87,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 import {
   request,
@@ -88,6 +100,8 @@ import {
 import { pickAvatarFromAlbum, onChooseAvatarButtonError } from '@/utils/avatar-picker.js';
 
 const avatarUrl = ref('/static/default-avatar.svg');
+const headerBgUrl = ref('');
+const headerBgStyle = computed(() => headerBgUrl.value ? `background-image:url(${headerBgUrl.value})` : '');
 const saving = ref(false);
 
 const formData = ref({
@@ -96,7 +110,8 @@ const formData = ref({
   signature: '',
   student_id: '',
   class_name: '',
-  avatar_url: ''
+  avatar_url: '',
+  header_bg_url: ''
 });
 
 const syncAvatarPreview = (path) => {
@@ -125,14 +140,34 @@ const loadUserProfile = async () => {
         signature: res.signature || '',
         student_id: res.student_id || '',
         class_name: res.class_name || '',
-        avatar_url: res.avatar_url || ''
+        avatar_url: res.avatar_url || '',
+        header_bg_url: res.header_bg_url || ''
       };
 
       syncAvatarPreview(res.avatar_url);
+      headerBgUrl.value = res.header_bg_url ? resolveMediaUrl(res.header_bg_url) : '';
     }
   } catch (e) {
     console.error('Failed to load profile:', e);
     uni.showToast({ title: '加载失败', icon: 'none' });
+  }
+};
+
+const chooseHeaderBg = async () => {
+  try {
+    const tempFilePath = await pickAvatarFromAlbum();
+    if (!tempFilePath) return;
+    uni.showLoading({ title: '上传中...' });
+    const uploadResult = await uploadFile(tempFilePath, 'image');
+    headerBgUrl.value = resolveMediaUrl(uploadResult.url);
+    formData.value.header_bg_url = uploadResult.url;
+    uni.hideLoading();
+    uni.showToast({ title: '背景已更新', icon: 'success' });
+    handleSave();
+  } catch (e) {
+    uni.hideLoading();
+    if (e && e.cancelled) return;
+    uni.showToast({ title: '上传失败', icon: 'none' });
   }
 };
 
@@ -206,7 +241,8 @@ const handleSave = async () => {
         name,
         phone,
         signature: (formData.value.signature || '').trim(),
-        avatar_url: formData.value.avatar_url
+        avatar_url: formData.value.avatar_url,
+        header_bg_url: formData.value.header_bg_url
       }
     });
 
@@ -367,6 +403,20 @@ const handleSave = async () => {
   overflow: hidden;
   border: 2rpx solid #f0f0f0;
   background: #f5f5f5;
+}
+
+.header-bg-preview {
+  width: 200rpx;
+  height: 100rpx;
+  border-radius: 12rpx;
+  background-size: cover;
+  background-position: center;
+  background-color: #f5f5f5;
+  display: flex; align-items: center; justify-content: center;
+  border: 2rpx solid #f0f0f0;
+}
+.header-bg-placeholder {
+  font-size: 22rpx; color: #999;
 }
 
 .avatar-trigger {

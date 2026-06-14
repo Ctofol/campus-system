@@ -12,7 +12,7 @@
       
       <view class="info-card">
         <view class="info-item">
-          <text class="icon">📅</text>
+          <image class="detail-icon-img" src="/static/日历.PNG" mode="aspectFit" />
           <view class="info-content">
             <text class="label">活动时间</text>
             <text class="value">{{ formatTime(activity.activity_time) }}</text>
@@ -20,7 +20,7 @@
         </view>
         
         <view class="info-item" v-if="activity.location">
-          <text class="icon">📍</text>
+          <image class="detail-icon-img" src="/static/location.png" mode="aspectFit" />
           <view class="info-content">
             <text class="label">活动地点</text>
             <text class="value">{{ activity.location }}</text>
@@ -28,7 +28,7 @@
         </view>
         
         <view class="info-item" v-if="activity.distance">
-          <text class="icon">🏃</text>
+          <image class="detail-icon-img" src="/static/主页户外跑图标.png" mode="aspectFit" />
           <view class="info-content">
             <text class="label">目标距离</text>
             <text class="value">{{ activity.distance }}km</text>
@@ -36,7 +36,7 @@
         </view>
         
         <view class="info-item">
-          <text class="icon">👥</text>
+          <image class="detail-icon-img" src="/static/主页跑团图标.PNG" mode="aspectFit" />
           <view class="info-content">
             <text class="label">报名人数</text>
             <text class="value">{{ activity.apply_count }}/{{ activity.total_quota }}人</text>
@@ -241,10 +241,7 @@ onMounted(() => {
   border-bottom: none;
 }
 
-.icon {
-  font-size: 40rpx;
-  margin-right: 20rpx;
-}
+.detail-icon-img { width: 40rpx; height: 40rpx; margin-right: 20rpx; flex-shrink: 0; }
 
 .info-content {
   flex: 1;

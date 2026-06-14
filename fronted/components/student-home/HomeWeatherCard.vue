@@ -1,6 +1,6 @@
 <template>
   <view class="home-weather">
-    <text class="home-weather__icon">{{ weatherIcon }}</text>
+    <image class="home-weather__icon" :src="weatherIcon" mode="aspectFit" />
     <text class="home-weather__temp">{{ displayTemp }}</text>
     <view class="home-weather__divider">|</view>
     <text class="home-weather__cond">{{ displayCondition }}</text>
@@ -23,11 +23,11 @@ const props = defineProps({
 
 const weatherIcon = computed(() => {
   const c = props.weather?.condition || '';
-  if (c.includes('雨')) return '🌧️';
-  if (c.includes('雪')) return '❄️';
-  if (c.includes('阴')) return '☁️';
-  if (c.includes('晴')) return '☀️';
-  return '⛅';
+  if (c.includes('雨')) return '/static/主页户外跑图标.png';
+  if (c.includes('雪')) return '/static/主页户外跑图标.png';
+  if (c.includes('阴')) return '/static/主页户外跑图标.png';
+  if (c.includes('晴')) return '/static/主页户外跑图标.png';
+  return '/static/主页户外跑图标.png';
 });
 
 const displayTemp = computed(() => {
@@ -64,7 +64,8 @@ const displayHumidity = computed(() => {
   gap: 12rpx;
 }
 .home-weather__icon {
-  font-size: 36rpx;
+  width: 36rpx;
+  height: 36rpx;
   flex-shrink: 0;
 }
 .home-weather__temp {

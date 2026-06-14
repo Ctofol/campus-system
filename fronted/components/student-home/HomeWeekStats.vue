@@ -3,8 +3,8 @@
     <view v-if="loading" class="home-week__skeleton">
       <view v-for="i in 4" :key="i" class="home-week__sk-item" />
     </view>
-    <view v-else-if="!stats.hasData" class="home-week__empty">
-      <text class="home-week__empty-icon">🏃</text>
+    <view v-else-if="stats && !stats.hasData" class="home-week__empty">
+      <image class="home-week__empty-icon" src="/static/主页户外跑图标.png" mode="aspectFit" />
       <text class="home-week__empty-txt">本周还没有跑步记录</text>
       <view class="home-week__empty-btn" @tap="$emit('startRun')">
         <text>去跑一场</text>
@@ -12,25 +12,25 @@
     </view>
     <view v-else class="home-week__row">
       <view class="home-week-stat">
-        <text class="home-week-stat__icon">📍</text>
+        <image class="home-week-stat__icon" src="/static/主页里程图标.PNG" mode="aspectFit" />
         <text class="home-week-stat__val">{{ stats.distanceKm }}</text>
         <text class="home-week-stat__unit">公里</text>
         <text class="home-week-stat__sub">总距离</text>
       </view>
       <view class="home-week-stat">
-        <text class="home-week-stat__icon">⏱</text>
+        <image class="home-week-stat__icon" src="/static/主页时长图标.png" mode="aspectFit" />
         <text class="home-week-stat__val home-week-stat__val--sm">{{ stats.durationLabel }}</text>
         <text class="home-week-stat__unit">小时</text>
         <text class="home-week-stat__sub">总时长</text>
       </view>
       <view class="home-week-stat">
-        <text class="home-week-stat__icon">⚡</text>
+        <image class="home-week-stat__icon" src="/static/主页配速图标.png" mode="aspectFit" />
         <text class="home-week-stat__val home-week-stat__val--sm">{{ stats.paceLabel }}</text>
         <text class="home-week-stat__unit">/km</text>
         <text class="home-week-stat__sub">平均配速</text>
       </view>
       <view class="home-week-stat">
-        <text class="home-week-stat__icon">🔥</text>
+        <image class="home-week-stat__icon" src="/static/主页卡路里图标.png" mode="aspectFit" />
         <text class="home-week-stat__val">{{ stats.calories }}</text>
         <text class="home-week-stat__unit">千卡</text>
         <text class="home-week-stat__sub">总消耗</text>
@@ -41,7 +41,7 @@
 
 <script setup>
 defineProps({
-  stats: { type: Object, required: true },
+  stats: { type: Object, default: () => ({ hasData: false }) },
   loading: { type: Boolean, default: false }
 });
 defineEmits(['startRun']);
@@ -73,9 +73,9 @@ defineEmits(['startRun']);
   background: #F0F3F6;
 }
 .home-week-stat__icon {
-  font-size: 32rpx;
+  width: 56rpx;
+  height: 56rpx;
   margin-bottom: 10rpx;
-  line-height: 1;
 }
 .home-week-stat__val {
   font-size: 30rpx;
@@ -119,7 +119,8 @@ defineEmits(['startRun']);
   padding: 24rpx 0 8rpx;
 }
 .home-week__empty-icon {
-  font-size: 56rpx;
+  width: 90rpx;
+  height: 90rpx;
   opacity: 0.5;
 }
 .home-week__empty-txt {
