@@ -60,37 +60,7 @@
             @error="onCameraError"
           />
           <!-- 身体框线引导覆盖层 -->
-          <cover-view class="body-guide-overlay">
-            <!-- 头部圆 -->
-            <cover-view class="guide-head" />
-            <!-- 连接线：头-肩 -->
-            <cover-view class="guide-line guide-line-neck" />
-            <!-- 肩线 -->
-            <cover-view class="guide-line guide-line-shoulders" />
-            <!-- 躯干 -->
-            <cover-view class="guide-line guide-line-torso" />
-            <!-- 腿 - 用两个V形 -->
-            <cover-view class="guide-line guide-line-left-leg" />
-            <cover-view class="guide-line guide-line-right-leg" />
-            <!-- 肩膀圆点 -->
-            <cover-view class="guide-dot guide-dot-ls" />
-            <cover-view class="guide-dot guide-dot-rs" />
-            <!-- 手肘圆点 -->
-            <cover-view class="guide-dot guide-dot-le" />
-            <cover-view class="guide-dot guide-dot-re" />
-            <!-- 手腕圆点 -->
-            <cover-view class="guide-dot guide-dot-lw" />
-            <cover-view class="guide-dot guide-dot-rw" />
-            <!-- 髋圆点 -->
-            <cover-view class="guide-dot guide-dot-lh" />
-            <cover-view class="guide-dot guide-dot-rh" />
-            <!-- 膝盖圆点 -->
-            <cover-view class="guide-dot guide-dot-lk" />
-            <cover-view class="guide-dot guide-dot-rk" />
-            <!-- 脚踝圆点 -->
-            <cover-view class="guide-dot guide-dot-la" />
-            <cover-view class="guide-dot guide-dot-ra" />
-          </cover-view>
+
 
           <cover-view class="cam-hint">{{ isRecording ? '录制中...请完成动作' : '对准框线，确保全身入镜' }}</cover-view>
           <cover-view v-if="isRecording" class="cam-timer">{{ formattedTime }}</cover-view>
@@ -615,6 +585,7 @@ const goToResult = () => {
   position: relative;
   overflow: hidden;
   background: #000;
+  min-height: 600rpx;
 }
 
 .camera-live {
@@ -622,103 +593,15 @@ const goToResult = () => {
   height: 100%;
 }
 
-/* 身体框线引导覆盖层 */
-.body-guide-overlay {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 320rpx;
-  height: 560rpx;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-}
 
-.guide-head {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  width: 60rpx;
-  height: 60rpx;
-  border-radius: 50%;
-  border: 3rpx dashed rgba(51, 201, 171, 0.5);
-  transform: translateX(-50%);
-}
-
-.guide-line {
-  position: absolute;
-  background: rgba(51, 201, 171, 0.35);
-}
-
-.guide-line-neck {
-  top: 60rpx;
-  left: 50%;
-  width: 2rpx;
-  height: 40rpx;
-  transform: translateX(-50%);
-}
-
-.guide-line-shoulders {
-  top: 100rpx;
-  left: 50%;
-  width: 180rpx;
-  height: 2rpx;
-  transform: translateX(-50%);
-}
-
-.guide-line-torso {
-  top: 102rpx;
-  left: 50%;
-  width: 2rpx;
-  height: 200rpx;
-  transform: translateX(-50%);
-}
-
-.guide-line-left-leg {
-  top: 302rpx;
-  left: 50%;
-  width: 2rpx;
-  height: 120rpx;
-  transform: rotate(12deg);
-  transform-origin: top center;
-}
-
-.guide-line-right-leg {
-  top: 302rpx;
-  left: 50%;
-  width: 2rpx;
-  height: 120rpx;
-  transform: rotate(-12deg);
-  transform-origin: top center;
-}
-
-.guide-dot {
-  position: absolute;
-  width: 14rpx;
-  height: 14rpx;
-  border-radius: 50%;
-  background: rgba(51, 201, 171, 0.6);
-  border: 2rpx solid rgba(51, 201, 171, 0.8);
-}
-
-.guide-dot-ls { top: 100rpx; left: 50%; transform: translate(-90rpx, -7rpx); }
-.guide-dot-rs { top: 100rpx; left: 50%; transform: translate(76rpx, -7rpx); }
-.guide-dot-le { top: 168rpx; left: 50%; transform: translate(-110rpx, -7rpx); }
-.guide-dot-re { top: 168rpx; left: 50%; transform: translate(96rpx, -7rpx); }
-.guide-dot-lw { top: 236rpx; left: 50%; transform: translate(-100rpx, -7rpx); }
-.guide-dot-rw { top: 236rpx; left: 50%; transform: translate(86rpx, -7rpx); }
-.guide-dot-lh { top: 302rpx; left: 50%; transform: translate(-40rpx, -7rpx); }
-.guide-dot-rh { top: 302rpx; left: 50%; transform: translate(26rpx, -7rpx); }
-.guide-dot-lk { top: 390rpx; left: 50%; transform: translate(-24rpx, -7rpx); }
-.guide-dot-rk { top: 390rpx; left: 50%; transform: translate(10rpx, -7rpx); }
-.guide-dot-la { top: 490rpx; left: 50%; transform: translate(-18rpx, -7rpx); }
-.guide-dot-ra { top: 490rpx; left: 50%; transform: translate(4rpx, -7rpx); }
 
 .cam-hint {
   position: absolute;
   top: 60rpx;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.55);
+  background: #000;
+  opacity: 0.55;
   color: #fff;
   font-size: 24rpx;
   padding: 10rpx 28rpx;
@@ -734,7 +617,8 @@ const goToResult = () => {
   font-size: 36rpx;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
-  background: rgba(0, 0, 0, 0.5);
+  background: #000;
+  opacity: 0.5;
   padding: 6rpx 20rpx;
   border-radius: 28rpx;
 }

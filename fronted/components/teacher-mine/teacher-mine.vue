@@ -14,7 +14,7 @@
     <view class="menu-list">
         <view class="menu-item" @click="handlePersonalInfo">
           <view class="menu-left">
-            <image class="menu-icon-img" src='/static/"关于我的"图标.png' mode="aspectFit" />
+            <image class="menu-icon-img" src='/static/about-me.png' mode="aspectFit" />
           <text class="menu-text">个人信息设置</text>
         </view>
         <text class="arrow"></text>
@@ -252,7 +252,7 @@ const handleLogout = () => {
 .menu-icon {
   font-size: 36rpx;
 }
-.menu-icon-img { width: 56rpx; height: 56rpx; }
+.menu-icon-img { width: 72rpx; height: 72rpx; margin-right: 16rpx; }
 .menu-text {
   font-size: 30rpx;
   color: #333;

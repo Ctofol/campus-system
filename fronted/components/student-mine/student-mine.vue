@@ -17,9 +17,11 @@
             <text class="name">{{ userName }}</text>
             <text class="edit-btn">✎</text>
           </view>
-          <text class="desc">{{ userSignature || '跑步爱好者' }}</text>
-          <view class="streak-badge">
-            <text>已连续运动 {{ totalRunCount }} 次</text>
+          <view class="desc-row">
+            <text class="desc">{{ userSignature || '跑步爱好者' }}</text>
+            <view class="streak-badge">
+              <text>已连续运动 {{ totalRunCount }} 次</text>
+            </view>
           </view>
         </view>
       </view>
@@ -123,7 +125,7 @@
         </view>
         <view class="setting-row" @tap="gotoAbout">
           <view class="setting-left">
-            <image class="setting-icon" src='/static/"关于我的"图标.png' mode="aspectFit" />
+            <image class="setting-icon" src='/static/about-me.png' mode="aspectFit" />
             <text class="setting-label">关于我们</text>
           </view>
           <text class="setting-arrow">›</text>
@@ -147,7 +149,7 @@ import { ref, computed, onMounted } from 'vue';
 import { request, getStudentTaskRunHistory, avatarImageSrc, resolveMediaUrl } from '@/utils/request.js';
 import { mapRecordStatus, isValidSunshineRun } from '@/utils/activity-record.js';
 
-const statusBarHeight = ref(20);
+const statusBarHeight = ref(uni.getSystemInfoSync().statusBarHeight || 20);
 const currentTime = ref('');
 const avatarUrl = ref('/static/default-avatar.svg');
 
@@ -392,9 +394,10 @@ defineExpose({ onPageShow });
 .name-row { display: flex; align-items: center; gap: 12rpx; }
 .name { font-size: 40rpx; font-weight: 700; color: #fff; }
 .edit-btn { font-size: 28rpx; color: rgba(255,255,255,0.6); }
-.desc { font-size: 24rpx; color: rgba(255,255,255,0.8); margin-top: 6rpx; }
+.desc-row { margin-top: 6rpx; }
+.desc { font-size: 24rpx; color: rgba(255,255,255,0.8); display: block; }
 .streak-badge {
-  margin-top: 16rpx; display: inline-flex;
+  margin-top: 10rpx; display: inline-flex;
   background: rgba(255,255,255,0.25); backdrop-filter: blur(10px);
   border-radius: 40rpx; padding: 4rpx 20rpx;
   font-size: 20rpx; color: #fff;
@@ -417,7 +420,7 @@ defineExpose({ onPageShow });
 .data-grid { display: flex; justify-content: space-between; }
 .data-item { display: flex; flex-direction: column; align-items: center; flex: 1; }
 .data-item + .data-item { border-left: 1rpx solid #f0f0f0; }
-.data-icon { width: 44rpx; height: 44rpx; margin-bottom: 8rpx; }
+.data-icon { width: 56rpx; height: 56rpx; margin-bottom: 8rpx; }
 .data-val { font-size: 32rpx; font-weight: 700; color: #191C1E; }
 .data-label { font-size: 18rpx; color: #8a9bab; margin-top: 4rpx; }
 
@@ -435,7 +438,7 @@ defineExpose({ onPageShow });
   width: 25%; display: flex; flex-direction: column; align-items: center;
   margin-bottom: 36rpx;
 }
-.func-icon { width: 56rpx; height: 56rpx; margin-bottom: 12rpx; }
+.func-icon { width: 72rpx; height: 72rpx; margin-bottom: 12rpx; }
 .func-label { font-size: 22rpx; color: #333; }
 
 /* === Settings List === */
@@ -449,7 +452,7 @@ defineExpose({ onPageShow });
 .setting-row + .setting-row { border-top: 1rpx solid #f5f5f5; }
 .setting-row:active { background: #f9f9f9; }
 .setting-left { display: flex; align-items: center; gap: 24rpx; }
-.setting-icon { width: 40rpx; height: 40rpx; }
+.setting-icon { width: 52rpx; height: 52rpx; }
 .setting-label { font-size: 28rpx; color: #1a2b3c; }
 .setting-right { display: flex; align-items: center; gap: 12rpx; }
 .setting-version { font-size: 22rpx; color: #8a9bab; }

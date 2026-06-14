@@ -85,22 +85,22 @@
           </view>
           <view class="overview-grid">
             <view class="overview-item">
-              <image class="overview-icon" src="/static/主页里程图标.PNG" mode="aspectFit" />
+              <image class="overview-icon" src="/static/总里程2.png" mode="aspectFit" />
               <text class="overview-val">{{ totalStats.distance }}</text>
               <text class="overview-unit">总里程(km)</text>
             </view>
             <view class="overview-item">
-              <image class="overview-icon" src="/static/主页时长图标.png" mode="aspectFit" />
+              <image class="overview-icon" src="/static/总时长2.png" mode="aspectFit" />
               <text class="overview-val">{{ totalStats.duration }}</text>
               <text class="overview-unit">总时长(min)</text>
             </view>
             <view class="overview-item">
-              <image class="overview-icon" src="/static/主页卡路里图标.png" mode="aspectFit" />
+              <image class="overview-icon" src="/static/总消耗.png" mode="aspectFit" />
               <text class="overview-val">{{ totalStats.calories }}</text>
               <text class="overview-unit">总消耗(kcal)</text>
             </view>
             <view class="overview-item">
-              <image class="overview-icon" src="/static/数据图标.png" mode="aspectFit" />
+              <image class="overview-icon" src="/static/运动次数.png" mode="aspectFit" />
               <text class="overview-val">{{ totalStats.count }}</text>
               <text class="overview-unit">运动次数</text>
             </view>
@@ -320,8 +320,8 @@ onMounted(() => {
 .entry-card:active { transform: scale(0.97); }
 .entry-icon-wrap { margin-right: 16rpx; flex-shrink: 0; }
 .entry-icon { width: 72rpx; height: 72rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
-.entry-icon--run { background: #E8F8F2; }
-.entry-icon--test { background: #FFF3E0; }
+.entry-icon--run { background: transparent; }
+.entry-icon--test { background: transparent; }
 .entry-icon-text { width: 56rpx; height: 56rpx; }
 .entry-info { flex: 1; min-width: 0; }
 .entry-title { font-size: 28rpx; font-weight: 700; color: #191C1E; display: block; }
@@ -352,10 +352,7 @@ onMounted(() => {
 
 .today-indicators { flex: 1; display: flex; flex-direction: column; gap: 16rpx; }
 .today-indicator { display: flex; align-items: center; background: #F7F8FA; border-radius: 16rpx; padding: 18rpx 20rpx; }
-.today-ind-icon { width: 56rpx; height: 56rpx; border-radius: 12rpx; display: flex; align-items: center; justify-content: center; margin-right: 14rpx; }
-.today-ind-icon--check { background: #E8F8F2; }
-.today-ind-icon--fail { background: #FFF0F0; }
-.today-ind-icon--count { background: #E8F4FC; }
+.today-ind-icon { width: 56rpx; height: 56rpx; display: flex; align-items: center; justify-content: center; margin-right: 14rpx; }
 .today-ind-emoji { font-size: 26rpx; }
 .today-ind-emoji-img { width: 56rpx; height: 56rpx; }
 .today-ind-body { flex: 1; }

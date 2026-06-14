@@ -236,6 +236,11 @@ defineExpose({
   &.red { background-color: #ffebee; color: #f44336; }
 }
 
+.grid-icon-img {
+  width: 56rpx;
+  height: 56rpx;
+}
+
 .grid-label {
   font-size: 30rpx;
   font-weight: bold;

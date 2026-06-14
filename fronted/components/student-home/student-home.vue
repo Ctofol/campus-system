@@ -216,7 +216,7 @@ import HomeSectionHeader from './HomeSectionHeader.vue';
 import HomeWeekStats from './HomeWeekStats.vue';
 import HomeActivityCard from './HomeActivityCard.vue';
 
-const statusBarHeight = ref(20);
+const statusBarHeight = ref(uni.getSystemInfoSync().statusBarHeight || 20);
 const safeBottom = ref(0);
 const refreshing = ref(false);
 const showTaskModal = ref(false);

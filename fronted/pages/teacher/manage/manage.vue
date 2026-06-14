@@ -15,7 +15,7 @@
 
         <!-- 任务管理 -->
         <view class="grid-item" @click="navTo('/pages/teacher/tasks/tasks')">
-          <view class="icon-box green">📢</view>
+          <view class="icon-box green"><image class="icon-box-img" src="/static/通知图标.png" mode="aspectFit" /></view>
           <text class="grid-label">任务管理</text>
           <text class="grid-desc">发布、审批</text>
         </view>

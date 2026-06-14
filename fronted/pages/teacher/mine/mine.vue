@@ -16,7 +16,7 @@
       <view class="menu-list">
         <view class="menu-item" @click="handlePersonalInfo">
           <view class="menu-left">
-            <image class="menu-icon" src='/static/"关于我的"图标.png' mode="aspectFit" />
+            <image class="menu-icon" src='/static/about-me.png' mode="aspectFit" />
             <text class="menu-text">个人信息设置</text>
           </view>
           <text class="arrow">→</text>
