@@ -30,7 +30,6 @@ onShow(() => {
 
   role.value = uni.getStorageSync('userRole') || 'student';
 
-  const sb = (i) => { uni.setTabBarItem(i).catch(() => {}); };
   if (role.value === 'teacher') {
     sb({ index: 1, text: '管理', iconPath: '/static/tab/function.png', selectedIconPath: '/static/tab/function-active.png' });
     sb({ index: 2, text: '课程', iconPath: '/static/tab/stats.png', selectedIconPath: '/static/tab/stats-active.png' });

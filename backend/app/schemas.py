@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+﻿from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
 
@@ -182,13 +182,9 @@ class ActivityMetricsCreate(BaseModel):
     checkpoints: Optional[str] = None
     count: Optional[int] = None
     qualified: bool = False
-    step_count: Optional[int] = None
-    video_url: Optional[str] = None
-    score: Optional[int] = None
-    score_detail: Optional[str] = None
-    exercise_type: Optional[str] = None
-    analysis_status: Optional[str] = None
-    analysis_error: Optional[str] = None
+    step_count: Optional[int] = None  # 姝ユ暟
+    video_url: Optional[str] = None  # 瑙嗛鏂囦欢URL
+    score: Optional[int] = None  # AI璇勫垎锛?-100锛?    score_detail: Optional[str] = None  # 璇勫垎璇︽儏锛圝SON瀛楃涓诧級
 
 class ActivityEvidenceCreate(BaseModel):
     evidence_type: str
@@ -236,8 +232,6 @@ class ActivityOut(BaseModel):
     metrics: Optional[ActivityMetricsOut] = None
     evidence: List[ActivityEvidenceOut] = []
     review: Optional[ActivityReviewOut] = None
-    has_trajectory: bool = False
-    trajectory_preview: List["HomeMapPoint"] = []
     # 鑷敱璺戯細闃冲厜璺戞牳楠岋紱浠诲姟璺戯細鏄惁婊¤冻浠诲姟瑕佹眰
     is_valid: Optional[bool] = None
     fail_reason: Optional[str] = None
@@ -307,8 +301,7 @@ class TaskCreate(BaseModel):
     min_distance: Optional[float] = 0.0
     min_duration: Optional[int] = 0
     min_count: Optional[int] = 0
-    starts_at: Optional[datetime] = None
-    deadline: Optional[datetime] = None
+    starts_at: Optional[datetime] = None  # 鏈埌璇ユ椂闂村鐢熶笉鍙彁浜?    deadline: Optional[datetime] = None
     description: Optional[str] = None
     # 鏁欏笀鍙戝竷锛氭寚瀹?class_id 鍗曠彮锛屾垨 class_ids 澶氱彮锛堝悓涓€浠诲姟鍐呭澶嶅埗鍒板悇鐝級锛涗紭鍏堜娇鐢ㄩ潪绌虹殑 class_ids
     target_group: Optional[str] = "class"
@@ -589,14 +582,6 @@ class CourseDetailOut(CourseOut):
     contents: List[CourseContentOut] = []
     enrolled: bool = False  # 褰撳墠鐢ㄦ埛鏄惁宸查€夎
     enrollment_count: int = 0  # 閫夎浜烘暟
-
-class CourseListItemOut(CourseOut):
-    enrolled: bool = False
-    teacher_name: Optional[str] = None
-    lesson_total: int = 0
-    lesson_completed: int = 0
-    progress_percent: int = 0
-    duration_minutes: int = 0
 
 class CourseListResponse(BaseModel):
     items: List[CourseListItemOut]

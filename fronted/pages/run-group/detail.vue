@@ -107,7 +107,7 @@ const isMember = ref(false);
 const isCreator = ref(false);
 
 const groupAvatar = computed(() => {
-  if (!groupDetail.value || !groupDetail.value.avatar) return '/static/default-avatar.svg';
+  if (!groupDetail.value || !groupDetail.value.avatar) return '/static/default-avatar.png';
   return resolveMediaUrl(groupDetail.value.avatar);
 });
 

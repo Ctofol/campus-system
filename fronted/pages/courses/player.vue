@@ -76,12 +76,17 @@ const progressTimer = ref(null);
 const currentTime = ref(0);
 const loadError = ref('');
 
-const truncateUrl = (url, max = 80) => {
+const truncateUrl = (url, max = 120) => {
   if (!url) return '';
   return url.length > max ? `${url.slice(0, max)}...` : url;
 };
 
-const displayUrl = ref('');
+const copyExternalLink = (url) => {
+  uni.setClipboardData({
+    data: url,
+    success: () => uni.showToast({ title: '链接已复制', icon: 'none' })
+  });
+};
 
 const openExternalLink = (url) => {
   if (!url) {
@@ -89,17 +94,26 @@ const openExternalLink = (url) => {
     return;
   }
 
-  uni.setClipboardData({
-    data: url,
-    success: () => {
-      uni.showModal({
-        title: '链接已复制',
-        content: '已复制到剪贴板，请粘贴至浏览器打开',
-        showCancel: false,
-        confirmText: '知道了'
-      });
-    }
-  });
+  if (/^https?:\/\//i.test(url)) {
+    uni.showModal({
+      title: '打开外部链接',
+      content: `即将打开：\n${truncateUrl(url)}`,
+      confirmText: '打开',
+      cancelText: '复制链接',
+      success: (res) => {
+        if (res.confirm) {
+          uni.navigateTo({
+            url: `/pages/common/webview?url=${encodeURIComponent(url)}`
+          });
+        } else if (res.cancel) {
+          copyExternalLink(url);
+        }
+      }
+    });
+    return;
+  }
+
+  copyExternalLink(url);
 };
 
 const loadContent = async (id) => {

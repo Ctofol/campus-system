@@ -8,9 +8,14 @@
           <view v-if="unreadNotifyCount > 0" class="notif-dot" />
         </view>
       </view>
-      <view class="profile-content">
-        <view class="avatar-wrap" @tap="gotoUserProfile">
-          <image class="avatar" :src="avatarUrl" mode="aspectFill" />
+    </view>
+    
+    <view class="content-wrapper" :style="{paddingTop: (statusBarHeight + 44) + 'px'}">
+      <!-- 1. 账号主页（顶部） -->
+      <view class="user-header">
+        <view class="avatar-box">
+          <image class="avatar" :src="avatarUrl" mode="aspectFill"></image>
+          <button class="edit-avatar" @click="gotoUserProfile">编辑资料</button>
         </view>
         <view class="profile-info" @tap="gotoUserProfile">
           <view class="name-row">
@@ -146,12 +151,10 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import { request, getStudentTaskRunHistory, avatarImageSrc, resolveMediaUrl } from '@/utils/request.js';
-import { mapRecordStatus, isValidSunshineRun } from '@/utils/activity-record.js';
+import { request, getStudentTaskRunHistory, resolveMediaUrl } from '@/utils/request.js';
 
-const statusBarHeight = ref(uni.getSystemInfoSync().statusBarHeight || 20);
-const currentTime = ref('');
-const avatarUrl = ref('/static/default-avatar.svg');
+const statusBarHeight = ref(20);
+const avatarUrl = ref('/static/avatar.png');
 
 const userName = ref('同学');
 const userSignature = ref('');
@@ -265,17 +268,26 @@ const fetchTaskRuns = async () => {
 };
 
 const fetchUserProfile = async () => {
-  try {
-    const res = await request({ url: '/users/profile', method: 'GET' });
-    if (res) {
-      if (res.name) userName.value = res.name;
-      if (res.class_name) className.value = res.class_name;
-      userSignature.value = (res.signature || '').trim();
-      avatarUrl.value = res.avatar_url ? avatarImageSrc(res.avatar_url) : '/static/default-avatar.svg';
-      if (res.header_bg_url) headerBgUrl.value = resolveMediaUrl(res.header_bg_url);
-      let currentUser = uni.getStorageSync('userInfo');
-      if (typeof currentUser === 'string') { try { currentUser = JSON.parse(currentUser); } catch(e) { currentUser = {}; } }
-      uni.setStorageSync('userInfo', { ...currentUser, ...res });
+    try {
+        const res = await request({
+            url: '/users/profile',
+            method: 'GET'
+        });
+        if (res) {
+        if (res.name) userName.value = res.name;
+        if (res.class_name) className.value = res.class_name;
+        avatarUrl.value = res.avatar_url ? resolveMediaUrl(res.avatar_url) : '/static/avatar.png';
+        
+        // Update storage
+            let currentUser = uni.getStorageSync('userInfo');
+            if (typeof currentUser === 'string') {
+                try { currentUser = JSON.parse(currentUser); } catch(e) { currentUser = {}; }
+            }
+            const newUser = { ...currentUser, ...res };
+            uni.setStorageSync('userInfo', newUser);
+        }
+    } catch (e) {
+        console.error('Fetch profile failed', e);
     }
   } catch (e) { console.error('Fetch profile failed', e); }
 };
@@ -297,11 +309,9 @@ const onPageShow = () => {
     let u = user;
     if (typeof user === 'string') { try { u = JSON.parse(user); } catch(e) {} }
     if (u) {
-      if (u.name) userName.value = u.name;
-      if (u.class_name) className.value = u.class_name;
-      userSignature.value = (u.signature || '').trim();
-      avatarUrl.value = u.avatar_url ? avatarImageSrc(u.avatar_url) : '/static/default-avatar.svg';
-      if (u.header_bg_url) headerBgUrl.value = resolveMediaUrl(u.header_bg_url);
+        if(u.name) userName.value = u.name;
+        if(u.class_name) className.value = u.class_name;
+        avatarUrl.value = u.avatar_url ? resolveMediaUrl(u.avatar_url) : '/static/avatar.png';
     }
   }
   fetchHistory();

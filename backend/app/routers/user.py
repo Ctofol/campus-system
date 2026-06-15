@@ -56,7 +56,6 @@ def update_my_profile(
     if profile_update.name:
         current_user.name = profile_update.name
 
-    phone_changed = False
     if profile_update.phone is not None:
         phone = str(profile_update.phone).strip()
         if not phone:
@@ -69,7 +68,6 @@ def update_my_profile(
             if exists:
                 raise HTTPException(status_code=400, detail="该手机号已被绑定")
             current_user.phone = phone
-            phone_changed = True
     
     if profile_update.signature is not None:
         current_user.signature = profile_update.signature

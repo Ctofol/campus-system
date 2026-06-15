@@ -1,9 +1,12 @@
 <template>
   <view class="create-activity-page">
-    <page-tab-header title="发布活动" show-back theme="white" />
+    <view class="navbar">
+      <text class="back-btn" @click="goBack">←</text>
+      <text class="title">发布活动</text>
+    </view>
 
     <scroll-view
-      class="form-scroll page-tab-body"
+      class="form-scroll"
       scroll-y
       :scroll-into-view="scrollIntoViewId"
       scroll-with-animation
@@ -15,7 +18,7 @@
           <view class="cover-upload" @click="chooseCover">
             <image v-if="coverImage" :src="coverImage" mode="aspectFill" class="cover-preview" />
             <view v-else class="cover-placeholder">
-              <image class="upload-icon-img" src="/static/主页GO图标.PNG" mode="aspectFit" />
+              <text class="upload-icon">📷</text>
               <text class="upload-text">点击上传封面</text>
             </view>
           </view>
@@ -336,6 +339,28 @@ const handleSubmit = async () => {
   height: 2rpx;
 }
 
+.navbar {
+  flex-shrink: 0;
+  background: #20c997;
+  padding: 20rpx 30rpx;
+  padding-top: calc(20rpx + env(safe-area-inset-top));
+  display: flex;
+  align-items: center;
+  z-index: 100;
+}
+
+.back-btn {
+  font-size: 36rpx;
+  color: #fff;
+  margin-right: 20rpx;
+}
+
+.title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #fff;
+}
+
 .form-container {
   padding: 40rpx 30rpx 24rpx;
 }
@@ -395,7 +420,10 @@ const handleSubmit = async () => {
   justify-content: center;
 }
 
-.upload-icon-img { width: 60rpx; height: 60rpx; margin-bottom: 16rpx; }
+.upload-icon {
+  font-size: 60rpx;
+  margin-bottom: 16rpx;
+}
 
 .upload-text {
   font-size: 24rpx;

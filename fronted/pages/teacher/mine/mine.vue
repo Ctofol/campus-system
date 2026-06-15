@@ -56,10 +56,10 @@
 <script setup>
 import { ref } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
-import { request, resolveMediaUrl, BASE_URL } from '@/utils/request.js';
+import { request, resolveMediaUrl } from '@/utils/request.js';
 
 const userInfo = ref({});
-const avatarDisplay = ref('/static/default-avatar.svg');
+const avatarDisplay = ref('/static/avatar.png');
 const notificationCount = ref(0);
 
 const syncFromStorage = () => {
@@ -72,7 +72,7 @@ const syncFromStorage = () => {
   }
   avatarDisplay.value = userInfo.value.avatar_url
     ? resolveMediaUrl(userInfo.value.avatar_url)
-    : '/static/default-avatar.svg';
+    : '/static/avatar.png';
 };
 
 const fetchProfile = async () => {
@@ -80,7 +80,7 @@ const fetchProfile = async () => {
     const res = await request({ url: '/users/profile', method: 'GET' });
     if (!res) return;
     userInfo.value = { ...userInfo.value, ...res };
-    avatarDisplay.value = res.avatar_url ? resolveMediaUrl(res.avatar_url) : '/static/default-avatar.svg';
+    avatarDisplay.value = res.avatar_url ? resolveMediaUrl(res.avatar_url) : '/static/avatar.png';
     uni.setStorageSync('userInfo', userInfo.value);
   } catch (e) {
     console.error('fetch teacher profile failed', e);

@@ -1,28 +1,17 @@
-<template>
+﻿<template>
   <view class="discover-page">
-    <page-tab-header
-      :title="showCreateForm ? '创建跑团' : '跑团发现'"
-      :show-back="showCreateForm"
-      :back-handler="goBack"
-      theme="white"
-    >
-      <template #right>
-        <text
-          v-if="!showCreateForm"
-          class="page-tab-header-text-action"
-          @click="goToRank"
-        >排行榜</text>
-      </template>
-    </page-tab-header>
-
-    <view class="page-tab-body">
+    <view class="navbar">
+      <text class="back-btn" @click="goBack" v-if="showCreateForm">←</text>
+      <text class="title">{{ showCreateForm ? '创建跑团' : '跑团发现' }}</text>
+      <text class="rank-btn" @click="goToRank" v-if="!showCreateForm">排行榜</text>
+    </view>
 
     <view class="create-form" v-if="showCreateForm">
       <view class="form-item avatar-item">
         <text class="label">跑团头像</text>
         <view class="avatar-picker" @click="chooseGroupAvatar">
           <image class="avatar-preview" :src="avatarPreview" mode="aspectFill" />
-          <text class="avatar-text">点击上传 · 可裁剪</text>
+          <text class="avatar-text">点击上传</text>
         </view>
       </view>
 
@@ -98,7 +87,7 @@ const loading = ref(false);
 const refreshing = ref(false);
 const noMore = ref(false);
 const showCreateForm = ref(false);
-const avatarPreview = ref('/static/default-avatar.svg');
+const avatarPreview = ref('/static/default-avatar.png');
 const formData = ref({
   name: '',
   description: '',
@@ -106,7 +95,7 @@ const formData = ref({
 });
 
 const groupAvatar = (avatar) => {
-  if (!avatar) return '/static/default-avatar.svg';
+  if (!avatar) return '/static/default-avatar.png';
   return resolveMediaUrl(avatar);
 };
 
@@ -163,19 +152,26 @@ const loadMore = () => {
   }
 };
 
-const chooseGroupAvatar = async () => {
-  try {
-    const filePath = await pickAvatarFromAlbum();
-    uni.showLoading({ title: '上传中...' });
-    const uploadResult = await uploadFile(filePath, 'image');
-    formData.value.avatar = uploadResult.url;
-    avatarPreview.value = resolveMediaUrl(uploadResult.url);
-  } catch (e) {
-    if (e?.cancelled) return;
-    uni.showToast({ title: e?.message || '上传失败', icon: 'none' });
-  } finally {
-    uni.hideLoading();
-  }
+const chooseGroupAvatar = () => {
+  uni.chooseImage({
+    count: 1,
+    sizeType: ['compressed'],
+    sourceType: ['album', 'camera'],
+    success: async (res) => {
+      const filePath = res.tempFilePaths && res.tempFilePaths[0];
+      if (!filePath) return;
+      try {
+        uni.showLoading({ title: '上传中...' });
+        const uploadResult = await uploadFile(filePath, 'image');
+        formData.value.avatar = uploadResult.url;
+        avatarPreview.value = resolveMediaUrl(uploadResult.url);
+      } catch (e) {
+        uni.showToast({ title: '上传失败', icon: 'none' });
+      } finally {
+        uni.hideLoading();
+      }
+    }
+  });
 };
 
 const handleJoin = async (groupId) => {
@@ -226,7 +222,7 @@ const goBack = () => {
     description: '',
     avatar: ''
   };
-  avatarPreview.value = '/static/default-avatar.svg';
+  avatarPreview.value = '/static/default-avatar.png';
   loadGroups(true);
 };
 
@@ -249,6 +245,36 @@ onMounted(() => {
 .discover-page {
   min-height: 100vh;
   background: #f5f7fa;
+}
+
+.navbar {
+  position: sticky;
+  top: 0;
+  background: #20c997;
+  padding: 20rpx 30rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 100;
+}
+
+.back-btn {
+  font-size: 36rpx;
+  color: #fff;
+}
+
+.title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #fff;
+}
+
+.rank-btn {
+  font-size: 26rpx;
+  color: #fff;
+  padding: 8rpx 20rpx;
+  border: 1px solid #fff;
+  border-radius: 20rpx;
 }
 
 .create-form {

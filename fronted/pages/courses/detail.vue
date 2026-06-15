@@ -115,6 +115,11 @@ const loading = ref(true);
 const enrolling = ref(false);
 const brokenImages = ref(new Set());
 
+const truncateUrl = (url, max = 120) => {
+  if (!url) return '';
+  return url.length > max ? `${url.slice(0, max)}...` : url;
+};
+
 const copyExternalLink = (url) => {
   uni.setClipboardData({
     data: url,
@@ -129,15 +134,27 @@ const openExternalLink = (url) => {
     uni.showToast({ title: '暂无可访问地址', icon: 'none' });
     return;
   }
-  uni.showModal({
-    title: '外部链接',
-    content: `即将复制链接到剪贴板：\n${url}`,
-    confirmText: '复制链接',
-    showCancel: false,
-    success: () => {
-      copyExternalLink(url);
-    }
-  });
+
+  if (/^https?:\/\//i.test(url)) {
+    uni.showModal({
+      title: '打开外部链接',
+      content: `即将打开：\n${truncateUrl(url)}`,
+      confirmText: '打开',
+      cancelText: '复制链接',
+      success: (res) => {
+        if (res.confirm) {
+          uni.navigateTo({
+            url: `/pages/common/webview?url=${encodeURIComponent(url)}`
+          });
+        } else if (res.cancel) {
+          copyExternalLink(url);
+        }
+      }
+    });
+    return;
+  }
+
+  copyExternalLink(url);
 };
 
 const getFullImageUrl = (url) => {
@@ -292,6 +309,10 @@ const playContent = (content) => {
   }
 
   if (content.content_type === 'link') {
+    // #ifdef H5
+    window.open(fullUrl, '_blank');
+    return;
+    // #endif
     openExternalLink(fullUrl);
     return;
   }

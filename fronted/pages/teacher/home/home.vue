@@ -36,7 +36,7 @@
       <!-- 3. 待办事项 - 功能打通：全部按钮跳转 -->
       <view class="section-card todo-section">
         <view class="section-header">
-          <text class="page-section-title page-section-title--compact">今日待办</text>
+          <text class="section-title">今日待办</text>
           <view class="section-more link-more" @click="goToTodos">
             <text>全部</text>
             <view class="link-arrow" />

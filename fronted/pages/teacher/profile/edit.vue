@@ -1,16 +1,15 @@
 <template>
   <view class="edit-profile-page">
-    <page-tab-header title="个人信息设置" theme="white" show-back />
-    <view class="page-tab-body">
     <view class="form-section">
       <view class="form-item avatar-item">
         <view class="avatar-row">
           <text class="label">头像</text>
           <view class="avatar-preview" @click="chooseAvatar">
-            <view class="avatar-img-wrap">
-              <image :src="avatarUrl" mode="aspectFill" class="avatar-img" />
+            <image :src="avatarUrl" mode="aspectFill" class="avatar-img" />
+            <view class="change-copy">
+              <text class="change-text">点击更换</text>
+              <text class="change-sub">相册 / 拍照</text>
             </view>
-            <text class="change-text">更改头像</text>
           </view>
         </view>
       </view>
@@ -26,38 +25,23 @@
       </view>
 
       <view class="form-item signature-item">
-        <text class="label signature-label">个性签名</text>
-        <textarea
-          v-model="formData.signature"
-          class="textarea"
-          maxlength="100"
-          placeholder="写点什么吧，最多 100 字"
-          :auto-height="true"
-          :show-confirm-bar="false"
-        />
+        <text class="label">个性签名</text>
+        <textarea v-model="formData.signature" class="textarea" maxlength="100" placeholder="写点什么吧" />
       </view>
     </view>
 
     <view class="button-section">
       <button class="save-btn" :loading="saving" @click="saveProfile">保存</button>
     </view>
-    </view>
   </view>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import {
-  request,
-  uploadFile,
-  resolveMediaUrl,
-  persistAvatarUrl,
-  patchStoredUserInfo
-} from '@/utils/request.js';
+import { request, uploadFile, resolveMediaUrl } from '@/utils/request.js';
 import { pickAvatarFromAlbum } from '@/utils/avatar-picker.js';
-import PageTabHeader from '@/components/page-tab-header/page-tab-header.vue';
 
-const avatarUrl = ref('/static/default-avatar.svg');
+const avatarUrl = ref('/static/avatar.png');
 const saving = ref(false);
 const formData = ref({
   name: '',
@@ -80,7 +64,7 @@ const loadProfile = async () => {
       signature: res.signature || '',
       avatar_url: res.avatar_url || ''
     };
-    avatarUrl.value = res.avatar_url ? resolveMediaUrl(res.avatar_url) : '/static/default-avatar.svg';
+    avatarUrl.value = res.avatar_url ? resolveMediaUrl(res.avatar_url) : '/static/avatar.png';
   } catch (e) {
     uni.showToast({ title: '加载失败', icon: 'none' });
   }
@@ -93,10 +77,8 @@ const uploadAvatar = async (filePath) => {
     const uploadResult = await uploadFile(filePath, 'image');
     formData.value.avatar_url = uploadResult.url;
     avatarUrl.value = resolveMediaUrl(uploadResult.url);
-    await persistAvatarUrl(uploadResult.url);
-    uni.showToast({ title: '头像已更新', icon: 'success' });
   } catch (e) {
-    uni.showToast({ title: e?.message || '上传失败', icon: 'none' });
+    uni.showToast({ title: '上传失败', icon: 'none' });
   } finally {
     uni.hideLoading();
   }
@@ -127,7 +109,7 @@ const saveProfile = async () => {
 
   saving.value = true;
   try {
-    const putRes = await request({
+    await request({
       url: '/users/profile',
       method: 'PUT',
       data: {
@@ -138,16 +120,22 @@ const saveProfile = async () => {
       }
     });
 
-    if (putRes && putRes.access_token) {
-      uni.setStorageSync('token', putRes.access_token);
+    let userInfo = uni.getStorageSync('userInfo');
+    if (typeof userInfo === 'string') {
+      try {
+        userInfo = JSON.parse(userInfo);
+      } catch (e) {
+        userInfo = {};
+      }
     }
-
-    patchStoredUserInfo({
+    userInfo = {
+      ...userInfo,
       name,
       phone,
       signature: formData.value.signature,
       avatar_url: formData.value.avatar_url
-    });
+    };
+    uni.setStorageSync('userInfo', userInfo);
 
     uni.showToast({ title: '保存成功', icon: 'success' });
     setTimeout(() => uni.navigateBack(), 1000);
@@ -167,7 +155,7 @@ onMounted(() => {
 .edit-profile-page {
   min-height: 100vh;
   background: #f5f7fa;
-  padding: 0 30rpx;
+  padding: 30rpx;
 }
 
 .form-section {
@@ -206,13 +194,7 @@ onMounted(() => {
 }
 
 .signature-item {
-  flex-direction: column;
-  align-items: stretch;
-}
-
-.signature-label {
-  width: auto;
-  margin-bottom: 16rpx;
+  align-items: flex-start;
 }
 
 .label {
@@ -232,14 +214,13 @@ onMounted(() => {
 }
 
 .textarea {
-  width: 100%;
-  min-height: 160rpx;
+  flex: 1;
+  min-height: 120rpx;
   padding: 18rpx 20rpx;
   border-radius: 12rpx;
   background: #f8f9fa;
   font-size: 28rpx;
   color: #333;
-  line-height: 1.5;
   box-sizing: border-box;
 }
 
@@ -250,17 +231,20 @@ onMounted(() => {
   align-items: center;
   justify-content: flex-end;
   gap: 24rpx;
+  padding-right: 200rpx;
   box-sizing: border-box;
 }
 
-.avatar-img-wrap {
-  width: 120rpx;
-  height: 120rpx;
-  flex-shrink: 0;
-  border-radius: 50%;
-  overflow: hidden;
-  border: 2rpx solid #f0f0f0;
-  background: #f5f5f5;
+.change-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6rpx;
+}
+
+.change-sub {
+  font-size: 22rpx;
+  color: #999;
 }
 
 .avatar-trigger {
@@ -277,14 +261,15 @@ onMounted(() => {
 }
 
 .avatar-img {
-  width: 100%;
-  height: 100%;
-  display: block;
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 60rpx;
+  border: 2rpx solid #f0f0f0;
+  background: #f5f5f5;
 }
 
 .change-text {
-  flex-shrink: 0;
-  font-size: 28rpx;
+  font-size: 24rpx;
   color: #20c997;
 }
 

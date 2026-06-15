@@ -1,7 +1,6 @@
 <template>
   <view class="history-tasks-page">
-    <page-tab-header title="历史任务" show-back theme="white" />
-    <view class="content-wrapper page-tab-body">
+    <view class="content-wrapper">
       <view class="task-list" v-if="tasks.length > 0">
         <view class="task-item" v-for="(task, index) in tasks" :key="index">
           <view class="task-header">

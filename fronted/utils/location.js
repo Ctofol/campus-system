@@ -40,12 +40,9 @@ export const getCurrentLocation = (options = {}) => {
     };
     delete config.fastFix;
     // #ifdef MP-WEIXIN
-    if (useFastFix) {
-      if (options.timeout == null) config.timeout = 14000;
-    } else if (options.timeout == null) {
-      config.timeout = 22000;
-      if (options.highAccuracyExpireTime == null) config.highAccuracyExpireTime = 14000;
-    }
+    // 开发者工具/弱网模拟器上 8s 易 timeout，跑步辅助轮询会整段拿不到点
+    if (options.timeout == null) config.timeout = 22000;
+    if (options.highAccuracyExpireTime == null) config.highAccuracyExpireTime = 14000;
     // #endif
 
     uni.getLocation({

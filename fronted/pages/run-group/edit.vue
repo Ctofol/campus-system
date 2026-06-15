@@ -5,7 +5,7 @@
         <text class="label">跑团头像</text>
         <view class="avatar-picker" @click="chooseAvatar">
           <image class="avatar-img" :src="avatarPreview" mode="aspectFill" />
-          <text class="avatar-text">点击更换 · 可裁剪</text>
+          <text class="avatar-text">点击更换</text>
         </view>
       </view>
 
@@ -35,11 +35,10 @@
 import { ref } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import { getMyRunGroups, updateRunGroup, uploadFile, resolveMediaUrl } from '@/utils/request.js';
-import { pickAvatarFromAlbum } from '@/utils/avatar-picker.js';
 
 const groupId = ref(0);
 const saving = ref(false);
-const avatarPreview = ref('/static/default-avatar.svg');
+const avatarPreview = ref('/static/default-avatar.png');
 const formData = ref({
   name: '',
   description: '',
@@ -62,25 +61,32 @@ const loadGroup = async () => {
       description: current.description || '',
       avatar: current.avatar || ''
     };
-    avatarPreview.value = current.avatar ? resolveMediaUrl(current.avatar) : '/static/default-avatar.svg';
+    avatarPreview.value = current.avatar ? resolveMediaUrl(current.avatar) : '/static/default-avatar.png';
   } catch (e) {
     uni.showToast({ title: e.message || '加载失败', icon: 'none' });
   }
 };
 
-const chooseAvatar = async () => {
-  try {
-    const filePath = await pickAvatarFromAlbum();
-    uni.showLoading({ title: '上传中...' });
-    const uploadResult = await uploadFile(filePath, 'image');
-    formData.value.avatar = uploadResult.url;
-    avatarPreview.value = resolveMediaUrl(uploadResult.url);
-  } catch (e) {
-    if (e?.cancelled) return;
-    uni.showToast({ title: e?.message || '上传失败', icon: 'none' });
-  } finally {
-    uni.hideLoading();
-  }
+const chooseAvatar = () => {
+  uni.chooseImage({
+    count: 1,
+    sizeType: ['compressed'],
+    sourceType: ['album', 'camera'],
+    success: async (res) => {
+      const filePath = res.tempFilePaths && res.tempFilePaths[0];
+      if (!filePath) return;
+      try {
+        uni.showLoading({ title: '上传中...' });
+        const uploadResult = await uploadFile(filePath, 'image');
+        formData.value.avatar = uploadResult.url;
+        avatarPreview.value = resolveMediaUrl(uploadResult.url);
+      } catch (e) {
+        uni.showToast({ title: '上传失败', icon: 'none' });
+      } finally {
+        uni.hideLoading();
+      }
+    }
+  });
 };
 
 const handleSave = async () => {

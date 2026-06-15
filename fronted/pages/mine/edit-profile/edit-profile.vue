@@ -4,33 +4,12 @@
       <view class="form-item avatar-item">
         <view class="avatar-row">
           <text class="label">头像</text>
-          <view class="avatar-preview">
-            <view class="avatar-img-wrap">
-              <image :src="avatarUrl" mode="aspectFill" class="avatar-img" />
+          <view class="avatar-preview" @click="chooseAvatar">
+            <image :src="avatarUrl" mode="aspectFill" class="avatar-img" />
+            <view class="change-copy">
+              <text class="change-text">点击更换</text>
+              <text class="change-sub">相册 / 拍照</text>
             </view>
-            <!-- #ifdef MP-WEIXIN -->
-            <button
-              class="change-avatar-btn"
-              open-type="chooseAvatar"
-              @chooseavatar="onWxChooseAvatar"
-              @error="onChooseAvatarErr"
-            >更改头像</button>
-            <!-- #endif -->
-            <!-- #ifndef MP-WEIXIN -->
-            <text class="change-text" @click="chooseAvatarFromAlbum">更改头像</text>
-            <!-- #endif -->
-          </view>
-        </view>
-      </view>
-
-      <view class="form-item avatar-item">
-        <view class="avatar-row">
-          <text class="label">主页背景</text>
-          <view class="avatar-preview">
-            <view class="header-bg-preview" :style="headerBgStyle">
-              <text v-if="!headerBgUrl" class="header-bg-placeholder">暂无背景</text>
-            </view>
-            <text class="change-text" @click="chooseHeaderBg">更换背景</text>
           </view>
         </view>
       </view>
@@ -57,16 +36,13 @@
       </view>
 
       <view class="form-item signature-item">
-        <text class="label signature-label">个性签名</text>
+        <text class="label">个性签名</text>
         <textarea
           v-model="formData.signature"
           class="textarea"
-          placeholder="写点什么吧，最多 100 字"
+          placeholder="写点什么吧"
           maxlength="100"
-          :auto-height="true"
-          :show-confirm-bar="false"
         />
-        <text class="signature-tip">保存后将在「我的」页姓名下方展示</text>
       </view>
 
       <view class="form-item">
@@ -87,21 +63,11 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
-import { onShow } from '@dcloudio/uni-app';
-import {
-  request,
-  uploadFile,
-  resolveMediaUrl,
-  persistAvatarUrl,
-  patchStoredUserInfo,
-  avatarImageSrc
-} from '@/utils/request.js';
-import { pickAvatarFromAlbum, onChooseAvatarButtonError } from '@/utils/avatar-picker.js';
+import { ref, onMounted } from 'vue';
+import { request, uploadFile, resolveMediaUrl } from '@/utils/request.js';
+import { pickAvatarFromAlbum } from '@/utils/avatar-picker.js';
 
-const avatarUrl = ref('/static/default-avatar.svg');
-const headerBgUrl = ref('');
-const headerBgStyle = computed(() => headerBgUrl.value ? `background-image:url(${headerBgUrl.value})` : '');
+const avatarUrl = ref('/static/avatar.png');
 const saving = ref(false);
 
 const formData = ref({
@@ -110,19 +76,10 @@ const formData = ref({
   signature: '',
   student_id: '',
   class_name: '',
-  avatar_url: '',
-  header_bg_url: ''
+  avatar_url: ''
 });
-
-const syncAvatarPreview = (path) => {
-  avatarUrl.value = path ? avatarImageSrc(path) : '/static/default-avatar.svg';
-};
 
 onMounted(() => {
-  loadUserProfile();
-});
-
-onShow(() => {
   loadUserProfile();
 });
 
@@ -140,12 +97,12 @@ const loadUserProfile = async () => {
         signature: res.signature || '',
         student_id: res.student_id || '',
         class_name: res.class_name || '',
-        avatar_url: res.avatar_url || '',
-        header_bg_url: res.header_bg_url || ''
+        avatar_url: res.avatar_url || ''
       };
 
-      syncAvatarPreview(res.avatar_url);
-      headerBgUrl.value = res.header_bg_url ? resolveMediaUrl(res.header_bg_url) : '';
+      if (res.avatar_url) {
+        avatarUrl.value = resolveMediaUrl(res.avatar_url);
+      }
     }
   } catch (e) {
     console.error('Failed to load profile:', e);
@@ -153,45 +110,13 @@ const loadUserProfile = async () => {
   }
 };
 
-const chooseHeaderBg = async () => {
-  try {
-    const tempFilePath = await pickAvatarFromAlbum();
-    if (!tempFilePath) return;
-    uni.showLoading({ title: '上传中...' });
-    const uploadResult = await uploadFile(tempFilePath, 'image');
-    headerBgUrl.value = resolveMediaUrl(uploadResult.url);
-    formData.value.header_bg_url = uploadResult.url;
-    uni.hideLoading();
-    uni.showToast({ title: '背景已更新', icon: 'success' });
-    handleSave();
-  } catch (e) {
-    uni.hideLoading();
-    if (e && e.cancelled) return;
-    uni.showToast({ title: '上传失败', icon: 'none' });
-  }
-};
-
-const chooseAvatarFromAlbum = async () => {
+const chooseAvatar = async () => {
   try {
     const tempFilePath = await pickAvatarFromAlbum();
     await uploadAvatar(tempFilePath);
   } catch (e) {
-    if (e && e.cancelled) return;
     // 已在 pickAvatarFromAlbum 内提示隐私配置
   }
-};
-
-const onChooseAvatarErr = (e) => {
-  onChooseAvatarButtonError(e, (filePath) => uploadAvatar(filePath));
-};
-
-const onWxChooseAvatar = async (e) => {
-  const path = e?.detail?.avatarUrl;
-  if (!path) {
-    uni.showToast({ title: '未获取到头像', icon: 'none' });
-    return;
-  }
-  await uploadAvatar(path);
 };
 
 const uploadAvatar = async (filePath) => {
@@ -200,15 +125,13 @@ const uploadAvatar = async (filePath) => {
     uni.showLoading({ title: '上传中...' });
     const uploadResult = await uploadFile(filePath, 'image');
     formData.value.avatar_url = uploadResult.url;
-    syncAvatarPreview(uploadResult.url);
-    await persistAvatarUrl(uploadResult.url);
-    patchStoredUserInfo({ avatar_url: uploadResult.url });
+    avatarUrl.value = resolveMediaUrl(uploadResult.url);
     uni.hideLoading();
-    uni.showToast({ title: '头像已更新', icon: 'success' });
+    uni.showToast({ title: '上传成功', icon: 'success' });
   } catch (e) {
     uni.hideLoading();
     console.error('Upload failed:', e);
-    uni.showToast({ title: e?.message || '上传失败', icon: 'none' });
+    uni.showToast({ title: '上传失败', icon: 'none' });
   }
 };
 
@@ -234,21 +157,16 @@ const handleSave = async () => {
   saving.value = true;
 
   try {
-    const putRes = await request({
+    await request({
       url: '/users/profile',
       method: 'PUT',
       data: {
         name,
         phone,
-        signature: (formData.value.signature || '').trim(),
-        avatar_url: formData.value.avatar_url,
-        header_bg_url: formData.value.header_bg_url
+        signature: formData.value.signature,
+        avatar_url: formData.value.avatar_url
       }
     });
-
-    if (putRes && putRes.access_token) {
-      uni.setStorageSync('token', putRes.access_token);
-    }
 
     let userInfo = uni.getStorageSync('userInfo');
     if (typeof userInfo === 'string') {
@@ -263,12 +181,11 @@ const handleSave = async () => {
       ...userInfo,
       name,
       phone,
-      signature: (formData.value.signature || '').trim(),
+      signature: formData.value.signature,
       avatar_url: formData.value.avatar_url
     };
 
     uni.setStorageSync('userInfo', userInfo);
-    patchStoredUserInfo(userInfo);
     formData.value.name = name;
     formData.value.phone = phone;
 
@@ -329,13 +246,7 @@ const handleSave = async () => {
 }
 
 .signature-item {
-  flex-direction: column;
-  align-items: stretch;
-}
-
-.signature-label {
-  width: auto;
-  margin-bottom: 16rpx;
+  align-items: flex-start;
 }
 
 .label {
@@ -354,22 +265,14 @@ const handleSave = async () => {
   text-align: right;
 }
 
-.signature-tip {
-  display: block;
-  margin-top: 12rpx;
-  font-size: 22rpx;
-  color: #999;
-}
-
 .textarea {
-  width: 100%;
-  min-height: 160rpx;
+  flex: 1;
+  min-height: 120rpx;
   padding: 18rpx 20rpx;
   border-radius: 12rpx;
   background: #f8f9fa;
   font-size: 28rpx;
   color: #333;
-  line-height: 1.5;
   box-sizing: border-box;
 }
 
@@ -392,31 +295,21 @@ const handleSave = async () => {
   align-items: center;
   justify-content: flex-end;
   gap: 24rpx;
+  /* 避开微信右上角胶囊，避免文字被遮挡 */
+  padding-right: 200rpx;
   box-sizing: border-box;
 }
 
-.avatar-img-wrap {
-  width: 120rpx;
-  height: 120rpx;
-  flex-shrink: 0;
-  border-radius: 50%;
-  overflow: hidden;
-  border: 2rpx solid #f0f0f0;
-  background: #f5f5f5;
+.change-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6rpx;
 }
 
-.header-bg-preview {
-  width: 200rpx;
-  height: 100rpx;
-  border-radius: 12rpx;
-  background-size: cover;
-  background-position: center;
-  background-color: #f5f5f5;
-  display: flex; align-items: center; justify-content: center;
-  border: 2rpx solid #f0f0f0;
-}
-.header-bg-placeholder {
-  font-size: 22rpx; color: #999;
+.change-sub {
+  font-size: 22rpx;
+  color: #999;
 }
 
 .avatar-trigger {
@@ -433,29 +326,16 @@ const handleSave = async () => {
 }
 
 .avatar-img {
-  width: 100%;
-  height: 100%;
-  display: block;
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 60rpx;
+  border: 2rpx solid #f0f0f0;
+  background: #f5f5f5;
 }
 
-.change-text,
-.change-avatar-btn {
-  flex-shrink: 0;
-  font-size: 28rpx;
+.change-text {
+  font-size: 24rpx;
   color: #20c997;
-}
-
-.change-avatar-btn {
-  margin: 0;
-  padding: 0;
-  background: transparent;
-  border: none;
-  line-height: 1.4;
-  font-weight: normal;
-}
-
-.change-avatar-btn::after {
-  border: none;
 }
 
 .button-section {
