@@ -1,5 +1,6 @@
 <template>
   <view class="home-page">
+    <page-tab-header title="首页" theme="brand" />
     <scroll-view
       scroll-y
       class="home-scroll"
@@ -8,7 +9,7 @@
       :refresher-triggered="refreshing"
       @refresherrefresh="onPullRefresh"
     >
-      <view class="home-hero" :style="{ paddingTop: statusBarHeight + 'px' }">
+      <view class="home-hero">
         <!-- 顶栏：居中标题胶囊 + 日历通知 -->
         <view class="home-hero__topbar">
           <view class="home-hero__title-capsule">
@@ -215,8 +216,8 @@ import HomeFeatureGrid from './HomeFeatureGrid.vue';
 import HomeSectionHeader from './HomeSectionHeader.vue';
 import HomeWeekStats from './HomeWeekStats.vue';
 import HomeActivityCard from './HomeActivityCard.vue';
+import PageTabHeader from '@/components/page-tab-header/page-tab-header.vue';
 
-const statusBarHeight = ref(uni.getSystemInfoSync().statusBarHeight || 20);
 const safeBottom = ref(0);
 const refreshing = ref(false);
 const showTaskModal = ref(false);
@@ -468,7 +469,6 @@ const onPullRefresh = async () => {
 
 const onPageShow = async () => {
   const sys = uni.getSystemInfoSync();
-  statusBarHeight.value = sys.statusBarHeight || 20;
   safeBottom.value = sys.safeAreaInsets?.bottom || 0;
 
   if (!getStoredToken()) {
