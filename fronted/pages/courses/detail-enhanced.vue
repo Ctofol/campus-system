@@ -168,7 +168,6 @@ const categories = {
 
 // 内容类型映射
 const contentTypes = {
-  'video': '视频',
   'document': '文档',
   'text': '文本'
 };
@@ -355,9 +354,36 @@ const playContent = (content) => {
     return;
   }
 
-  uni.navigateTo({
-    url: `/pages/courses/player?courseId=${courseId.value}&contentId=${content.id}`
-  });
+  if (!content?.content_url) {
+    uni.showToast({ title: '暂无内容', icon: 'none' });
+    return;
+  }
+
+  const fullUrl = resolveMediaUrl(content.content_url);
+  if (content.content_type === 'document') {
+    uni.downloadFile({
+      url: fullUrl,
+      success: (res) => {
+        if (res.statusCode >= 200 && res.statusCode < 300 && res.tempFilePath) {
+          uni.openDocument({ filePath: res.tempFilePath, showMenu: true });
+        } else {
+          uni.showToast({ title: '文档下载失败', icon: 'none' });
+        }
+      },
+      fail: () => { uni.showToast({ title: '文档下载失败', icon: 'none' }); }
+    });
+    return;
+  }
+
+  if (content.content_type === 'link') {
+    uni.setClipboardData({
+      data: fullUrl,
+      success: () => { uni.showToast({ title: '链接已复制', icon: 'success' }); }
+    });
+    return;
+  }
+
+  uni.showToast({ title: '请在浏览器中查看', icon: 'none' });
 };
 
 // 编辑课程

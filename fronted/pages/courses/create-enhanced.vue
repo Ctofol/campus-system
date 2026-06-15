@@ -89,10 +89,6 @@
               <image class="btn-icon-img" src="/static/主页课程图标.png" mode="aspectFit" />
               <text class="btn-text">图片</text>
             </view>
-            <view class="toolbar-btn" @click="insertVideo">
-              <image class="btn-icon-img" src="/static/主页课程图标.png" mode="aspectFit" />
-              <text class="btn-text">视频</text>
-            </view>
             <view class="toolbar-btn" @click="formatBold">
               <text class="btn-icon">B</text>
             </view>
@@ -290,40 +286,6 @@ const insertImage = () => {
           }
         }
       });
-    }
-  });
-};
-
-// 插入视频链接
-const insertVideo = () => {
-  uni.showModal({
-    title: '插入视频',
-    content: '请输入视频链接地址',
-    editable: true,
-    placeholderText: 'https://example.com/video.mp4',
-    success: (res) => {
-      if (res.confirm && res.content) {
-        const videoUrl = res.content.trim();
-        
-        // 简单验证URL格式
-        if (!videoUrl.startsWith('http://') && !videoUrl.startsWith('https://')) {
-          uni.showToast({ title: '请输入有效的视频链接', icon: 'none' });
-          return;
-        }
-        
-        // 插入视频HTML
-        if (editorCtx) {
-          const videoHtml = `<video src="${videoUrl}" controls style="width:100%;"></video>`;
-          editorCtx.insertText({
-            text: '\n'
-          });
-          // 注意：uni-app的editor组件不直接支持insertHTML，这里用文本方式插入链接
-          editorCtx.insertText({
-            text: `[视频] ${videoUrl}\n`
-          });
-          uni.showToast({ title: '视频链接已插入', icon: 'success' });
-        }
-      }
     }
   });
 };

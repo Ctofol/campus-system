@@ -260,13 +260,6 @@ const playContent = (content) => {
     return;
   }
 
-  if (content.content_type === 'video') {
-    uni.navigateTo({
-      url: `/pages/courses/player?contentId=${content.id}&courseId=${courseId.value}`
-    });
-    return;
-  }
-
   const fullUrl = resolveMediaUrl(content.content_url);
   if (content.content_type === 'document') {
     uni.downloadFile({
@@ -296,9 +289,7 @@ const playContent = (content) => {
     return;
   }
 
-  uni.navigateTo({
-    url: `/pages/courses/player?contentId=${content.id}&courseId=${courseId.value}`
-  });
+  return;
 };
 
 const manageContent = () => {
@@ -307,17 +298,8 @@ const manageContent = () => {
   });
 };
 
-const formatDuration = (seconds) => {
-  if (!seconds) return '--';
-  const minutes = Math.floor(seconds / 60);
-  return `${minutes}分钟`;
-};
-
 const getContentMeta = (content) => {
   if (!content) return '--';
-  if (content.content_type === 'video') {
-    return formatDuration(content.duration);
-  }
   if (content.content_type === 'document') {
     return '文档资料';
   }
