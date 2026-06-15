@@ -465,6 +465,9 @@
   font-size: 26rpx;
   font-weight: 700;
   color: #191C1E;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 .home-task-badge {
   font-size: 18rpx;
