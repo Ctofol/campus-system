@@ -5,15 +5,7 @@
       :show-back="showCreateForm"
       :back-handler="goBack"
       theme="white"
-    >
-      <template #right>
-        <text
-          v-if="!showCreateForm"
-          class="page-tab-header-text-action"
-          @click="goToRank"
-        >排行榜</text>
-      </template>
-    </page-tab-header>
+    />
 
     <view class="page-tab-body">
 
@@ -44,8 +36,13 @@
       <button class="submit-btn" @click="handleCreate">创建跑团</button>
     </view>
 
+    <view v-if="!showCreateForm" class="rank-entry" @click="goToRank">
+      <text class="rank-entry-text">查看跑团排行榜</text>
+      <text class="rank-entry-arrow">›</text>
+    </view>
+
     <scroll-view
-      v-else
+      v-if="!showCreateForm"
       scroll-y
       class="group-list"
       @scrolltolower="loadMore"
@@ -312,15 +309,37 @@ onMounted(() => {
   margin-top: 40rpx;
 }
 
+.rank-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 20rpx 24rpx 0;
+  padding: 24rpx 28rpx;
+  background: #fff;
+  border-radius: 16rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.06);
+}
+
+.rank-entry-text {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #333;
+}
+
+.rank-entry-arrow {
+  font-size: 32rpx;
+  color: #999;
+}
+
 .group-list {
   height: calc(100vh - 80rpx);
-  padding: 20rpx 30rpx;
+  padding: 20rpx 24rpx;
 }
 
 .group-card {
   background: #fff;
   border-radius: 20rpx;
-  padding: 30rpx;
+  padding: 30rpx 24rpx;
   margin-bottom: 20rpx;
   display: flex;
   align-items: center;
@@ -330,10 +349,10 @@ onMounted(() => {
 
 .rank-badge {
   position: absolute;
-  top: 10rpx;
-  left: 10rpx;
-  padding: 4rpx 12rpx;
-  border-radius: 12rpx;
+  top: 0;
+  left: 0;
+  padding: 4rpx 14rpx;
+  border-radius: 12rpx 0 12rpx 0;
   font-size: 20rpx;
   color: #fff;
 }
