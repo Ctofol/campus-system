@@ -10,24 +10,19 @@
       @refresherrefresh="onPullRefresh"
     >
       <view class="home-hero">
-        <!-- 顶栏：居中标题胶囊 + 日历通知 -->
-        <view class="home-hero__topbar">
-          <view class="home-hero__title-capsule">
-            <text class="home-hero__title">首页</text>
+        <!-- 顶栏：日历通知 -->
+        <view class="home-hero__actions">
+          <view class="home-hero__action" @tap="goSunshineDetail">
+            <image class="home-hero__action-icon-img" src="/static/日历.png" mode="aspectFit" />
+            <text class="home-hero__action-label">日历</text>
           </view>
-          <view class="home-hero__actions">
-            <view class="home-hero__action" @tap="goSunshineDetail">
-              <image class="home-hero__action-icon-img" src="/static/日历.png" mode="aspectFit" />
-              <text class="home-hero__action-label">日历</text>
-            </view>
-            <view class="home-hero__action home-hero__action--notif" @tap="goNotifications">
-              <image class="home-hero__action-icon-img" src="/static/通知图标2.png" mode="aspectFit" />
-              <text
-                v-if="unreadNotifyCount > 0"
-                class="home-hero__badge"
-              >{{ unreadNotifyCount > 99 ? '99+' : unreadNotifyCount }}</text>
-              <text class="home-hero__action-label">通知</text>
-            </view>
+          <view class="home-hero__action home-hero__action--notif" @tap="goNotifications">
+            <image class="home-hero__action-icon-img" src="/static/通知图标2.png" mode="aspectFit" />
+            <text
+              v-if="unreadNotifyCount > 0"
+              class="home-hero__badge"
+            >{{ unreadNotifyCount > 99 ? '99+' : unreadNotifyCount }}</text>
+            <text class="home-hero__action-label">通知</text>
           </view>
         </view>
 
