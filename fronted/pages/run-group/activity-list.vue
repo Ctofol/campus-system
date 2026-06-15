@@ -50,7 +50,7 @@
         </view>
         <text class="title">{{ activity.title }}</text>
         <view class="info-row">
-          <image class="info-icon-img" src="/static/日历.PNG" mode="aspectFit" />
+          <image class="info-icon-img" src="/static/日历.png" mode="aspectFit" />
           <text class="text">{{ formatTime(activity.activity_time) }}</text>
         </view>
         <view class="info-row" v-if="activity.location">

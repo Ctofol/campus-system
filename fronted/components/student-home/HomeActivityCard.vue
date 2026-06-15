@@ -9,11 +9,11 @@
       <text class="home-activity-card__title">{{ activity.name }}</text>
       <view class="home-activity-card__meta-row">
         <text class="home-activity-card__meta">
-          <image class="home-activity-card__meta-icon" src="/static/日历.PNG" mode="aspectFit" />
+          <image class="home-activity-card__meta-icon" src="/static/日历.png" mode="aspectFit" />
           {{ activity.dateLabel }}
         </text>
         <text class="home-activity-card__meta">
-          <image class="home-activity-card__meta-icon" src="/static/主页跑团图标.PNG" mode="aspectFit" />
+          <image class="home-activity-card__meta-icon" src="/static/主页跑团图标.png" mode="aspectFit" />
           {{ activity.participants }}人已报名
         </text>
       </view>

@@ -16,7 +16,7 @@
           </view>
           <view class="home-hero__actions">
             <view class="home-hero__action" @tap="goSunshineDetail">
-              <image class="home-hero__action-icon-img" src="/static/日历.PNG" mode="aspectFit" />
+              <image class="home-hero__action-icon-img" src="/static/日历.png" mode="aspectFit" />
               <text class="home-hero__action-label">日历</text>
             </view>
             <view class="home-hero__action home-hero__action--notif" @tap="goNotifications">
@@ -247,9 +247,9 @@ const {
 
 const featureItems = [
   { id: 'outdoor', icon: '/static/主页户外跑图标.png', label: '户外跑', desc: '记录户外路线' },
-  { id: 'test', icon: '/static/主页体能测试图标.PNG', label: '体能测试', desc: '评估身体状态' },
-  { id: 'learn', icon: '/static/主页课程图标.PNG', label: '课程', desc: '科学训练指导' },
-  { id: 'rungroup', icon: '/static/主页跑团图标.PNG', label: '跑团', desc: '一起跑步' }
+  { id: 'test', icon: '/static/主页体能测试图标.png', label: '体能测试', desc: '评估身体状态' },
+  { id: 'learn', icon: '/static/主页课程图标.png', label: '课程', desc: '科学训练指导' },
+  { id: 'rungroup', icon: '/static/主页跑团图标.png', label: '跑团', desc: '一起跑步' }
 ];
 
 const checkNewTasks = (tasks) => {
@@ -416,7 +416,7 @@ const getTaskTypeIcon = (task) => {
     task.title?.includes('课程') ||
     task.title?.includes('学习')
   ) {
-    return '/static/主页课程图标.PNG';
+    return '/static/主页课程图标.png';
   }
   return '/static/主页户外跑图标.png';
 };

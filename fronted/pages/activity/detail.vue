@@ -10,7 +10,7 @@
     
     <view class="content-card">
       <view class="info-row">
-        <view class="label"><image class="label-img" src="/static/日历.PNG" mode="aspectFit" /><text>时间</text></view>
+        <view class="label"><image class="label-img" src="/static/日历.png" mode="aspectFit" /><text>时间</text></view>
         <text class="value">{{ activity.time }}</text>
       </view>
       <view class="info-row">
@@ -18,7 +18,7 @@
         <text class="value">{{ activity.location }}</text>
       </view>
       <view class="info-row">
-        <view class="label"><image class="label-img" src="/static/主页跑团图标.PNG" mode="aspectFit" /><text>人数</text></view>
+        <view class="label"><image class="label-img" src="/static/主页跑团图标.png" mode="aspectFit" /><text>人数</text></view>
         <text class="value">{{ activity.joined }} / {{ activity.limit }}</text>
       </view>
       

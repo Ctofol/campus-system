@@ -37,7 +37,7 @@
         </view>
         <view class="data-grid">
           <view class="data-item">
-            <image class="data-icon" src="/static/主页里程图标.PNG" mode="aspectFit" />
+            <image class="data-icon" src="/static/主页里程图标.png" mode="aspectFit" />
             <text class="data-val">{{ totalRunDistance }}</text>
             <text class="data-label">总公里</text>
           </view>
@@ -81,7 +81,7 @@
         <text class="card-title" style="margin-bottom: 24rpx;">常用功能</text>
         <view class="func-grid">
           <view class="func-item" @tap="goMyCourses">
-            <image class="func-icon" src="/static/主页课程图标.PNG" mode="aspectFit" />
+            <image class="func-icon" src="/static/主页课程图标.png" mode="aspectFit" />
             <text class="func-label">我的课程</text>
           </view>
           <view class="func-item" @tap="goMyRoute">
@@ -89,7 +89,7 @@
             <text class="func-label">我的路线</text>
           </view>
           <view class="func-item" @tap="goRunGroup">
-            <image class="func-icon" src="/static/主页跑团图标.PNG" mode="aspectFit" />
+            <image class="func-icon" src="/static/主页跑团图标.png" mode="aspectFit" />
             <text class="func-label">我的跑团</text>
           </view>
           <view class="func-item" @tap="goMyData">
@@ -118,7 +118,7 @@
         </view>
         <view class="setting-row" @tap="gotoDeviceBind">
           <view class="setting-left">
-            <image class="setting-icon" src="/static/主页GO图标.PNG" mode="aspectFit" />
+            <image class="setting-icon" src="/static/主页GO图标.png" mode="aspectFit" />
             <text class="setting-label">设备绑定（防代跑）</text>
           </view>
           <text class="setting-arrow">›</text>

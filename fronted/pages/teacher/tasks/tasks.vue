@@ -6,7 +6,7 @@
         <text class="page-title">任务管理</text>
         <view class="header-actions">
           <view class="icon-btn search">
-            <image class="iconfont" src="/static/主页GO图标.PNG" mode="aspectFit" />
+            <image class="iconfont" src="/static/主页GO图标.png" mode="aspectFit" />
           </view>
         </view>
       </view>
@@ -56,7 +56,7 @@
           <view class="tag-row">
             <view class="type-tag" :class="getTypeClass(task.type)">{{ task.type }}</view>
             <view class="deadline-tag" :class="{ urgent: isUrgent(task.deadline) }">
-              <image class="deadline-img" src="/static/日历.PNG" mode="aspectFit" />
+              <image class="deadline-img" src="/static/日历.png" mode="aspectFit" />
               <text>{{ task.deadline }} 截止</text>
             </view>
           </view>

@@ -6,7 +6,7 @@
     </view>
     <view class="home-quick__center" @tap="$emit('go')">
       <view class="home-quick__go">
-        <image class="home-quick__go-icon" src="/static/主页GO图标.PNG" mode="aspectFit" />
+        <image class="home-quick__go-icon" src="/static/主页GO图标.png" mode="aspectFit" />
       </view>
       <text class="home-quick__go-txt">GO</text>
     </view>

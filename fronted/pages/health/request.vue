@@ -17,7 +17,7 @@
             :class="{active: formData.type === 'leave'}"
             @click="formData.type = 'leave'"
           >
-            <image class="icon-img" src="/static/日历.PNG" mode="aspectFit" />
+            <image class="icon-img" src="/static/日历.png" mode="aspectFit" />
             <text>请假申请</text>
           </view>
           <view 

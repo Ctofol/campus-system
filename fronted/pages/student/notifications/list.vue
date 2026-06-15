@@ -78,7 +78,7 @@ const navHeight = computed(() => statusBarHeight.value + 44);
 
 const tabs = [
   { key: 'all', label: '全部消息', icon: '/static/通知图标.png', color: '#fff' },
-  { key: 'run_group', label: '跑团消息', icon: '/static/主页跑团图标.PNG', color: '#fff' },
+  { key: 'run_group', label: '跑团消息', icon: '/static/主页跑团图标.png', color: '#fff' },
   { key: 'interaction', label: '互动消息', icon: '/static/通知图标2.png', color: '#fff' },
   { key: 'system', label: '系统通知', icon: '/static/通知图标（收到通知红点版）.png', color: '#fff' },
 ];
@@ -139,7 +139,7 @@ const getAvatarBg = (item) => {
 
 const getAvatarIconSrc = (item) => {
   const type = mapType(item.ntype);
-  if (type === 'run_group') return '/static/主页跑团图标.PNG';
+  if (type === 'run_group') return '/static/主页跑团图标.png';
   if (type === 'interaction') return '/static/通知图标2.png';
   return '/static/通知图标.png';
 };

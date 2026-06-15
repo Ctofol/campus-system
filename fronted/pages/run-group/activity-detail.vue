@@ -12,7 +12,7 @@
       
       <view class="info-card">
         <view class="info-item">
-          <image class="detail-icon-img" src="/static/日历.PNG" mode="aspectFit" />
+          <image class="detail-icon-img" src="/static/日历.png" mode="aspectFit" />
           <view class="info-content">
             <text class="label">活动时间</text>
             <text class="value">{{ formatTime(activity.activity_time) }}</text>
@@ -36,7 +36,7 @@
         </view>
         
         <view class="info-item">
-          <image class="detail-icon-img" src="/static/主页跑团图标.PNG" mode="aspectFit" />
+          <image class="detail-icon-img" src="/static/主页跑团图标.png" mode="aspectFit" />
           <view class="info-content">
             <text class="label">报名人数</text>
             <text class="value">{{ activity.apply_count }}/{{ activity.total_quota }}人</text>

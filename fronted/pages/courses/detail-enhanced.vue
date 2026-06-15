@@ -45,15 +45,15 @@
 
         <view class="course-meta">
           <view class="meta-item">
-            <image class="meta-icon-img" src="/static/主页跑团图标.PNG" mode="aspectFit" />
+            <image class="meta-icon-img" src="/static/主页跑团图标.png" mode="aspectFit" />
             <text class="meta-text">{{ course.enrollment_count || 0 }}人参与</text>
           </view>
           <view class="meta-item" v-if="course.teacher_name">
-            <image class="meta-icon-img" src="/static/主页GO图标.PNG" mode="aspectFit" />
+            <image class="meta-icon-img" src="/static/主页GO图标.png" mode="aspectFit" />
             <text class="meta-text">{{ course.teacher_name }}</text>
           </view>
           <view class="meta-item" v-if="course.created_at">
-            <image class="meta-icon-img" src="/static/日历.PNG" mode="aspectFit" />
+            <image class="meta-icon-img" src="/static/日历.png" mode="aspectFit" />
             <text class="meta-text">{{ formatDate(course.created_at) }}</text>
           </view>
         </view>
@@ -115,7 +115,7 @@
 
     <!-- 空状态 -->
     <view class="empty-state" v-else-if="!loading && !course.id">
-      <image class="empty-icon-img" src="/static/主页课程图标.PNG" mode="aspectFit" />
+      <image class="empty-icon-img" src="/static/主页课程图标.png" mode="aspectFit" />
       <text class="empty-text">课程不存在或已删除</text>
       <button class="back-home-btn" @click="goBack">返回</button>
     </view>

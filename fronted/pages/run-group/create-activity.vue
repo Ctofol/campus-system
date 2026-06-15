@@ -15,7 +15,7 @@
           <view class="cover-upload" @click="chooseCover">
             <image v-if="coverImage" :src="coverImage" mode="aspectFill" class="cover-preview" />
             <view v-else class="cover-placeholder">
-              <image class="upload-icon-img" src="/static/主页GO图标.PNG" mode="aspectFit" />
+              <image class="upload-icon-img" src="/static/主页GO图标.png" mode="aspectFit" />
               <text class="upload-text">点击上传封面</text>
             </view>
           </view>

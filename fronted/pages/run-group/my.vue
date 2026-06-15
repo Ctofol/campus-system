@@ -1,7 +1,7 @@
 <template>
   <view class="my-page">
     <view class="no-group" v-if="joinedGroups.length === 0">
-      <image class="empty-icon" src="/static/主页跑团图标.PNG" mode="aspectFit" />
+      <image class="empty-icon" src="/static/主页跑团图标.png" mode="aspectFit" />
       <text class="tip-text">您还未加入跑团</text>
       <view class="tip-actions">
         <button class="tip-btn primary" @click="goToDiscover">加入跑团</button>

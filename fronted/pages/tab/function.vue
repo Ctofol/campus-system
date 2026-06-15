@@ -21,7 +21,7 @@
           <view class="entry-card" @click="goToPhysicalTest">
             <view class="entry-icon-wrap">
               <view class="entry-icon entry-icon--test">
-                <image class="entry-icon-text" src="/static/主页体能测试图标.PNG" mode="aspectFit" />
+                <image class="entry-icon-text" src="/static/主页体能测试图标.png" mode="aspectFit" />
               </view>
             </view>
             <view class="entry-info">

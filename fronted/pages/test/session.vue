@@ -96,7 +96,7 @@
       <template v-if="phase === 'analyzing'">
         <view class="analyzing-area">
           <view class="analyzing-animation">
-            <image class="analyzing-icon-img" src="/static/主页GO图标.PNG" mode="aspectFit" />
+            <image class="analyzing-icon-img" src="/static/主页GO图标.png" mode="aspectFit" />
           </view>
           <text class="analyzing-title">AI 正在分析中...</text>
           <text class="analyzing-desc">系统正在识别您的动作次数，请稍候</text>

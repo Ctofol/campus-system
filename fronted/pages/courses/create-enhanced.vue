@@ -46,7 +46,7 @@
               mode="aspectFill"
             ></image>
             <view v-else class="upload-placeholder">
-              <image class="upload-icon-img" src="/static/主页GO图标.PNG" mode="aspectFit" />
+              <image class="upload-icon-img" src="/static/主页GO图标.png" mode="aspectFit" />
               <text class="upload-text">点击上传封面图</text>
             </view>
           </view>
@@ -86,11 +86,11 @@
           <!-- 编辑器工具栏 -->
           <view class="editor-toolbar">
             <view class="toolbar-btn" @click="insertImage">
-              <image class="btn-icon-img" src="/static/主页课程图标.PNG" mode="aspectFit" />
+              <image class="btn-icon-img" src="/static/主页课程图标.png" mode="aspectFit" />
               <text class="btn-text">图片</text>
             </view>
             <view class="toolbar-btn" @click="insertVideo">
-              <image class="btn-icon-img" src="/static/主页课程图标.PNG" mode="aspectFit" />
+              <image class="btn-icon-img" src="/static/主页课程图标.png" mode="aspectFit" />
               <text class="btn-text">视频</text>
             </view>
             <view class="toolbar-btn" @click="formatBold">

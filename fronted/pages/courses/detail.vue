@@ -25,8 +25,8 @@
         <text class="course-title">{{ course.title }}</text>
         <text class="course-desc">{{ course.description }}</text>
         <view class="course-stats">
-          <view class="stat-item"><image class="stat-icon-img" src="/static/主页跑团图标.PNG" mode="aspectFit" /><text> {{ course.enrollment_count || 0 }}人已选</text></view>
-          <view class="stat-item"><image class="stat-icon-img" src="/static/主页课程图标.PNG" mode="aspectFit" /><text> {{ course.contents?.length || 0 }}节课</text></view>
+          <view class="stat-item"><image class="stat-icon-img" src="/static/主页跑团图标.png" mode="aspectFit" /><text> {{ course.enrollment_count || 0 }}人已选</text></view>
+          <view class="stat-item"><image class="stat-icon-img" src="/static/主页课程图标.png" mode="aspectFit" /><text> {{ course.contents?.length || 0 }}节课</text></view>
         </view>
         <!-- 学习进度 -->
         <view class="progress-section" v-if="course.enrolled && userRole === 'student'">
@@ -66,7 +66,7 @@
 
     <!-- 空状态 -->
     <view class="empty-state" v-else>
-      <image class="empty-icon-img" src="/static/主页课程图标.PNG" mode="aspectFit" />
+      <image class="empty-icon-img" src="/static/主页课程图标.png" mode="aspectFit" />
       <text class="empty-text">课程不存在</text>
     </view>
 

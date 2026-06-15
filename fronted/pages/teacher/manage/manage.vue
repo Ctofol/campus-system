@@ -7,7 +7,7 @@
         <!-- 模块迁移：学员管理（包含原班级管理的排课、考勤） -->
         <view class="grid-item" @click="navTo('/pages/teacher/students/students')">
           <view class="icon-box purple">
-            <image class="icon-box-img" src="/static/主页跑团图标.PNG" mode="aspectFit" />
+            <image class="icon-box-img" src="/static/主页跑团图标.png" mode="aspectFit" />
           </view>
           <text class="grid-label">学员管理</text>
           <text class="grid-desc">分组、档案、排课、考勤</text>
@@ -32,7 +32,7 @@
         <!-- 教学资源 -->
         <view class="grid-item" @click="navTo('/pages/teacher/resources/resources')">
           <view class="icon-box pink">
-            <image class="icon-box-img" src="/static/主页课程图标.PNG" mode="aspectFit" />
+            <image class="icon-box-img" src="/static/主页课程图标.png" mode="aspectFit" />
           </view>
           <text class="grid-label">教学资源</text>
           <text class="grid-desc">课件、视频</text>

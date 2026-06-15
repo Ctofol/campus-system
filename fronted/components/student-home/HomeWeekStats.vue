@@ -12,7 +12,7 @@
     </view>
     <view v-else class="home-week__row">
       <view class="home-week-stat">
-        <image class="home-week-stat__icon" src="/static/主页里程图标.PNG" mode="aspectFit" />
+        <image class="home-week-stat__icon" src="/static/主页里程图标.png" mode="aspectFit" />
         <text class="home-week-stat__val">{{ stats.distanceKm }}</text>
         <text class="home-week-stat__unit">公里</text>
         <text class="home-week-stat__sub">总距离</text>
