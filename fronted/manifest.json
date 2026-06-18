@@ -144,6 +144,12 @@
         "permission" : {
             "scope.userLocation" : {
                 "desc" : "用于跑步轨迹记录、校园打卡与后台定位"
+            },
+            "scope.record" : {
+                "desc" : "用于体测录制视频时录音"
+            },
+            "scope.camera" : {
+                "desc" : "用于体测录制视频与人脸验证"
             }
         },
         "requiredPrivateInfos" : [

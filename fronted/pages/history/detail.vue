@@ -41,6 +41,7 @@
         :longitude="centerLng" 
         :polyline="polyline"
         :markers="markers"
+        :include-points="includePoints"
         :enable-zoom="true"
         :enable-scroll="true"
       ></map>
@@ -69,6 +70,7 @@ const centerLat = ref(39.909);
 const centerLng = ref(116.397);
 const polyline = ref([]);
 const markers = ref([]);
+const includePoints = ref([]);
 const videoUrl = ref('');
 /** 是否展示地图区：≥2 点可走折线；1 点仅标记；0 点不展示（避免传非法 polyline） */
 const showMap = ref(false);
@@ -148,6 +150,7 @@ onLoad((options) => {
 
             polyline.value = [];
             markers.value = [];
+            includePoints.value = [];
             showMap.value = false;
 
             if (points.length >= 2) {
@@ -164,11 +167,19 @@ onLoad((options) => {
                 centerLat.value = points[0].latitude;
                 centerLng.value = points[0].longitude;
                 markers.value = buildRunRouteMarkers(points);
+                includePoints.value = points.map((p) => ({
+                  latitude: p.latitude,
+                  longitude: p.longitude
+                }));
                 showMap.value = true;
             } else if (points.length === 1) {
                 centerLat.value = points[0].latitude;
                 centerLng.value = points[0].longitude;
                 markers.value = buildRunRouteMarkers(points.slice(0, 1));
+                includePoints.value = [{
+                  latitude: points[0].latitude,
+                  longitude: points[0].longitude
+                }];
                 showMap.value = true;
             }
             
@@ -243,10 +254,22 @@ onLoad((options) => {
     padding-left: 16rpx;
   }
 }
+.map-card {
+  padding: 24rpx 20rpx 20rpx;
+}
+.page-section-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  margin-bottom: 18rpx;
+  display: block;
+  border-left: 8rpx solid #20C997;
+  padding-left: 16rpx;
+}
 .map {
     width: 100%;
-    height: 400rpx;
+    height: 640rpx;
     border-radius: 12rpx;
+    overflow: hidden;
 }
 .video {
     width: 100%;

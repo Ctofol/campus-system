@@ -51,7 +51,7 @@
 
       <!-- 摄像头实时预览 + 身体框线引导 -->
       <template v-if="phase === 'camera' || phase === 'recording'">
-        <view class="camera-area">
+        <view class="camera-area" :style="{ height: cameraAreaHeight + 'px' }">
           <camera
             ref="cameraRef"
             device-position="back"
@@ -161,7 +161,17 @@ let timerInterval = null;
 
 const formattedTime = computed(() => timerDisplay.value);
 
+const cameraAreaHeight = ref(500);
+
 onLoad((options) => {
+  try {
+    const sys = uni.getSystemInfoSync();
+    if (sys) {
+      const statusBarH = sys.statusBarHeight || 20;
+      cameraAreaHeight.value = sys.windowHeight - statusBarH - 44 - 180;
+    }
+  } catch (e) { /* ignore */ }
+
   if (options?.exercise) {
     exerciseId.value = normalizeExerciseId(options.exercise);
   }
@@ -581,11 +591,10 @@ const goToResult = () => {
 
 /* 摄像头实时预览 */
 .camera-area {
-  flex: 1;
   position: relative;
   overflow: hidden;
   background: #000;
-  min-height: 600rpx;
+  width: 100%;
 }
 
 .camera-live {

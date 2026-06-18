@@ -793,3 +793,23 @@ class HomeDashboardOut(BaseModel):
 
 class RunGoalUpdate(BaseModel):
     weekly_goal_km: float = 0.0
+
+
+# Medals
+class MedalOut(BaseModel):
+    id: int
+    key: str
+    name: str
+    description: str
+    icon_path: str
+    earned: bool = False
+    earned_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class MedalListOut(BaseModel):
+    medals: List[MedalOut] = []
+    earned_count: int = 0
+    total_count: int = 0

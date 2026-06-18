@@ -53,8 +53,31 @@
           </view>
           <view class="data-item">
             <image class="data-icon" src="/static/奖杯图标.png" mode="aspectFit" />
-            <text class="data-val">{{ badgeCount }}</text>
+            <text class="data-val">{{ medalEarnedCount }}</text>
             <text class="data-label">获得勋章</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- Medal Display -->
+      <view class="data-card" @tap="showMedalPopup = true">
+        <view class="card-header">
+          <text class="card-title">我的勋章</text>
+          <text class="card-more">{{ medalEarnedCount }}/{{ medalTotalCount }} ›</text>
+        </view>
+        <view v-if="medalList.length === 0" class="medal-empty">
+          <text class="medal-empty-text">暂无勋章</text>
+        </view>
+        <view v-else class="medal-row">
+          <view
+            v-for="m in medalList.slice(0, 6)"
+            :key="m.id"
+            class="medal-item"
+            :class="{ 'medal-item--locked': !m.earned }"
+            @tap.stop="openMedalDetail(m)"
+          >
+            <image class="medal-icon" :src="m.icon_path" mode="aspectFit" />
+            <text class="medal-name">{{ m.name }}</text>
           </view>
         </view>
       </view>
@@ -93,8 +116,12 @@
             <text class="func-label">我的跑团</text>
           </view>
           <view class="func-item" @tap="goMyData">
-            <image class="func-icon" src="/static/数据图标.png" mode="aspectFit" />
-            <text class="func-label">我的数据</text>
+            <image class="func-icon" src="/static/训练图标.png" mode="aspectFit" />
+            <text class="func-label">训练记录</text>
+          </view>
+          <view class="func-item" @tap="goMyFavorites">
+            <image class="func-icon" src="/static/收藏图标.png" mode="aspectFit" />
+            <text class="func-label">我的收藏</text>
           </view>
           <view class="func-item" @tap="gotoHealthRequest">
             <image class="func-icon" src="/static/请假申请图标.png" mode="aspectFit" />
@@ -118,7 +145,7 @@
         </view>
         <view class="setting-row" @tap="gotoDeviceBind">
           <view class="setting-left">
-            <image class="setting-icon" src="/static/主页GO图标.png" mode="aspectFit" />
+            <image class="setting-icon" src="/static/锁图标.png" mode="aspectFit" />
             <text class="setting-label">设备绑定（防代跑）</text>
           </view>
           <text class="setting-arrow">›</text>
@@ -132,7 +159,7 @@
         </view>
         <view class="setting-row logout-row" @tap="logout">
           <view class="setting-left">
-            <image class="setting-icon" src="/static/叉号图标.png" mode="aspectFit" />
+            <image class="setting-icon" src="/static/退出登录图标.png" mode="aspectFit" />
             <text class="setting-label">退出登录</text>
           </view>
           <text class="setting-arrow">›</text>
@@ -140,6 +167,48 @@
       </view>
 
       <view style="height: 48rpx;" />
+    </view>
+
+    <!-- Medal Detail Popup -->
+    <view v-if="showMedalPopup" class="medal-popup-mask" @tap="showMedalPopup = false">
+      <view class="medal-popup" @tap.stop>
+        <view class="medal-popup-header">
+          <text class="medal-popup-title">我的勋章</text>
+          <text class="medal-popup-close" @tap="showMedalPopup = false">✕</text>
+        </view>
+        <view class="medal-popup-body">
+          <view v-if="medalList.length === 0" class="medal-popup-empty">
+            <text>暂无勋章，继续努力吧！</text>
+          </view>
+          <view v-else class="medal-popup-grid">
+            <view
+              v-for="m in medalList"
+              :key="m.id"
+              class="medal-popup-item"
+              :class="{ 'medal-popup-item--locked': !m.earned }"
+              @tap="openMedalDetail(m)"
+            >
+              <image class="medal-popup-icon" :src="m.icon_path" mode="aspectFit" />
+              <text class="medal-popup-name">{{ m.name }}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- Single Medal Detail Modal -->
+    <view v-if="showSingleMedal" class="medal-detail-mask" @tap="showSingleMedal = false">
+      <view class="medal-detail-card" @tap.stop>
+        <image class="medal-detail-icon" :src="currentMedal.icon_path" mode="aspectFit" />
+        <text class="medal-detail-name">{{ currentMedal.name }}</text>
+        <text class="medal-detail-desc">{{ currentMedal.description }}</text>
+        <view v-if="currentMedal.earned" class="medal-detail-time">
+          <text>获得时间：{{ formatMedalTime(currentMedal.earned_at) }}</text>
+        </view>
+        <view v-else class="medal-detail-locked">
+          <text>未解锁</text>
+        </view>
+      </view>
     </view>
   </view>
 </template>
@@ -163,6 +232,12 @@ const totalDuration = ref('--');
 const totalCalories = ref('--');
 const badgeCount = ref(0);
 const policeSuccessCount = ref(0);
+const medalList = ref([]);
+const medalEarnedCount = ref(0);
+const medalTotalCount = ref(0);
+const showMedalPopup = ref(false);
+const showSingleMedal = ref(false);
+const currentMedal = ref({});
 
 const weeklyTarget = ref(3);
 const weekRunCount = ref(0);
@@ -287,6 +362,29 @@ const loadUnreadNotifyCount = async () => {
   } catch (e) { unreadNotifyCount.value = 0; }
 };
 
+const fetchMedals = async () => {
+  try {
+    const res = await request({ url: '/medals', method: 'GET' });
+    if (res.medals) {
+      medalList.value = res.medals;
+      medalEarnedCount.value = res.earned_count;
+      medalTotalCount.value = res.total_count;
+    }
+  } catch (e) { console.error('Fetch medals failed', e); }
+};
+
+const openMedalDetail = (medal) => {
+  currentMedal.value = medal;
+  showSingleMedal.value = true;
+  showMedalPopup.value = false;
+};
+
+const formatMedalTime = (iso) => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+};
+
 const onPageShow = () => {
   updateTime();
   const sys = uni.getSystemInfoSync();
@@ -307,6 +405,7 @@ const onPageShow = () => {
   fetchHistory();
   fetchTaskRuns();
   fetchUserProfile();
+  fetchMedals();
 };
 
 onMounted(() => { onPageShow(); });
@@ -458,4 +557,69 @@ defineExpose({ onPageShow });
 .setting-version { font-size: 22rpx; color: #8a9bab; }
 .setting-arrow { font-size: 28rpx; color: #c0c8d0; }
 .logout-row .setting-label { color: #ff4d4f; }
+
+/* === Medal Display === */
+.medal-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8rpx;
+}
+.medal-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+}
+.medal-item--locked { opacity: 0.35; }
+.medal-icon { width: 80rpx; height: 80rpx; margin-bottom: 8rpx; }
+.medal-name { font-size: 20rpx; color: #333; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.medal-empty { padding: 20rpx 0; text-align: center; }
+.medal-empty-text { font-size: 24rpx; color: #999; }
+
+/* === Medal Popup === */
+.medal-popup-mask {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5); z-index: 999;
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.medal-popup {
+  width: 100%; max-height: 70vh;
+  background: #fff; border-radius: 32rpx 32rpx 0 0;
+  padding: 32rpx; overflow-y: auto;
+}
+.medal-popup-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 32rpx;
+}
+.medal-popup-title { font-size: 34rpx; font-weight: 700; color: #1a2b3c; }
+.medal-popup-close { font-size: 36rpx; color: #999; padding: 8rpx; }
+.medal-popup-grid {
+  display: flex; flex-wrap: wrap; gap: 24rpx;
+}
+.medal-popup-item {
+  width: calc(33.33% - 16rpx);
+  display: flex; flex-direction: column; align-items: center;
+  padding: 16rpx 0;
+}
+.medal-popup-item--locked { opacity: 0.35; }
+.medal-popup-icon { width: 80rpx; height: 80rpx; margin-bottom: 12rpx; }
+.medal-popup-name { font-size: 22rpx; color: #333; text-align: center; }
+.medal-popup-empty { padding: 60rpx 0; text-align: center; color: #999; font-size: 26rpx; }
+
+/* === Single Medal Detail === */
+.medal-detail-mask {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.6); z-index: 1000;
+  display: flex; align-items: center; justify-content: center;
+}
+.medal-detail-card {
+  width: 520rpx; background: #fff; border-radius: 32rpx;
+  padding: 48rpx 32rpx; display: flex; flex-direction: column; align-items: center;
+}
+.medal-detail-icon { width: 160rpx; height: 160rpx; margin-bottom: 24rpx; }
+.medal-detail-name { font-size: 36rpx; font-weight: 700; color: #1a2b3c; margin-bottom: 12rpx; }
+.medal-detail-desc { font-size: 26rpx; color: #666; text-align: center; margin-bottom: 20rpx; }
+.medal-detail-time { font-size: 22rpx; color: #33C9AB; }
+.medal-detail-locked { font-size: 22rpx; color: #999; }
 </style>

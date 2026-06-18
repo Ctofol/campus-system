@@ -1,6 +1,5 @@
 <template>
   <view class="home-weather">
-    <image class="home-weather__icon" :src="weatherIcon" mode="aspectFit" />
     <text class="home-weather__temp">{{ displayTemp }}</text>
     <view class="home-weather__divider">|</view>
     <text class="home-weather__cond">{{ displayCondition }}</text>
@@ -19,15 +18,6 @@ import { computed } from 'vue';
 const props = defineProps({
   weather: { type: Object, default: null },
   placeholder: { type: Boolean, default: true }
-});
-
-const weatherIcon = computed(() => {
-  const c = props.weather?.condition || '';
-  if (c.includes('雨')) return '/static/主页户外跑图标.png';
-  if (c.includes('雪')) return '/static/主页户外跑图标.png';
-  if (c.includes('阴')) return '/static/主页户外跑图标.png';
-  if (c.includes('晴')) return '/static/主页户外跑图标.png';
-  return '/static/主页户外跑图标.png';
 });
 
 const displayTemp = computed(() => {
@@ -62,11 +52,6 @@ const displayHumidity = computed(() => {
   backdrop-filter: blur(12px);
   border: 2rpx solid rgba(255, 255, 255, 0.3);
   gap: 12rpx;
-}
-.home-weather__icon {
-  width: 36rpx;
-  height: 36rpx;
-  flex-shrink: 0;
 }
 .home-weather__temp {
   font-size: 40rpx;
