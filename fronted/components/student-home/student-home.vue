@@ -471,6 +471,22 @@ const onPageShow = async () => {
     return;
   }
 
+  // Proactively request location permission on new devices
+  // #ifdef MP-WEIXIN
+  uni.getSetting({
+    success: (res) => {
+      if (!res.authSetting['scope.userLocation']) {
+        uni.authorize({
+          scope: 'scope.userLocation',
+          fail: () => {
+            // silent fail - user will be prompted on run page
+          }
+        });
+      }
+    }
+  });
+  // #endif
+
   await reloadAll();
 };
 

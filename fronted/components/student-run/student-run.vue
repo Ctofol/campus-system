@@ -55,6 +55,22 @@
       </map>
 
       <view
+        v-if="locationState !== 'success' && !isRunning"
+        class="location-overlay"
+      >
+        <view v-if="locationState === 'idle' || locationState === 'locating'" class="location-overlay-body">
+          <view class="location-loading-spinner" />
+          <view class="location-overlay-text">正在获取定位</view>
+        </view>
+        <view v-else class="location-overlay-body">
+          <view class="location-overlay-icon">!</view>
+          <view class="location-overlay-text">定位失败</view>
+          <view class="location-overlay-sub">请确保定位权限已开启</view>
+          <view class="location-overlay-btn" @tap="onLocationStatusBarTap">重新定位</view>
+        </view>
+      </view>
+
+      <view
         v-if="!hideMapCoverLayer"
         class="sport-recenter-float"
         :style="recenterFloatStyle"
@@ -359,7 +375,10 @@ import {
   resetRunGpsRawWindow,
   shouldRejectMileageSegment,
   computeDynamicMinDistanceM,
-  isGpsClusterStationary
+  isGpsClusterStationary,
+  bearingDeg,
+  recordAcceptedSegment,
+  getDirectionReversalStatus
 } from '@/utils/run-gps-mileage.js';
 
 // Navbar Settings
@@ -1281,7 +1300,6 @@ const appendDisplayTrackPoint = (latIn, lngIn, extra = {}) => {
     speed: extra.speed
   });
   scheduleRebuildDisplayPolyline();
-  syncStepsFromDistanceFallback();
   return true;
 };
 
@@ -1594,6 +1612,11 @@ const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
     if (timeDiff < 0.35) return;
 
     const calculatedSpeed = d / timeDiff;
+    const segmentBearing = trajectoryPoints.value.length > 0
+      ? bearingDeg(lastPoint.latitude, lastPoint.longitude, workLat, workLng)
+      : NaN;
+    const directionStatus = getDirectionReversalStatus();
+    const oscillationActive = directionStatus === 'oscillating';
     const accM = getHorizontalAccuracyM(accuracyOrRes);
     if (Number.isFinite(accM)) {
       lastGpsAccuracyM.value = accM;
@@ -1613,6 +1636,7 @@ const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
       duration.value < 90 &&
       distance.value < 80;
     const driftTight = !runUnlocked && (coldPhase || tightenNoSteps) && !stepBoosted && !stableCadence;
+    const driftOscillation = driftTight && oscillationActive;
     const weakGpsSignal = Number.isFinite(accM) && accM > 45;
     const veryWeakGpsSignal = Number.isFinite(accM) && accM > 80;
     const earlyMotionStrict =
@@ -1701,6 +1725,11 @@ const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
 
     const maxSpeedForDistance = driftTight ? Math.min(tierConfig.maxSpeed, motionTier === 'fast_run' ? 5.8 : tierConfig.maxSpeed) : Math.max(tierConfig.maxSpeed, 7.8);
 
+    if (driftOscillation && !hasStrongStepMotion() && !hasRecentStepMotion() && d < 5) {
+      currentSpeed.value = 0;
+      return;
+    }
+
     if (
       shouldRejectMileageSegment({
         segmentM: d,
@@ -1710,7 +1739,8 @@ const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
         hasRecentStepMotion: recentStepMotion,
         hasStrongStepMotion: hasStrongStepMotion(),
         hasRecentGpsMotionEvidence: hasRecentGpsMotionEvidence(),
-        runUnlocked
+        runUnlocked,
+        bearingDeg: segmentBearing
       })
     ) {
       currentSpeed.value = 0;
@@ -1749,6 +1779,7 @@ const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
         distance.value += d;
         gpsAcceptedPointCount += 1;
         noteGpsMotion(nowTs, d, calculatedSpeed, accM);
+        recordAcceptedSegment(segmentBearing, calculatedSpeed);
 
         const ft = filterTrackCoordsForMileage(workLat, workLng, accM);
         const point = { latitude: ft.lat, longitude: ft.lng, timestamp: nowTs, speed: speed || calculatedSpeed };
@@ -2246,9 +2277,8 @@ onUnmounted(() => {
   stopCompassWatch();
 });
 
-const getLocation = () => {
+﻿const getLocation = () => {
   // #ifdef MP-WEIXIN
-  /** 鍐峰惎鍔ㄦ椂绔嬪埢 getLocation 甯告棤鍥炶皟锛涙巿鏉?宸叉巿鏉冨悗 nextTick + 鐭欢杩熷啀鎷夊彇锛屼笌銆岄噸杩涘皬绋嬪簭灏卞ソ銆嶅悓绫婚棶棰?*/
   const scheduleWxInitialLocate = () => {
     nextTick(() => {
       setTimeout(() => {
@@ -2257,6 +2287,35 @@ const getLocation = () => {
       }, 340);
     });
   };
+
+  const showPermissionDialog = () => {
+    stopWxInitialLocateRetry();
+    locationState.value = 'fail';
+    uni.showModal({
+      title: '需要定位权限',
+      content: '跑步功能需要获取您的位置信息。请在弹窗中点击「允许」，或在系统设置中开启定位权限。',
+      confirmText: '去设置',
+      cancelText: '重试',
+      success: (res) => {
+        if (res.confirm) {
+          uni.openSetting({
+            success: () => {
+              setTimeout(() => {
+                locationState.value = 'idle';
+                getLocation();
+              }, 500);
+            }
+          });
+        } else {
+          wxInitialLocateAttempts = 0;
+          lastLocationFixWasStale.value = false;
+          locationState.value = 'idle';
+          setTimeout(() => getLocation(), 300);
+        }
+      }
+    });
+  };
+
   uni.getSetting({
     success: (st) => {
       const granted = st.authSetting && st.authSetting['scope.userLocation'] === true;
@@ -2267,49 +2326,28 @@ const getLocation = () => {
       uni.authorize({
         scope: 'scope.userLocation',
         success: () => scheduleWxInitialLocate(),
-        fail: () => {
-          stopWxInitialLocateRetry();
-          locationState.value = 'fail';
-          uni.showModal({
-            title: '需要定位权限',
-            content: '新用户首次使用须允许微信获取位置信息。请在设置中开启后，点击地图上方绿色条重新定位。',
-            confirmText: '去设置',
-            success: (res) => {
-              if (res.confirm) uni.openSetting();
-            }
-          });
-        }
+        fail: showPermissionDialog
       });
     },
     fail: () => {
       uni.authorize({
         scope: 'scope.userLocation',
         success: () => scheduleWxInitialLocate(),
-        fail: () => {
-          stopWxInitialLocateRetry();
-          locationState.value = 'fail';
-          uni.showModal({
-            title: '需要定位权限',
-            content: '新用户首次使用须允许微信获取位置信息。请在设置中开启后，点击地图上方绿色条重新定位。',
-            confirmText: '去设置',
-            success: (res) => {
-              if (res.confirm) uni.openSetting();
-            }
-          });
-        }
+        fail: showPermissionDialog
       });
     }
   });
   // #endif
 
   // #ifndef MP-WEIXIN
-  // App绔拰H5绔洿鎺ヨ皟鐢╣etLocation锛岀郴缁熶細鑷姩澶勭悊鏉冮檺璇锋眰
+  // App端和H5端直接调用getLocation，系统会自动处理权限请求
   doGetLocation();
   // #endif
 };
-
 const handleLocationSuccess = (res) => {
   lastLocationFixWasStale.value = false;
+  // Reset retry counter on any successful fix
+  wxInitialLocateAttempts = 0;
   const acc = res.accuracy ?? res.originalRes?.accuracy ?? res.originalRes?.horizontalAccuracy;
   const accN = acc != null ? Number(acc) : NaN;
   if (Number.isFinite(accN)) {
@@ -4078,6 +4116,68 @@ const buildHistory = (records) => {
   color: #333333;
   font-size: 36rpx;
   line-height: 1;
+}
+
+.location-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(245, 247, 250, 0.95);
+}
+.location-overlay-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.location-overlay-icon {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 40rpx;
+  background-color: #f5f5f5;
+  color: #999;
+  font-size: 44rpx;
+  text-align: center;
+  line-height: 80rpx;
+  margin-bottom: 16rpx;
+}
+.location-overlay-text {
+  font-size: 30rpx;
+  color: #333;
+  font-weight: 500;
+  margin-bottom: 8rpx;
+}
+.location-overlay-sub {
+  font-size: 26rpx;
+  color: #999;
+  margin-bottom: 24rpx;
+}
+.location-overlay-btn {
+  padding: 16rpx 48rpx;
+  border-radius: 40rpx;
+  background-color: #07c160;
+  color: #fff;
+  font-size: 28rpx;
+  font-weight: 500;
+}
+.location-loading-spinner {
+  width: 60rpx;
+  height: 60rpx;
+  border: 4rpx solid #e0e0e0;
+  border-top-color: #07c160;
+  border-radius: 50%;
+  animation: location-spin 0.8s linear infinite;
+  margin-bottom: 20rpx;
+}
+@keyframes location-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .run-bottom-sheet {
