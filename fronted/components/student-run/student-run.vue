@@ -55,7 +55,7 @@
       </map>
 
       <view
-        v-if="locationState !== 'success' && !isRunning"
+        v-show="locationState !== 'success' && !isRunning"
         class="location-overlay"
       >
         <view v-if="locationState === 'idle' || locationState === 'locating'" class="location-overlay-body">
