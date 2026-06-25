@@ -2260,8 +2260,6 @@ watch(currentMode, () => {
   initRunPrepSheetHeight();
 });
 
-defineExpose({ onPageShow, onPageHide, saveRunSession, tryRestoreRunSession });
-
 onUnmounted(() => {
   saveRunSession();
   stopRunSessionAutosave();
@@ -3266,6 +3264,8 @@ const switchMode = (mode) => {
   }
   initRunPrepSheetHeight();
 };
+
+defineExpose({ onPageShow, onPageHide, saveRunSession, tryRestoreRunSession });
 
 // 8. 步数统计（加速度传感器，step-counter 步频带通计步）
 const ensureRunStepCounter = () => {
