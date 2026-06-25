@@ -327,7 +327,7 @@
     </view>
 
     <view v-if="showFaceCamera" class="face-camera-mask">
-      <!-- #ifdef MP-WEIXIN -->
+      <!-- #ifdef MP-WEIXIN || APP-PLUS -->
       <camera
         id="faceCamera"
         class="face-camera-view"
@@ -3482,7 +3482,7 @@ const finishFaceCamera = (result) => {
 const cancelFaceCamera = () => finishFaceCamera(false);
 
 const handleFaceCameraReady = () => {
-  // #ifdef MP-WEIXIN
+  // #ifdef MP-WEIXIN || APP-PLUS
   faceCameraContext = uni.createCameraContext('faceCamera');
   // #endif
   faceCameraErrorText.value = '';
@@ -3501,7 +3501,7 @@ const openInlineFaceCamera = (phase) => {
   return new Promise((resolve) => {
     faceCameraResolve = resolve;
     nextTick(() => {
-      // #ifdef MP-WEIXIN
+      // #ifdef MP-WEIXIN || APP-PLUS
       faceCameraContext = uni.createCameraContext('faceCamera');
       // #endif
     });
@@ -3555,9 +3555,11 @@ const uploadFaceCapture = async (filePath, phase, resolve) => {
 
 const captureFaceFromInlineCamera = () => {
   // #ifndef MP-WEIXIN
+  // #ifndef APP-PLUS
   return;
   // #endif
-  // #ifdef MP-WEIXIN
+  // #endif
+  // #ifdef MP-WEIXIN || APP-PLUS
   if (faceCameraBusy.value) return;
   if (!faceCameraContext) {
     faceCameraErrorText.value = '相机未就绪，请稍候再试';
@@ -3596,10 +3598,10 @@ const faceVerify = (phase) => {
 
         const uploadChosen = async (filePath) => uploadFaceCapture(filePath, phase, resolve);
 
-        // #ifdef MP-WEIXIN
+        // #ifdef MP-WEIXIN || APP-PLUS
         openInlineFaceCamera(phase).then((ok) => resolve(!!ok));
         // #endif
-        // #ifndef MP-WEIXIN
+        // #ifdef H5
         uni.chooseImage({
           count: 1,
           sizeType: ['compressed'],
