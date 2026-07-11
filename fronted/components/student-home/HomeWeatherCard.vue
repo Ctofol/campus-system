@@ -48,8 +48,7 @@ const displayHumidity = computed(() => {
   align-items: center;
   padding: 18rpx 28rpx;
   border-radius: 24rpx;
-  background: rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(12px);
+  background: rgba(255, 255, 255, 0.24);
   border: 2rpx solid rgba(255, 255, 255, 0.3);
   gap: 12rpx;
 }

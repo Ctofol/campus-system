@@ -55,7 +55,6 @@ export const getCurrentLocation = (options = {}) => {
       altitude: config.altitude,
       timeout: config.timeout,
       success: (res) => {
-        console.log('定位成功:', res);
         resolve({
           success: true,
           latitude: res.latitude,

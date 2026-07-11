@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import func
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, joinedload
 
 from .. import models
@@ -265,15 +266,19 @@ def get_home_dashboard(user: models.User, db: Session) -> Dict[str, Any]:
         .all()
     )
 
-    unread = (
-        db.query(func.count(models.UserNotification.id))
-        .filter(
-            models.UserNotification.user_id == user.id,
-            models.UserNotification.is_read.is_(False),
+    try:
+        unread = (
+            db.query(func.count(models.UserNotification.id))
+            .filter(
+                models.UserNotification.user_id == user.id,
+                models.UserNotification.is_read.is_(False),
+            )
+            .scalar()
+            or 0
         )
-        .scalar()
-        or 0
-    )
+    except SQLAlchemyError:
+        db.rollback()
+        unread = 0
 
     goal = float(user.weekly_run_goal_km or 0) if getattr(user, "weekly_run_goal_km", None) else 0.0
 

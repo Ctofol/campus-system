@@ -7,7 +7,7 @@
       theme="white"
     />
 
-    <view class="page-tab-body">
+    <view class="discover-body page-tab-body">
 
     <view class="create-form" v-if="showCreateForm">
       <view class="form-item avatar-item">
@@ -248,8 +248,13 @@ onMounted(() => {
   background: #f5f7fa;
 }
 
+.discover-body {
+  padding-top: 20rpx;
+  padding-bottom: 0;
+}
+
 .create-form {
-  padding: 40rpx 30rpx;
+  padding: 24rpx 30rpx 40rpx;
 }
 
 .form-item {
@@ -313,11 +318,11 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: 20rpx 24rpx 0;
+  margin: 0 30rpx 18rpx;
   padding: 24rpx 28rpx;
   background: #fff;
-  border-radius: 16rpx;
-  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.06);
+  border-radius: 18rpx;
+  box-shadow: 0 6rpx 18rpx rgba(26, 43, 60, 0.06);
 }
 
 .rank-entry-text {
@@ -332,19 +337,21 @@ onMounted(() => {
 }
 
 .group-list {
-  height: calc(100vh - 80rpx);
-  padding: 20rpx 24rpx;
+  height: calc(100vh - 220rpx);
+  padding: 0 30rpx 24rpx;
+  box-sizing: border-box;
 }
 
 .group-card {
   background: #fff;
-  border-radius: 20rpx;
-  padding: 30rpx 24rpx;
-  margin-bottom: 20rpx;
+  border-radius: 18rpx;
+  padding: 28rpx 24rpx;
+  margin-bottom: 18rpx;
   display: flex;
   align-items: center;
-  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.06);
+  box-shadow: 0 6rpx 18rpx rgba(26, 43, 60, 0.05);
   position: relative;
+  box-sizing: border-box;
 }
 
 .rank-badge {
@@ -370,17 +377,20 @@ onMounted(() => {
 }
 
 .avatar {
-  width: 100rpx;
-  height: 100rpx;
+  width: 104rpx;
+  height: 104rpx;
   border-radius: 50%;
-  margin-right: 20rpx;
+  margin-right: 24rpx;
   background: #e0e0e0;
+  flex-shrink: 0;
 }
 
 .info {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
+  padding-right: 20rpx;
 }
 
 .name {
@@ -388,12 +398,18 @@ onMounted(() => {
   font-weight: bold;
   color: #333;
   margin-bottom: 8rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .desc {
   font-size: 24rpx;
   color: #999;
   margin-bottom: 8rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .stats {
@@ -425,11 +441,24 @@ onMounted(() => {
 }
 
 .join-btn {
-  padding: 12rpx 30rpx;
+  width: 112rpx;
+  height: 68rpx;
+  line-height: 68rpx;
+  padding: 0;
+  margin: 0;
   background: #20c997;
   color: #fff;
-  border-radius: 30rpx;
+  border-radius: 34rpx;
   font-size: 24rpx;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.join-btn::after {
   border: none;
 }
 

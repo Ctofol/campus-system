@@ -45,13 +45,15 @@ defineEmits(['go', 'settings', 'setGoal']);
   margin: -48rpx 28rpx 0;
   padding: 40rpx 28rpx 36rpx;
   background: #fff;
-  border-radius: 32rpx;
-  box-shadow: 0 10rpx 50rpx rgba(0, 0, 0, 0.04), 0 4rpx 20rpx rgba(0, 0, 0, 0.02);
+  border-radius: 22rpx;
+  border: 1rpx solid rgba(26, 43, 60, 0.05);
+  box-shadow: 0 2rpx 8rpx rgba(26, 43, 60, 0.025);
   display: flex;
   flex-direction: row;
   align-items: center;
   position: relative;
   z-index: 2;
+  box-sizing: border-box;
 }
 .home-quick__left {
   flex: 1;
@@ -83,10 +85,6 @@ defineEmits(['go', 'settings', 'setGoal']);
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.15s;
-}
-.home-quick__go:active {
-  transform: scale(0.95);
 }
 .home-quick__go-icon {
   width: 164rpx;
@@ -149,7 +147,6 @@ defineEmits(['go', 'settings', 'setGoal']);
   height: 100%;
   background: #33C9AB;
   border-radius: 5rpx;
-  transition: width 0.3s ease;
 }
 .home-quick__progress-txt {
   font-size: 20rpx;

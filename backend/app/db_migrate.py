@@ -28,6 +28,14 @@ def ensure_schema_upgrades() -> None:
         "analysis_status": "VARCHAR(32)",
         "analysis_error": "VARCHAR(512)",
     }
+    notification_cols = {
+        "title": "VARCHAR(255)" if dialect == "sqlite" else "VARCHAR",
+        "body": "VARCHAR",
+        "ntype": "VARCHAR(64)",
+        "payload": "VARCHAR",
+        "is_read": "INTEGER" if dialect == "sqlite" else "BOOLEAN",
+        "created_at": "DATETIME" if dialect == "sqlite" else "TIMESTAMP",
+    }
 
     with database.engine.begin() as conn:
         if inspector.has_table("users"):
@@ -47,6 +55,12 @@ def ensure_schema_upgrades() -> None:
             for col, typ in metrics_cols.items():
                 if col not in existing:
                     conn.execute(text(f"ALTER TABLE activity_metrics ADD COLUMN {col} {typ}"))
+
+        if inspector.has_table("user_notifications"):
+            existing = _column_names(inspector, "user_notifications")
+            for col, typ in notification_cols.items():
+                if col not in existing:
+                    conn.execute(text(f"ALTER TABLE user_notifications ADD COLUMN {col} {typ}"))
 
     if dialect == "sqlite":
         # SQLite 无 BOOLEAN，上面已按 BOOLEAN 添加，通常映射为 INTEGER

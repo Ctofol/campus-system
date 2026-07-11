@@ -68,11 +68,13 @@ function handleTap() {
   display: flex;
   flex-direction: row;
   background: #fff;
-  border-radius: 28rpx;
+  border-radius: 20rpx;
   padding: 28rpx 24rpx;
-  box-shadow: 0 8rpx 36rpx rgba(26, 43, 60, 0.06);
+  border: 1rpx solid rgba(26, 43, 60, 0.05);
+  box-shadow: 0 2rpx 8rpx rgba(26, 43, 60, 0.025);
   position: relative;
   overflow: hidden;
+  box-sizing: border-box;
 }
 .home-activity-card:active {
   background: #FAFBFC;
@@ -140,7 +142,6 @@ function handleTap() {
   height: 100%;
   background: #33C9AB;
   border-radius: 4rpx;
-  transition: width 0.3s ease;
 }
 .home-activity-card__right {
   flex-shrink: 0;
@@ -176,19 +177,14 @@ function handleTap() {
 }
 .home-activity__sk {
   background: #fff;
-  border-radius: 28rpx;
+  border-radius: 20rpx;
   padding: 28rpx 24rpx;
-  box-shadow: 0 8rpx 36rpx rgba(26, 43, 60, 0.06);
+  border: 1rpx solid rgba(26, 43, 60, 0.05);
+  box-sizing: border-box;
 }
 .home-activity__sk-line {
   height: 140rpx;
   border-radius: 12rpx;
-  background: linear-gradient(90deg, #f0f3f6 25%, #e8ecf0 50%, #f0f3f6 75%);
-  background-size: 200% 100%;
-  animation: home-shimmer 1.2s ease-in-out infinite;
-}
-@keyframes home-shimmer {
-  0% { background-position: 100% 0; }
-  100% { background-position: -100% 0; }
+  background: #f0f3f6;
 }
 </style>

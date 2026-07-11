@@ -66,7 +66,8 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed } from 'vue';
+import { onLoad } from '@dcloudio/uni-app';
 import { getActivityDetail, applyActivity, cancelActivity } from '@/utils/request.js';
 
 const activityId = ref(0);
@@ -75,7 +76,10 @@ const hasApplied = ref(false);
 
 const progressPercent = computed(() => {
   if (!activity.value) return 0;
-  return Math.min(Math.round((activity.value.apply_count / activity.value.total_quota) * 100), 100);
+  const quota = Number(activity.value.total_quota) || 0;
+  if (quota <= 0) return 0;
+  const applied = Number(activity.value.apply_count) || 0;
+  return Math.min(Math.round((applied / quota) * 100), 100);
 });
 
 const loadDetail = async () => {
@@ -151,6 +155,7 @@ const getStatusText = (status) => {
 
 const formatTime = (timeStr) => {
   const date = new Date(timeStr);
+  if (Number.isNaN(date.getTime())) return '';
   const year = date.getFullYear();
   const month = date.getMonth() + 1;
   const day = date.getDate();
@@ -159,10 +164,14 @@ const formatTime = (timeStr) => {
   return `${year}年${month}月${day}日 ${hour}:${minute}`;
 };
 
-onMounted(() => {
-  const pages = getCurrentPages();
-  const currentPage = pages[pages.length - 1];
-  activityId.value = parseInt(currentPage.options.activityId);
+onLoad((options = {}) => {
+  const rawId = options.activityId || options.id;
+  const id = Number.parseInt(rawId, 10);
+  if (!Number.isFinite(id) || id <= 0) {
+    uni.showToast({ title: '活动参数错误', icon: 'none' });
+    return;
+  }
+  activityId.value = id;
   loadDetail();
 });
 </script>
@@ -322,15 +331,25 @@ onMounted(() => {
   right: 0;
   background: #fff;
   padding: 20rpx 30rpx;
+  padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
   box-shadow: 0 -2rpx 12rpx rgba(0, 0, 0, 0.06);
+  box-sizing: border-box;
 }
 
 .action-btn {
   width: 100%;
-  padding: 24rpx;
+  height: 84rpx;
+  line-height: 84rpx;
+  padding: 0 16rpx;
+  margin: 0;
   border-radius: 30rpx;
   font-size: 30rpx;
   font-weight: bold;
+  border: none;
+  box-sizing: border-box;
+}
+
+.action-btn::after {
   border: none;
 }
 

@@ -5,6 +5,7 @@
       scroll-y
       class="home-scroll"
       :style="{ paddingBottom: safeBottom + 'px' }"
+      :show-scrollbar="false"
       refresher-enabled
       :refresher-triggered="refreshing"
       @refresherrefresh="onPullRefresh"
@@ -50,7 +51,7 @@
 
       <view class="home-body">
         <view class="home-card home-card--grid">
-          <HomeFeatureGrid :items="featureItems" @tap="onFeatureTap" />
+          <HomeFeatureGrid :items="featureItems" @feature-tap="onFeatureTap" />
         </view>
 
         <view class="home-activity-section">
@@ -221,6 +222,10 @@ const notifIndex = ref(0);
 const goalInput = ref('');
 const homeWeather = ref(null);
 const homeWeatherReady = ref(false);
+const HOME_RELOAD_DEDUPE_MS = 30000;
+let lastReloadAt = 0;
+let reloadPromise = null;
+let mountedByPageShow = false;
 
 const {
   loading,
@@ -258,20 +263,44 @@ const checkNewTasks = (tasks) => {
   }
 };
 
+const showNavFailToast = (title) => {
+  uni.showToast({ title, icon: 'none' });
+};
+
+const navigateToPage = (url, failTitle = '页面打开失败') => {
+  uni.navigateTo({
+    url,
+    fail: (e) => {
+      console.error('navigateTo fail', url, e);
+      showNavFailToast(failTitle);
+    }
+  });
+};
+
+const switchToTab = (url, failTitle = '页面打开失败') => {
+  uni.switchTab({
+    url,
+    fail: (e) => {
+      console.error('switchTab fail', url, e);
+      showNavFailToast(failTitle);
+    }
+  });
+};
+
 const startOutdoorRun = () => {
-  uni.navigateTo({ url: '/pages/run/run' });
+  navigateToPage('/pages/run/run', '跑步页面打开失败');
 };
 
 const startPhysicalTest = () => {
-  uni.navigateTo({ url: '/pages/test/test' });
+  navigateToPage('/pages/test/test', '体测页面打开失败');
 };
 
 const startAiTest = () => {
-  uni.navigateTo({ url: '/pages/test/test' });
+  navigateToPage('/pages/test/test', '体测页面打开失败');
 };
 
 const startFreeExercise = () => {
-  uni.navigateTo({ url: '/pages/sport/free-practice' });
+  navigateToPage('/pages/sport/free-practice', '自由练习打开失败');
 };
 
 const showExerciseActionSheet = () => {
@@ -288,8 +317,8 @@ const showExerciseActionSheet = () => {
 const onFeatureTap = (id) => {
   if (id === 'outdoor') startOutdoorRun();
   else if (id === 'test') startPhysicalTest();
-  else if (id === 'learn') uni.switchTab({ url: '/pages/tab/learn' });
-  else if (id === 'rungroup') uni.navigateTo({ url: '/pages/run-group/discover' });
+  else if (id === 'learn') switchToTab('/pages/tab/learn', '课程页面打开失败');
+  else if (id === 'rungroup') navigateToPage('/pages/run-group/discover', '跑团页面打开失败');
 };
 
 const onRunSettings = () => {
@@ -340,9 +369,9 @@ const clearGoal = async () => {
 
 const handleTaskClick = (task) => {
   if (task?.id) {
-    uni.navigateTo({ url: `/pages/student/tasks/list?taskId=${task.id}` });
+    navigateToPage(`/pages/student/tasks/list?taskId=${task.id}`, '任务页面打开失败');
   } else {
-    uni.navigateTo({ url: '/pages/student/tasks/list' });
+    navigateToPage('/pages/student/tasks/list', '任务页面打开失败');
   }
 };
 
@@ -368,15 +397,15 @@ const handleNotifConfirm = () => {
 };
 
 const viewHistory = () => {
-  uni.navigateTo({ url: '/pages/history/history' });
+  navigateToPage('/pages/history/history', '历史记录打开失败');
 };
 
 const goSunshineDetail = () => {
-  uni.navigateTo({ url: '/pages/sunshine/detail' });
+  navigateToPage('/pages/sunshine/detail', '阳光跑详情打开失败');
 };
 
 const goNotifications = () => {
-  uni.navigateTo({ url: '/pages/student/notifications/list' });
+  navigateToPage('/pages/student/notifications/list', '通知页面打开失败');
 };
 
 const goRunDetail = (run) => {
@@ -387,19 +416,19 @@ const goRunDetail = (run) => {
   }
   try {
     const dataStr = encodeURIComponent(JSON.stringify(payload));
-    uni.navigateTo({ url: `/pages/history/detail?data=${dataStr}` });
+    navigateToPage(`/pages/history/detail?data=${dataStr}`, '详情页面打开失败');
   } catch (e) {
     console.error('Go detail failed', e);
   }
 };
 
 const goActivityList = () => {
-  uni.navigateTo({ url: '/pages/activity/list' });
+  navigateToPage('/pages/activity/list', '活动列表打开失败');
 };
 
 const goActivityDetail = (activity) => {
   if (activity?.id) {
-    uni.navigateTo({ url: `/pages/run-group/activity-detail?activityId=${activity.id}` });
+    navigateToPage(`/pages/run-group/activity-detail?activityId=${activity.id}`, '活动详情打开失败');
   } else {
     goActivityList();
   }
@@ -451,18 +480,34 @@ const loadHomeWeather = async () => {
   }
 };
 
-const reloadAll = async () => {
-  await Promise.all([loadDashboard(checkNewTasks), loadHomeWeather()]);
-  warmUpLocationCache();
+const reloadAll = async ({ force = false } = {}) => {
+  const now = Date.now();
+  if (!force && lastReloadAt && now - lastReloadAt < HOME_RELOAD_DEDUPE_MS) {
+    warmUpLocationCache();
+    return;
+  }
+  if (reloadPromise) return reloadPromise;
+
+  reloadPromise = Promise.all([loadDashboard(checkNewTasks), loadHomeWeather()])
+    .then(() => {
+      lastReloadAt = Date.now();
+      warmUpLocationCache();
+    })
+    .finally(() => {
+      reloadPromise = null;
+    });
+
+  return reloadPromise;
 };
 
 const onPullRefresh = async () => {
   refreshing.value = true;
-  await reloadAll();
+  await reloadAll({ force: true });
   refreshing.value = false;
 };
 
 const onPageShow = async () => {
+  mountedByPageShow = true;
   const sys = uni.getSystemInfoSync();
   safeBottom.value = sys.safeAreaInsets?.bottom || 0;
 
@@ -491,7 +536,9 @@ const onPageShow = async () => {
 };
 
 onMounted(() => {
-  onPageShow();
+  setTimeout(() => {
+    if (!mountedByPageShow) onPageShow();
+  }, 0);
 });
 
 defineExpose({

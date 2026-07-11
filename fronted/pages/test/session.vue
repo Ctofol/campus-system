@@ -53,6 +53,7 @@
       <template v-if="phase === 'camera' || phase === 'recording'">
         <view class="camera-area" :style="{ height: cameraAreaHeight + 'px' }">
           <camera
+            id="testCamera"
             ref="cameraRef"
             device-position="back"
             mode="normal"
@@ -74,14 +75,31 @@
         </view>
       </template>
 
+      <template v-if="phase === 'processing'">
+        <view class="video-processing-area">
+          <view class="processing-spinner"></view>
+          <text class="processing-title">视频处理中</text>
+          <text class="processing-desc">正在生成预览，请稍候</text>
+        </view>
+      </template>
+
       <!-- 视频预览阶段 -->
       <template v-if="phase === 'preview'">
-        <view class="video-area">
+        <view class="video-area" :class="{ 'video-area--loading': !videoReady }">
+          <view v-if="!videoReady" class="video-loading-mask">
+            <view class="processing-spinner"></view>
+            <text class="processing-title">视频加载中</text>
+          </view>
           <video
             :src="videoPath"
             class="preview-video"
+            :class="{ 'preview-video--hidden': !videoReady }"
             controls
             object-fit="contain"
+            @loadedmetadata="onVideoReady"
+            @canplay="onVideoReady"
+            @play="onVideoReady"
+            @error="onVideoError"
           />
         </view>
         <view class="test-session-footer">
@@ -124,7 +142,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, nextTick } from 'vue';
 import { onLoad, onUnload } from '@dcloudio/uni-app';
 import {
   getExerciseById,
@@ -144,6 +162,7 @@ const exercise = computed(() => getExerciseById(exerciseId.value));
 const phase = ref('ready');
 const videoPath = ref('');
 const videoUrl = ref('');
+const videoReady = ref(false);
 const uploading = ref(false);
 const dotIndex = ref(0);
 const analysisCount = ref(0);
@@ -158,10 +177,94 @@ let activityId = null;
 let recordStartTime = null;
 const timerDisplay = ref('0:00');
 let timerInterval = null;
+let previewRevealTimer = null;
+let videoReadyFallbackTimer = null;
 
 const formattedTime = computed(() => timerDisplay.value);
 
 const cameraAreaHeight = ref(500);
+
+const isCameraApiAvailable = () => typeof uni.createCameraContext === 'function';
+
+const isNativeVideoCaptureAvailable = () => {
+  // #ifdef APP-PLUS
+  return typeof plus !== 'undefined' && plus.camera && plus.camera.getCamera;
+  // #endif
+  return false;
+};
+
+const showUnsupportedCameraToast = () => {
+  uni.showToast({ title: '当前基座不支持页面内摄像头录制', icon: 'none' });
+};
+
+const onVideoReady = () => {
+  videoReady.value = true;
+};
+
+const onVideoError = (e) => {
+  videoReady.value = true;
+  console.error('Video preview error', e);
+};
+
+const enterPreview = async (path) => {
+  clearTimeout(previewRevealTimer);
+  clearTimeout(videoReadyFallbackTimer);
+  videoPath.value = path || '';
+  videoUrl.value = '';
+  videoReady.value = false;
+  phase.value = 'processing';
+
+  await nextTick();
+  previewRevealTimer = setTimeout(() => {
+    phase.value = 'preview';
+  }, 300);
+
+  videoReadyFallbackTimer = setTimeout(() => {
+    if (phase.value === 'preview' && !videoReady.value) {
+      videoReady.value = true;
+    }
+  }, 2500);
+};
+
+const captureVideoWithNativeCamera = async () => {
+  const granted = await ensureCameraPermission();
+  if (!granted) {
+    showCameraPermissionModal();
+    return false;
+  }
+
+  // #ifdef APP-PLUS
+  return new Promise((resolve) => {
+    try {
+      const camera = plus.camera.getCamera();
+      camera.startVideoCapture(
+        (path) => {
+          recordStartTime = new Date();
+          enterPreview(path);
+          resolve(true);
+        },
+        (err) => {
+          if (err && err.code !== 11) {
+            uni.showToast({ title: '录制失败，请重试', icon: 'none' });
+            console.error('Native video capture fail', err);
+          }
+          resolve(false);
+        },
+        {
+          filename: '_doc/test_video/',
+          videoMaximumDuration: 120
+        }
+      );
+    } catch (e) {
+      console.error('Native video capture error', e);
+      showUnsupportedCameraToast();
+      resolve(false);
+    }
+  });
+  // #endif
+
+  return false;
+};
 
 onLoad((options) => {
   try {
@@ -185,6 +288,8 @@ onUnload(() => {
   clearInterval(timerInterval);
   clearInterval(dotTimer);
   clearTimeout(pollTimer);
+  clearTimeout(previewRevealTimer);
+  clearTimeout(videoReadyFallbackTimer);
   if (cameraCtx && isRecording.value) {
     try { cameraCtx.stopRecord(); } catch (e) { /* ignore */ }
   }
@@ -194,16 +299,108 @@ const goBack = () => {
   uni.navigateBack({ fail: () => uni.redirectTo({ url: '/pages/test/test' }) });
 };
 
-const startRecording = () => {
+const ensureCameraPermission = () => {
+  return new Promise((resolve) => {
+    // #ifdef APP-PLUS
+    if (typeof plus !== 'undefined' && plus.android && plus.android.requestPermissions) {
+      plus.android.requestPermissions(
+        ['android.permission.CAMERA', 'android.permission.RECORD_AUDIO'],
+        (result) => {
+          const denied = [
+            ...(result.deniedAlways || []),
+            ...(result.deniedPresent || [])
+          ];
+          resolve(denied.length === 0);
+        },
+        () => resolve(false)
+      );
+      return;
+    }
+    // #endif
+    resolve(true);
+  });
+};
+
+const openPermissionSettings = () => {
+  // #ifdef APP-PLUS
+  if (uni.openAppAuthorizeSetting) {
+    uni.openAppAuthorizeSetting();
+    return;
+  }
+  // #endif
+  if (uni.openSetting) uni.openSetting();
+};
+
+const showCameraPermissionModal = () => {
+  uni.showModal({
+    title: '需要摄像头权限',
+    content: '体测录制需要使用摄像头和麦克风。请在系统设置中允许后重试。',
+    confirmText: '去设置',
+    success: (res) => {
+      if (res.confirm) openPermissionSettings();
+    }
+  });
+};
+
+const prepareCameraContext = async () => {
+  if (!isCameraApiAvailable()) {
+    cameraCtx = null;
+    return false;
+  }
+  await nextTick();
+  await new Promise((resolve) => setTimeout(resolve, 120));
+  cameraCtx = uni.createCameraContext('testCamera');
+  return !!cameraCtx;
+};
+
+const startRecording = async () => {
+  if (!isCameraApiAvailable()) {
+    if (isNativeVideoCaptureAvailable()) {
+      await captureVideoWithNativeCamera();
+    } else {
+      showUnsupportedCameraToast();
+    }
+    return;
+  }
+  const granted = await ensureCameraPermission();
+  if (!granted) {
+    showCameraPermissionModal();
+    return;
+  }
   phase.value = 'camera';
+  const ready = await prepareCameraContext();
+  if (!ready) {
+    phase.value = 'ready';
+    showUnsupportedCameraToast();
+  }
 };
 
 const onCameraError = (e) => {
-  uni.showToast({ title: '摄像头不可用，请授权或重试', icon: 'none' });
+  console.error('Camera preview error', e);
+  showCameraPermissionModal();
 };
 
-const startCamRecord = () => {
-  cameraCtx = uni.createCameraContext();
+const startCamRecord = async () => {
+  if (!isCameraApiAvailable()) {
+    if (isNativeVideoCaptureAvailable()) {
+      await captureVideoWithNativeCamera();
+    } else {
+      showUnsupportedCameraToast();
+    }
+    return;
+  }
+  const granted = await ensureCameraPermission();
+  if (!granted) {
+    showCameraPermissionModal();
+    return;
+  }
+  if (!cameraCtx) {
+    await prepareCameraContext();
+  }
+  if (!cameraCtx) {
+    uni.showToast({ title: '摄像头未就绪，请重试', icon: 'none' });
+    return;
+  }
   recordStartTime = new Date();
   isRecording.value = true;
   timerDisplay.value = '0:00';
@@ -218,6 +415,8 @@ const startCamRecord = () => {
   cameraCtx.startRecord({
     success: () => {},
     fail: (err) => {
+      isRecording.value = false;
+      clearInterval(timerInterval);
       uni.showToast({ title: '启动录制失败', icon: 'none' });
       console.error('Start record fail', err);
     }
@@ -232,8 +431,7 @@ const stopCamRecord = () => {
 
   cameraCtx.stopRecord({
     success: (res) => {
-      videoPath.value = res.tempVideoPath || res.tempFilePath;
-      phase.value = 'preview';
+      enterPreview(res.tempVideoPath || res.tempFilePath);
     },
     fail: (err) => {
       uni.showToast({ title: '停止录制失败', icon: 'none' });
@@ -245,9 +443,20 @@ const stopCamRecord = () => {
 const retakeRecording = () => {
   videoPath.value = '';
   videoUrl.value = '';
+  videoReady.value = false;
   isRecording.value = false;
   cameraCtx = null;
+  if (!isCameraApiAvailable()) {
+    if (isNativeVideoCaptureAvailable()) {
+      captureVideoWithNativeCamera();
+    } else {
+      phase.value = 'ready';
+      showUnsupportedCameraToast();
+    }
+    return;
+  }
   phase.value = 'camera';
+  prepareCameraContext();
 };
 
 const submitTest = async () => {
@@ -575,7 +784,55 @@ const goToResult = () => {
   border: none;
 }
 
+.video-processing-area,
+.video-loading-mask {
+  flex: 1;
+  min-height: 520rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #f5f7fa;
+  padding: 60rpx 40rpx;
+}
+
+.video-loading-mask {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 2;
+}
+
+.processing-spinner {
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 50%;
+  border: 6rpx solid rgba(51, 201, 171, 0.18);
+  border-top-color: #33C9AB;
+  animation: processing-spin 0.8s linear infinite;
+  margin-bottom: 24rpx;
+}
+
+.processing-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #1a2b3c;
+}
+
+.processing-desc {
+  margin-top: 12rpx;
+  font-size: 24rpx;
+  color: #8a9bab;
+}
+
+@keyframes processing-spin {
+  to { transform: rotate(360deg); }
+}
+
 .video-area {
+  position: relative;
   flex: 1;
   display: flex;
   align-items: center;
@@ -584,9 +841,17 @@ const goToResult = () => {
   overflow: hidden;
 }
 
+.video-area--loading {
+  background: #f5f7fa;
+}
+
 .preview-video {
   width: 100%;
   height: 100%;
+}
+
+.preview-video--hidden {
+  opacity: 0;
 }
 
 /* 摄像头实时预览 */

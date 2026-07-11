@@ -228,7 +228,14 @@ const mockCount = () => {
 
 const startTest = () => {
   if (isTesting.value) return;
-  
+
+  // #ifdef APP-PLUS
+  uni.navigateTo({
+    url: `/pages/test/session?exercise=${encodeURIComponent(testType.value)}`
+  });
+  return;
+  // #endif
+
   // #ifdef APP-PLUS
   if (cameraContext.value) {
       cameraContext.value.startRecord({

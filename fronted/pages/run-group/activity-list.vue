@@ -178,18 +178,23 @@ onMounted(() => {
 .filter-bar {
   display: flex;
   background: #fff;
-  padding: 20rpx 30rpx;
-  gap: 20rpx;
+  padding: 18rpx 30rpx;
+  gap: 16rpx;
+  box-sizing: border-box;
 }
 
 .filter-item {
   flex: 1;
+  min-width: 0;
   text-align: center;
-  padding: 12rpx;
+  height: 60rpx;
+  line-height: 60rpx;
+  padding: 0 8rpx;
   border-radius: 20rpx;
   font-size: 24rpx;
   color: #666;
   background: #f5f7fa;
+  box-sizing: border-box;
 }
 
 .filter-item.active {
@@ -198,17 +203,19 @@ onMounted(() => {
 }
 
 .activity-scroll {
-  height: calc(100vh - 100rpx);
-  padding: 20rpx 30rpx;
+  height: calc(100vh - 104rpx);
+  padding: 18rpx 30rpx 30rpx;
+  box-sizing: border-box;
 }
 
 .activity-card {
   background: #fff;
-  border-radius: 20rpx;
-  padding: 30rpx;
-  margin-bottom: 20rpx;
-  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.06);
+  border-radius: 18rpx;
+  padding: 28rpx 24rpx;
+  margin-bottom: 18rpx;
+  box-shadow: 0 6rpx 18rpx rgba(26, 43, 60, 0.05);
   position: relative;
+  box-sizing: border-box;
 }
 
 .status-badge {
@@ -239,6 +246,10 @@ onMounted(() => {
   color: #333;
   display: block;
   margin-bottom: 20rpx;
+  padding-right: 140rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .info-row {
@@ -247,11 +258,16 @@ onMounted(() => {
   margin-bottom: 12rpx;
 }
 
-.info-icon-img { width: 28rpx; height: 28rpx; margin-right: 12rpx; vertical-align: middle; }
+.info-icon-img { width: 28rpx; height: 28rpx; margin-right: 12rpx; vertical-align: middle; flex-shrink: 0; }
 
 .text {
+  flex: 1;
+  min-width: 0;
   font-size: 24rpx;
   color: #666;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .apply-info {

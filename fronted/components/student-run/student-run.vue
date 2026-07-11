@@ -7,8 +7,8 @@
         v-if="isMapReady"
         id="runMap"
         class="map map-full"
-        :latitude="lat"
-        :longitude="lng"
+        :latitude="mapCenterLat"
+        :longitude="mapCenterLng"
         :markers="markers"
         :polyline="polyline"
         :enable-zoom="true"
@@ -327,7 +327,7 @@
     </view>
 
     <view v-if="showFaceCamera" class="face-camera-mask">
-      <!-- #ifdef MP-WEIXIN || APP-PLUS -->
+      <!-- #ifdef MP-WEIXIN -->
       <camera
         id="faceCamera"
         class="face-camera-view"
@@ -677,6 +677,9 @@ const faceCameraBusy = ref(false);
 const faceCameraErrorText = ref('');
 let faceCameraResolve = null;
 let faceCameraContext = null;
+let faceCameraTimeout = null;
+let lastMarkerJson = '';
+let lastPolylineJson = '';
 
 const loadTaskRequirements = async (tid) => {
   if (!tid) return;
@@ -1008,6 +1011,8 @@ const DEFAULT_MAP_LAT = 39.909;
 const DEFAULT_MAP_LNG = 116.397;
 const lat = ref(DEFAULT_MAP_LAT);
 const lng = ref(DEFAULT_MAP_LNG);
+const mapCenterLat = ref(DEFAULT_MAP_LAT);
+const mapCenterLng = ref(DEFAULT_MAP_LNG);
 const markers = ref([]);
 const checkpointMarker = ref(null);
 const runStartMarker = ref(null);
@@ -1172,6 +1177,7 @@ watch(locationState, () => {
 });
 
 const refreshMarkers = () => {
+  if (!isMapReady.value) return;
   const nextMarkers = [];
   if (runStartMarker.value && showRunStartOnMap.value) {
     nextMarkers.push({ ...runStartMarker.value });
@@ -1182,9 +1188,9 @@ const refreshMarkers = () => {
   if (checkpointMarker.value) {
     nextMarkers.push({ ...checkpointMarker.value });
   }
-  if (hasPlausibleCoords() && isRunning.value) {
-    nextMarkers.push(createCurrentLocationMarker(lat.value, lng.value));
-  }
+  const j = JSON.stringify(nextMarkers);
+  if (j === lastMarkerJson) return;
+  lastMarkerJson = j;
   markers.value = nextMarkers;
 };
 
@@ -1243,6 +1249,9 @@ const updateMapPolyline = () => {
   if (navPolyline.value && navPolyline.value.points && navPolyline.value.points.length >= 2) {
     lines.push(JSON.parse(JSON.stringify(navPolyline.value)));
   }
+  const j = JSON.stringify(lines);
+  if (j === lastPolylineJson) return;
+  lastPolylineJson = j;
   polyline.value = lines;
 };
 
@@ -2187,14 +2196,11 @@ const startLocationService = () => {
   // #ifdef APP-PLUS
   if (uni.getSystemInfoSync().platform === 'android') {
       if (locationRetryTimer) clearInterval(locationRetryTimer);
-      console.log('Starting Android location polling...');
       locationRetryTimer = setInterval(() => {
           if (!isPageActive) return;
           if (locationState.value !== 'success') {
-              console.log('Retry locating (Android)...');
               doGetLocation();
           } else {
-              console.log('Location success, stop polling.');
               clearInterval(locationRetryTimer);
               locationRetryTimer = null;
           }
@@ -2518,6 +2524,12 @@ const doGetLocation = async (options = {}) => {
         lastLocationFixWasStale.value = false;
         handleLocationSuccess(res);
         refreshMarkers();
+        // Sync map center on first good fix; avoid re-binding lat/lng
+        // every update (triggers uni-app view-layer null refs on App)
+        if (mapCenterLat.value === DEFAULT_MAP_LAT) {
+          mapCenterLat.value = lat.value;
+          mapCenterLng.value = lng.value;
+        }
         stopWxInitialLocateRetry();
         if (!silent && isFirstTimeLocate) {
           uni.showToast({ title: '定位成功', icon: 'none' });
@@ -3392,6 +3404,9 @@ const initializeRunState = () => {
   runActiveBaseSec.value = 0;
   runSegmentStartMs.value = Date.now();
   distance.value = 0;
+  // Center map on start position
+  mapCenterLat.value = lat.value;
+  mapCenterLng.value = lng.value;
   stepCount.value = 0;
   currentSpeed.value = 0;
   endFaceUrl.value = null;
@@ -3470,6 +3485,10 @@ const handleFacePickFail = (resolve, err) => {
 };
 
 const finishFaceCamera = (result) => {
+  if (faceCameraTimeout) {
+    clearTimeout(faceCameraTimeout);
+    faceCameraTimeout = null;
+  }
   const resolver = faceCameraResolve;
   faceCameraResolve = null;
   showFaceCamera.value = false;
@@ -3482,7 +3501,7 @@ const finishFaceCamera = (result) => {
 const cancelFaceCamera = () => finishFaceCamera(false);
 
 const handleFaceCameraReady = () => {
-  // #ifdef MP-WEIXIN || APP-PLUS
+  // #ifdef MP-WEIXIN
   faceCameraContext = uni.createCameraContext('faceCamera');
   // #endif
   faceCameraErrorText.value = '';
@@ -3500,8 +3519,14 @@ const openInlineFaceCamera = (phase) => {
   showFaceCamera.value = true;
   return new Promise((resolve) => {
     faceCameraResolve = resolve;
+    faceCameraTimeout = setTimeout(() => {
+      if (faceCameraResolve) {
+        uni.showToast({ title: '相机启动超时，请检查摄像头权限', icon: 'none' });
+        finishFaceCamera(false);
+      }
+    }, 15000);
     nextTick(() => {
-      // #ifdef MP-WEIXIN || APP-PLUS
+      // #ifdef MP-WEIXIN
       faceCameraContext = uni.createCameraContext('faceCamera');
       // #endif
     });
@@ -3555,11 +3580,9 @@ const uploadFaceCapture = async (filePath, phase, resolve) => {
 
 const captureFaceFromInlineCamera = () => {
   // #ifndef MP-WEIXIN
-  // #ifndef APP-PLUS
   return;
   // #endif
-  // #endif
-  // #ifdef MP-WEIXIN || APP-PLUS
+  // #ifdef MP-WEIXIN
   if (faceCameraBusy.value) return;
   if (!faceCameraContext) {
     faceCameraErrorText.value = '相机未就绪，请稍候再试';
@@ -3598,10 +3621,10 @@ const faceVerify = (phase) => {
 
         const uploadChosen = async (filePath) => uploadFaceCapture(filePath, phase, resolve);
 
-        // #ifdef MP-WEIXIN || APP-PLUS
+        // #ifdef MP-WEIXIN
         openInlineFaceCamera(phase).then((ok) => resolve(!!ok));
         // #endif
-        // #ifdef H5
+        // #ifndef MP-WEIXIN
         uni.chooseImage({
           count: 1,
           sizeType: ['compressed'],
@@ -3727,7 +3750,9 @@ const resumeRunAfterEndFaceCancelled = () => {
 
 // 鎻愪氦璺戞璁板綍骞惰烦杞粨绠楅〉
 const redirectToRunResult = () => {
-  uni.redirectTo({
+  // Use navigateTo instead of redirectTo to avoid destroying the current
+  // page's native map component (which triggers view-layer DOM errors on App)
+  uni.navigateTo({
     url: '/pages/result/result?useStorage=true',
     fail: (err) => {
       console.error('Navigate failed:', err);

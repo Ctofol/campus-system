@@ -316,7 +316,10 @@ def get_weather(
 
     if lat < -90 or lat > 90 or lng < -180 or lng > 180:
         raise HTTPException(status_code=400, detail="无效的经纬度")
-    result = get_realtime_weather(lat, lng)
+    try:
+        result = get_realtime_weather(lat, lng)
+    except Exception as exc:
+        result = {"ok": False, "error": "weather_server_error", "message": str(exc)}
     return schemas.WeatherResponse(
         ok=bool(result.get("ok")),
         weather=result.get("weather"),

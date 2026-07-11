@@ -370,7 +370,12 @@ const fetchMedals = async () => {
       medalEarnedCount.value = res.earned_count;
       medalTotalCount.value = res.total_count;
     }
-  } catch (e) { console.error('Fetch medals failed', e); }
+  } catch (e) {
+    medalList.value = [];
+    medalEarnedCount.value = 0;
+    medalTotalCount.value = 0;
+    if (e?.statusCode !== 404) console.error('Fetch medals failed', e);
+  }
 };
 
 const openMedalDetail = (medal) => {

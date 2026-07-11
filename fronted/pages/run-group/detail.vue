@@ -280,6 +280,7 @@ const goToActivity = (activityId) => {
   display: flex;
   flex-direction: column;
   align-items: center;
+  box-sizing: border-box;
 }
 
 .avatar {
@@ -295,6 +296,10 @@ const goToActivity = (activityId) => {
   font-weight: bold;
   color: #333;
   margin-bottom: 12rpx;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .rank-badge {
@@ -335,6 +340,7 @@ const goToActivity = (activityId) => {
   margin: 220rpx 30rpx 20rpx;
   border-radius: 20rpx;
   padding: 10rpx;
+  box-sizing: border-box;
 }
 
 .tab-item {
@@ -353,6 +359,7 @@ const goToActivity = (activityId) => {
 
 .tab-content {
   padding: 0 30rpx;
+  box-sizing: border-box;
 }
 
 .desc-card {
@@ -379,17 +386,22 @@ const goToActivity = (activityId) => {
 .activity-item {
   background: #fff;
   border-radius: 16rpx;
-  padding: 30rpx;
+  padding: 24rpx;
   margin-bottom: 16rpx;
   display: flex;
   align-items: center;
+  box-sizing: border-box;
 }
 
 .member-name,
 .activity-title {
   flex: 1;
+  min-width: 0;
   font-size: 26rpx;
   color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .member-role,
@@ -397,6 +409,7 @@ const goToActivity = (activityId) => {
   font-size: 24rpx;
   color: #999;
   margin-right: 20rpx;
+  flex-shrink: 0;
 }
 
 .member-mileage,
@@ -404,8 +417,8 @@ const goToActivity = (activityId) => {
   font-size: 24rpx;
   color: #20c997;
   font-weight: bold;
+  flex-shrink: 0;
 }
-
 .bottom-bar {
   position: fixed;
   bottom: 0;
@@ -413,7 +426,9 @@ const goToActivity = (activityId) => {
   right: 0;
   background: #fff;
   padding: 20rpx 30rpx;
+  padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
   box-shadow: 0 -2rpx 12rpx rgba(0, 0, 0, 0.06);
+  box-sizing: border-box;
 }
 
 .creator-actions {
@@ -424,12 +439,20 @@ const goToActivity = (activityId) => {
 .action-btn {
   width: 100%;
   flex: 1;
-  padding: 24rpx;
+  height: 84rpx;
+  line-height: 84rpx;
+  padding: 0 16rpx;
+  margin: 0;
   background: linear-gradient(135deg, #20c997, #17a589);
   color: #fff;
   border-radius: 30rpx;
   font-size: 30rpx;
   font-weight: bold;
+  border: none;
+  box-sizing: border-box;
+}
+
+.action-btn::after {
   border: none;
 }
 

@@ -272,7 +272,9 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 200rpx 60rpx;
+  min-height: 70vh;
+  padding: 80rpx 60rpx;
+  box-sizing: border-box;
 }
 
 .empty-icon {
@@ -293,9 +295,18 @@ onMounted(() => {
 }
 
 .tip-btn {
-  padding: 16rpx 40rpx;
+  min-width: 180rpx;
+  height: 68rpx;
+  line-height: 68rpx;
+  padding: 0 36rpx;
+  margin: 0;
   border-radius: 30rpx;
   font-size: 26rpx;
+  border: none;
+  box-sizing: border-box;
+}
+
+.tip-btn::after {
   border: none;
 }
 
@@ -305,7 +316,8 @@ onMounted(() => {
 }
 
 .group-content {
-  padding: 20rpx 30rpx;
+  padding: 20rpx 30rpx 40rpx;
+  box-sizing: border-box;
 }
 
 .group-switcher {
@@ -321,10 +333,12 @@ onMounted(() => {
 
 .group-chip {
   min-width: 200rpx;
+  max-width: 320rpx;
   padding: 18rpx 24rpx;
   border-radius: 18rpx;
   background: #fff;
   border: 2rpx solid #e7edf3;
+  box-sizing: border-box;
 }
 
 .group-chip.active {
@@ -337,6 +351,9 @@ onMounted(() => {
   font-size: 26rpx;
   font-weight: 700;
   color: #243447;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .group-chip-role {
@@ -356,6 +373,7 @@ onMounted(() => {
   border-radius: 20rpx;
   padding: 30rpx;
   margin-bottom: 20rpx;
+  box-sizing: border-box;
 }
 
 .card-header {
@@ -370,10 +388,12 @@ onMounted(() => {
   border-radius: 50%;
   margin-right: 20rpx;
   background: rgba(255, 255, 255, 0.2);
+  flex-shrink: 0;
 }
 
 .header-info {
   flex: 1;
+  min-width: 0;
 }
 
 .name {
@@ -382,6 +402,9 @@ onMounted(() => {
   color: #fff;
   display: block;
   margin-bottom: 8rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .role-badge {
@@ -399,6 +422,8 @@ onMounted(() => {
   border-radius: 20rpx;
   font-size: 24rpx;
   color: #fff;
+  flex-shrink: 0;
+  margin-left: 16rpx;
 }
 
 .stats-row {
@@ -434,9 +459,20 @@ onMounted(() => {
 .leave-btn,
 .delete-btn {
   flex: 1;
-  padding: 20rpx;
+  min-width: 0;
+  height: 72rpx;
+  line-height: 72rpx;
+  padding: 0 12rpx;
+  margin: 0;
   border-radius: 30rpx;
   font-size: 26rpx;
+  border: none;
+  box-sizing: border-box;
+}
+
+.detail-btn::after,
+.leave-btn::after,
+.delete-btn::after {
   border: none;
 }
 
@@ -514,8 +550,12 @@ onMounted(() => {
 .member-name,
 .activity-title {
   flex: 1;
+  min-width: 0;
   font-size: 26rpx;
   color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .member-role,
@@ -530,6 +570,7 @@ onMounted(() => {
   font-size: 24rpx;
   color: #20C997;
   font-weight: bold;
+  flex-shrink: 0;
 }
 
 .empty-state {
