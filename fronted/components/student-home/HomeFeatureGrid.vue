@@ -4,7 +4,8 @@
       v-for="item in items"
       :key="item.id"
       class="home-feature-grid__item"
-      @tap="$emit('tap', item.id)"
+      @tap="onItemTap(item.id)"
+      @click="onItemTap(item.id)"
     >
       <view class="home-feature-grid__icon-wrap">
         <image class="home-feature-grid__icon" :src="item.icon" mode="aspectFit" />
@@ -16,13 +17,24 @@
 </template>
 
 <script setup>
+const emit = defineEmits(['feature-tap']);
 defineProps({
   items: {
     type: Array,
     default: () => []
   }
 });
-defineEmits(['tap']);
+
+let lastTapAt = 0;
+let lastTapId = '';
+
+const onItemTap = (id) => {
+  const now = Date.now();
+  if (lastTapId === id && now - lastTapAt < 350) return;
+  lastTapAt = now;
+  lastTapId = id;
+  emit('feature-tap', id);
+};
 </script>
 
 <style lang="scss" scoped>
@@ -35,10 +47,12 @@ defineEmits(['tap']);
 .home-feature-grid__item {
   flex: 1;
   min-width: 0;
+  min-height: 156rpx;
   display: flex;
   flex-direction: column;
   align-items: center;
   padding: 8rpx 4rpx 4rpx;
+  box-sizing: border-box;
 }
 .home-feature-grid__icon-wrap {
   width: 88rpx;
@@ -49,7 +63,7 @@ defineEmits(['tap']);
   align-items: center;
   justify-content: center;
   margin-bottom: 12rpx;
-  box-shadow: 0 4rpx 16rpx rgba(51, 201, 171, 0.08);
+  border: 1rpx solid rgba(51, 201, 171, 0.08);
 }
 .home-feature-grid__icon {
   width: 76rpx;

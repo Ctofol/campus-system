@@ -31,6 +31,9 @@ def upgrade_database():
             ("video_url", "VARCHAR"),
             ("score", "INTEGER"),
             ("score_detail", "VARCHAR"),
+            ("exercise_type", "VARCHAR(32)"),
+            ("analysis_status", "VARCHAR(32)"),
+            ("analysis_error", "VARCHAR(512)"),
         ],
         "users": [
             ("health_status", "VARCHAR DEFAULT 'normal'"),
@@ -39,6 +42,7 @@ def upgrade_database():
             ("group_name", "VARCHAR"),
             ("signature", "VARCHAR"),
             ("avatar_url", "VARCHAR"),
+            ("header_bg_url", "VARCHAR(512)"),
             ("weekly_run_goal_km", "FLOAT"),
         ],
         "tasks": [
@@ -51,6 +55,14 @@ def upgrade_database():
             ("attachments", "VARCHAR"),
             ("start_date", "DATETIME"),
             ("end_date", "DATETIME"),
+        ],
+        "user_notifications": [
+            ("title", "VARCHAR"),
+            ("body", "VARCHAR"),
+            ("ntype", "VARCHAR DEFAULT 'system'"),
+            ("payload", "VARCHAR"),
+            ("is_read", "BOOLEAN DEFAULT FALSE"),
+            ("created_at", "DATETIME"),
         ],
     }
 

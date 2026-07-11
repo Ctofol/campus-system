@@ -440,3 +440,27 @@ class TeacherStudent(Base):
 
     teacher = relationship("User", foreign_keys=[teacher_id])
     student = relationship("User", foreign_keys=[student_user_id])
+
+
+class Medal(Base):
+    __tablename__ = "medals"
+
+    id = Column(Integer, primary_key=True, index=True)
+    key = Column(String(32), unique=True, nullable=False)  # e.g. 'run_5k', 'streak_100'
+    name = Column(String(64), nullable=False)
+    description = Column(String(256), nullable=False)
+    icon_path = Column(String(256), nullable=False)  # e.g. '/static/medals/5k距离勋章.png'
+
+
+class UserMedal(Base):
+    __tablename__ = "user_medals"
+    __table_args__ = (
+        UniqueConstraint("user_id", "medal_id", name="uq_user_medal"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    medal_id = Column(Integer, ForeignKey("medals.id"), nullable=False)
+    earned_at = Column(DateTime, default=datetime.utcnow)
+
+    medal = relationship("Medal")

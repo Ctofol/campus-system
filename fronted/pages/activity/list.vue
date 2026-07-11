@@ -10,7 +10,7 @@
         <view class="act-info">
           <text class="act-name">{{ item.name }}</text>
           <view class="act-meta">
-            <view class="act-time"><image class="act-meta-img" src="/static/日历.PNG" mode="aspectFit" /><text>{{ item.time }}</text></view>
+            <view class="act-time"><image class="act-meta-img" src="/static/日历.png" mode="aspectFit" /><text>{{ item.time }}</text></view>
             <view class="act-location"><image class="act-meta-img" src="/static/location.png" mode="aspectFit" /><text>{{ item.location }}</text></view>
           </view>
           <view class="act-status" :class="item.statusClass">

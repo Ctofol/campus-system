@@ -6,13 +6,13 @@
     
     <view class="grid-container">
       <view class="grid-item" @click="navigateTo('/pages/admin/classes/list')">
-        <image class="icon-img" src="/static/主页GO图标.PNG" mode="aspectFit" />
+        <image class="icon-img" src="/static/主页GO图标.png" mode="aspectFit" />
         <text class="label">班级管理</text>
         <text class="desc">创建/删除班级</text>
       </view>
       
       <view class="grid-item" @click="navigateTo('/pages/admin/users/list')">
-        <image class="icon-img" src="/static/主页GO图标.PNG" mode="aspectFit" />
+        <image class="icon-img" src="/static/主页GO图标.png" mode="aspectFit" />
         <text class="label">账号管理</text>
         <text class="desc">学生/教师账号维护</text>
       </view>

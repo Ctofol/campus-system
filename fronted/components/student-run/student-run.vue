@@ -7,8 +7,8 @@
         v-if="isMapReady"
         id="runMap"
         class="map map-full"
-        :latitude="lat"
-        :longitude="lng"
+        :latitude="mapCenterLat"
+        :longitude="mapCenterLng"
         :markers="markers"
         :polyline="polyline"
         :enable-zoom="true"
@@ -53,6 +53,22 @@
         </cover-view>
 
       </map>
+
+      <view
+        v-show="locationState !== 'success' && !isRunning"
+        class="location-overlay"
+      >
+        <view v-if="locationState === 'idle' || locationState === 'locating'" class="location-overlay-body">
+          <view class="location-loading-spinner" />
+          <view class="location-overlay-text">正在获取定位</view>
+        </view>
+        <view v-else class="location-overlay-body">
+          <view class="location-overlay-icon">!</view>
+          <view class="location-overlay-text">定位失败</view>
+          <view class="location-overlay-sub">请确保定位权限已开启</view>
+          <view class="location-overlay-btn" @tap="onLocationStatusBarTap">重新定位</view>
+        </view>
+      </view>
 
       <view
         v-if="!hideMapCoverLayer"
@@ -532,7 +548,10 @@ import {
   resetRunGpsRawWindow,
   shouldRejectMileageSegment,
   computeDynamicMinDistanceM,
-  isGpsClusterStationary
+  isGpsClusterStationary,
+  bearingDeg,
+  recordAcceptedSegment,
+  getDirectionReversalStatus
 } from '@/utils/run-gps-mileage.js';
 
 // Navbar Settings
@@ -758,6 +777,9 @@ const faceCameraBusy = ref(false);
 const faceCameraErrorText = ref('');
 let faceCameraResolve = null;
 let faceCameraContext = null;
+let faceCameraTimeout = null;
+let lastMarkerJson = '';
+let lastPolylineJson = '';
 
 const loadTaskRequirements = async (tid) => {
   if (!tid) return;
@@ -972,6 +994,8 @@ const DEFAULT_MAP_LAT = 39.909;
 const DEFAULT_MAP_LNG = 116.397;
 const lat = ref(DEFAULT_MAP_LAT);
 const lng = ref(DEFAULT_MAP_LNG);
+const mapCenterLat = ref(DEFAULT_MAP_LAT);
+const mapCenterLng = ref(DEFAULT_MAP_LNG);
 const markers = ref([]);
 const checkpointMarker = ref(null);
 const runStartMarker = ref(null);
@@ -1041,6 +1065,7 @@ const createRunPointMarker = (id, latitude, longitude, labelText, bgColor) => ({
 });
 
 const refreshMarkers = () => {
+  if (!isMapReady.value) return;
   const nextMarkers = [];
   if (runStartMarker.value) {
     nextMarkers.push({ ...runStartMarker.value });
@@ -1054,6 +1079,9 @@ const refreshMarkers = () => {
   if (hasPlausibleCoords()) {
     nextMarkers.push(createCurrentLocationMarker(lat.value, lng.value));
   }
+  const j = JSON.stringify(nextMarkers);
+  if (j === lastMarkerJson) return;
+  lastMarkerJson = j;
   markers.value = nextMarkers;
 };
 
@@ -1099,6 +1127,9 @@ const updateMapPolyline = () => {
   if (navPolyline.value && navPolyline.value.points && navPolyline.value.points.length >= 2) {
     lines.push(JSON.parse(JSON.stringify(navPolyline.value)));
   }
+  const j = JSON.stringify(lines);
+  if (j === lastPolylineJson) return;
+  lastPolylineJson = j;
   polyline.value = lines;
 };
 
@@ -1156,7 +1187,6 @@ const appendDisplayTrackPoint = (latIn, lngIn, extra = {}) => {
     speed: extra.speed
   });
   scheduleRebuildDisplayPolyline();
-  syncStepsFromDistanceFallback();
   return true;
 };
 
@@ -1451,14 +1481,27 @@ const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
     if (timeDiff < 0.35) return;
 
     const calculatedSpeed = d / timeDiff;
+    const segmentBearing = trajectoryPoints.value.length > 0
+      ? bearingDeg(lastPoint.latitude, lastPoint.longitude, workLat, workLng)
+      : NaN;
+    const directionStatus = getDirectionReversalStatus();
+    const oscillationActive = directionStatus === 'oscillating';
     const accM = getHorizontalAccuracyM(accuracyOrRes);
     /** 寮€璺戝悗绾?50s 鍐?GPS 甯告姈鍔ㄥ嚭銆屾湭鍔ㄥ嵈鏈夐噷绋嬨€嶏紱鍗曞尯闂翠綅绉诲皝椤讹紝瓒呭嚭鍙籂鍋忔湯鐐广€佷笉璁￠噷绋?*/
     const coldPhase = duration.value < 50;
     /** 姝ユ暟闀挎湡涓?0 鏃朵粎闈?GPS 鏄撶疮璁″亣閲岀▼锛堟紓绉伙級锛涘湪鍑虹幇鐪熷疄姝ラ鍓嶆寔缁敹绱э紙鏈夋鏁板悗鑷姩瑙ｉ櫎锛?*/
     const recentStepMotion = hasRecentStepMotion();
     const trustedMotion = hasTrustedRunMotion();
-    const tightenNoSteps = stepCount.value === 0 && !trustedMotion && duration.value >= 20 && duration.value < 90 && distance.value < 160;
-    const driftTight = coldPhase || tightenNoSteps;
+    const stepBoosted = recentStepMotion && stepCount.value >= 8;
+    const tightenNoSteps =
+      stepCount.value < 8 &&
+      !trustedMotion &&
+      !stableCadence &&
+      duration.value >= 30 &&
+      duration.value < 90 &&
+      distance.value < 80;
+    const driftTight = !runUnlocked && (coldPhase || tightenNoSteps) && !stepBoosted && !stableCadence;
+    const driftOscillation = driftTight && oscillationActive;
     const weakGpsSignal = Number.isFinite(accM) && accM > 45;
     const veryWeakGpsSignal = Number.isFinite(accM) && accM > 80;
     const earlyMotionStrict = !trustedMotion && duration.value >= 10 && duration.value < 45 && distance.value < 120;
@@ -1530,6 +1573,30 @@ const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
     }
 
     const maxSpeedForDistance = driftTight ? Math.min(tierConfig.maxSpeed, motionTier === 'fast_run' ? 5.8 : tierConfig.maxSpeed) : Math.max(tierConfig.maxSpeed, 7.8);
+
+    if (driftOscillation && !hasStrongStepMotion() && !hasRecentStepMotion() && d < 5) {
+      currentSpeed.value = 0;
+      return;
+    }
+
+    if (
+      shouldRejectMileageSegment({
+        segmentM: d,
+        timeDiffS: timeDiff,
+        speedMps: calculatedSpeed,
+        accuracyM: accM,
+        hasRecentStepMotion: recentStepMotion,
+        hasStrongStepMotion: hasStrongStepMotion(),
+        hasRecentGpsMotionEvidence: hasRecentGpsMotionEvidence(),
+        runUnlocked,
+        bearingDeg: segmentBearing
+      })
+    ) {
+      currentSpeed.value = 0;
+      return;
+    }
+
+
     if (d >= minD && calculatedSpeed >= tierConfig.minSpeed && calculatedSpeed < maxSpeedForDistance) {
         const gpsLooksGood = (!Number.isFinite(accM) || accM <= 28) && calculatedSpeed >= 1.1 && d >= 4.5;
         const canTrustThisSegment = trustedMotion || recentStepMotion || gpsLooksGood || gpsAcceptedPointCount >= 4;
@@ -1545,6 +1612,7 @@ const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
         distance.value += d;
         gpsAcceptedPointCount += 1;
         noteGpsMotion(nowTs, d, calculatedSpeed, accM);
+        recordAcceptedSegment(segmentBearing, calculatedSpeed);
 
         const ft = filterTrackCoordsForMileage(workLat, workLng, accM);
         const point = { latitude: ft.lat, longitude: ft.lng, timestamp: nowTs, speed: speed || calculatedSpeed };
@@ -1920,14 +1988,11 @@ const startLocationService = () => {
   // #ifdef APP-PLUS
   if (uni.getSystemInfoSync().platform === 'android') {
       if (locationRetryTimer) clearInterval(locationRetryTimer);
-      console.log('Starting Android location polling...');
       locationRetryTimer = setInterval(() => {
           if (!isPageActive) return;
           if (locationState.value !== 'success') {
-              console.log('Retry locating (Android)...');
               doGetLocation();
           } else {
-              console.log('Location success, stop polling.');
               clearInterval(locationRetryTimer);
               locationRetryTimer = null;
           }
@@ -1993,8 +2058,6 @@ watch(currentMode, () => {
   initRunPrepSheetHeight();
 });
 
-defineExpose({ onPageShow, onPageHide, saveRunSession, tryRestoreRunSession });
-
 onUnmounted(() => {
   saveRunSession();
   stopRunSessionAutosave();
@@ -2010,9 +2073,8 @@ onUnmounted(() => {
   stopCompassWatch();
 });
 
-const getLocation = () => {
+﻿const getLocation = () => {
   // #ifdef MP-WEIXIN
-  /** 鍐峰惎鍔ㄦ椂绔嬪埢 getLocation 甯告棤鍥炶皟锛涙巿鏉?宸叉巿鏉冨悗 nextTick + 鐭欢杩熷啀鎷夊彇锛屼笌銆岄噸杩涘皬绋嬪簭灏卞ソ銆嶅悓绫婚棶棰?*/
   const scheduleWxInitialLocate = () => {
     nextTick(() => {
       setTimeout(() => {
@@ -2021,6 +2083,35 @@ const getLocation = () => {
       }, 340);
     });
   };
+
+  const showPermissionDialog = () => {
+    stopWxInitialLocateRetry();
+    locationState.value = 'fail';
+    uni.showModal({
+      title: '需要定位权限',
+      content: '跑步功能需要获取您的位置信息。请在弹窗中点击「允许」，或在系统设置中开启定位权限。',
+      confirmText: '去设置',
+      cancelText: '重试',
+      success: (res) => {
+        if (res.confirm) {
+          uni.openSetting({
+            success: () => {
+              setTimeout(() => {
+                locationState.value = 'idle';
+                getLocation();
+              }, 500);
+            }
+          });
+        } else {
+          wxInitialLocateAttempts = 0;
+          lastLocationFixWasStale.value = false;
+          locationState.value = 'idle';
+          setTimeout(() => getLocation(), 300);
+        }
+      }
+    });
+  };
+
   uni.getSetting({
     success: (st) => {
       const granted = st.authSetting && st.authSetting['scope.userLocation'] === true;
@@ -2031,47 +2122,28 @@ const getLocation = () => {
       uni.authorize({
         scope: 'scope.userLocation',
         success: () => scheduleWxInitialLocate(),
-        fail: () => {
-          locationState.value = 'fail';
-          uni.showModal({
-            title: '权限申请',
-            content: '需要定位权限才能使用打卡、跑步功能，请前往设置开启',
-            confirmText: '去设置',
-            success: (res) => {
-              if (res.confirm) uni.openSetting();
-            }
-          });
-        }
+        fail: showPermissionDialog
       });
     },
     fail: () => {
       uni.authorize({
         scope: 'scope.userLocation',
         success: () => scheduleWxInitialLocate(),
-        fail: () => {
-          locationState.value = 'fail';
-          uni.showModal({
-            title: '权限申请',
-            content: '需要定位权限才能使用打卡、跑步功能，请前往设置开启',
-            confirmText: '去设置',
-            success: (res) => {
-              if (res.confirm) uni.openSetting();
-            }
-          });
-        }
+        fail: showPermissionDialog
       });
     }
   });
   // #endif
 
   // #ifndef MP-WEIXIN
-  // App绔拰H5绔洿鎺ヨ皟鐢╣etLocation锛岀郴缁熶細鑷姩澶勭悊鏉冮檺璇锋眰
+  // App端和H5端直接调用getLocation，系统会自动处理权限请求
   doGetLocation();
   // #endif
 };
-
 const handleLocationSuccess = (res) => {
   lastLocationFixWasStale.value = false;
+  // Reset retry counter on any successful fix
+  wxInitialLocateAttempts = 0;
   const acc = res.accuracy ?? res.originalRes?.accuracy ?? res.originalRes?.horizontalAccuracy;
   const accN = acc != null ? Number(acc) : NaN;
   if (Number.isFinite(accN)) {
@@ -2209,7 +2281,16 @@ const doGetLocation = async () => {
         locationState.value = 'success';
         handleLocationSuccess(res);
         refreshMarkers();
-        uni.showToast({ title: '定位成功', icon: 'none' });
+        // Sync map center on first good fix; avoid re-binding lat/lng
+        // every update (triggers uni-app view-layer null refs on App)
+        if (mapCenterLat.value === DEFAULT_MAP_LAT) {
+          mapCenterLat.value = lat.value;
+          mapCenterLng.value = lng.value;
+        }
+        stopWxInitialLocateRetry();
+        if (!silent && isFirstTimeLocate) {
+          uni.showToast({ title: '定位成功', icon: 'none' });
+        }
       } else {
         throw res || { originalErr: { errMsg: 'getLocation:fail unknown' } };
       }
@@ -2489,18 +2570,15 @@ const switchMode = (mode) => {
   initRunPrepSheetHeight();
 };
 
-// 8. 姝ユ暟缁熻锛堝姞閫熷害浼犳劅鍣級
-// 璁℃锛氭尝宄?+ 闃叉姈銆傞儴鍒嗘満鍨?鐜涓嬭繑鍥炵殑鏄€屼笉鍚噸鍔涖€嶇殑绾挎€у姞閫熷害锛堥潤姝㈡帴杩?0锛夛紝鑻ュ啀寮鸿褰掍竴鍒?1g 浼氭案杩滆揪涓嶅埌闃堝€硷紱鏁呯敤銆屽惈閲嶅姏鏃?|妯￠暱鈭?g|銆嶄笌銆岀函绾挎€ф椂妯￠暱銆嶇粺涓€鐨?m/s虏 寮哄害淇″彿銆?
-    let isStepActive = false;
-    let lastStepTime = 0;
-    let accelMagPrev = null;
-    let accelBaseline = null;
-    let linearMagPrev = 0;
-    /** 涓婇槇鍊硷細涓€娆℃槑鏄惧啿鍑伙紙鍚檭鎵嬫満锛夊簲鑳借秴杩囷紱涓嬮槇鍊奸』浣庝簬涓婇槇鍊硷紝涓斾笉瀹滆繃浣庯紝鍚﹀垯鍣０涓嬫棤娉曞洖钀姐€佷細鍗℃鍙兘璁?1 姝?*/
-    const STEP_SIGNAL_UP_MS2 = 0.24;
-    const STEP_SIGNAL_DOWN_MS2 = 0.10;
-    const MIN_STEP_INTERVAL = 220;
-    const RESET_TIMEOUT = 900;
+defineExpose({ onPageShow, onPageHide, saveRunSession, tryRestoreRunSession });
+
+// 8. 步数统计（加速度传感器，step-counter 步频带通计步）
+const ensureRunStepCounter = () => {
+  if (!runStepCounter) {
+    runStepCounter = createStepCounter();
+  }
+  return runStepCounter;
+};
 
     // 鍚姩姝ユ暟缁熻 - 甯﹂噸璇曟満鍒?
     const startStepCount = (retryCount = 0) => {
@@ -2689,6 +2767,9 @@ const initializeRunState = () => {
   runActiveBaseSec.value = 0;
   runSegmentStartMs.value = Date.now();
   distance.value = 0;
+  // Center map on start position
+  mapCenterLat.value = lat.value;
+  mapCenterLng.value = lng.value;
   stepCount.value = 0;
   currentSpeed.value = 0;
   endFaceUrl.value = null;
@@ -2755,6 +2836,10 @@ const handleFacePickFail = (resolve, err) => {
 };
 
 const finishFaceCamera = (result) => {
+  if (faceCameraTimeout) {
+    clearTimeout(faceCameraTimeout);
+    faceCameraTimeout = null;
+  }
   const resolver = faceCameraResolve;
   faceCameraResolve = null;
   showFaceCamera.value = false;
@@ -2785,6 +2870,12 @@ const openInlineFaceCamera = (phase) => {
   showFaceCamera.value = true;
   return new Promise((resolve) => {
     faceCameraResolve = resolve;
+    faceCameraTimeout = setTimeout(() => {
+      if (faceCameraResolve) {
+        uni.showToast({ title: '相机启动超时，请检查摄像头权限', icon: 'none' });
+        finishFaceCamera(false);
+      }
+    }, 15000);
     nextTick(() => {
       // #ifdef MP-WEIXIN
       faceCameraContext = uni.createCameraContext('faceCamera');
@@ -3013,7 +3104,9 @@ const resumeRunAfterEndFaceCancelled = () => {
 
 // 鎻愪氦璺戞璁板綍骞惰烦杞粨绠楅〉
 const redirectToRunResult = () => {
-  uni.redirectTo({
+  // Use navigateTo instead of redirectTo to avoid destroying the current
+  // page's native map component (which triggers view-layer DOM errors on App)
+  uni.navigateTo({
     url: '/pages/result/result?useStorage=true',
     fail: (err) => {
       console.error('Navigate failed:', err);
@@ -3637,6 +3730,68 @@ const buildHistory = (records) => {
   color: #333333;
   font-size: 36rpx;
   line-height: 1;
+}
+
+.location-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(245, 247, 250, 0.95);
+}
+.location-overlay-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.location-overlay-icon {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 40rpx;
+  background-color: #f5f5f5;
+  color: #999;
+  font-size: 44rpx;
+  text-align: center;
+  line-height: 80rpx;
+  margin-bottom: 16rpx;
+}
+.location-overlay-text {
+  font-size: 30rpx;
+  color: #333;
+  font-weight: 500;
+  margin-bottom: 8rpx;
+}
+.location-overlay-sub {
+  font-size: 26rpx;
+  color: #999;
+  margin-bottom: 24rpx;
+}
+.location-overlay-btn {
+  padding: 16rpx 48rpx;
+  border-radius: 40rpx;
+  background-color: #07c160;
+  color: #fff;
+  font-size: 28rpx;
+  font-weight: 500;
+}
+.location-loading-spinner {
+  width: 60rpx;
+  height: 60rpx;
+  border: 4rpx solid #e0e0e0;
+  border-top-color: #07c160;
+  border-radius: 50%;
+  animation: location-spin 0.8s linear infinite;
+  margin-bottom: 20rpx;
+}
+@keyframes location-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .run-bottom-sheet {

@@ -32,7 +32,7 @@
       <!-- 3. 工具栏 -->
       <view class="tools-section">
         <view class="search-bar">
-           <image class="search-icon" src="/static/主页GO图标.PNG" mode="aspectFit" />
+           <image class="search-icon" src="/static/主页GO图标.png" mode="aspectFit" />
            <input v-model="keyword" class="search-input" placeholder="搜索姓名/学号..." confirm-type="search" @confirm="onSearchConfirm" />
         </view>
         

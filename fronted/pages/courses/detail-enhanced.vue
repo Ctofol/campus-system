@@ -45,15 +45,15 @@
 
         <view class="course-meta">
           <view class="meta-item">
-            <image class="meta-icon-img" src="/static/主页跑团图标.PNG" mode="aspectFit" />
+            <image class="meta-icon-img" src="/static/主页跑团图标.png" mode="aspectFit" />
             <text class="meta-text">{{ course.enrollment_count || 0 }}人参与</text>
           </view>
           <view class="meta-item" v-if="course.teacher_name">
-            <image class="meta-icon-img" src="/static/主页GO图标.PNG" mode="aspectFit" />
+            <image class="meta-icon-img" src="/static/主页GO图标.png" mode="aspectFit" />
             <text class="meta-text">{{ course.teacher_name }}</text>
           </view>
           <view class="meta-item" v-if="course.created_at">
-            <image class="meta-icon-img" src="/static/日历.PNG" mode="aspectFit" />
+            <image class="meta-icon-img" src="/static/日历.png" mode="aspectFit" />
             <text class="meta-text">{{ formatDate(course.created_at) }}</text>
           </view>
         </view>
@@ -115,7 +115,7 @@
 
     <!-- 空状态 -->
     <view class="empty-state" v-else-if="!loading && !course.id">
-      <image class="empty-icon-img" src="/static/主页课程图标.PNG" mode="aspectFit" />
+      <image class="empty-icon-img" src="/static/主页课程图标.png" mode="aspectFit" />
       <text class="empty-text">课程不存在或已删除</text>
       <button class="back-home-btn" @click="goBack">返回</button>
     </view>
@@ -168,7 +168,6 @@ const categories = {
 
 // 内容类型映射
 const contentTypes = {
-  'video': '视频',
   'document': '文档',
   'text': '文本'
 };
@@ -355,9 +354,36 @@ const playContent = (content) => {
     return;
   }
 
-  uni.navigateTo({
-    url: `/pages/courses/player?courseId=${courseId.value}&contentId=${content.id}`
-  });
+  if (!content?.content_url) {
+    uni.showToast({ title: '暂无内容', icon: 'none' });
+    return;
+  }
+
+  const fullUrl = resolveMediaUrl(content.content_url);
+  if (content.content_type === 'document') {
+    uni.downloadFile({
+      url: fullUrl,
+      success: (res) => {
+        if (res.statusCode >= 200 && res.statusCode < 300 && res.tempFilePath) {
+          uni.openDocument({ filePath: res.tempFilePath, showMenu: true });
+        } else {
+          uni.showToast({ title: '文档下载失败', icon: 'none' });
+        }
+      },
+      fail: () => { uni.showToast({ title: '文档下载失败', icon: 'none' }); }
+    });
+    return;
+  }
+
+  if (content.content_type === 'link') {
+    uni.setClipboardData({
+      data: fullUrl,
+      success: () => { uni.showToast({ title: '链接已复制', icon: 'success' }); }
+    });
+    return;
+  }
+
+  uni.showToast({ title: '请在浏览器中查看', icon: 'none' });
 };
 
 // 编辑课程

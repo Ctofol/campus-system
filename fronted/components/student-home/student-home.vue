@@ -1,32 +1,29 @@
 <template>
   <view class="home-page">
+    <page-tab-header title="首页" theme="brand" />
     <scroll-view
       scroll-y
       class="home-scroll"
       :style="{ paddingBottom: safeBottom + 'px' }"
+      :show-scrollbar="false"
       refresher-enabled
       :refresher-triggered="refreshing"
       @refresherrefresh="onPullRefresh"
     >
-      <view class="home-hero" :style="{ paddingTop: statusBarHeight + 'px' }">
-        <!-- 顶栏：居中标题胶囊 + 日历通知 -->
-        <view class="home-hero__topbar">
-          <view class="home-hero__title-capsule">
-            <text class="home-hero__title">首页</text>
+      <view class="home-hero">
+        <!-- 顶栏：日历通知 -->
+        <view class="home-hero__actions">
+          <view class="home-hero__action" @tap="goSunshineDetail">
+            <image class="home-hero__action-icon-img" src="/static/日历.png" mode="aspectFit" />
+            <text class="home-hero__action-label">日历</text>
           </view>
-          <view class="home-hero__actions">
-            <view class="home-hero__action" @tap="goSunshineDetail">
-              <image class="home-hero__action-icon-img" src="/static/日历.PNG" mode="aspectFit" />
-              <text class="home-hero__action-label">日历</text>
-            </view>
-            <view class="home-hero__action home-hero__action--notif" @tap="goNotifications">
-              <image class="home-hero__action-icon-img" src="/static/通知图标2.png" mode="aspectFit" />
-              <text
-                v-if="unreadNotifyCount > 0"
-                class="home-hero__badge"
-              >{{ unreadNotifyCount > 99 ? '99+' : unreadNotifyCount }}</text>
-              <text class="home-hero__action-label">通知</text>
-            </view>
+          <view class="home-hero__action home-hero__action--notif" @tap="goNotifications">
+            <image class="home-hero__action-icon-img" src="/static/通知图标2.png" mode="aspectFit" />
+            <text
+              v-if="unreadNotifyCount > 0"
+              class="home-hero__badge"
+            >{{ unreadNotifyCount > 99 ? '99+' : unreadNotifyCount }}</text>
+            <text class="home-hero__action-label">通知</text>
           </view>
         </view>
 
@@ -41,15 +38,20 @@
           <HomeWeatherCard :weather="homeWeather" :placeholder="!homeWeatherReady" />
         </view>
       </view>
-      
-      <!-- Task Stream: 任务流 -->
-      <view class="section-container" v-if="teacherTasks.length > 0">
-        <view class="section-header">
-          <text class="section-title">我的任务</text>
-          <view class="section-more link-more" @click="handleTaskClick()">
-            <text>查看全部</text>
-            <view class="link-arrow" />
-          </view>
+
+      <HomeQuickStartCard
+        :distance-km="totalDistanceKm"
+        :goal-km="runGoalKm"
+        :goal-progress="weekGoalProgress"
+        :goal-hint="goalHintText"
+        @go="showExerciseActionSheet"
+        @settings="onRunSettings"
+        @set-goal="openGoalModal"
+      />
+
+      <view class="home-body">
+        <view class="home-card home-card--grid">
+          <HomeFeatureGrid :items="featureItems" @feature-tap="onFeatureTap" />
         </view>
 
         <view class="home-activity-section">
@@ -198,16 +200,20 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
-import {
-  getStudentTasks,
-  getMyRunGroup,
-  getRunGroupActivities,
-  getStoredToken,
-  isAuthError
-} from '@/utils/request.js';
+import { ref, onMounted, computed } from 'vue';
+import { getStoredToken } from '@/utils/request.js';
+import { warmUpLocationCache } from '@/utils/location.js';
+import { fetchWeather } from '@/utils/weather.js';
+import { saveRunGoalKm } from '@/utils/run-goal.js';
+import { useStudentHomeDashboard } from '@/composables/useStudentHomeDashboard.js';
+import HomeWeatherCard from './HomeWeatherCard.vue';
+import HomeQuickStartCard from './HomeQuickStartCard.vue';
+import HomeFeatureGrid from './HomeFeatureGrid.vue';
+import HomeSectionHeader from './HomeSectionHeader.vue';
+import HomeWeekStats from './HomeWeekStats.vue';
+import HomeActivityCard from './HomeActivityCard.vue';
+import PageTabHeader from '@/components/page-tab-header/page-tab-header.vue';
 
-const statusBarHeight = ref(uni.getSystemInfoSync().statusBarHeight || 20);
 const safeBottom = ref(0);
 const refreshing = ref(false);
 const showTaskModal = ref(false);
@@ -216,6 +222,10 @@ const notifIndex = ref(0);
 const goalInput = ref('');
 const homeWeather = ref(null);
 const homeWeatherReady = ref(false);
+const HOME_RELOAD_DEDUPE_MS = 30000;
+let lastReloadAt = 0;
+let reloadPromise = null;
+let mountedByPageShow = false;
 
 const {
   loading,
@@ -236,126 +246,61 @@ const {
   applyRunGoal
 } = useStudentHomeDashboard();
 
-const fetchTasks = async () => {
-  if (!getStoredToken()) return;
-  try {
-    const res = await getStudentTasks({ page: 1, size: 20 });
-    
-    if (res.items && res.items.length > 0) {
-      const ongoingStatuses = ['pending', 'in_progress', 'uncompleted', 'not_started', 'failed'];
-      teacherTasks.value = res.items
-        .filter(task => ongoingStatuses.includes(task.status))
-        .map(task => ({
-         id: task.id,
-         title: task.title,
-         status: task.status, 
-         type: task.type || task.task_type || 'run',
-         deadline: task.deadline,
-         urgent: task.urgent || false,
-         desc: task.description || (task.min_distance ? `目标: ${task.min_distance}km` : '请查看详情')
-      }));
-      
-      if (teacherTasks.value.length > 0) {
-        const viewedIds = uni.getStorageSync('viewed_task_ids') || [];
-        const hasNewTask = teacherTasks.value.some(task => !viewedIds.includes(task.id));
-        
-        if (hasNewTask) {
-           showTaskModal.value = true;
-        }
-      }
-    } else {
-        teacherTasks.value = [];
+const featureItems = [
+  { id: 'outdoor', icon: '/static/主页户外跑图标.png', label: '户外跑', desc: '记录户外路线' },
+  { id: 'test', icon: '/static/主页体能测试图标.png', label: '体能测试', desc: '评估身体状态' },
+  { id: 'learn', icon: '/static/主页课程图标.png', label: '课程', desc: '科学训练指导' },
+  { id: 'rungroup', icon: '/static/主页跑团图标.png', label: '跑团', desc: '一起跑步' }
+];
+
+const checkNewTasks = (tasks) => {
+  if (!tasks?.length) return;
+  const viewedIds = uni.getStorageSync('viewed_task_ids') || [];
+  const hasNew = tasks.some((t) => !viewedIds.includes(t.id));
+  if (hasNew) {
+    notifIndex.value = 0;
+    showTaskModal.value = true;
+  }
+};
+
+const showNavFailToast = (title) => {
+  uni.showToast({ title, icon: 'none' });
+};
+
+const navigateToPage = (url, failTitle = '页面打开失败') => {
+  uni.navigateTo({
+    url,
+    fail: (e) => {
+      console.error('navigateTo fail', url, e);
+      showNavFailToast(failTitle);
     }
-  } catch (e) {
-    if (isAuthError(e)) return;
-    console.error('Fetch tasks failed', e);
-    teacherTasks.value = [];
-  }
+  });
 };
 
-// Exposed method for parent to call onShow
-const onPageShow = () => {
-  statusBarHeight.value = uni.getSystemInfoSync().statusBarHeight || 20;
-  
-  if (!getStoredToken()) {
-    uni.reLaunch({ url: '/pages/login/login' });
-    return;
-  }
-
-  const userRole = uni.getStorageSync('userRole') || uni.getStorageSync('role');
-  if (userRole) role.value = userRole;
-  
-  const storedUser = uni.getStorageSync('userInfo');
-  if (storedUser) {
-    try {
-        userInfo.value = typeof storedUser === 'string' ? JSON.parse(storedUser) : storedUser;
-    } catch (e) {
-        console.error('JSON parse error', e);
-        userInfo.value = {};
+const switchToTab = (url, failTitle = '页面打开失败') => {
+  uni.switchTab({
+    url,
+    fail: (e) => {
+      console.error('switchTab fail', url, e);
+      showNavFailToast(failTitle);
     }
-  }
-  
-  fetchTasks();
-  loadRunGroupData(); // 每次显示页面时重新加载跑团数据
+  });
 };
 
-// Initial load
-onMounted(() => {
-  statusBarHeight.value = uni.getSystemInfoSync().statusBarHeight || 20;
-  onPageShow();
-});
-
-// Expose methods
-defineExpose({
-  onPageShow
-});
-
-// 任务类型相关
-const getTaskTypeIcon = (task) => {
-  if (task.type === 'learn' || task.type === 'learning' || task.title.includes('课程') || task.title.includes('学习')) {
-    return '📚';
-  }
-  return '🏃';
-};
-
-const getTaskTypeClass = (task) => {
-  if (task.type === 'learn' || task.type === 'learning' || task.title.includes('课程') || task.title.includes('学习')) {
-    return 'task-type-learning';
-  }
-  return 'task-type-exercise';
-};
-
-const getTaskStatusClass = (task) => {
-  if (task.urgent) return 'status-urgent';
-  if (task.status === 'not_started') return 'status-uncompleted';
-  if (task.status === 'pending') return 'status-pending';
-  if (task.status === 'in_progress') return 'status-progress';
-  return 'status-uncompleted';
-};
-
-const getTaskStatusText = (task) => {
-  if (task.urgent) return '紧急';
-  if (task.status === 'not_started') return '未开始';
-  if (task.status === 'pending') return '待开始';
-  if (task.status === 'in_progress') return '进行中';
-  return '未完成';
-};
-
-// 运动选项 - 使用 ActionSheet
 const startOutdoorRun = () => {
-  uni.navigateTo({ url: '/pages/run/run' });
+  navigateToPage('/pages/run/run', '跑步页面打开失败');
 };
 
 const startPhysicalTest = () => {
-  uni.navigateTo({ url: '/pages/test/test' });
+  navigateToPage('/pages/test/test', '体测页面打开失败');
 };
 
 const startAiTest = () => {
-  uni.navigateTo({ url: '/pages/test/test' });
+  navigateToPage('/pages/test/test', '体测页面打开失败');
 };
 
 const startFreeExercise = () => {
-  uni.navigateTo({ url: '/pages/sport/free-practice' });
+  navigateToPage('/pages/sport/free-practice', '自由练习打开失败');
 };
 
 const showExerciseActionSheet = () => {
@@ -372,8 +317,8 @@ const showExerciseActionSheet = () => {
 const onFeatureTap = (id) => {
   if (id === 'outdoor') startOutdoorRun();
   else if (id === 'test') startPhysicalTest();
-  else if (id === 'learn') uni.switchTab({ url: '/pages/tab/learn' });
-  else if (id === 'rungroup') uni.navigateTo({ url: '/pages/run-group/discover' });
+  else if (id === 'learn') switchToTab('/pages/tab/learn', '课程页面打开失败');
+  else if (id === 'rungroup') navigateToPage('/pages/run-group/discover', '跑团页面打开失败');
 };
 
 const onRunSettings = () => {
@@ -424,9 +369,9 @@ const clearGoal = async () => {
 
 const handleTaskClick = (task) => {
   if (task?.id) {
-    uni.navigateTo({ url: `/pages/student/tasks/list?taskId=${task.id}` });
+    navigateToPage(`/pages/student/tasks/list?taskId=${task.id}`, '任务页面打开失败');
   } else {
-    uni.navigateTo({ url: '/pages/student/tasks/list' });
+    navigateToPage('/pages/student/tasks/list', '任务页面打开失败');
   }
 };
 
@@ -452,15 +397,15 @@ const handleNotifConfirm = () => {
 };
 
 const viewHistory = () => {
-  uni.navigateTo({ url: '/pages/history/history' });
+  navigateToPage('/pages/history/history', '历史记录打开失败');
 };
 
 const goSunshineDetail = () => {
-  uni.navigateTo({ url: '/pages/sunshine/detail' });
+  navigateToPage('/pages/sunshine/detail', '阳光跑详情打开失败');
 };
 
 const goNotifications = () => {
-  uni.navigateTo({ url: '/pages/student/notifications/list' });
+  navigateToPage('/pages/student/notifications/list', '通知页面打开失败');
 };
 
 const goRunDetail = (run) => {
@@ -506,34 +451,13 @@ const formatActivityTime = (timeStr) => {
   return `${month}月${day}日 ${hour}:${minute}`;
 };
 
-// 加载跑团数据
-const loadRunGroupData = async () => {
-  if (!getStoredToken()) return;
-
-  try {
-    const groupRes = await getMyRunGroup();
-    myRunGroup.value = groupRes || null;
-  } catch (e) {
-    if (isAuthError(e)) return;
-    myRunGroup.value = null;
-  }
-
-  try {
-    const activityRes = await getRunGroupActivities({ page: 1, size: 5 });
-    latestActivities.value = activityRes?.items || [];
-  } catch (e) {
-    if (isAuthError(e)) return;
-    latestActivities.value = [];
-  }
-};
-
 const goActivityList = () => {
-  uni.navigateTo({ url: '/pages/activity/list' });
+  navigateToPage('/pages/activity/list', '活动列表打开失败');
 };
 
 const goActivityDetail = (activity) => {
   if (activity?.id) {
-    uni.navigateTo({ url: `/pages/run-group/activity-detail?activityId=${activity.id}` });
+    navigateToPage(`/pages/run-group/activity-detail?activityId=${activity.id}`, '活动详情打开失败');
   } else {
     goActivityList();
   }
@@ -546,7 +470,7 @@ const getTaskTypeIcon = (task) => {
     task.title?.includes('课程') ||
     task.title?.includes('学习')
   ) {
-    return '/static/主页课程图标.PNG';
+    return '/static/主页课程图标.png';
   }
   return '/static/主页户外跑图标.png';
 };
@@ -585,20 +509,35 @@ const loadHomeWeather = async () => {
   }
 };
 
-const reloadAll = async () => {
-  await Promise.all([loadDashboard(checkNewTasks), loadHomeWeather()]);
-  warmUpLocationCache();
+const reloadAll = async ({ force = false } = {}) => {
+  const now = Date.now();
+  if (!force && lastReloadAt && now - lastReloadAt < HOME_RELOAD_DEDUPE_MS) {
+    warmUpLocationCache();
+    return;
+  }
+  if (reloadPromise) return reloadPromise;
+
+  reloadPromise = Promise.all([loadDashboard(checkNewTasks), loadHomeWeather()])
+    .then(() => {
+      lastReloadAt = Date.now();
+      warmUpLocationCache();
+    })
+    .finally(() => {
+      reloadPromise = null;
+    });
+
+  return reloadPromise;
 };
 
 const onPullRefresh = async () => {
   refreshing.value = true;
-  await reloadAll();
+  await reloadAll({ force: true });
   refreshing.value = false;
 };
 
 const onPageShow = async () => {
+  mountedByPageShow = true;
   const sys = uni.getSystemInfoSync();
-  statusBarHeight.value = sys.statusBarHeight || 20;
   safeBottom.value = sys.safeAreaInsets?.bottom || 0;
 
   if (!getStoredToken()) {
@@ -606,11 +545,29 @@ const onPageShow = async () => {
     return;
   }
 
+  // Proactively request location permission on new devices
+  // #ifdef MP-WEIXIN
+  uni.getSetting({
+    success: (res) => {
+      if (!res.authSetting['scope.userLocation']) {
+        uni.authorize({
+          scope: 'scope.userLocation',
+          fail: () => {
+            // silent fail - user will be prompted on run page
+          }
+        });
+      }
+    }
+  });
+  // #endif
+
   await reloadAll();
 };
 
 onMounted(() => {
-  onPageShow();
+  setTimeout(() => {
+    if (!mountedByPageShow) onPageShow();
+  }, 0);
 });
 
 defineExpose({

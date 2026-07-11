@@ -15,7 +15,7 @@
       <!-- 绑定手机号 -->
       <view class="menu-item" @click="bindPhone">
         <view class="item-left">
-          <image class="item-icon" src="/static/主页GO图标.PNG" mode="aspectFit" />
+          <image class="item-icon" src="/static/主页GO图标.png" mode="aspectFit" />
           <text class="item-text">绑定手机号</text>
         </view>
         <view class="item-right">

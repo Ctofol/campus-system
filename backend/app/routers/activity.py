@@ -172,6 +172,13 @@ def finish_activity(
     db.refresh(db_activity)
     db.refresh(db_metrics)
 
+    # Check medals after activity completion
+    try:
+        from .medal import _check_and_award
+        _check_and_award(db, current_user.id)
+    except Exception:
+        pass
+
     if db_activity.type == "test" and db_metrics.video_url:
         if config.TEST_ANALYSIS_USE_BACKGROUND:
             enqueue_test_analysis(db_activity.id)

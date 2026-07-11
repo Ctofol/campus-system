@@ -40,6 +40,7 @@
                     "<uses-permission android:name=\"android.permission.ACCESS_FINE_LOCATION\"/>",
                     "<uses-permission android:name=\"android.permission.ACCESS_COARSE_LOCATION\"/>",
                     "<uses-permission android:name=\"android.permission.CAMERA\"/>",
+                    "<uses-permission android:name=\"android.permission.RECORD_AUDIO\"/>",
                     "<uses-permission android:name=\"android.permission.WRITE_EXTERNAL_STORAGE\"/>",
                     "<uses-permission android:name=\"android.permission.READ_EXTERNAL_STORAGE\"/>",
                     "<uses-permission android:name=\"android.permission.GET_ACCOUNTS\"/>",
@@ -143,7 +144,13 @@
         "requiredBackgroundModes" : [ "location" ],
         "permission" : {
             "scope.userLocation" : {
-                "desc" : "用于记录跑步轨迹及校园打卡时的位置判定；后台跑步需在系统与微信中允许后台定位"
+                "desc" : "用于跑步轨迹记录、校园打卡与后台定位"
+            },
+            "scope.record" : {
+                "desc" : "用于体测录制视频时录音"
+            },
+            "scope.camera" : {
+                "desc" : "用于体测录制视频与人脸验证"
             }
         },
         "requiredPrivateInfos" : [

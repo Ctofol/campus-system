@@ -15,7 +15,7 @@
             :class="{active: registerForm.role === 'student'}"
             @click="selectRole('student')"
           >
-            <image class="role-icon-img" src="/static/主页GO图标.PNG" mode="aspectFit" />
+            <image class="role-icon-img" src="/static/主页GO图标.png" mode="aspectFit" />
             <text class="role-name">我是学生</text>
           </view>
           <view 
@@ -23,7 +23,7 @@
             :class="{active: registerForm.role === 'teacher'}"
             @click="selectRole('teacher')"
           >
-            <image class="role-icon-img" src="/static/主页GO图标.PNG" mode="aspectFit" />
+            <image class="role-icon-img" src="/static/主页GO图标.png" mode="aspectFit" />
             <text class="role-name">我是教师</text>
           </view>
         </view>

@@ -1,96 +1,162 @@
 <template>
   <view class="sport-container">
-    <!-- 学生端：运动选择页面 -->
     <view v-if="role === 'student'" class="student-sport">
-      <!-- 自定义导航栏 -->
-      <view class="custom-nav-bar">
-        <view class="nav-status-bar"></view>
-        <view class="nav-content">
-          <text class="nav-title">运动</text>
-        </view>
-      </view>
+      <page-tab-header title="运动" theme="brand" />
 
-      <view class="content-wrapper">
-        <!-- 运动选项卡片 -->
-        <view class="sport-card" @click="goToRun">
-          <view class="card-icon run-icon">
-            <text class="icon-text">🏃</text>
+      <view class="content-wrapper page-tab-body">
+        <!-- 运动入口卡片（2列） -->
+        <view class="entry-grid">
+          <view class="entry-card" @click="goToRun">
+            <view class="entry-icon-wrap">
+              <view class="entry-icon entry-icon--run">
+                <image class="entry-icon-text" src="/static/主页户外跑图标.png" mode="aspectFit" />
+              </view>
+            </view>
+            <view class="entry-info">
+              <text class="entry-title">户外跑步</text>
+              <text class="entry-desc">GPS定位，实时记录轨迹</text>
+            </view>
+            <text class="entry-arrow">›</text>
           </view>
-          <view class="card-content">
-            <text class="card-title">户外跑步</text>
-            <text class="card-desc">GPS定位，实时记录跑步轨迹</text>
+          <view class="entry-card" @click="goToPhysicalTest">
+            <view class="entry-icon-wrap">
+              <view class="entry-icon entry-icon--test">
+                <image class="entry-icon-text" src="/static/主页体能测试图标.png" mode="aspectFit" />
+              </view>
+            </view>
+            <view class="entry-info">
+              <text class="entry-title">体能测试</text>
+              <text class="entry-desc">标准体测项目</text>
+            </view>
+            <text class="entry-arrow">›</text>
           </view>
-          <view class="card-arrow">›</view>
         </view>
 
-        <view class="sport-card" @click="goToPhysicalTest">
-          <view class="card-icon test-icon">
-            <text class="icon-text">💪</text>
+        <!-- 阳光跑看板 / 今日状态 -->
+        <view class="today-card page-card" @click="goToSunshineDetail">
+          <view class="card-header">
+            <text class="card-title">今日状态</text>
           </view>
-          <view class="card-content">
-            <text class="card-title">体能测试</text>
-            <text class="card-desc">标准体测项目，记录测试成绩</text>
-          </view>
-          <view class="card-arrow">›</view>
-        </view>
-
-        <!-- 阳光跑看板 -->
-        <view class="sunshine-section" @click="goToSunshineDetail">
-          <view class="section-title">阳光跑看板</view>
-          <view class="sunshine-content">
-            <view class="sunshine-circle">
-              <view class="circle-outer">
-                <view class="circle-progress" :style="circleStyle"></view>
-                <view class="circle-inner">
-                  <text class="circle-count">{{ sunshine.total_valid_count }}</text>
-                  <text class="circle-label">有效次数 / 20</text>
+          <view class="today-body">
+            <view class="today-ring-wrap">
+              <view class="today-ring" :style="ringStyle">
+                <view class="today-ring-inner">
+                  <text class="today-ring-label">当前积分</text>
+                  <view class="today-ring-row">
+                    <text class="today-ring-num">{{ sunshine.current_score || sunshine.score }}</text>
+                    <text class="today-ring-unit">分</text>
+                  </view>
                 </view>
               </view>
             </view>
-            <view class="sunshine-info">
-              <view class="score-row">
-                <text class="score-label">当前积分</text>
-                <text class="score-value">{{ sunshine.current_score || sunshine.score }} 分</text>
+              <view class="today-indicators">
+              <view class="today-indicator">
+                <image class="today-ind-emoji-img" src="/static/勾号图标.png" mode="aspectFit" />
+                <view class="today-ind-body">
+                  <text class="today-ind-label">今日状态</text>
+                  <text class="today-ind-val today-ind-val--ok" v-if="sunshine.today_status === 'success'">审核通过</text>
+                  <text class="today-ind-val today-ind-val--pending" v-else>未开始</text>
+                </view>
               </view>
-              <view class="status-row">
-                <text class="status-label">今日状态</text>
-                <text class="status-text" :class="sunshine.today_status">
-                  {{ todayStatusText }}
-                </text>
+              <view class="today-indicator" v-if="sunshine.today_status === 'failed'">
+                <image class="today-ind-emoji-img" src="/static/叉号图标.png" mode="aspectFit" />
+                <view class="today-ind-body">
+                  <text class="today-ind-label">未通过原因</text>
+                  <text class="today-ind-val today-ind-val--fail">{{ sunshine.today_fail_reason || '里程不足' }}</text>
+                </view>
               </view>
-              <text class="status-reason" v-if="sunshine.today_status === 'failed' && sunshine.today_fail_reason">
-                审核未通过：{{ sunshine.today_fail_reason }} ❌
-              </text>
+              <view class="today-indicator" v-else>
+              <view class="today-ind-icon today-ind-icon--count">
+                <image class="today-ind-emoji-img" src="/static/有效次数图标.png" mode="aspectFit" />
+              </view>
+                <view class="today-ind-body">
+                  <text class="today-ind-label">有效次数</text>
+                  <text class="today-ind-val today-ind-val--count">{{ sunshine.total_valid_count }} / 20</text>
+                </view>
+              </view>
             </view>
           </view>
         </view>
 
-        <!-- 运动记录统计 -->
-        <view class="stats-section">
-          <view class="section-title">运动数据统计</view>
-          <view class="stats-grid">
-            <view class="stat-item">
-              <text class="stat-value">{{ totalStats.distance }}</text>
-              <text class="stat-label">总里程(km)</text>
+        <!-- 运动数据概览 -->
+        <view class="overview-card page-card">
+          <view class="card-header">
+            <text class="card-title">运动数据概览</text>
+          </view>
+          <view class="overview-grid">
+            <view class="overview-item">
+              <image class="overview-icon" src="/static/总里程2.png" mode="aspectFit" />
+              <text class="overview-val">{{ totalStats.distance }}</text>
+              <text class="overview-unit">总里程(km)</text>
             </view>
-            <view class="stat-item">
-              <text class="stat-value">{{ totalStats.duration }}</text>
-              <text class="stat-label">总时长(min)</text>
+            <view class="overview-item">
+              <image class="overview-icon" src="/static/总时长2.png" mode="aspectFit" />
+              <text class="overview-val">{{ totalStats.duration }}</text>
+              <text class="overview-unit">总时长(min)</text>
             </view>
-            <view class="stat-item">
-              <text class="stat-value">{{ totalStats.calories }}</text>
-              <text class="stat-label">总消耗(kcal)</text>
+            <view class="overview-item">
+              <image class="overview-icon" src="/static/总消耗.png" mode="aspectFit" />
+              <text class="overview-val">{{ totalStats.calories }}</text>
+              <text class="overview-unit">总消耗(kcal)</text>
             </view>
-            <view class="stat-item">
-              <text class="stat-value">{{ totalStats.count }}</text>
-              <text class="stat-label">运动次数</text>
+            <view class="overview-item">
+              <image class="overview-icon" src="/static/运动次数.png" mode="aspectFit" />
+              <text class="overview-val">{{ totalStats.count }}</text>
+              <text class="overview-unit">运动次数</text>
             </view>
           </view>
         </view>
+
+        <!-- 训练计划（教师任务） -->
+        <view class="plan-card page-card" v-if="activeTask" @click="goToTask(activeTask)">
+          <view class="card-header">
+            <text class="card-title">训练计划</text>
+            <view class="card-more" @click.stop="goToTaskList">
+              <text>全部计划</text>
+              <text class="card-more-arrow">›</text>
+            </view>
+          </view>
+          <view class="plan-body">
+            <view class="plan-body-left">
+              <view class="plan-icon">
+                <image class="plan-icon-img" src="/static/训练图标.png" mode="aspectFit" />
+              </view>
+              <view class="plan-info">
+                <text class="plan-name">{{ activeTask.title }}</text>
+                <view class="plan-meta">
+                  <text class="plan-meta-item" v-if="activeTask.weekLabel">{{ activeTask.weekLabel }}</text>
+                  <text class="plan-meta-item" v-if="activeTask.progress">{{ activeTask.progress }}</text>
+                </view>
+                <view class="plan-bar">
+                  <view class="plan-bar-fill" :style="{ width: activeTask.progressPercent + '%' }"></view>
+                </view>
+                <text class="plan-bar-label">{{ activeTask.progressPercent }}%</text>
+              </view>
+            </view>
+          </view>
+        </view>
+
+        <!-- 最近运动记录 -->
+        <view class="history-card page-card">
+          <view class="card-header">
+            <text class="card-title">最近运动记录</text>
+            <view class="card-more" @click="goToHistory">
+              <text>全部记录</text>
+              <text class="card-more-arrow">›</text>
+            </view>
+          </view>
+          <HomeRecentList
+            :items="recentRecords"
+            :loading="loading"
+            @detail="goToHistory"
+            @start-run="goToHistory"
+          />
+        </view>
+
+        <view style="height: 32rpx;"></view>
       </view>
     </view>
 
-    <!-- 教师端：综合管理 -->
     <teacher-manage v-else ref="teacherManageRef" />
   </view>
 </template>
@@ -99,16 +165,14 @@
 import { ref, computed, onMounted } from 'vue';
 import { onShow, onHide } from '@dcloudio/uni-app';
 import TeacherManage from '@/components/teacher-manage/teacher-manage.vue';
-import { request, getSunshineStats } from '@/utils/request.js';
+import HomeRecentList from '@/components/student-home/HomeRecentList.vue';
+import { request, getSunshineStats, getStudentTasks } from '@/utils/request.js';
 
 const role = ref('student');
 const teacherManageRef = ref(null);
 
 const totalStats = ref({
-  distance: 0,
-  duration: 0,
-  calories: 0,
-  count: 0
+  distance: 0, duration: 0, calories: 0, count: 0
 });
 
 const sunshine = ref({

@@ -86,18 +86,6 @@
             </view>
           </view>
 
-          <view class="form-item" v-if="contentForm.content_type === 'video'">
-            <text class="form-label">视频文件 <text class="required">*</text></text>
-            <view class="upload-section">
-              <button class="upload-btn" @click="uploadVideo" :loading="uploading">
-                {{ contentForm.content_url ? '重新上传' : '上传视频' }}
-              </button>
-              <view class="upload-hint" v-if="contentForm.content_url">
-                <image class="upload-hint-img" src="/static/勾号图标.png" mode="aspectFit" /><text> 已上传</text>
-              </view>
-            </view>
-          </view>
-
           <view class="form-item" v-if="contentForm.content_type === 'link'">
             <text class="form-label">外部链接 <text class="required">*</text></text>
             <input 
@@ -118,16 +106,6 @@
                 <image class="upload-hint-img" src="/static/勾号图标.png" mode="aspectFit" /><text> 已上传</text>
               </view>
             </view>
-          </view>
-
-          <view class="form-item" v-if="contentForm.content_type === 'video'">
-            <text class="form-label">视频时长（秒）</text>
-            <input 
-              class="form-input" 
-              v-model.number="contentForm.duration" 
-              type="number"
-              placeholder="请输入视频时长"
-            />
           </view>
 
           <view class="form-item">
@@ -168,7 +146,6 @@ const editingContent = ref(null);
 const showPopup = ref(false);
 
 const contentTypes = [
-  { label: '视频', value: 'video' },
   { label: '外部链接', value: 'link' },
   { label: '文档', value: 'document' }
 ];
@@ -177,7 +154,6 @@ const contentForm = ref({
   title: '',
   content_type: '',
   content_url: '',
-  duration: null,
   order: 0
 });
 
@@ -264,144 +240,6 @@ const onTypeChange = (e) => {
   contentForm.value.content_type = contentTypes[e.detail.value].value;
   // 切换类型时清空URL
   contentForm.value.content_url = '';
-};
-
-const uploadVideo = () => {
-  // H5环境使用input[type=file]
-  // #ifdef H5
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.accept = 'video/*';
-  input.onchange = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    
-    // 检查文件大小（100MB限制）
-    if (file.size > 100 * 1024 * 1024) {
-      uni.showModal({
-        title: '文件过大',
-        content: '视频大小不能超过100MB，请重新选择',
-        showCancel: false
-      });
-      return;
-    }
-    
-    // 上传视频
-    uploading.value = true;
-    uni.showLoading({ title: '上传中...', mask: true });
-    
-    try {
-      // 创建FormData
-      const formData = new FormData();
-      formData.append('file', file);
-      
-      // 获取token
-      const token = uni.getStorageSync('token');
-      
-      // 使用fetch上传
-      const response = await fetch(`${BASE_URL}/upload/file`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        body: formData
-      });
-      
-      if (!response.ok) {
-        throw new Error('上传失败');
-      }
-      
-      const result = await response.json();
-      contentForm.value.content_url = result.url;
-      
-      // 尝试获取视频时长
-      const video = document.createElement('video');
-      video.preload = 'metadata';
-      video.onloadedmetadata = () => {
-        contentForm.value.duration = Math.floor(video.duration);
-        URL.revokeObjectURL(video.src);
-      };
-      video.src = URL.createObjectURL(file);
-      
-      uni.hideLoading();
-      uni.showToast({ title: '上传成功', icon: 'success' });
-    } catch (e) {
-      uni.hideLoading();
-      console.error('Upload failed:', e);
-      uni.showModal({
-        title: '上传失败',
-        content: e.message || '上传失败，请重试',
-        showCancel: false
-      });
-    } finally {
-      uploading.value = false;
-    }
-  };
-  input.click();
-  // #endif
-  
-  // #ifndef H5
-  const doChooseMedia = () => {
-    uni.chooseMedia({
-      count: 1,
-      mediaType: ['video'],
-      sourceType: ['album', 'camera'],
-      maxDuration: 600,
-      success: async (res) => {
-        const item = res.tempFiles[0];
-        const tempFilePath = item.tempFilePath;
-        const duration = Math.floor(item.duration || 0);
-
-        if (item.size > 100 * 1024 * 1024) {
-          uni.showModal({
-            title: '文件过大',
-            content: '视频大小不能超过100MB，请重新选择',
-            showCancel: false
-          });
-          return;
-        }
-
-        uploading.value = true;
-        uni.showLoading({ title: '上传中...', mask: true });
-
-        try {
-          const uploadRes = await uploadFile(tempFilePath, 'video');
-          contentForm.value.content_url = uploadRes.url;
-          contentForm.value.duration = duration;
-          uni.hideLoading();
-          uni.showToast({ title: '上传成功', icon: 'success' });
-        } catch (e) {
-          uni.hideLoading();
-          uni.showModal({
-            title: '上传失败',
-            content: e.message || '上传失败，请重试',
-            showCancel: false
-          });
-        } finally {
-          uploading.value = false;
-        }
-      },
-      fail: (err) => {
-        console.error('chooseMedia fail:', err);
-      }
-    });
-  };
-
-  // 先检查隐私授权
-  wx.getPrivacySetting({
-    success: (res) => {
-      if (res.needAuthorization) {
-        wx.requirePrivacyAuthorize({
-          success: () => doChooseMedia(),
-          fail: () => uni.showToast({ title: '需要授权才能上传视频', icon: 'none' })
-        });
-      } else {
-        doChooseMedia();
-      }
-    },
-    fail: () => doChooseMedia() // 获取设置失败时直接尝试
-  });
-  // #endif
 };
 
 const uploadDocument = () => {

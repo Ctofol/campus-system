@@ -78,16 +78,17 @@ onMounted(() => {
 
 .rank-list {
   padding: 0 30rpx 40rpx;
+  box-sizing: border-box;
 }
-
 .rank-item {
   display: flex;
   align-items: center;
   background: #fff;
-  border-radius: 20rpx;
+  border-radius: 18rpx;
   padding: 28rpx 24rpx;
-  margin-bottom: 20rpx;
-  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.06);
+  margin-bottom: 18rpx;
+  box-shadow: 0 6rpx 18rpx rgba(26, 43, 60, 0.05);
+  box-sizing: border-box;
 }
 
 .rank-item.top-three {
@@ -114,6 +115,9 @@ onMounted(() => {
   font-size: 30rpx;
   font-weight: bold;
   color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .member-count {
@@ -128,6 +132,11 @@ onMounted(() => {
   font-weight: bold;
   color: #20c997;
   flex-shrink: 0;
+  margin-left: 20rpx;
+  max-width: 180rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .loading,

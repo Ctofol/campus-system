@@ -12,7 +12,7 @@
     </view>
     <view v-else class="home-week__row">
       <view class="home-week-stat">
-        <image class="home-week-stat__icon" src="/static/主页里程图标.PNG" mode="aspectFit" />
+        <image class="home-week-stat__icon" src="/static/主页里程图标.png" mode="aspectFit" />
         <text class="home-week-stat__val">{{ stats.distanceKm }}</text>
         <text class="home-week-stat__unit">公里</text>
         <text class="home-week-stat__sub">总距离</text>
@@ -108,9 +108,7 @@ defineEmits(['startRun']);
   flex: 1;
   height: 140rpx;
   border-radius: 16rpx;
-  background: linear-gradient(90deg, #f0f3f6 25%, #e8ecf0 50%, #f0f3f6 75%);
-  background-size: 200% 100%;
-  animation: home-shimmer 1.2s ease-in-out infinite;
+  background: #f0f3f6;
 }
 .home-week__empty {
   display: flex;
@@ -135,9 +133,5 @@ defineEmits(['startRun']);
   border-radius: 32rpx;
   font-size: 26rpx;
   color: #fff;
-}
-@keyframes home-shimmer {
-  0% { background-position: 100% 0; }
-  100% { background-position: -100% 0; }
 }
 </style>

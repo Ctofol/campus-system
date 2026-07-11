@@ -1,10 +1,13 @@
 ﻿<template>
   <view class="discover-page">
-    <view class="navbar">
-      <text class="back-btn" @click="goBack" v-if="showCreateForm">←</text>
-      <text class="title">{{ showCreateForm ? '创建跑团' : '跑团发现' }}</text>
-      <text class="rank-btn" @click="goToRank" v-if="!showCreateForm">排行榜</text>
-    </view>
+    <page-tab-header
+      :title="showCreateForm ? '创建跑团' : '跑团发现'"
+      :show-back="showCreateForm"
+      :back-handler="goBack"
+      theme="white"
+    />
+
+    <view class="discover-body page-tab-body">
 
     <view class="create-form" v-if="showCreateForm">
       <view class="form-item avatar-item">
@@ -33,8 +36,13 @@
       <button class="submit-btn" @click="handleCreate">创建跑团</button>
     </view>
 
+    <view v-if="!showCreateForm" class="rank-entry" @click="goToRank">
+      <text class="rank-entry-text">查看跑团排行榜</text>
+      <text class="rank-entry-arrow">›</text>
+    </view>
+
     <scroll-view
-      v-else
+      v-if="!showCreateForm"
       scroll-y
       class="group-list"
       @scrolltolower="loadMore"
@@ -247,38 +255,13 @@ onMounted(() => {
   background: #f5f7fa;
 }
 
-.navbar {
-  position: sticky;
-  top: 0;
-  background: #20c997;
-  padding: 20rpx 30rpx;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  z-index: 100;
-}
-
-.back-btn {
-  font-size: 36rpx;
-  color: #fff;
-}
-
-.title {
-  font-size: 32rpx;
-  font-weight: bold;
-  color: #fff;
-}
-
-.rank-btn {
-  font-size: 26rpx;
-  color: #fff;
-  padding: 8rpx 20rpx;
-  border: 1px solid #fff;
-  border-radius: 20rpx;
+.discover-body {
+  padding-top: 20rpx;
+  padding-bottom: 0;
 }
 
 .create-form {
-  padding: 40rpx 30rpx;
+  padding: 24rpx 30rpx 40rpx;
 }
 
 .form-item {
@@ -338,28 +321,52 @@ onMounted(() => {
   margin-top: 40rpx;
 }
 
+.rank-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 30rpx 18rpx;
+  padding: 24rpx 28rpx;
+  background: #fff;
+  border-radius: 18rpx;
+  box-shadow: 0 6rpx 18rpx rgba(26, 43, 60, 0.06);
+}
+
+.rank-entry-text {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #333;
+}
+
+.rank-entry-arrow {
+  font-size: 32rpx;
+  color: #999;
+}
+
 .group-list {
-  height: calc(100vh - 80rpx);
-  padding: 20rpx 30rpx;
+  height: calc(100vh - 220rpx);
+  padding: 0 30rpx 24rpx;
+  box-sizing: border-box;
 }
 
 .group-card {
   background: #fff;
-  border-radius: 20rpx;
-  padding: 30rpx;
-  margin-bottom: 20rpx;
+  border-radius: 18rpx;
+  padding: 28rpx 24rpx;
+  margin-bottom: 18rpx;
   display: flex;
   align-items: center;
-  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.06);
+  box-shadow: 0 6rpx 18rpx rgba(26, 43, 60, 0.05);
   position: relative;
+  box-sizing: border-box;
 }
 
 .rank-badge {
   position: absolute;
-  top: 10rpx;
-  left: 10rpx;
-  padding: 4rpx 12rpx;
-  border-radius: 12rpx;
+  top: 0;
+  left: 0;
+  padding: 4rpx 14rpx;
+  border-radius: 12rpx 0 12rpx 0;
   font-size: 20rpx;
   color: #fff;
 }
@@ -377,17 +384,20 @@ onMounted(() => {
 }
 
 .avatar {
-  width: 100rpx;
-  height: 100rpx;
+  width: 104rpx;
+  height: 104rpx;
   border-radius: 50%;
-  margin-right: 20rpx;
+  margin-right: 24rpx;
   background: #e0e0e0;
+  flex-shrink: 0;
 }
 
 .info {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
+  padding-right: 20rpx;
 }
 
 .name {
@@ -395,12 +405,18 @@ onMounted(() => {
   font-weight: bold;
   color: #333;
   margin-bottom: 8rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .desc {
   font-size: 24rpx;
   color: #999;
   margin-bottom: 8rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .stats {
@@ -432,11 +448,24 @@ onMounted(() => {
 }
 
 .join-btn {
-  padding: 12rpx 30rpx;
+  width: 112rpx;
+  height: 68rpx;
+  line-height: 68rpx;
+  padding: 0;
+  margin: 0;
   background: #20c997;
   color: #fff;
-  border-radius: 30rpx;
+  border-radius: 34rpx;
   font-size: 24rpx;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.join-btn::after {
   border: none;
 }
 

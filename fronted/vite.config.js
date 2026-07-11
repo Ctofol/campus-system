@@ -6,7 +6,7 @@ export default defineConfig({
   // 确保 .env.development / .env.production 从 fronted 根目录加载
   envDir: path.resolve(process.cwd()),
   plugins: [uni()],
-  assetsInclude: ['**/*.PNG'],
+  assetsInclude: ['**/*.png'],
   server: {
     // 强制设置响应头，解决腾讯地图等第三方资源的跨域阻断问题 (COEP)
     headers: {
