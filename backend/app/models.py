@@ -114,6 +114,30 @@ class Class(Base):
         return self.major.name if self.major else None
 
 
+class SunshineRunRule(Base):
+    """班级常态化阳光跑规则。"""
+
+    __tablename__ = "sunshine_run_rules"
+    __table_args__ = (
+        UniqueConstraint("class_id", name="uq_sunshine_rule_class"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    class_id = Column(Integer, ForeignKey("classes.id"), nullable=False, index=True)
+    teacher_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    weekly_required_count = Column(Integer, default=3, nullable=False)
+    min_distance_km = Column(Float, default=2.0, nullable=False)
+    min_duration_sec = Column(Integer, default=0, nullable=False)
+    min_pace = Column(Float, default=3.0, nullable=False)
+    max_pace = Column(Float, default=10.0, nullable=False)
+    enabled = Column(Boolean, default=True, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    target_class = relationship("Class")
+    teacher = relationship("User", foreign_keys=[teacher_id])
+
+
 # 新增：教师选科模型
 class TeacherSubject(Base):
     __tablename__ = "teacher_subjects"
@@ -449,7 +473,7 @@ class Medal(Base):
     key = Column(String(32), unique=True, nullable=False)  # e.g. 'run_5k', 'streak_100'
     name = Column(String(64), nullable=False)
     description = Column(String(256), nullable=False)
-    icon_path = Column(String(256), nullable=False)  # e.g. '/static/medals/5k距离勋章.png'
+    icon_path = Column(String(256), nullable=False)  # e.g. '/static/medals/medal-distance-5k.png'
 
 
 class UserMedal(Base):

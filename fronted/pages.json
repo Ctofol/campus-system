@@ -158,6 +158,13 @@
       }
     },
     {
+      "path": "pages/teacher/sunshine/manage",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "阳光跑管理"
+      }
+    },
+    {
       "path": "pages/teacher/manage/manage",
       "style": {
         "navigationStyle": "custom",

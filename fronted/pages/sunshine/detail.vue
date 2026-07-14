@@ -10,7 +10,7 @@
       <!-- 跑团卡片 -->
       <view class="card group-card">
         <view class="group-info">
-          <view class="group-avatar"><image class="group-avatar-img" src="/static/主页户外跑图标.png" mode="aspectFit" /></view>
+          <view class="group-avatar"><image class="group-avatar-img" src="/static/home-outdoor-run.png" mode="aspectFit" /></view>
           <view class="group-detail">
             <view class="group-name-row">
               <text class="group-name">{{ groupName }}</text>
@@ -27,6 +27,36 @@
           <view class="gs"><text class="gsv">{{ calData.streak || 0 }}</text><text class="gsl">连续打卡</text></view>
           <view class="gs"><text class="gsv">{{ calData.total_days || 0 }}</text><text class="gsl">累计打卡</text></view>
           <view class="gs"><text class="gsv">{{ rank || '--' }}</text><text class="gsl">排名</text></view>
+        </view>
+      </view>
+
+      <view class="card rule-card">
+        <view class="rule-head">
+          <text class="section-title">本周阳光跑目标</text>
+          <text class="rule-status" :class="{ done: sunshineStats.weekly_completed }">
+            {{ sunshineStats.weekly_completed ? '已完成' : '进行中' }}
+          </text>
+        </view>
+        <view class="rule-progress-row">
+          <text class="rule-main">{{ sunshineStats.weekly_valid_count || 0 }}/{{ weeklyRule.weekly_required_count || 0 }}</text>
+          <text class="rule-sub">本周有效次数</text>
+        </view>
+        <view class="rule-bar">
+          <view class="rule-bar-fill" :style="{ width: weeklyProgress + '%' }"></view>
+        </view>
+        <view class="rule-items">
+          <view class="rule-item">
+            <text class="rule-value">{{ weeklyRule.min_distance_km || 0 }}km</text>
+            <text class="rule-label">单次距离</text>
+          </view>
+          <view class="rule-item">
+            <text class="rule-value">{{ minDurationLabel }}</text>
+            <text class="rule-label">最低时长</text>
+          </view>
+          <view class="rule-item">
+            <text class="rule-value">{{ weeklyRule.min_pace || 0 }}-{{ weeklyRule.max_pace || 0 }}</text>
+            <text class="rule-label">配速范围</text>
+          </view>
         </view>
       </view>
 
@@ -49,7 +79,7 @@
             @tap="cell.day && selectDay(cell.day)"
           >
             <text v-if="cell.day" class="cc-txt">{{ cell.day }}</text>
-            <image v-if="cell.checked" class="cc-dot-img" src="/static/勾号图标.png" mode="aspectFit" />
+            <image v-if="cell.checked" class="cc-dot-img" src="/static/icon-check.png" mode="aspectFit" />
           </view>
         </view>
         <view class="cal-legend">
@@ -68,12 +98,12 @@
         </view>
         <view v-if="selectedRecords.length">
           <view v-for="r in selectedRecords" :key="r.id" class="rec-item" @tap="goDetail(r)">
-            <image class="rec-icon-img" src="/static/主页户外跑图标.png" mode="aspectFit" />
+            <image class="rec-icon-img" src="/static/home-outdoor-run.png" mode="aspectFit" />
             <view class="rec-info">
               <view class="rec-main">
                 <text class="rec-dist">{{ r.distance_km }} <text class="rec-unit">公里</text></text>
-                <view class="rec-stat"><image class="rec-stat-img" src="/static/主页时长图标.png" mode="aspectFit" /><text>{{ formatDuration(r.duration) }}</text><text class="rec-stat-l">用时</text></view>
-                <view class="rec-stat"><image class="rec-stat-img" src="/static/主页配速图标.png" mode="aspectFit" /><text>{{ formatPace(r.pace) }}</text><text class="rec-stat-l">配速</text></view>
+                <view class="rec-stat"><image class="rec-stat-img" src="/static/home-duration.png" mode="aspectFit" /><text>{{ formatDuration(r.duration) }}</text><text class="rec-stat-l">用时</text></view>
+                <view class="rec-stat"><image class="rec-stat-img" src="/static/home-pace.png" mode="aspectFit" /><text>{{ formatPace(r.pace) }}</text><text class="rec-stat-l">配速</text></view>
               </view>
               <view class="rec-meta"><image class="rec-meta-img" src="/static/location.png" mode="aspectFit" /><text>户外跑 · {{ formatTime(r.started_at) }}</text></view>
             </view>
@@ -108,7 +138,7 @@
           </view>
           <view v-for="m in milestones" :key="m.days" class="reward-node" :style="{ left: m.pct + '%' }">
             <view class="rn-icon" :class="{ 'rn-unlocked': calData.streak >= m.days }">
-              <image v-if="calData.streak >= m.days" class="rn-icon-emoji" src="/static/勾号图标.png" mode="aspectFit" /><image v-else class="rn-icon-emoji" src="/static/叉号图标.png" mode="aspectFit" />
+              <image v-if="calData.streak >= m.days" class="rn-icon-emoji" src="/static/icon-check.png" mode="aspectFit" /><image v-else class="rn-icon-emoji" src="/static/icon-cross.png" mode="aspectFit" />
             </view>
             <text class="rn-label">{{ m.days }}天</text>
           </view>
@@ -132,6 +162,18 @@ const currentYear = ref(new Date().getFullYear());
 const currentMonth = ref(new Date().getMonth() + 1);
 const selectedDay = ref(new Date().getDate());
 const calData = ref({ month_count: 0, streak: 0, total_days: 0, checkin_days: [], selected_records: [] });
+const sunshineStats = ref({
+  weekly_valid_count: 0,
+  weekly_remaining_count: 0,
+  weekly_completed: false,
+  weekly_rule: {
+    weekly_required_count: 3,
+    min_distance_km: 2,
+    min_duration_sec: 0,
+    min_pace: 3,
+    max_pace: 10
+  }
+});
 const rank = ref(null);
 const groupName = ref('暂未加入跑团');
 const groupDesc = ref('加入跑团，一起跑步打卡');
@@ -163,6 +205,17 @@ const selectedDayChecked = computed(() =>
 );
 
 const selectedRecords = computed(() => calData.value.selected_records || []);
+const weeklyRule = computed(() => sunshineStats.value.weekly_rule || {});
+const weeklyProgress = computed(() => {
+  const required = Number(weeklyRule.value.weekly_required_count || 0);
+  if (!required) return 0;
+  return Math.min(100, Math.round(((sunshineStats.value.weekly_valid_count || 0) / required) * 100));
+});
+const minDurationLabel = computed(() => {
+  const seconds = Number(weeklyRule.value.min_duration_sec || 0);
+  if (!seconds) return '不限';
+  return `${Math.ceil(seconds / 60)}分钟`;
+});
 
 const milestones = [
   { days: 3, pct: 10 },
@@ -217,6 +270,24 @@ const loadGroupInfo = async () => {
   } catch (e) {}
 };
 
+const loadSunshineStats = async () => {
+  try {
+    const res = await request({ url: '/student/sunshine-stats', method: 'GET' });
+    if (res) {
+      sunshineStats.value = {
+        ...sunshineStats.value,
+        ...res,
+        weekly_rule: {
+          ...sunshineStats.value.weekly_rule,
+          ...(res.weekly_rule || {})
+        }
+      };
+    }
+  } catch (e) {
+    console.error('load sunshine stats failed', e);
+  }
+};
+
 const selectDay = async (day) => {
   selectedDay.value = day;
   try {
@@ -250,9 +321,10 @@ const viewHistory = () => uni.navigateTo({ url: '/pages/history/history' });
 const goDetail = (r) => uni.navigateTo({ url: `/pages/history/detail?id=${r.id}` });
 
 const showRules = () => {
+  const rule = weeklyRule.value;
   uni.showModal({
     title: '打卡规则',
-    content: '每天完成一次有效阳光跑即算打卡。\n\n有效条件：\n男生 ≥ 2.0 km，女生 ≥ 1.2 km\n配速：3~10 分/公里\n每天限1次有效记录',
+    content: `本周目标：${rule.weekly_required_count || 0} 次\n单次距离：不少于 ${rule.min_distance_km || 0} km\n最低时长：${minDurationLabel.value}\n有效配速：${rule.min_pace || 0}-${rule.max_pace || 0} 分/公里\n每天限 1 次有效记录`,
     showCancel: false,
     confirmText: '我知道了'
   });
@@ -280,6 +352,7 @@ onMounted(() => {
   const sys = uni.getSystemInfoSync();
   statusBarHeight.value = sys.statusBarHeight || 20;
   loadCalendar(currentYear.value, currentMonth.value, today.getDate());
+  loadSunshineStats();
   loadGroupInfo();
 });
 </script>
@@ -325,6 +398,43 @@ onMounted(() => {
 .gs { display: flex; flex-direction: column; align-items: center; }
 .gsv { font-size: 36rpx; font-weight: 800; color: #26b586; }
 .gsl { font-size: 22rpx; color: #8a9bab; margin-top: 4rpx; }
+
+.rule-card { margin-top: 20rpx; }
+.rule-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18rpx; }
+.rule-status {
+  font-size: 22rpx;
+  color: #c77800;
+  background: #fff4e5;
+  padding: 6rpx 16rpx;
+  border-radius: 999rpx;
+}
+.rule-status.done { color: #26b586; background: #e8f8f2; }
+.rule-progress-row { display: flex; align-items: baseline; gap: 12rpx; }
+.rule-main { font-size: 46rpx; font-weight: 800; color: #1a2b3c; }
+.rule-sub { font-size: 24rpx; color: #8a9bab; }
+.rule-bar {
+  height: 14rpx;
+  background: #e8f8f2;
+  border-radius: 999rpx;
+  overflow: hidden;
+  margin: 18rpx 0 22rpx;
+}
+.rule-bar-fill {
+  height: 100%;
+  background: #26b586;
+  border-radius: 999rpx;
+  transition: width 0.25s;
+}
+.rule-items { display: flex; justify-content: space-between; gap: 14rpx; }
+.rule-item {
+  flex: 1;
+  background: #f7faf9;
+  border-radius: 16rpx;
+  padding: 18rpx 10rpx;
+  text-align: center;
+}
+.rule-value { display: block; font-size: 26rpx; font-weight: 700; color: #1a2b3c; }
+.rule-label { display: block; margin-top: 6rpx; font-size: 21rpx; color: #8a9bab; }
 
 /* 日历 */
 .cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20rpx; }

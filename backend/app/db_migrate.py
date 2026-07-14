@@ -62,6 +62,41 @@ def ensure_schema_upgrades() -> None:
                 if col not in existing:
                     conn.execute(text(f"ALTER TABLE user_notifications ADD COLUMN {col} {typ}"))
 
+        if not inspector.has_table("sunshine_run_rules"):
+            if dialect == "sqlite":
+                conn.execute(text("""
+                    CREATE TABLE sunshine_run_rules (
+                        id INTEGER NOT NULL PRIMARY KEY,
+                        class_id INTEGER NOT NULL,
+                        teacher_id INTEGER,
+                        weekly_required_count INTEGER NOT NULL DEFAULT 3,
+                        min_distance_km REAL NOT NULL DEFAULT 2.0,
+                        min_duration_sec INTEGER NOT NULL DEFAULT 0,
+                        min_pace REAL NOT NULL DEFAULT 3.0,
+                        max_pace REAL NOT NULL DEFAULT 10.0,
+                        enabled INTEGER NOT NULL DEFAULT 1,
+                        updated_at DATETIME,
+                        created_at DATETIME,
+                        UNIQUE (class_id)
+                    )
+                """))
+            else:
+                conn.execute(text("""
+                    CREATE TABLE sunshine_run_rules (
+                        id SERIAL PRIMARY KEY,
+                        class_id INTEGER NOT NULL UNIQUE,
+                        teacher_id INTEGER,
+                        weekly_required_count INTEGER NOT NULL DEFAULT 3,
+                        min_distance_km FLOAT NOT NULL DEFAULT 2.0,
+                        min_duration_sec INTEGER NOT NULL DEFAULT 0,
+                        min_pace FLOAT NOT NULL DEFAULT 3.0,
+                        max_pace FLOAT NOT NULL DEFAULT 10.0,
+                        enabled BOOLEAN NOT NULL DEFAULT TRUE,
+                        updated_at TIMESTAMP,
+                        created_at TIMESTAMP
+                    )
+                """))
+
     if dialect == "sqlite":
         # SQLite 无 BOOLEAN，上面已按 BOOLEAN 添加，通常映射为 INTEGER
         pass

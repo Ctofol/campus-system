@@ -15,7 +15,12 @@ from ..services.teacher_service import (
     class_display_name,
     student_display_name,
 )
-from ..services.score_service import calculate_total_score, sunshine_run_filter
+from ..services.score_service import (
+    DEFAULT_SUNSHINE_RULE,
+    calculate_total_score,
+    sunshine_run_filter,
+    week_bounds,
+)
 from ..database import get_db
 
 router = APIRouter(prefix="/teacher", tags=["teacher"])
@@ -254,6 +259,188 @@ async def get_teacher_class_one(
         "id": c.id,
         "name": class_display_name(c),
         "student_count": cnt,
+    }
+
+
+def _rule_payload_for_class(db: Session, cls: models.Class) -> dict:
+    rule = (
+        db.query(models.SunshineRunRule)
+        .filter(models.SunshineRunRule.class_id == cls.id)
+        .first()
+    )
+    base = {
+        "id": None,
+        "class_id": cls.id,
+        "class_name": class_display_name(cls),
+        "major_name": cls.major_name,
+        "student_count": len(cls.students or []),
+        "updated_at": None,
+        **DEFAULT_SUNSHINE_RULE,
+    }
+    if not rule:
+        return base
+    base.update({
+        "id": rule.id,
+        "weekly_required_count": rule.weekly_required_count,
+        "min_distance_km": rule.min_distance_km,
+        "min_duration_sec": rule.min_duration_sec,
+        "min_pace": rule.min_pace,
+        "max_pace": rule.max_pace,
+        "enabled": rule.enabled,
+        "updated_at": rule.updated_at,
+    })
+    return base
+
+
+@router.get("/sunshine/rules", response_model=List[schemas.SunshineRunRuleOut])
+async def get_sunshine_rules(
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db),
+):
+    """教师端：当前管辖班级的常态化阳光跑规则。"""
+    class_summaries = await get_managed_class_summaries(current_user, db)
+    class_ids = [c.get("id") for c in class_summaries if c.get("id")]
+    classes = (
+        db.query(models.Class)
+        .filter(models.Class.id.in_(class_ids))
+        .order_by(models.Class.name.asc())
+        .all()
+        if class_ids else []
+    )
+    return [_rule_payload_for_class(db, cls) for cls in classes]
+
+
+@router.put("/sunshine/rules/{class_id}", response_model=schemas.SunshineRunRuleOut)
+async def save_sunshine_rule(
+    class_id: int,
+    payload: schemas.SunshineRunRuleIn,
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db),
+):
+    """教师端：保存某班常态化阳光跑规则。"""
+    if not await teacher_manages_class_id(current_user, class_id, db):
+        raise HTTPException(status_code=404, detail="班级不存在或无权限")
+
+    weekly_required = max(0, min(int(payload.weekly_required_count or 0), 14))
+    min_distance = max(0.1, min(float(payload.min_distance_km or 0), 99.0))
+    min_duration = max(0, min(int(payload.min_duration_sec or 0), 24 * 3600))
+    min_pace = max(1.0, min(float(payload.min_pace or 0), 30.0))
+    max_pace = max(min_pace, min(float(payload.max_pace or 0), 60.0))
+
+    rule = (
+        db.query(models.SunshineRunRule)
+        .filter(models.SunshineRunRule.class_id == class_id)
+        .first()
+    )
+    if not rule:
+        rule = models.SunshineRunRule(class_id=class_id)
+        db.add(rule)
+    rule.teacher_id = current_user.id
+    rule.weekly_required_count = weekly_required
+    rule.min_distance_km = min_distance
+    rule.min_duration_sec = min_duration
+    rule.min_pace = min_pace
+    rule.max_pace = max_pace
+    rule.enabled = bool(payload.enabled)
+    rule.updated_at = datetime.utcnow()
+    db.commit()
+
+    cls = db.query(models.Class).filter(models.Class.id == class_id).first()
+    return _rule_payload_for_class(db, cls)
+
+
+@router.get("/sunshine/dashboard", response_model=schemas.SunshineRunDashboardOut)
+async def get_sunshine_dashboard(
+    class_id: Optional[int] = None,
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db),
+):
+    """教师端：本周常态化阳光跑完成情况。"""
+    class_summaries = await get_managed_class_summaries(current_user, db)
+    class_ids = [c.get("id") for c in class_summaries if c.get("id")]
+    if not class_ids:
+        now = datetime.utcnow()
+        return {
+            "rule": {**DEFAULT_SUNSHINE_RULE, "class_id": 0, "class_name": "暂无班级"},
+            "total_students": 0,
+            "completed_count": 0,
+            "incomplete_count": 0,
+            "completion_rate": 0,
+            "valid_run_count": 0,
+            "total_distance_km": 0,
+            "week_start": week_bounds(now)[0],
+            "week_end": week_bounds(now)[1],
+            "students": [],
+        }
+
+    selected_class_id = class_id if class_id in class_ids else class_ids[0]
+    if not await teacher_manages_class_id(current_user, selected_class_id, db):
+        raise HTTPException(status_code=404, detail="班级不存在或无权限")
+
+    cls = db.query(models.Class).filter(models.Class.id == selected_class_id).first()
+    rule = _rule_payload_for_class(db, cls)
+    week_start, week_end = week_bounds()
+
+    student_query = await get_managed_students_query(current_user, db)
+    students = student_query.filter(models.User.class_id == selected_class_id).all()
+    required = int(rule.get("weekly_required_count") or 0)
+
+    rows = []
+    valid_run_count = 0
+    total_distance = 0.0
+    completed_count = 0
+
+    for s in students:
+        acts = (
+            db.query(models.Activity)
+            .filter(
+                models.Activity.user_id == s.id,
+                models.Activity.is_valid.is_(True),
+                models.Activity.started_at >= week_start,
+                models.Activity.started_at < week_end,
+            )
+            .filter(sunshine_run_filter())
+            .order_by(models.Activity.started_at.desc())
+            .all()
+        )
+        distance = 0.0
+        for act in acts:
+            if act.metrics and act.metrics.distance:
+                distance += float(act.metrics.distance)
+        valid_count = len(acts)
+        done = valid_count >= required if required > 0 else False
+        if done:
+            completed_count += 1
+        valid_run_count += valid_count
+        total_distance += distance
+        rows.append({
+            "student_id": s.id,
+            "student_no": s.student_id,
+            "name": s.name,
+            "class_name": s.plain_class_name,
+            "major_name": s.major,
+            "valid_count": valid_count,
+            "total_distance_km": round(distance, 2),
+            "last_run_at": acts[0].started_at if acts else None,
+            "completed": done,
+        })
+
+    total_students = len(students)
+    incomplete_count = max(0, total_students - completed_count)
+    completion_rate = int(round((completed_count / total_students) * 100)) if total_students else 0
+    rows.sort(key=lambda x: (not x["completed"], -x["valid_count"], x["name"]))
+
+    return {
+        "rule": rule,
+        "total_students": total_students,
+        "completed_count": completed_count,
+        "incomplete_count": incomplete_count,
+        "completion_rate": completion_rate,
+        "valid_run_count": valid_run_count,
+        "total_distance_km": round(total_distance, 2),
+        "week_start": week_start,
+        "week_end": week_end,
+        "students": rows,
     }
 
 

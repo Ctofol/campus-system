@@ -506,6 +506,48 @@ class TeacherDashboardOut(BaseModel):
     stats: TeacherStatsOut
     todos: List[TodoItem]
 
+class SunshineRunRuleIn(BaseModel):
+    weekly_required_count: int = 3
+    min_distance_km: float = 2.0
+    min_duration_sec: int = 0
+    min_pace: float = 3.0
+    max_pace: float = 10.0
+    enabled: bool = True
+
+
+class SunshineRunRuleOut(SunshineRunRuleIn):
+    id: Optional[int] = None
+    class_id: int
+    class_name: str = ""
+    major_name: Optional[str] = None
+    student_count: int = 0
+    updated_at: Optional[datetime] = None
+
+
+class SunshineRunStudentStatus(BaseModel):
+    student_id: int
+    student_no: Optional[str] = None
+    name: str
+    class_name: Optional[str] = None
+    major_name: Optional[str] = None
+    valid_count: int = 0
+    total_distance_km: float = 0.0
+    last_run_at: Optional[datetime] = None
+    completed: bool = False
+
+
+class SunshineRunDashboardOut(BaseModel):
+    rule: SunshineRunRuleOut
+    total_students: int = 0
+    completed_count: int = 0
+    incomplete_count: int = 0
+    completion_rate: int = 0
+    valid_run_count: int = 0
+    total_distance_km: float = 0.0
+    week_start: datetime
+    week_end: datetime
+    students: List[SunshineRunStudentStatus] = []
+
 class ClassAnalysisOut(BaseModel):
     class_id: int
     # 琛屾斂鐝骇鍚嶏紱major_name 涓轰笓涓?    class_name: str

@@ -1,7 +1,7 @@
 <template>
   <view class="home-container">
     <page-tab-header title="教师工作台" theme="brand" />
-    <view class="teacher-dashboard page-tab-body">
+    <view class="teacher-dashboard page-tab-body page-tab-body--compact-top">
       <!-- 1. 教师头部信息 -->
       <view class="teacher-header">
         <view class="teacher-info">
@@ -213,7 +213,7 @@ const fetchWeeklyTrend = async () => {
 // 跳转到辖区班级阳光跑排行（按班级展示）
 const goToSunshineBoard = () => {
   uni.navigateTo({
-    url: '/pages/teacher/class-rank/class-rank'
+    url: '/pages/teacher/sunshine/manage'
   });
 };
 
