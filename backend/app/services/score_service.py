@@ -5,6 +5,16 @@ from sqlalchemy import and_, or_
 from .. import models, config
 
 
+DEFAULT_SUNSHINE_RULE = {
+    "weekly_required_count": 3,
+    "min_distance_km": 2.0,
+    "min_duration_sec": 0,
+    "min_pace": config.MIN_PACE_MIN_KM,
+    "max_pace": config.MAX_PACE_MIN_KM,
+    "enabled": True,
+}
+
+
 def sunshine_run_filter():
     """
     阳光跑数据口径（与任务跑区分）：
@@ -17,6 +27,37 @@ def sunshine_run_filter():
         or_(models.Activity.source == "free", models.Activity.source.is_(None)),
         models.Activity.task_id.is_(None),
     )
+
+
+def week_bounds(now: datetime | None = None) -> tuple[datetime, datetime]:
+    """返回自然周边界，周一 00:00 到下周一 00:00。"""
+    base = now or datetime.utcnow()
+    start_date = base.date() - timedelta(days=base.weekday())
+    start = datetime(start_date.year, start_date.month, start_date.day)
+    return start, start + timedelta(days=7)
+
+
+def get_sunshine_rule_for_class(class_id: int | None, db) -> dict:
+    if not class_id:
+        return dict(DEFAULT_SUNSHINE_RULE)
+    rule = (
+        db.query(models.SunshineRunRule)
+        .filter(models.SunshineRunRule.class_id == class_id)
+        .first()
+    )
+    if not rule or not rule.enabled:
+        return dict(DEFAULT_SUNSHINE_RULE)
+    return {
+        "id": rule.id,
+        "class_id": rule.class_id,
+        "weekly_required_count": int(rule.weekly_required_count or DEFAULT_SUNSHINE_RULE["weekly_required_count"]),
+        "min_distance_km": float(rule.min_distance_km or DEFAULT_SUNSHINE_RULE["min_distance_km"]),
+        "min_duration_sec": int(rule.min_duration_sec or 0),
+        "min_pace": float(rule.min_pace or DEFAULT_SUNSHINE_RULE["min_pace"]),
+        "max_pace": float(rule.max_pace or DEFAULT_SUNSHINE_RULE["max_pace"]),
+        "enabled": bool(rule.enabled),
+        "updated_at": rule.updated_at,
+    }
 
 
 def verify_activity(user: models.User, activity: models.Activity, db) -> Tuple[bool, str, bool]:
@@ -47,13 +88,20 @@ def verify_activity(user: models.User, activity: models.Activity, db) -> Tuple[b
     apply_face_outcome_to_activity(activity, face_outcome)
     face_verified = face_outcome.face_verified
 
-    # 1. 性别 + 里程校验
+    # 1. 班级阳光跑规则优先；未配置时沿用历史性别里程标准
+    rule = get_sunshine_rule_for_class(user.class_id, db)
     gender = (user.gender or "male").lower()
-    min_dist = config.MIN_DISTANCE_MALE if gender == "male" else config.MIN_DISTANCE_FEMALE
+    fallback_min_dist = config.MIN_DISTANCE_MALE if gender == "male" else config.MIN_DISTANCE_FEMALE
+    min_dist = float(rule.get("min_distance_km") or fallback_min_dist)
+    min_duration = int(rule.get("min_duration_sec") or 0)
+    min_pace = float(rule.get("min_pace") or config.MIN_PACE_MIN_KM)
+    max_pace = float(rule.get("max_pace") or config.MAX_PACE_MIN_KM)
     sport_reason: str | None = None
     if distance_km < min_dist:
         sport_reason = "里程不足"
-    elif pace_val is None or pace_val < config.MIN_PACE_MIN_KM or pace_val > config.MAX_PACE_MIN_KM:
+    elif metrics.duration is not None and metrics.duration < min_duration:
+        sport_reason = "时长不足"
+    elif pace_val is None or pace_val < min_pace or pace_val > max_pace:
         sport_reason = "配速异常"
     else:
         today: date = datetime.utcnow().date()
@@ -119,6 +167,9 @@ def get_sunshine_stats(user: models.User, db):
     - daily_records: 最近7天运动明细
     - user_gender: 学生性别
     """
+    rule = get_sunshine_rule_for_class(user.class_id, db)
+    week_start, week_end = week_bounds()
+
     # 1. 历史达标次数
     total_valid_count = (
         db.query(models.Activity)
@@ -131,6 +182,19 @@ def get_sunshine_stats(user: models.User, db):
     )
 
     score = calculate_total_score(total_valid_count)
+
+    weekly_valid_count = (
+        db.query(models.Activity)
+        .filter(
+            models.Activity.user_id == user.id,
+            models.Activity.is_valid.is_(True),
+            models.Activity.started_at >= week_start,
+            models.Activity.started_at < week_end,
+        )
+        .filter(sunshine_run_filter())
+        .count()
+    )
+    weekly_required = int(rule.get("weekly_required_count") or 0)
 
     # 2. 今日状态
     today: date = datetime.utcnow().date()
@@ -199,6 +263,16 @@ def get_sunshine_stats(user: models.User, db):
         "today_fail_reason": today_fail_reason,
         "daily_records": daily_records,
         "user_gender": (user.gender or "male").lower(),
+        "weekly_rule": {
+            "weekly_required_count": weekly_required,
+            "min_distance_km": float(rule.get("min_distance_km") or 0),
+            "min_duration_sec": int(rule.get("min_duration_sec") or 0),
+            "min_pace": float(rule.get("min_pace") or 0),
+            "max_pace": float(rule.get("max_pace") or 0),
+        },
+        "weekly_valid_count": weekly_valid_count,
+        "weekly_remaining_count": max(0, weekly_required - weekly_valid_count),
+        "weekly_completed": weekly_valid_count >= weekly_required if weekly_required > 0 else False,
     }
 
 
