@@ -10,6 +10,7 @@ import { ref, nextTick } from 'vue';
 import { onShow, onHide } from '@dcloudio/uni-app';
 import StudentMine from '@/components/student-mine/student-mine.vue';
 import TeacherMine from '@/components/teacher-mine/teacher-mine.vue';
+import { applyRoleTabBar } from '@/utils/role-tabbar.js';
 
 const role = ref(uni.getStorageSync('userRole') || 'student');
 const studentMineRef = ref(null);
@@ -17,7 +18,8 @@ const teacherMineRef = ref(null);
 
 onShow(() => {
   role.value = uni.getStorageSync('userRole') || 'student';
-  
+  applyRoleTabBar(role.value);
+
   nextTick(() => {
     if (role.value === 'student' && studentMineRef.value && studentMineRef.value.onPageShow) {
       studentMineRef.value.onPageShow();

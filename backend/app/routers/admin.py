@@ -15,6 +15,8 @@ from datetime import datetime
 from ..database import get_db
 from .. import models, schemas, auth
 from ..services.score_service import calculate_total_score
+from ..services.notification_service import create_notification as add_user_notification
+from ..services.notification_service import create_notifications as add_user_notifications
 
 router = APIRouter(
     prefix="/manage",
@@ -1102,13 +1104,13 @@ def create_notification(
         user = db.query(models.User).filter(models.User.id == body.target_user_id).first()
         if not user:
             raise HTTPException(status_code=404, detail="目标用户不存在")
-        note = models.UserNotification(
-            user_id=body.target_user_id,
-            title=body.title,
-            body=body.content,
-            ntype=body.ntype,
+        note = add_user_notification(
+            db,
+            body.target_user_id,
+            body.title,
+            body.content,
+            body.ntype,
         )
-        db.add(note)
         db.commit()
         db.refresh(note)
         return {"sent": 1, "notification_id": note.id}
@@ -1120,15 +1122,13 @@ def create_notification(
     else:
         users = db.query(models.User).filter(models.User.role.in_(["student", "teacher"])).all()
 
-    count = 0
-    for u in users:
-        db.add(models.UserNotification(
-            user_id=u.id,
-            title=body.title,
-            body=body.content,
-            ntype=body.ntype,
-        ))
-        count += 1
+    count = add_user_notifications(
+        db,
+        [u.id for u in users],
+        body.title,
+        body.content,
+        body.ntype,
+    )
     db.commit()
     return {"sent": count}
 

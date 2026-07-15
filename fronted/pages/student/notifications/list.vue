@@ -4,10 +4,23 @@
     <view class="navbar" :style="{ paddingTop: statusBarHeight + 'px' }">
       <view class="navbar-back" @tap="goBack"><text class="navbar-back-icon">‹</text></view>
       <text class="navbar-title">消息通知</text>
-      <text class="navbar-right" @tap="clearUnread">清除未读</text>
+      <view class="navbar-right-group">
+        <text class="navbar-link" @tap="showTeacherComposer">联系老师</text>
+        <text class="navbar-link navbar-link--muted" @tap="clearUnread">已读</text>
+      </view>
     </view>
 
     <view class="body" :style="{ paddingTop: navHeight + 'px' }">
+      <view v-if="composerVisible" class="composer-card">
+        <view class="composer-head">
+          <text class="composer-title">给老师留言</text>
+          <text class="composer-close" @tap="composerVisible = false">关闭</text>
+        </view>
+        <input class="composer-input" v-model.trim="teacherMessageTitle" maxlength="30" placeholder="标题，例如：训练问题" />
+        <textarea class="composer-textarea" v-model.trim="teacherMessageBody" maxlength="300" placeholder="请输入需要老师查看的内容" />
+        <button class="composer-btn" :loading="sendingTeacherMessage" @tap="sendTeacherMessage">发送</button>
+      </view>
+
       <!-- 分类 Tab -->
       <view class="tab-row">
         <view
@@ -77,10 +90,10 @@ const statusBarHeight = ref(20);
 const navHeight = computed(() => statusBarHeight.value + 44);
 
 const tabs = [
-  { key: 'all', label: '全部消息', icon: '/static/通知图标.png', color: '#fff' },
-  { key: 'run_group', label: '跑团消息', icon: '/static/主页跑团图标.png', color: '#fff' },
-  { key: 'interaction', label: '互动消息', icon: '/static/通知图标2.png', color: '#fff' },
-  { key: 'system', label: '系统通知', icon: '/static/通知图标（收到通知红点版）.png', color: '#fff' },
+  { key: 'all', label: '全部消息', icon: '/static/icons/icon-notification.svg', color: '#fff' },
+  { key: 'run_group', label: '跑团消息', icon: '/static/icons/icon-group.svg', color: '#fff' },
+  { key: 'interaction', label: '互动消息', icon: '/static/icons/icon-mail.svg', color: '#fff' },
+  { key: 'system', label: '系统通知', icon: '/static/icons/icon-mail.svg', color: '#fff' },
 ];
 
 const activeTab = ref('all');
@@ -88,6 +101,10 @@ const notifications = ref([]);
 const loading = ref(false);
 const hasMore = ref(true);
 const page = ref(1);
+const composerVisible = ref(false);
+const sendingTeacherMessage = ref(false);
+const teacherMessageTitle = ref('');
+const teacherMessageBody = ref('');
 
 const tabBadge = (key) => {
   const list = key === 'all' ? notifications.value : notifications.value.filter(n => mapType(n.ntype) === key);
@@ -96,7 +113,7 @@ const tabBadge = (key) => {
 
 const mapType = (ntype) => {
   if (!ntype) return 'system';
-  if (['run_group', 'group'].includes(ntype)) return 'run_group';
+  if (['run_group', 'group', 'run_group_activity', 'run_group_apply'].includes(ntype)) return 'run_group';
   if (['like', 'comment', 'follow', 'interaction'].includes(ntype)) return 'interaction';
   return 'system';
 };
@@ -132,16 +149,15 @@ const groupedList = computed(() => {
 
 const getAvatarBg = (item) => {
   const type = mapType(item.ntype);
-  if (type === 'run_group') return '#e8f8f2';
-  if (type === 'interaction') return '#eef2ff';
+  if (type === 'run_group' || type === 'interaction' || type === 'system') return '#e8f8f2';
   return '#fff4e6';
 };
 
 const getAvatarIconSrc = (item) => {
   const type = mapType(item.ntype);
-  if (type === 'run_group') return '/static/主页跑团图标.png';
-  if (type === 'interaction') return '/static/通知图标2.png';
-  return '/static/通知图标.png';
+  if (type === 'run_group') return '/static/icons/icon-group.svg';
+  if (type === 'interaction' || type === 'system') return '/static/icons/icon-mail.svg';
+  return '/static/icons/icon-notification.svg';
 };
 
 const getTagColor = (item) => {
@@ -171,10 +187,21 @@ const enrichItem = (item) => {
   const type = mapType(item.ntype);
   return {
     ...item,
-    tag: type === 'run_group' ? '跑团' : type === 'interaction' ? '成员' : null,
+    tag: type === 'run_group' ? '跑团' : type === 'interaction' ? '成员' : getSystemTag(item.ntype),
     sender_name: item.sender_name || item.title,
     body: item.body || item.content || '',
   };
+};
+
+const getSystemTag = (ntype) => {
+  const map = {
+    task: '任务',
+    task_reminder: '任务',
+    teacher_message: '教师',
+    health_review: '健康',
+    system: '系统'
+  };
+  return map[ntype] || '系统';
 };
 
 const loadNotifications = async (reset = true) => {
@@ -182,7 +209,7 @@ const loadNotifications = async (reset = true) => {
   loading.value = true;
   if (reset) { page.value = 1; hasMore.value = true; }
   try {
-    const res = await request({ url: `/student/notifications?limit=30&page=${page.value}`, method: 'GET' });
+    const res = await request({ url: `/notifications?limit=30&page=${page.value}`, method: 'GET' });
     const items = (Array.isArray(res) ? res : res?.items || []).map(enrichItem);
     if (reset) notifications.value = items;
     else notifications.value.push(...items);
@@ -205,14 +232,18 @@ const switchTab = (key) => { activeTab.value = key; };
 const openItem = async (item) => {
   if (!item.is_read) {
     item.is_read = true;
-    try { await request({ url: `/student/notifications/${item.id}/read`, method: 'PUT' }); } catch (e) {}
+    try { await request({ url: `/notifications/${item.id}/read`, method: 'PUT' }); } catch (e) {}
   }
   if (item.ntype === 'health_review') {
     uni.navigateTo({ url: '/pages/health/request' });
     return;
   }
-  if (item.ntype === 'run_group' || item.ntype === 'group') {
+  if (item.ntype === 'run_group' || item.ntype === 'group' || item.ntype === 'run_group_activity') {
     uni.navigateTo({ url: '/pages/run-group/my' });
+    return;
+  }
+  if (item.ntype === 'task' || item.ntype === 'task_reminder') {
+    uni.navigateTo({ url: '/pages/student/tasks/list' });
     return;
   }
   uni.showModal({ title: item.title, content: item.body || '', showCancel: false });
@@ -220,11 +251,42 @@ const openItem = async (item) => {
 
 const clearUnread = async () => {
   try {
-    await request({ url: '/student/notifications/read-all', method: 'PUT' });
+    await request({ url: '/notifications/read-all', method: 'PUT' });
     notifications.value.forEach(n => { n.is_read = true; });
     uni.showToast({ title: '已清除未读', icon: 'success' });
   } catch (e) {
     uni.showToast({ title: '操作失败', icon: 'none' });
+  }
+};
+
+const showTeacherComposer = () => {
+  composerVisible.value = true;
+};
+
+const sendTeacherMessage = async () => {
+  const message = teacherMessageBody.value.trim();
+  if (!message) {
+    uni.showToast({ title: '请输入留言内容', icon: 'none' });
+    return;
+  }
+  sendingTeacherMessage.value = true;
+  try {
+    const res = await request({
+      url: '/notifications/to-teachers',
+      method: 'POST',
+      data: {
+        title: teacherMessageTitle.value.trim() || '学生消息',
+        message
+      }
+    });
+    uni.showToast({ title: `已发送给${res.sent || 0}位老师`, icon: 'success' });
+    teacherMessageTitle.value = '';
+    teacherMessageBody.value = '';
+    composerVisible.value = false;
+  } catch (e) {
+    uni.showToast({ title: e.message || '发送失败', icon: 'none' });
+  } finally {
+    sendingTeacherMessage.value = false;
   }
 };
 
@@ -250,9 +312,56 @@ onShow(() => {
 .navbar-back { width: 60rpx; display: flex; align-items: center; }
 .navbar-back-icon { font-size: 48rpx; color: #333; }
 .navbar-title { flex: 1; text-align: center; font-size: 32rpx; font-weight: 700; color: #1a2b3c; }
-.navbar-right { font-size: 26rpx; color: #26b586; width: 120rpx; text-align: right; }
+.navbar-right-group {
+  width: 176rpx;
+  display: flex;
+  justify-content: flex-end;
+  gap: 18rpx;
+}
+.navbar-link { font-size: 24rpx; color: #26b586; white-space: nowrap; }
+.navbar-link--muted { color: #718094; }
 
 .body { background: #f5f7fa; }
+
+.composer-card {
+  margin: 18rpx 24rpx;
+  padding: 24rpx;
+  background: #fff;
+  border-radius: 18rpx;
+  border: 1rpx solid rgba(24, 35, 46, 0.06);
+}
+.composer-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18rpx;
+}
+.composer-title { font-size: 30rpx; font-weight: 700; color: #18232e; }
+.composer-close { font-size: 24rpx; color: #718094; }
+.composer-input,
+.composer-textarea {
+  box-sizing: border-box;
+  width: 100%;
+  border-radius: 14rpx;
+  background: #f7faf9;
+  border: 1rpx solid rgba(24, 35, 46, 0.06);
+  padding: 18rpx;
+  font-size: 26rpx;
+  color: #18232e;
+}
+.composer-textarea {
+  height: 150rpx;
+  margin-top: 14rpx;
+}
+.composer-btn {
+  margin-top: 18rpx;
+  height: 76rpx;
+  line-height: 76rpx;
+  border-radius: 999rpx;
+  background: #24bfa2;
+  color: #fff;
+  font-size: 28rpx;
+}
 
 /* 分类 Tab */
 .tab-row {

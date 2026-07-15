@@ -56,12 +56,6 @@ def ensure_schema_upgrades() -> None:
                 if col not in existing:
                     conn.execute(text(f"ALTER TABLE activity_metrics ADD COLUMN {col} {typ}"))
 
-        if inspector.has_table("users"):
-            existing = _column_names(inspector, "users")
-            for col, typ in user_cols.items():
-                if col not in existing:
-                    conn.execute(text(f"ALTER TABLE users ADD COLUMN {col} {typ}"))
-
         if inspector.has_table("user_notifications"):
             existing = _column_names(inspector, "user_notifications")
             for col, typ in notification_cols.items():

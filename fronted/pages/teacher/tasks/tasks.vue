@@ -6,11 +6,11 @@
         <text class="page-title">任务管理</text>
         <view class="header-actions">
           <view class="icon-btn search">
-            <image class="iconfont" src="/static/主页GO图标.png" mode="aspectFit" />
+            <image class="iconfont" src="/static/home-go.png" mode="aspectFit"/>
           </view>
         </view>
       </view>
-      
+
       <view class="stats-card">
         <view class="stat-item">
           <text class="stat-num">{{ ongoingCount }}</text>
@@ -31,17 +31,17 @@
 
     <!-- Tab Filter -->
     <view class="tab-container">
-      <view 
-        class="tab-item" 
-        :class="{ active: currentTab === 0 }" 
+      <view
+        class="tab-item"
+        :class="{ active: currentTab === 0 }"
         @click="currentTab = 0"
       >
         进行中
         <view class="tab-line" v-if="currentTab === 0"></view>
       </view>
-      <view 
-        class="tab-item" 
-        :class="{ active: currentTab === 1 }" 
+      <view
+        class="tab-item"
+        :class="{ active: currentTab === 1 }"
         @click="currentTab = 1"
       >
         历史记录
@@ -56,7 +56,7 @@
           <view class="tag-row">
             <view class="type-tag" :class="getTypeClass(task.type)">{{ task.type }}</view>
             <view class="deadline-tag" :class="{ urgent: isUrgent(task.deadline) }">
-              <image class="deadline-img" src="/static/日历.png" mode="aspectFit" />
+              <image class="deadline-img" src="/static/icons/icon-calendar.svg" mode="aspectFit"/>
               <text>{{ task.deadline }} 截止</text>
             </view>
           </view>
@@ -85,15 +85,15 @@
              <view class="avatar-more" :style="{left: 60 + 'rpx'}">...</view>
           </view>
           <button class="remind-btn" size="mini" @click="remindUnfinished(task)" v-if="task.status === '进行中'">
-            <image class="notif-inline-icon" src="/static/通知图标.png" mode="aspectFit" /> 一键提醒
+            <image class="notif-inline-icon" src="/static/icons/icon-notification.svg" mode="aspectFit" /> 一键提醒
           </button>
         </view>
       </view>
-      
+
       <view class="empty-state" v-if="filteredTasks.length === 0">
         <text class="empty-text">暂无任务数据</text>
       </view>
-      
+
       <!-- Bottom spacer for FAB -->
       <view style="height: 120rpx;"></view>
     </scroll-view>
@@ -109,7 +109,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
-import { getTeacherTasks, deleteTask } from '@/utils/request.js';
+import { request, getTeacherTasks, deleteTask } from '@/utils/request.js';
 
 const currentTab = ref(0);
 const tasks = ref([]);
@@ -129,12 +129,12 @@ const loadTasks = async () => {
       const newTasks = res.items.map(item => {
         const deadlineDate = new Date(item.deadline);
         const isExpired = deadlineDate < now;
-        
+
         // Map backend type to frontend display
         let displayType = '训练';
         if (item.type === 'test') displayType = '考核';
         else if (item.type === 'run') displayType = '日常';
-        
+
         // Calculate percentage
         const completed = item.completed_count || 0;
         const totalCount = item.total_students || 0;
@@ -152,7 +152,7 @@ const loadTasks = async () => {
           deadline: item.deadline ? item.deadline.split('T')[0] : '无'
         };
       });
-      
+
       if (page.value === 1) {
         tasks.value = newTasks;
       } else {
@@ -212,7 +212,7 @@ const isUrgent = (deadline) => {
   const d = new Date(deadline);
   const now = new Date();
   const diffTime = Math.abs(d - now);
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   return diffDays <= 3 && d > now;
 };
 
@@ -220,8 +220,16 @@ const goToDetail = (task) => {
   uni.navigateTo({ url: `/pages/teacher/tasks/detail?id=${task.id}` });
 };
 
-const remindUnfinished = (task) => {
-  uni.showToast({ title: '提醒已发送', icon: 'success' });
+const remindUnfinished = async (task) => {
+  try {
+    const res = await request({
+      url: `/teacher/tasks/${task.id}/remind-unfinished`,
+      method: 'POST'
+    });
+    uni.showToast({ title: `已提醒${res.sent || 0}人`, icon: 'success' });
+  } catch (e) {
+    uni.showToast({ title: e.message || '提醒发送失败', icon: 'none' });
+  }
 };
 
 const showActionSheet = (task) => {
@@ -457,7 +465,7 @@ const createTask = () => {
 .tag-blue { background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%); color: #446699; }
 .tag-gray { background: #eee; color: #999; }
 
-.iconfont { width: 36rpx; height: 36rpx; }
+.iconfont { width: 42rpx; height: 42rpx; }
 
 .deadline-tag {
   font-size: 22rpx;

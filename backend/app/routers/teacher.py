@@ -21,6 +21,7 @@ from ..services.score_service import (
     sunshine_run_filter,
     week_bounds,
 )
+from ..services.notification_service import create_notification, create_notifications, sanitize_notification_type
 from ..database import get_db
 
 router = APIRouter(prefix="/teacher", tags=["teacher"])
@@ -81,6 +82,82 @@ async def get_teacher_dashboard_stats(
         })
     
     return {"stats": stats_data, "todos": todos}
+
+
+@router.get("/notifications", response_model=List[schemas.UserNotificationOut])
+def list_teacher_notifications(
+    unread_only: bool = False,
+    ntype: Optional[str] = None,
+    limit: int = 50,
+    page: int = 1,
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db),
+):
+    limit = max(1, min(int(limit or 50), 100))
+    page = max(1, int(page or 1))
+    q = db.query(models.UserNotification).filter(
+        models.UserNotification.user_id == current_user.id
+    )
+    if unread_only:
+        q = q.filter(models.UserNotification.is_read.is_(False))
+    if ntype:
+        q = q.filter(models.UserNotification.ntype == sanitize_notification_type(ntype))
+    return (
+        q.order_by(models.UserNotification.created_at.desc())
+        .offset((page - 1) * limit)
+        .limit(limit)
+        .all()
+    )
+
+
+@router.get("/notifications/unread-count", response_model=schemas.UserNotificationUnread)
+def teacher_notification_unread_count(
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db),
+):
+    count = (
+        db.query(models.UserNotification)
+        .filter(
+            models.UserNotification.user_id == current_user.id,
+            models.UserNotification.is_read.is_(False),
+        )
+        .count()
+    )
+    return {"count": count}
+
+
+@router.put("/notifications/read-all")
+def mark_all_teacher_notifications_read(
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db),
+):
+    db.query(models.UserNotification).filter(
+        models.UserNotification.user_id == current_user.id,
+        models.UserNotification.is_read.is_(False),
+    ).update({"is_read": True})
+    db.commit()
+    return {"ok": True}
+
+
+@router.put("/notifications/{notification_id}/read")
+def mark_teacher_notification_read(
+    notification_id: int,
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db),
+):
+    row = (
+        db.query(models.UserNotification)
+        .filter(
+            models.UserNotification.id == notification_id,
+            models.UserNotification.user_id == current_user.id,
+        )
+        .first()
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="通知不存在")
+    row.is_read = True
+    db.commit()
+    return {"ok": True}
 
 @router.get("/weekly-trend")
 async def get_weekly_trend(
@@ -1160,7 +1237,65 @@ async def create_teacher_task(
     db.commit()
     for t in created:
         db.refresh(t)
+        students = (
+            db.query(models.User.id)
+            .filter(models.User.role == "student", models.User.class_id == t.class_id)
+            .all()
+        )
+        create_notifications(
+            db,
+            [row.id for row in students],
+            "新任务发布",
+            f"教师发布了任务「{t.title}」，请按要求完成。",
+            "task",
+            {"task_id": t.id, "class_id": t.class_id},
+        )
+    db.commit()
     return created
+
+
+@router.post("/tasks/{task_id}/remind-unfinished")
+async def remind_unfinished_students(
+    task_id: int,
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db),
+):
+    task = (
+        db.query(models.Task)
+        .filter(models.Task.id == task_id, models.Task.created_by == current_user.id)
+        .first()
+    )
+    if not task:
+        raise HTTPException(status_code=404, detail="任务不存在或无权限")
+    if task.class_id and not await teacher_manages_class_id(current_user, task.class_id, db):
+        raise HTTPException(status_code=404, detail="任务目标班级不在您的管辖范围内")
+
+    students = (
+        db.query(models.User)
+        .filter(models.User.role == "student", models.User.class_id == task.class_id)
+        .all()
+    )
+    completed_user_ids = {
+        row.user_id for row in (
+            db.query(models.Activity.user_id)
+            .filter(
+                models.Activity.task_id == task.id,
+                models.Activity.is_valid.is_(True),
+            )
+            .all()
+        )
+    }
+    target_ids = [s.id for s in students if s.id not in completed_user_ids]
+    sent = create_notifications(
+        db,
+        target_ids,
+        "任务完成提醒",
+        f"任务「{task.title}」尚未完成，请及时查看并提交。",
+        "task_reminder",
+        {"task_id": task.id, "class_id": task.class_id},
+    )
+    db.commit()
+    return {"sent": sent}
 
 
 @router.delete("/tasks/{task_id}")
@@ -1823,6 +1958,16 @@ async def notify_student(
     db: Session = Depends(get_db),
 ):
     student_query = await get_managed_students_query(current_user, db)
-    if not student_query.filter(models.User.id == student_id).first():
+    student = student_query.filter(models.User.id == student_id).first()
+    if not student:
         raise HTTPException(status_code=404, detail="学员不存在或无权限")
+    create_notification(
+        db,
+        student_id,
+        "教师通知",
+        payload.message,
+        "teacher_message",
+        {"teacher_id": current_user.id},
+    )
+    db.commit()
     return {"message": "通知已发送", "student_id": student_id, "content": payload.message}
