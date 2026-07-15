@@ -268,37 +268,27 @@ const formatDate = () => {
   transform: scale(0.98);
 }
 .icon-box {
-  width: 100rpx;
-  height: 100rpx;
+  width: 96rpx;
+  height: 96rpx;
   border-radius: 22rpx;
-  background: #F4FAF8;
-  border: 1rpx solid rgba(36, 191, 162, 0.1);
+  background: #eef9f6;
+  border: 1rpx solid rgba(32, 201, 151, 0.12);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 48rpx;
   margin-bottom: 20rpx;
 }
-.grid-icon-img { width: 48rpx; height: 48rpx; }
-.purple { background: #f3e5f5; color: #9c27b0; }
-.green { background: #e8f5e9; color: #4caf50; }
-.blue { background: #e3f2fd; color: #2196f3; }
-.orange { background: #fff3e0; color: #ff9800; }
-.cyan { background: #e0f7fa; color: #00bcd4; }
-.pink { background: #fce4ec; color: #e91e63; }
-.indigo { background: #e8eaf6; color: #3f51b5; }
-.teal { background: #e0f2f1; color: #009688; }
-.red { background: #ffebee; color: #f44336; }
+.grid-icon-img { width: 46rpx; height: 46rpx; }
 
 .grid-label {
   font-size: 30rpx;
-  font-weight: bold;
-  color: #333;
+  font-weight: 700;
+  color: #18232e;
   margin-bottom: 8rpx;
 }
 .grid-desc {
   font-size: 24rpx;
-  color: #999;
+  color: #718094;
   text-align: center;
 }
 
