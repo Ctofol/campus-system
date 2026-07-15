@@ -4,7 +4,7 @@
     <view class="profile-header" :style="{ paddingTop: statusBarHeight + 'px', backgroundImage: headerBgUrl ? 'url(' + headerBgUrl + ')' : '' }">
       <view class="header-actions">
         <view class="header-action header-action--notif" @tap="gotoNotifications">
-          <image class="action-icon" src="/static/通知图标.png" mode="aspectFit" />
+          <image class="action-icon" src="/static/icons/icon-notification.svg" mode="aspectFit" />
           <view v-if="unreadNotifyCount > 0" class="notif-dot" />
         </view>
       </view>
@@ -15,7 +15,9 @@
         <view class="profile-info" @tap="gotoUserProfile">
           <view class="name-row">
             <text class="name">{{ userName }}</text>
-            <text class="edit-btn">✎</text>
+            <view class="edit-btn">
+              <image class="edit-btn-img" src="/static/icons/icon-edit-profile.svg" mode="aspectFit" />
+            </view>
           </view>
           <view class="desc-row">
             <text class="desc">{{ userSignature || '跑步爱好者' }}</text>
@@ -37,22 +39,22 @@
         </view>
         <view class="data-grid">
           <view class="data-item">
-            <image class="data-icon" src="/static/主页里程图标.png" mode="aspectFit" />
+            <image class="data-icon data-icon--distance" src="/static/home-distance.png" mode="aspectFit" />
             <text class="data-val">{{ totalRunDistance }}</text>
             <text class="data-label">总公里</text>
           </view>
           <view class="data-item">
-            <image class="data-icon" src="/static/主页时长图标.png" mode="aspectFit" />
+            <image class="data-icon" src="/static/home-duration.png" mode="aspectFit" />
             <text class="data-val">{{ totalDuration }}</text>
             <text class="data-label">总时长</text>
           </view>
           <view class="data-item">
-            <image class="data-icon" src="/static/主页卡路里图标.png" mode="aspectFit" />
+            <image class="data-icon" src="/static/home-calories.png" mode="aspectFit" />
             <text class="data-val">{{ totalCalories }}</text>
             <text class="data-label">总消耗(千卡)</text>
           </view>
           <view class="data-item">
-            <image class="data-icon" src="/static/奖杯图标.png" mode="aspectFit" />
+            <image class="data-icon" src="/static/icon-trophy.png" mode="aspectFit" />
             <text class="data-val">{{ medalEarnedCount }}</text>
             <text class="data-label">获得勋章</text>
           </view>
@@ -76,7 +78,7 @@
             :class="{ 'medal-item--locked': !m.earned }"
             @tap.stop="openMedalDetail(m)"
           >
-            <image class="medal-icon" :src="m.icon_path" mode="aspectFit" />
+            <image class="medal-icon" :src="normalizeMedalIcon(m.icon_path)" mode="aspectFit" />
             <text class="medal-name">{{ m.name }}</text>
           </view>
         </view>
@@ -101,35 +103,24 @@
 
       <!-- Common Functions -->
       <view class="data-card">
-        <text class="card-title" style="margin-bottom: 24rpx;">常用功能</text>
+        <text class="card-title card-title--section">常用功能</text>
         <view class="func-grid">
-          <view class="func-item" @tap="goMyCourses">
-            <image class="func-icon" src="/static/主页课程图标.png" mode="aspectFit" />
-            <text class="func-label">我的课程</text>
-          </view>
-          <view class="func-item" @tap="goMyRoute">
-            <image class="func-icon" src="/static/主页户外跑图标.png" mode="aspectFit" />
-            <text class="func-label">我的路线</text>
-          </view>
-          <view class="func-item" @tap="goRunGroup">
-            <image class="func-icon" src="/static/主页跑团图标.png" mode="aspectFit" />
-            <text class="func-label">我的跑团</text>
-          </view>
-          <view class="func-item" @tap="goMyData">
-            <image class="func-icon" src="/static/训练图标.png" mode="aspectFit" />
-            <text class="func-label">训练记录</text>
-          </view>
-          <view class="func-item" @tap="goMyFavorites">
-            <image class="func-icon" src="/static/收藏图标.png" mode="aspectFit" />
-            <text class="func-label">我的收藏</text>
-          </view>
-          <view class="func-item" @tap="gotoHealthRequest">
-            <image class="func-icon" src="/static/请假申请图标.png" mode="aspectFit" />
-            <text class="func-label">请假申请</text>
-          </view>
-          <view class="func-item" @tap="gotoNotifications">
-            <image class="func-icon" src="/static/通知图标.png" mode="aspectFit" />
-            <text class="func-label">我的通知</text>
+          <view
+            v-for="item in commonFunctions"
+            :key="item.key"
+            class="func-item"
+            @tap="item.action()"
+          >
+            <view class="func-icon-shell">
+              <image
+                class="func-icon"
+                :class="item.iconClass"
+                :style="{ transform: 'scale(' + (item.iconScale || 1) + ')' }"
+                :src="item.icon"
+                mode="aspectFit"
+              />
+            </view>
+            <text class="func-label">{{ item.label }}</text>
           </view>
         </view>
       </view>
@@ -138,28 +129,28 @@
       <view class="setting-list">
         <view class="setting-row" @tap="gotoHelp">
           <view class="setting-left">
-            <image class="setting-icon" src="/static/消息图标.png" mode="aspectFit" />
+            <image class="setting-icon" src="/static/icons/icon-feedback.svg" mode="aspectFit" />
             <text class="setting-label">帮助与反馈</text>
           </view>
           <text class="setting-arrow">›</text>
         </view>
         <view class="setting-row" @tap="gotoDeviceBind">
           <view class="setting-left">
-            <image class="setting-icon" src="/static/锁图标.png" mode="aspectFit" />
+            <image class="setting-icon" src="/static/icons/icon-lock.svg" mode="aspectFit" />
             <text class="setting-label">设备绑定（防代跑）</text>
           </view>
           <text class="setting-arrow">›</text>
         </view>
         <view class="setting-row" @tap="gotoAbout">
           <view class="setting-left">
-            <image class="setting-icon" src='/static/about-me.png' mode="aspectFit" />
+            <image class="setting-icon" src="/static/icons/icon-about.svg" mode="aspectFit" />
             <text class="setting-label">关于我们</text>
           </view>
           <text class="setting-arrow">›</text>
         </view>
         <view class="setting-row logout-row" @tap="logout">
           <view class="setting-left">
-            <image class="setting-icon" src="/static/退出登录图标.png" mode="aspectFit" />
+            <image class="setting-icon" src="/static/icons/icon-logout.svg" mode="aspectFit" />
             <text class="setting-label">退出登录</text>
           </view>
           <text class="setting-arrow">›</text>
@@ -174,7 +165,9 @@
       <view class="medal-popup" @tap.stop>
         <view class="medal-popup-header">
           <text class="medal-popup-title">我的勋章</text>
-          <text class="medal-popup-close" @tap="showMedalPopup = false">✕</text>
+          <view class="medal-popup-close" @tap="showMedalPopup = false">
+            <AppIcon name="close" :size="32" tone="muted" />
+          </view>
         </view>
         <view class="medal-popup-body">
           <view v-if="medalList.length === 0" class="medal-popup-empty">
@@ -188,7 +181,7 @@
               :class="{ 'medal-popup-item--locked': !m.earned }"
               @tap="openMedalDetail(m)"
             >
-              <image class="medal-popup-icon" :src="m.icon_path" mode="aspectFit" />
+              <image class="medal-popup-icon" :src="normalizeMedalIcon(m.icon_path)" mode="aspectFit" />
               <text class="medal-popup-name">{{ m.name }}</text>
             </view>
           </view>
@@ -199,7 +192,7 @@
     <!-- Single Medal Detail Modal -->
     <view v-if="showSingleMedal" class="medal-detail-mask" @tap="showSingleMedal = false">
       <view class="medal-detail-card" @tap.stop>
-        <image class="medal-detail-icon" :src="currentMedal.icon_path" mode="aspectFit" />
+        <image class="medal-detail-icon" :src="normalizeMedalIcon(currentMedal.icon_path)" mode="aspectFit" />
         <text class="medal-detail-name">{{ currentMedal.name }}</text>
         <text class="medal-detail-desc">{{ currentMedal.description }}</text>
         <view v-if="currentMedal.earned" class="medal-detail-time">
@@ -217,6 +210,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { request, getStudentTaskRunHistory, avatarImageSrc, resolveMediaUrl } from '@/utils/request.js';
 import { mapRecordStatus, isValidSunshineRun } from '@/utils/activity-record.js';
+import AppIcon from '@/components/app-icon/app-icon.vue';
 
 const statusBarHeight = ref(uni.getSystemInfoSync().statusBarHeight || 20);
 const currentTime = ref('');
@@ -357,7 +351,7 @@ const fetchUserProfile = async () => {
 
 const loadUnreadNotifyCount = async () => {
   try {
-    const res = await request('/student/notifications/unread-count');
+    const res = await request('/notifications/unread-count');
     unreadNotifyCount.value = Number(res?.count) || 0;
   } catch (e) { unreadNotifyCount.value = 0; }
 };
@@ -366,9 +360,10 @@ const fetchMedals = async () => {
   try {
     const res = await request({ url: '/medals', method: 'GET' });
     if (res.medals) {
-      medalList.value = res.medals;
-      medalEarnedCount.value = res.earned_count;
-      medalTotalCount.value = res.total_count;
+      const visibleMedals = res.medals.filter((m) => !String(m.name || m.title || '').includes('体测达人'));
+      medalList.value = visibleMedals;
+      medalEarnedCount.value = visibleMedals.filter((m) => m.earned).length;
+      medalTotalCount.value = visibleMedals.length;
     }
   } catch (e) {
     medalList.value = [];
@@ -388,6 +383,21 @@ const formatMedalTime = (iso) => {
   if (!iso) return '';
   const d = new Date(iso);
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+};
+
+const normalizeMedalIcon = (path = '') => {
+  const iconMap = {
+    '5k距离勋章.png': 'medal-distance-5k.png',
+    '10k距离勋章.png': 'medal-distance-10k.png',
+    '21k距离勋章.png': 'medal-distance-21k.png',
+    '42k距离勋章.png': 'medal-distance-42k.png',
+    '打卡100天勋章.png': 'medal-streak-100.png',
+    '奖杯图标.png': 'medal-trophy.png'
+  };
+  const fileName = String(path).split('/').pop();
+  return iconMap[fileName]
+    ? `/static/medals/${iconMap[fileName]}`
+    : (path || '/static/icon-trophy.png');
 };
 
 const onPageShow = () => {
@@ -425,9 +435,19 @@ const gotoDeviceBind = () => uni.showToast({ title: '功能开发中', icon: 'no
 const gotoAbout = () => uni.showModal({ title: '关于我们', content: '校园运动打卡系统 v1.0.0', showCancel: false });
 const gotoHelp = () => uni.showModal({ title: '帮助与反馈', content: '如有问题请联系管理员', showCancel: false });
 const goMyPlan = () => uni.switchTab({ url: '/pages/tab/function' });
-const goMyRoute = () => uni.navigateTo({ url: '/pages/sunshine/detail' });
+const goMyRoute = () => uni.navigateTo({ url: '/pages/mine/routes/routes' });
 const goMyFavorites = () => uni.showToast({ title: '功能开发中', icon: 'none' });
 const goMyData = () => uni.navigateTo({ url: '/pages/history/history' });
+
+const commonFunctions = [
+  { key: 'courses', label: '我的课程', icon: '/static/icons/icon-course.svg', action: goMyCourses },
+  { key: 'route', label: '我的路线', icon: '/static/icons/icon-route.svg', action: goMyRoute },
+  { key: 'group', label: '我的跑团', icon: '/static/icons/icon-group.svg', action: goRunGroup },
+  { key: 'history', label: '训练记录', icon: '/static/icons/icon-training.svg', action: goMyData },
+  { key: 'favorite', label: '我的收藏', icon: '/static/icons/icon-favorite.svg', action: goMyFavorites },
+  { key: 'leave', label: '请假申请', icon: '/static/icons/icon-leave-request.svg', action: gotoHealthRequest },
+  { key: 'notice', label: '我的通知', icon: '/static/icons/icon-notification.svg', action: gotoNotifications }
+];
 
 const clearCache = () => {
   uni.showModal({
@@ -486,7 +506,7 @@ defineExpose({ onPageShow });
 
 .profile-content {
   display: flex; align-items: center; gap: 24rpx;
-  padding: 0 32rpx; position: relative; z-index: 5;
+  padding: 46rpx 32rpx 0; position: relative; z-index: 5;
 }
 .avatar-wrap {
   width: 120rpx; height: 120rpx; border-radius: 50%;
@@ -497,7 +517,15 @@ defineExpose({ onPageShow });
 .profile-info { flex: 1; min-width: 0; }
 .name-row { display: flex; align-items: center; gap: 12rpx; }
 .name { font-size: 40rpx; font-weight: 700; color: #fff; }
-.edit-btn { font-size: 28rpx; color: rgba(255,255,255,0.6); }
+.edit-btn {
+  width: 30rpx;
+  height: 30rpx;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.8;
+}
+.edit-btn-img { width: 28rpx; height: 28rpx; }
 .desc-row { margin-top: 6rpx; }
 .desc { font-size: 24rpx; color: rgba(255,255,255,0.8); display: block; }
 .streak-badge {
@@ -509,7 +537,7 @@ defineExpose({ onPageShow });
 
 /* === Main Content === */
 .main-content {
-  margin-top: -80rpx; padding: 0 24rpx; position: relative; z-index: 20;
+  margin-top: -58rpx; padding: 0 24rpx; position: relative; z-index: 20;
 }
 
 /* === Card === */
@@ -525,6 +553,7 @@ defineExpose({ onPageShow });
 .data-item { display: flex; flex-direction: column; align-items: center; flex: 1; }
 .data-item + .data-item { border-left: 1rpx solid #f0f0f0; }
 .data-icon { width: 56rpx; height: 56rpx; margin-bottom: 8rpx; }
+.data-icon--distance { width: 62rpx; height: 62rpx; }
 .data-val { font-size: 32rpx; font-weight: 700; color: #191C1E; }
 .data-label { font-size: 18rpx; color: #8a9bab; margin-top: 4rpx; }
 
@@ -537,13 +566,48 @@ defineExpose({ onPageShow });
 .progress-fill { height: 100%; background: linear-gradient(90deg, #33C9AB, #20C997); border-radius: 6rpx; transition: width .3s; }
 
 /* === Functions Grid === */
-.func-grid { display: flex; flex-wrap: wrap; }
-.func-item {
-  width: 25%; display: flex; flex-direction: column; align-items: center;
-  margin-bottom: 36rpx;
+.card-title--section { margin-bottom: 24rpx; display: block; }
+.func-grid {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 0 -8rpx;
 }
-.func-icon { width: 72rpx; height: 72rpx; margin-bottom: 12rpx; }
-.func-label { font-size: 22rpx; color: #333; }
+.func-item {
+  width: 25%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 24rpx;
+  padding: 0 8rpx;
+  box-sizing: border-box;
+}
+.func-icon-shell {
+  width: 88rpx;
+  height: 88rpx;
+  border-radius: 24rpx;
+  background: linear-gradient(180deg, #F7FBFA 0%, #EEF7F4 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12rpx;
+  box-shadow: inset 0 0 0 1rpx rgba(51, 201, 171, 0.08);
+}
+.func-icon {
+  width: 66rpx;
+  height: 66rpx;
+  transform-origin: center center;
+}
+.func-icon--route {
+  width: 62rpx;
+  height: 62rpx;
+}
+.func-label {
+  font-size: 22rpx;
+  line-height: 30rpx;
+  color: #333;
+  text-align: center;
+  max-width: 100%;
+}
 
 /* === Settings List === */
 .setting-list {
@@ -561,7 +625,6 @@ defineExpose({ onPageShow });
 .setting-right { display: flex; align-items: center; gap: 12rpx; }
 .setting-version { font-size: 22rpx; color: #8a9bab; }
 .setting-arrow { font-size: 28rpx; color: #c0c8d0; }
-.logout-row .setting-label { color: #ff4d4f; }
 
 /* === Medal Display === */
 .medal-row {
@@ -576,8 +639,8 @@ defineExpose({ onPageShow });
   align-items: center;
   min-width: 0;
 }
-.medal-item--locked { opacity: 0.35; }
-.medal-icon { width: 80rpx; height: 80rpx; margin-bottom: 8rpx; }
+.medal-item--locked { opacity: 0.55; }
+.medal-icon { width: 92rpx; height: 92rpx; margin-bottom: 8rpx; }
 .medal-name { font-size: 20rpx; color: #333; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .medal-empty { padding: 20rpx 0; text-align: center; }
 .medal-empty-text { font-size: 24rpx; color: #999; }
@@ -598,7 +661,14 @@ defineExpose({ onPageShow });
   margin-bottom: 32rpx;
 }
 .medal-popup-title { font-size: 34rpx; font-weight: 700; color: #1a2b3c; }
-.medal-popup-close { font-size: 36rpx; color: #999; padding: 8rpx; }
+.medal-popup-close {
+  width: 40rpx;
+  height: 40rpx;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4rpx;
+}
 .medal-popup-grid {
   display: flex; flex-wrap: wrap; gap: 24rpx;
 }
@@ -607,8 +677,8 @@ defineExpose({ onPageShow });
   display: flex; flex-direction: column; align-items: center;
   padding: 16rpx 0;
 }
-.medal-popup-item--locked { opacity: 0.35; }
-.medal-popup-icon { width: 80rpx; height: 80rpx; margin-bottom: 12rpx; }
+.medal-popup-item--locked { opacity: 0.55; }
+.medal-popup-icon { width: 104rpx; height: 104rpx; margin-bottom: 12rpx; }
 .medal-popup-name { font-size: 22rpx; color: #333; text-align: center; }
 .medal-popup-empty { padding: 60rpx 0; text-align: center; color: #999; font-size: 26rpx; }
 
@@ -622,7 +692,7 @@ defineExpose({ onPageShow });
   width: 520rpx; background: #fff; border-radius: 32rpx;
   padding: 48rpx 32rpx; display: flex; flex-direction: column; align-items: center;
 }
-.medal-detail-icon { width: 160rpx; height: 160rpx; margin-bottom: 24rpx; }
+.medal-detail-icon { width: 188rpx; height: 188rpx; margin-bottom: 24rpx; }
 .medal-detail-name { font-size: 36rpx; font-weight: 700; color: #1a2b3c; margin-bottom: 12rpx; }
 .medal-detail-desc { font-size: 26rpx; color: #666; text-align: center; margin-bottom: 20rpx; }
 .medal-detail-time { font-size: 22rpx; color: #33C9AB; }

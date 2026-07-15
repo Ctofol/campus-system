@@ -767,11 +767,18 @@ class StudentNotify(BaseModel):
     message: str
 
 
+class NotificationToTeacher(BaseModel):
+    title: Optional[str] = "学生消息"
+    message: str
+    ntype: str = "student_message"
+
+
 class UserNotificationOut(BaseModel):
     id: int
     title: str
     body: Optional[str] = None
     ntype: str = "system"
+    payload: Optional[str] = None
     is_read: bool = False
     created_at: datetime
 

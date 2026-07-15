@@ -16,6 +16,7 @@ from .routers.user import router as user_router
 from .routers.activity import router as activity_router
 from .routers.feedback_diagnose import router as feedback_diagnose_router
 from .routers.medal import router as medal_router
+from .routers.notifications import router as notifications_router
 
 # 初始化数据库表
 models.Base.metadata.create_all(bind=database.engine)
@@ -54,6 +55,7 @@ app.include_router(user_router)
 app.include_router(student_router)
 app.include_router(teacher_router)
 app.include_router(activity_router)
+app.include_router(notifications_router)
 app.include_router(courses_router)
 app.include_router(upload_router)
 app.include_router(run_groups_router)

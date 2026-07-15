@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 
 from .. import models, schemas, auth
 from ..database import get_db
+from ..services.notification_service import create_notification, create_notifications
 
 router = APIRouter(prefix="/run-group", tags=["run-groups"])
 
@@ -197,7 +198,7 @@ async def get_run_groups(
     ).order_by(
         models.RunGroup.total_mileage.desc()
     ).offset((page - 1) * size).limit(size).all()
-    
+
     return groups
 
 
@@ -213,15 +214,15 @@ async def get_activities(
 ):
     """List recent run group activities."""
     query = db.query(models.RunGroupActivity)
-    
+
     if status:
         query = query.filter(models.RunGroupActivity.status == status)
-    
+
     total = query.count()
     activities = query.order_by(
         models.RunGroupActivity.activity_time.desc()
     ).offset((page - 1) * size).limit(size).all()
-    
+
     items = [schemas.RunGroupActivityOut.model_validate(a).model_dump(mode="json") for a in activities]
     return Response(
         content=json.dumps({"items": items, "total": total, "page": page, "size": size}, ensure_ascii=False, allow_nan=False),
@@ -241,10 +242,10 @@ async def create_activity(
         models.RunGroupMember.group_id == activity_in.group_id,
         models.RunGroupMember.user_id == current_user.id
     ).first()
-    
+
     if not member or member.role not in ['creator', 'admin']:
         raise HTTPException(status_code=403, detail="只有跑团管理员可以创建活动")
-    
+
     new_activity = models.RunGroupActivity(
         **activity_in.dict(),
         created_by=current_user.id
@@ -252,7 +253,22 @@ async def create_activity(
     db.add(new_activity)
     db.commit()
     db.refresh(new_activity)
-    
+
+    members = (
+        db.query(models.RunGroupMember.user_id)
+        .filter(models.RunGroupMember.group_id == activity_in.group_id)
+        .all()
+    )
+    create_notifications(
+        db,
+        [row.user_id for row in members if row.user_id != current_user.id],
+        "跑团发布新活动",
+        f"跑团发布了活动「{new_activity.title}」，快去查看报名信息。",
+        "run_group_activity",
+        {"activity_id": new_activity.id, "group_id": activity_in.group_id},
+    )
+    db.commit()
+
     return new_activity
 
 
@@ -267,34 +283,43 @@ async def apply_activity(
     activity = db.query(models.RunGroupActivity).filter(
         models.RunGroupActivity.id == activity_id
     ).first()
-    
+
     if not activity:
         raise HTTPException(status_code=404, detail="活动不存在")
-    
+
     # 妫€鏌ユ槸鍚﹀凡鎶ュ悕
     existing = db.query(models.RunGroupActivityApplication).filter(
         models.RunGroupActivityApplication.activity_id == activity_id,
         models.RunGroupActivityApplication.user_id == current_user.id
     ).first()
-    
+
     if existing:
         return {"applyStatus": False, "message": "您已报名该活动"}
-    
+
     # 妫€鏌ュ悕棰?
     if activity.apply_count >= activity.total_quota:
         return {"applyStatus": False, "message": "活动名额已满"}
-    
+
     # 鎶ュ悕
     application = models.RunGroupActivityApplication(
         activity_id=activity_id,
         user_id=current_user.id
     )
     db.add(application)
-    
+
     # 鏇存柊鎶ュ悕浜烘暟
     activity.apply_count += 1
+    if activity.created_by and activity.created_by != current_user.id:
+        create_notification(
+            db,
+            activity.created_by,
+            "活动报名提醒",
+            f"{current_user.name or '有成员'}报名了活动「{activity.title}」。",
+            "run_group_apply",
+            {"activity_id": activity.id, "user_id": current_user.id},
+        )
     db.commit()
-    
+
     return {"applyStatus": True, "message": "报名成功"}
 
 
@@ -308,10 +333,10 @@ async def get_activity_detail(
     activity = db.query(models.RunGroupActivity).filter(
         models.RunGroupActivity.id == activity_id
     ).first()
-    
+
     if not activity:
         raise HTTPException(status_code=404, detail="活动不存在")
-    
+
     return activity
 
 
@@ -414,32 +439,32 @@ async def cancel_activity_application(
     activity = db.query(models.RunGroupActivity).filter(
         models.RunGroupActivity.id == activity_id
     ).first()
-    
+
     if not activity:
         raise HTTPException(status_code=404, detail="活动不存在")
-    
+
     # 妫€鏌ユ椿鍔ㄧ姸鎬?
     if activity.status == "ongoing" or activity.status == "finished":
         raise HTTPException(status_code=400, detail="活动已开始或已结束，无法取消报名")
-    
+
     # 鏌ヨ鎶ュ悕璁板綍
     application = db.query(models.RunGroupActivityApplication).filter(
         models.RunGroupActivityApplication.activity_id == activity_id,
         models.RunGroupActivityApplication.user_id == current_user.id
     ).first()
-    
+
     if not application:
         return {"success": False, "message": "您还未报名该活动"}
-    
+
     # 鍒犻櫎鎶ュ悕璁板綍
     db.delete(application)
-    
+
     # 鏇存柊鎶ュ悕浜烘暟锛堜笉灏忎簬0锛?
     if activity.apply_count > 0:
         activity.apply_count -= 1
-    
+
     db.commit()
-    
+
     return {"success": True, "message": "取消报名成功"}
 
 
@@ -456,14 +481,14 @@ async def get_group_members(
     group = db.query(models.RunGroup).filter(models.RunGroup.id == group_id).first()
     if not group:
         raise HTTPException(status_code=404, detail="跑团不存在")
-    
+
     # 鏌ヨ鎴愬憳鍒楄〃
     members = db.query(models.RunGroupMember).filter(
         models.RunGroupMember.group_id == group_id
     ).order_by(
         models.RunGroupMember.joined_at.asc()
     ).offset((page - 1) * size).limit(size).all()
-    
+
     # 鏋勫缓杩斿洖鏁版嵁
     result = []
     for member in members:
@@ -475,7 +500,7 @@ async def get_group_members(
             total_mileage=member.total_mileage,
             joined_at=member.joined_at
         ))
-    
+
     return result
 
 
@@ -493,20 +518,20 @@ async def get_group_activities(
     group = db.query(models.RunGroup).filter(models.RunGroup.id == group_id).first()
     if not group:
         raise HTTPException(status_code=404, detail="跑团不存在")
-    
+
     # 鏌ヨ娲诲姩鍒楄〃
     query = db.query(models.RunGroupActivity).filter(
         models.RunGroupActivity.group_id == group_id
     )
-    
+
     if status:
         query = query.filter(models.RunGroupActivity.status == status)
-    
+
     total = query.count()
     activities = query.order_by(
         models.RunGroupActivity.activity_time.desc()
     ).offset((page - 1) * size).limit(size).all()
-    
+
     return {
         "items": activities,
         "total": total,
@@ -527,7 +552,7 @@ async def get_run_group_rank(
     groups = db.query(models.RunGroup).order_by(
         models.RunGroup.total_mileage.desc()
     ).limit(limit).all()
-    
+
     result = []
     for idx, group in enumerate(groups, 1):
         result.append(schemas.RunGroupRankOut(
@@ -537,7 +562,7 @@ async def get_run_group_rank(
             rank=idx,
             member_count=group.member_count
         ))
-    
+
     return result
 
 

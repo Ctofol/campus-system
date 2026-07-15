@@ -3,13 +3,13 @@
     <view v-if="role === 'student'" class="student-sport">
       <page-tab-header title="运动" theme="brand" />
 
-      <view class="content-wrapper page-tab-body">
+      <view class="content-wrapper page-tab-body page-tab-body--compact-top">
         <!-- 运动入口卡片（2列） -->
         <view class="entry-grid">
           <view class="entry-card" @click="goToRun">
             <view class="entry-icon-wrap">
               <view class="entry-icon entry-icon--run">
-                <image class="entry-icon-text" src="/static/主页户外跑图标.png" mode="aspectFit" />
+                <image class="entry-icon-text" src="/static/home-outdoor-run.png" mode="aspectFit" />
               </view>
             </view>
             <view class="entry-info">
@@ -21,7 +21,7 @@
           <view class="entry-card" @click="goToPhysicalTest">
             <view class="entry-icon-wrap">
               <view class="entry-icon entry-icon--test">
-                <image class="entry-icon-text" src="/static/主页体能测试图标.png" mode="aspectFit" />
+                <image class="entry-icon-text" src="/static/home-fitness-test.png" mode="aspectFit" />
               </view>
             </view>
             <view class="entry-info">
@@ -51,27 +51,20 @@
             </view>
               <view class="today-indicators">
               <view class="today-indicator">
-                <image class="today-ind-emoji-img" src="/static/勾号图标.png" mode="aspectFit" />
+                <image class="today-ind-emoji-img" src="/static/sport-today-status.png" mode="aspectFit" />
                 <view class="today-ind-body">
                   <text class="today-ind-label">今日状态</text>
                   <text class="today-ind-val today-ind-val--ok" v-if="sunshine.today_status === 'success'">审核通过</text>
                   <text class="today-ind-val today-ind-val--pending" v-else>未开始</text>
                 </view>
               </view>
-              <view class="today-indicator" v-if="sunshine.today_status === 'failed'">
-                <image class="today-ind-emoji-img" src="/static/叉号图标.png" mode="aspectFit" />
+              <view class="today-indicator">
+                <image class="today-ind-emoji-img" src="/static/sport-checkin-status.png" mode="aspectFit" />
                 <view class="today-ind-body">
-                  <text class="today-ind-label">未通过原因</text>
-                  <text class="today-ind-val today-ind-val--fail">{{ sunshine.today_fail_reason || '里程不足' }}</text>
-                </view>
-              </view>
-              <view class="today-indicator" v-else>
-              <view class="today-ind-icon today-ind-icon--count">
-                <image class="today-ind-emoji-img" src="/static/有效次数图标.png" mode="aspectFit" />
-              </view>
-                <view class="today-ind-body">
-                  <text class="today-ind-label">有效次数</text>
-                  <text class="today-ind-val today-ind-val--count">{{ sunshine.total_valid_count }} / 20</text>
+                  <text class="today-ind-label">打卡状态</text>
+                  <text class="today-ind-val today-ind-val--fail" v-if="sunshine.today_status === 'failed'">审核未通过：{{ sunshine.today_fail_reason || '里程不足' }}</text>
+                  <text class="today-ind-val today-ind-val--ok" v-else-if="sunshine.today_status === 'success'">已完成打卡</text>
+                  <text class="today-ind-val today-ind-val--pending" v-else>待打卡</text>
                 </view>
               </view>
             </view>
@@ -85,22 +78,22 @@
           </view>
           <view class="overview-grid">
             <view class="overview-item">
-              <image class="overview-icon" src="/static/总里程2.png" mode="aspectFit" />
+              <image class="overview-icon" src="/static/stats-distance-2.png" mode="aspectFit" />
               <text class="overview-val">{{ totalStats.distance }}</text>
               <text class="overview-unit">总里程(km)</text>
             </view>
             <view class="overview-item">
-              <image class="overview-icon" src="/static/总时长2.png" mode="aspectFit" />
+              <image class="overview-icon" src="/static/stats-duration-2.png" mode="aspectFit" />
               <text class="overview-val">{{ totalStats.duration }}</text>
               <text class="overview-unit">总时长(min)</text>
             </view>
             <view class="overview-item">
-              <image class="overview-icon" src="/static/总消耗.png" mode="aspectFit" />
+              <image class="overview-icon" src="/static/stats-calories.png" mode="aspectFit" />
               <text class="overview-val">{{ totalStats.calories }}</text>
               <text class="overview-unit">总消耗(kcal)</text>
             </view>
             <view class="overview-item">
-              <image class="overview-icon" src="/static/运动次数.png" mode="aspectFit" />
+              <image class="overview-icon" src="/static/icon-sport-count.png" mode="aspectFit" />
               <text class="overview-val">{{ totalStats.count }}</text>
               <text class="overview-unit">运动次数</text>
             </view>
@@ -119,7 +112,7 @@
           <view class="plan-body">
             <view class="plan-body-left">
               <view class="plan-icon">
-                <image class="plan-icon-img" src="/static/训练图标.png" mode="aspectFit" />
+                <image class="plan-icon-img" src="/static/icons/icon-training.svg" mode="aspectFit" />
               </view>
               <view class="plan-info">
                 <text class="plan-name">{{ activeTask.title }}</text>
@@ -167,6 +160,7 @@ import { onShow, onHide } from '@dcloudio/uni-app';
 import TeacherManage from '@/components/teacher-manage/teacher-manage.vue';
 import HomeRecentList from '@/components/student-home/HomeRecentList.vue';
 import { request, getSunshineStats, getStudentTasks } from '@/utils/request.js';
+import { applyRoleTabBar } from '@/utils/role-tabbar.js';
 
 const role = ref('student');
 const teacherManageRef = ref(null);
@@ -282,6 +276,7 @@ const fetchActiveTask = async () => {
 
 onShow(() => {
   role.value = uni.getStorageSync('userRole') || 'student';
+  applyRoleTabBar(role.value);
   if (role.value === 'student') {
     fetchTotalStats();
     fetchSunshineStats();

@@ -17,6 +17,7 @@ import { onShow, onHide } from '@dcloudio/uni-app';
 import StudentHome from '@/components/student-home/student-home.vue';
 import TeacherHome from '@/components/teacher-home/teacher-home.vue';
 import { getStoredToken } from '@/utils/request.js';
+import { applyRoleTabBar } from '@/utils/role-tabbar.js';
 
 const role = ref(uni.getStorageSync('userRole') || 'student');
 const studentHomeRef = ref(null);
@@ -30,15 +31,12 @@ onShow(() => {
 
   role.value = uni.getStorageSync('userRole') || 'student';
 
-  const sb = (i) => { uni.setTabBarItem(i).catch(() => {}); };
   if (role.value === 'teacher') {
-    sb({ index: 1, text: '管理', iconPath: '/static/tab/function.png', selectedIconPath: '/static/tab/function-active.png' });
-    sb({ index: 2, text: '课程', iconPath: '/static/tab/stats.png', selectedIconPath: '/static/tab/stats-active.png' });
+    applyRoleTabBar('teacher');
   } else if (role.value === 'admin') {
     uni.reLaunch({ url: '/pages/admin/dashboard/index' });
   } else {
-    sb({ index: 1, text: '运动', iconPath: '/static/tab/function.png', selectedIconPath: '/static/tab/function-active.png' });
-    sb({ index: 2, text: '课程', iconPath: '/static/tab/stats.png', selectedIconPath: '/static/tab/stats-active.png' });
+    applyRoleTabBar('student');
   }
 
   // Lifecycle passing

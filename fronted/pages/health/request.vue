@@ -17,7 +17,7 @@
             :class="{active: formData.type === 'leave'}"
             @click="formData.type = 'leave'"
           >
-            <image class="icon-img" src="/static/日历.png" mode="aspectFit" />
+            <image class="icon-img" src="/static/icons/icon-leave-application.svg" mode="aspectFit" />
             <text>请假申请</text>
           </view>
           <view 
@@ -25,7 +25,7 @@
             :class="{active: formData.type === 'injury'}"
             @click="formData.type = 'injury'"
           >
-            <image class="icon-img" src="/static/叉号图标.png" mode="aspectFit" />
+            <image class="icon-img" src="/static/icons/icon-injury-report.svg" mode="aspectFit" />
             <text>伤病报告</text>
           </view>
         </view>
@@ -306,7 +306,7 @@ const onEndDateChange = (e) => {
 
 const promptUnreadHealthNotifications = async () => {
   try {
-    const list = await request('/student/notifications?unread_only=1&ntype=health_review&limit=1');
+    const list = await request('/notifications?unread_only=1&ntype=health_review&limit=1');
     const item = Array.isArray(list) ? list[0] : null;
     if (!item) return;
     uni.showModal({
@@ -316,7 +316,7 @@ const promptUnreadHealthNotifications = async () => {
       confirmText: '知道了',
       success: async () => {
         try {
-          await request(`/student/notifications/${item.id}/read`, { method: 'PUT' });
+          await request(`/notifications/${item.id}/read`, { method: 'PUT' });
         } catch (e) {
           console.error(e);
         }
@@ -424,8 +424,8 @@ onShow(() => {
     transition: all 0.3s;
     
     .icon-img {
-      width: 40rpx;
-      height: 40rpx;
+      width: 34rpx;
+      height: 34rpx;
     }
     
     &.active {
