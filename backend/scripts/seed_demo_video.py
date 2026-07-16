@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Seed a stable demo dataset for the product promotion video.
+为产品宣传视频生成一套稳定的中文演示数据。
 
 Run from backend directory:
   python scripts/seed_demo_video.py --reset
@@ -8,7 +8,7 @@ Run from backend directory:
 The script only touches demo-scoped rows:
   - phone numbers starting with 1880000
   - student numbers starting with DEMO
-  - titles/names starting with [PROMO]
+  - titles/names starting with [演示] or legacy [PROMO]
 """
 from __future__ import annotations
 
@@ -26,40 +26,43 @@ from app import auth, models  # noqa: E402
 from app.database import Base, SessionLocal, engine  # noqa: E402
 
 
-DEMO_PREFIX = "[PROMO]"
+DEMO_PREFIX = "[演示]"
+LEGACY_PREFIXES = ["[PROMO]"]
 TEACHER_PHONE = "18800000001"
 TEACHER_PASSWORD = "DemoTeacher123"
 STUDENT_PASSWORD = "DemoStudent123"
 STUDENT_PHONE_START = 18800000101
 
-MAJOR_NAME = f"{DEMO_PREFIX} Digital Sports"
-CLASS_NAMES = [f"{DEMO_PREFIX} Class A", f"{DEMO_PREFIX} Class B"]
+MAJOR_NAME = f"{DEMO_PREFIX} 智慧体育"
+CLASS_NAMES = [f"{DEMO_PREFIX} 体育一班", f"{DEMO_PREFIX} 体育二班"]
+LEGACY_MAJOR_NAMES = ["[PROMO] Digital Sports"]
+LEGACY_CLASS_NAMES = ["[PROMO] Class A", "[PROMO] Class B"]
 
 STUDENT_NAMES = [
-    "Chen Yu",
-    "Li Ming",
-    "Wang Xin",
-    "Zhao Rui",
-    "Liu Yang",
-    "Sun Yue",
-    "Zhou Ran",
-    "Wu Hao",
-    "Xu Qing",
-    "He Fan",
-    "Gao Yuan",
-    "Lin Xi",
-    "Deng Lei",
-    "Qin Mo",
-    "Tang Yi",
-    "Fang Ning",
-    "Shen Ke",
-    "Jiang Nan",
-    "Ma Jun",
-    "Guo Chen",
-    "Xia An",
-    "Song Qi",
-    "Yuan Bo",
-    "Han Lu",
+    "陈雨",
+    "李明",
+    "王欣",
+    "赵睿",
+    "刘洋",
+    "孙悦",
+    "周然",
+    "吴昊",
+    "徐晴",
+    "何帆",
+    "高远",
+    "林溪",
+    "邓磊",
+    "秦墨",
+    "唐一",
+    "方宁",
+    "沈柯",
+    "江南",
+    "马俊",
+    "郭晨",
+    "夏安",
+    "宋祺",
+    "袁博",
+    "韩露",
 ]
 
 
@@ -160,7 +163,12 @@ def reset_demo_data(db):
             models.TeacherClass.teacher_id.in_(demo_user_ids)
         ).delete(synchronize_session=False)
 
-    demo_tasks = db.query(models.Task).filter(models.Task.title.like(f"{DEMO_PREFIX}%")).all()
+    demo_task_query = db.query(models.Task).filter(models.Task.title.like(f"{DEMO_PREFIX}%"))
+    for prefix in LEGACY_PREFIXES:
+        demo_task_query = demo_task_query.union(
+            db.query(models.Task).filter(models.Task.title.like(f"{prefix}%"))
+        )
+    demo_tasks = demo_task_query.all()
     demo_task_ids = [t.id for t in demo_tasks]
     if demo_task_ids:
         db.query(models.UserNotification).filter(
@@ -178,6 +186,13 @@ def reset_demo_data(db):
         .filter(models.RunGroup.name.like(f"{DEMO_PREFIX}%"))
         .all()
     ]
+    for prefix in LEGACY_PREFIXES:
+        demo_group_ids.extend(
+            row.id
+            for row in db.query(models.RunGroup.id)
+            .filter(models.RunGroup.name.like(f"{prefix}%"))
+            .all()
+        )
     if demo_group_ids:
         demo_rg_activity_ids = [
             row.id
@@ -211,7 +226,7 @@ def reset_demo_data(db):
     demo_class_ids = [
         row.id
         for row in db.query(models.Class.id)
-        .filter(models.Class.name.in_(CLASS_NAMES))
+        .filter(models.Class.name.in_(CLASS_NAMES + LEGACY_CLASS_NAMES))
         .all()
     ]
     if demo_class_ids:
@@ -221,9 +236,9 @@ def reset_demo_data(db):
         db.query(models.Class).filter(models.Class.id.in_(demo_class_ids)).delete(
             synchronize_session=False
         )
-    db.query(models.Major).filter(models.Major.name == MAJOR_NAME).delete(
-        synchronize_session=False
-    )
+    db.query(models.Major).filter(
+        models.Major.name.in_([MAJOR_NAME] + LEGACY_MAJOR_NAMES)
+    ).delete(synchronize_session=False)
     db.commit()
 
 
@@ -232,10 +247,10 @@ def seed_demo_data(reset=False):
     db = SessionLocal()
     try:
         if reset:
-            print("Resetting previous promo demo data...")
+            print("正在清理旧的宣传视频演示数据...")
             reset_demo_data(db)
 
-        print("Creating promo demo accounts and data...")
+        print("正在创建中文演示账号和业务数据...")
         major, _ = get_or_create(db, models.Major, name=MAJOR_NAME)
 
         teacher, _ = get_or_create(
@@ -243,12 +258,14 @@ def seed_demo_data(reset=False):
             models.User,
             phone=TEACHER_PHONE,
             defaults={
-                "name": "Demo Teacher",
+                "name": "陈老师",
                 "role": "teacher",
                 "password_hash": auth.get_password_hash(TEACHER_PASSWORD),
-                "signature": "Smart PE management demo account",
+                "signature": "让每一次训练都有数据支撑",
             },
         )
+        teacher.name = "陈老师"
+        teacher.signature = "让每一次训练都有数据支撑"
         teacher.password_hash = auth.get_password_hash(TEACHER_PASSWORD)
 
         classes = []
@@ -286,7 +303,7 @@ def seed_demo_data(reset=False):
                 },
             )
 
-        for subject in ["Running", "Fitness", "Basketball"]:
+        for subject in ["跑步", "体能训练", "篮球"]:
             get_or_create(
                 db,
                 models.TeacherSubject,
@@ -309,7 +326,7 @@ def seed_demo_data(reset=False):
                     "gender": gender,
                     "class_name": class_obj.name,
                     "major": major.name,
-                    "subject": "Running",
+                    "subject": "跑步",
                     "is_activated": True,
                 },
             )
@@ -329,9 +346,9 @@ def seed_demo_data(reset=False):
                     "class_id": class_obj.id,
                     "major_id": major.id,
                     "major_name": major.name,
-                    "subject": "Running",
+                    "subject": "跑步",
                     "gender": gender,
-                    "group_name": ["A Group", "B Group", "C Group"][idx % 3],
+                    "group_name": ["晨跑一组", "耐力二组", "活力三组"][idx % 3],
                     "weekly_run_goal_km": 8.0,
                     "regular_score": 80 + (idx % 12),
                 },
@@ -341,17 +358,17 @@ def seed_demo_data(reset=False):
             student.class_id = class_obj.id
             student.major_id = major.id
             student.major_name = major.name
-            student.subject = "Running"
+            student.subject = "跑步"
             student.gender = gender
-            student.group_name = ["A Group", "B Group", "C Group"][idx % 3]
+            student.group_name = ["晨跑一组", "耐力二组", "活力三组"][idx % 3]
             student.weekly_run_goal_km = 8.0
             student.regular_score = 80 + (idx % 12)
             if idx in (5, 16):
                 student.health_status = "leave"
-                student.abnormal_reason = "Promo leave application"
+                student.abnormal_reason = "因校队训练冲突申请请假"
             elif idx in (8, 19):
                 student.health_status = "injured"
-                student.abnormal_reason = "Promo ankle discomfort"
+                student.abnormal_reason = "脚踝不适，申请暂缓跑步"
             else:
                 student.health_status = "normal"
                 student.abnormal_reason = None
@@ -368,22 +385,22 @@ def seed_demo_data(reset=False):
             )
 
         task_specs = [
-            ("3km Campus Run Task", classes[0], 3.0, 1500, 8),
-            ("Weekly Endurance Run", classes[1], 2.5, 1200, 7),
-            ("Fitness Check Task", classes[0], None, None, 10),
+            ("校园 3 公里节奏跑", "run", classes[0], 3.0, 1500, None, 8),
+            ("本周耐力提升跑", "run", classes[1], 2.5, 1200, None, 7),
+            ("核心力量体能测试", "test", classes[0], None, None, 40, 10),
         ]
         tasks = []
-        for title, cls, min_distance, min_duration, days in task_specs:
+        for title, task_type, cls, min_distance, min_duration, min_count, days in task_specs:
             task, _ = get_or_create(
                 db,
                 models.Task,
                 title=f"{DEMO_PREFIX} {title}",
                 defaults={
-                    "type": "test" if "Fitness" in title else "run",
-                    "description": "Promo video demo task data.",
+                    "type": task_type,
+                    "description": "宣传视频演示任务数据，用于展示教师发布与学生完成流程。",
                     "min_distance": min_distance,
                     "min_duration": min_duration,
-                    "min_count": 40 if "Fitness" in title else None,
+                    "min_count": min_count,
                     "starts_at": now_utc() - timedelta(days=1),
                     "deadline": now_utc() + timedelta(days=days),
                     "target_group": "class",
@@ -403,8 +420,8 @@ def seed_demo_data(reset=False):
                 create_notification(
                     db,
                     stu.id,
-                    "New training task",
-                    f"Teacher released {task.title}. Please complete it before deadline.",
+                    "新训练任务",
+                    f"陈老师发布了任务「{task.title}」，请在截止时间前完成。",
                     "task",
                     {"demo_video": True, "task_id": task.id, "class_id": task.class_id},
                     unread=stu == target_students[0],
@@ -420,7 +437,7 @@ def seed_demo_data(reset=False):
                 distance = round(2.2 + ((idx + day) % 8) * 0.28, 2)
                 duration = int(distance * (330 + (idx % 4) * 18))
                 is_valid = day != 0 or idx % 6 != 0
-                fail_reason = None if is_valid else "Abnormal pace detected"
+                fail_reason = None if is_valid else "配速异常，需教师复核"
                 activity_rows.append(
                     (
                         stu,
@@ -457,7 +474,7 @@ def seed_demo_data(reset=False):
                         duration,
                         8.4 if task.type == "run" else None,
                         idx != limit - 1,
-                        None if idx != limit - 1 else "Route left allowed area",
+                        None if idx != limit - 1 else "运动轨迹偏离指定区域",
                     )
                 )
 
@@ -489,15 +506,15 @@ def seed_demo_data(reset=False):
                     checkpoints=json.dumps(
                         [
                             {"name": "Start", "passed": True},
-                            {"name": "Playground", "passed": ok},
-                            {"name": "Finish", "passed": ok},
+                            {"name": "操场打卡点", "passed": ok},
+                            {"name": "终点", "passed": ok},
                         ],
                         ensure_ascii=False,
                     ),
                     step_count=int((distance or 2.0) * 1350),
                     qualified=ok,
                     teacher_score=88.0 if ok else None,
-                    teacher_comment="Stable rhythm and complete trajectory" if ok else None,
+                    teacher_comment="节奏稳定，轨迹完整" if ok else None,
                     scored_at=now_utc() if ok else None,
                     scored_by=teacher.id if ok else None,
                 )
@@ -508,9 +525,9 @@ def seed_demo_data(reset=False):
                     count=45,
                     qualified=ok,
                     score=91,
-                    score_detail=json.dumps({"posture": 92, "rhythm": 89}),
+                    score_detail=json.dumps({"动作规范": 92, "完成节奏": 89}, ensure_ascii=False),
                     teacher_score=91.0,
-                    teacher_comment="Good completion quality",
+                    teacher_comment="动作完成质量较好",
                     scored_at=now_utc(),
                     scored_by=teacher.id,
                     exercise_type="sit_up",
@@ -524,7 +541,7 @@ def seed_demo_data(reset=False):
                 models.HealthRequest(
                     student_id=stu.id,
                     type=req_type,
-                    reason=stu.abnormal_reason or "Promo special situation",
+                    reason=stu.abnormal_reason or "演示用特殊情况申请",
                     attachments=json.dumps(["/uploads/demo/medical-proof.jpg"]),
                     status="pending",
                     start_date=now_utc(),
@@ -535,17 +552,17 @@ def seed_demo_data(reset=False):
             create_notification(
                 db,
                 teacher.id,
-                "Pending special situation review",
-                f"{stu.name} submitted a {req_type} request.",
+                "待处理特殊情况申请",
+                f"{stu.name} 提交了{'请假' if req_type == 'leave' else '伤病'}申请，请及时审核。",
                 "health_request",
                 {"demo_video": True, "student_id": stu.id},
                 unread=True,
             )
 
         for title, body, ntype in [
-            ("System maintenance notice", "Tonight 23:00 demo server maintenance window.", "system"),
-            ("Class completion alert", "Class A completion rate has reached 75%.", "analytics"),
-            ("Route abnormality marked", "One abnormal trajectory has entered pending review.", "alert"),
+            ("系统维护通知", "今晚 23:00 将进行演示服务器例行维护。", "system"),
+            ("班级完成率提醒", "体育一班任务完成率已达到 75%，请关注未完成学生。", "analytics"),
+            ("异常轨迹提醒", "有一条运动轨迹进入待审核列表，请及时复核。", "alert"),
         ]:
             create_notification(
                 db,
@@ -560,9 +577,9 @@ def seed_demo_data(reset=False):
         group, _ = get_or_create(
             db,
             models.RunGroup,
-            name=f"{DEMO_PREFIX} Morning Run Club",
+            name=f"{DEMO_PREFIX} 晨跑训练营",
             defaults={
-                "description": "Promo run group activity demo.",
+                "description": "宣传视频跑团活动演示数据。",
                 "avatar": "/static/home-run-group.png",
                 "creator_id": students[0].id,
                 "total_mileage": 1288.6,
@@ -585,12 +602,12 @@ def seed_demo_data(reset=False):
             db,
             models.RunGroupActivity,
             group_id=group.id,
-            title=f"{DEMO_PREFIX} Campus Night Run",
+            title=f"{DEMO_PREFIX} 校园夜跑活动",
             defaults={
-                "description": "Promo video run group event.",
+                "description": "面向全校学生的夜跑打卡活动，展示跑团报名与活动通知流程。",
                 "cover_image": "/static/home/hero-bg.png",
                 "activity_time": now_utc() + timedelta(days=2, hours=3),
-                "location": "Campus Playground",
+                "location": "学校田径场",
                 "distance": 5.0,
                 "total_quota": 60,
                 "apply_count": 16,
@@ -609,16 +626,16 @@ def seed_demo_data(reset=False):
             )
 
         db.commit()
-        print("\nPromo demo data is ready.")
-        print("\nRecording accounts:")
-        print(f"  Teacher: {TEACHER_PHONE} / {TEACHER_PASSWORD}")
-        print(f"  Student A: {STUDENT_PHONE_START} / {STUDENT_PASSWORD}")
-        print(f"  Student B: {STUDENT_PHONE_START + 1} / {STUDENT_PASSWORD}")
-        print("\nRecommended recording path:")
-        print("  1. Teacher logs in -> management/dashboard/tasks/notifications.")
-        print("  2. Student A logs in -> sees task, notifications, run history.")
-        print("  3. Student B logs in -> alternate class/notification view.")
-        print("\nSafe reset command:")
+        print("\n中文宣传视频演示数据已准备完成。")
+        print("\n录制账号：")
+        print(f"  教师：{TEACHER_PHONE} / {TEACHER_PASSWORD}")
+        print(f"  学生 A：{STUDENT_PHONE_START} / {STUDENT_PASSWORD}")
+        print(f"  学生 B：{STUDENT_PHONE_START + 1} / {STUDENT_PASSWORD}")
+        print("\n推荐录制路径：")
+        print("  1. 教师登录 -> 工作台 / 综合管理 / 任务 / 通知。")
+        print("  2. 学生 A 登录 -> 查看任务、通知和运动记录。")
+        print("  3. 学生 B 登录 -> 展示另一个班级或通知视角。")
+        print("\n安全重置命令：")
         print("  python scripts/seed_demo_video.py --reset")
     except Exception:
         db.rollback()
@@ -628,8 +645,8 @@ def seed_demo_data(reset=False):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Seed promo video demo data.")
-    parser.add_argument("--reset", action="store_true", help="Remove old promo data first.")
+    parser = argparse.ArgumentParser(description="生成中文宣传视频演示数据。")
+    parser.add_argument("--reset", action="store_true", help="先清理旧的演示数据。")
     args = parser.parse_args()
     seed_demo_data(reset=args.reset)
 

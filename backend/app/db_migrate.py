@@ -16,6 +16,8 @@ def ensure_schema_upgrades() -> None:
 
     user_cols = {
         "weekly_run_goal_km": "REAL" if dialect == "sqlite" else "FLOAT",
+        "signature": "VARCHAR",
+        "avatar_url": "VARCHAR",
         "header_bg_url": "VARCHAR(512)",
     }
     activity_cols = {
@@ -27,6 +29,12 @@ def ensure_schema_upgrades() -> None:
         "exercise_type": "VARCHAR(32)",
         "analysis_status": "VARCHAR(32)",
         "analysis_error": "VARCHAR(512)",
+    }
+    task_cols = {
+        "video_url": "VARCHAR",
+        "target_group": "VARCHAR DEFAULT 'all'",
+        "class_id": "INTEGER",
+        "starts_at": "DATETIME" if dialect == "sqlite" else "TIMESTAMP",
     }
     notification_cols = {
         "title": "VARCHAR(255)" if dialect == "sqlite" else "VARCHAR",
@@ -55,6 +63,12 @@ def ensure_schema_upgrades() -> None:
             for col, typ in metrics_cols.items():
                 if col not in existing:
                     conn.execute(text(f"ALTER TABLE activity_metrics ADD COLUMN {col} {typ}"))
+
+        if inspector.has_table("tasks"):
+            existing = _column_names(inspector, "tasks")
+            for col, typ in task_cols.items():
+                if col not in existing:
+                    conn.execute(text(f"ALTER TABLE tasks ADD COLUMN {col} {typ}"))
 
         if inspector.has_table("user_notifications"):
             existing = _column_names(inspector, "user_notifications")

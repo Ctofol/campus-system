@@ -1,33 +1,36 @@
-# Demo Video Data
+# 中文宣传视频演示数据
 
-This script prepares a stable promo dataset for the product recording:
+这个脚本会为产品宣传视频准备一套稳定的中文演示数据：
 
-- Teacher account
-- Two demo classes
-- 24 demo students
-- Tasks and task notifications
-- System / health / review notifications
-- Run-group activity content
-- Activity history and statistics
+- 1 个教师账号
+- 2 个中文演示班级
+- 24 个中文学生账号
+- 中文任务和任务通知
+- 系统通知、请假/伤病审批通知、异常提醒
+- 跑团活动数据
+- 运动记录和统计数据
 
-## Run
+## 运行
 
-From `backend/`:
+在 `backend/` 目录执行：
 
 ```bash
 python scripts/seed_demo_video.py --reset
 ```
 
-Use `--reset` when you want to clear previous promo rows first.
+建议录制前使用 `--reset`，它会先清理旧的演示数据，再生成新的中文数据。
 
-## Recording Accounts
+## 录制账号
 
-- Teacher: `18800000001` / `DemoTeacher123`
-- Student A: `18800000101` / `DemoStudent123`
-- Student B: `18800000102` / `DemoStudent123`
+- 教师：`18800000001` / `DemoTeacher123`
+- 学生 A：`18800000101` / `DemoStudent123`
+- 学生 B：`18800000102` / `DemoStudent123`
 
-## Notes
+## 说明
 
-- Demo rows are scoped with `[PROMO]`, `1880000...`, and `DEMO...`
-- The script is safe for repeated runs on the same dev database
-- It is intended for backend-generated demo content, not manual app input
+- 新演示数据使用 `[演示]` 前缀
+- 脚本也会清理旧版 `[PROMO]` 英文演示数据
+- 手机号使用 `1880000...`
+- 学号使用 `DEMO...`
+- 可以在同一个测试库中重复执行
+- 这套数据用于宣传视频录制，不建议作为正式生产数据
