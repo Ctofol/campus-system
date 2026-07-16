@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from .. import models, schemas, auth, database, config
+from ..db_migrate import ensure_schema_upgrades
 from datetime import timedelta
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -21,6 +22,7 @@ def get_my_profile(
     current_user: models.User = Depends(auth.get_current_user),
     db: Session = Depends(get_db)
 ):
+    ensure_schema_upgrades()
     # 与 get_current_user 共用同一请求的 get_db 时 refresh 安全；若仅读列也可省略
     db.refresh(current_user)
     # 旧库可能为 NULL；UserProfile 中 name/phone/role/health_status 为必填 str，缺省会触发响应校验 → 500
@@ -53,8 +55,9 @@ def update_my_profile(
     current_user: models.User = Depends(auth.get_current_user),
     db: Session = Depends(get_db)
 ):
+    ensure_schema_upgrades()
     if profile_update.name:
-        current_user.name = profile_update.name
+        current_user.name = str(profile_update.name).strip()[:50]
 
     phone_changed = False
     if profile_update.phone is not None:
@@ -72,13 +75,13 @@ def update_my_profile(
             phone_changed = True
     
     if profile_update.signature is not None:
-        current_user.signature = profile_update.signature
+        current_user.signature = str(profile_update.signature).strip()[:100]
     
     if profile_update.avatar_url is not None:
-        current_user.avatar_url = profile_update.avatar_url
+        current_user.avatar_url = str(profile_update.avatar_url).strip()[:512]
 
     if profile_update.header_bg_url is not None:
-        current_user.header_bg_url = profile_update.header_bg_url
+        current_user.header_bg_url = str(profile_update.header_bg_url).strip()[:512]
 
     if profile_update.weekly_run_goal_km is not None:
         km = float(profile_update.weekly_run_goal_km)
