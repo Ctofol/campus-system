@@ -7,7 +7,7 @@ const TABBAR_CONFIGS = {
   ],
   teacher: [
     { text: '工作台', iconPath: '/static/tab/tab-home-v3.png', selectedIconPath: '/static/tab/tab-home-v3-active.png' },
-    { text: '管理', iconPath: '/static/tab/teacher-manage.png', selectedIconPath: '/static/tab/teacher-manage-active.png' },
+    { text: '管理', iconPath: '/static/tab/teacher-manage-v2.png', selectedIconPath: '/static/tab/teacher-manage-v2-active.png' },
     { text: '课程', iconPath: '/static/tab/tab-course-v3.png', selectedIconPath: '/static/tab/tab-course-v3-active.png' },
     { text: '我的', iconPath: '/static/tab/tab-mine-v3.png', selectedIconPath: '/static/tab/tab-mine-v3-active.png' }
   ]
