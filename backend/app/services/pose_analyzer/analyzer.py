@@ -57,7 +57,11 @@ def _analyze_with_mediapipe(video_path: str, exercise_type: str) -> Optional[Dic
     except ImportError:
         return None
 
-    mp_pose = mp.solutions.pose
+    solutions = getattr(mp, "solutions", None)
+    mp_pose = getattr(solutions, "pose", None) if solutions else None
+    if mp_pose is None:
+        return None
+
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
         return None
@@ -67,38 +71,42 @@ def _analyze_with_mediapipe(video_path: str, exercise_type: str) -> Optional[Dic
     frame_idx = 0
     sample_every = 2
 
-    with mp_pose.Pose(static_image_mode=False, min_detection_confidence=0.5) as pose:
-        while True:
-            ok, frame = cap.read()
-            if not ok:
-                break
-            frame_idx += 1
-            if frame_idx % sample_every != 0:
-                continue
-            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            result = pose.process(rgb)
-            if not result.pose_landmarks:
-                continue
-            lm = result.pose_landmarks.landmark
-            if exercise_type == "pull_up":
-                nose_y = lm[mp_pose.PoseLandmark.NOSE].y
-                wrist_y = (lm[mp_pose.PoseLandmark.LEFT_WRIST].y + lm[mp_pose.PoseLandmark.RIGHT_WRIST].y) / 2
-                up = nose_y < wrist_y - 0.03
-            elif exercise_type == "sit_up":
-                shoulder_y = (lm[mp_pose.PoseLandmark.LEFT_SHOULDER].y + lm[mp_pose.PoseLandmark.RIGHT_SHOULDER].y) / 2
-                hip_y = (lm[mp_pose.PoseLandmark.LEFT_HIP].y + lm[mp_pose.PoseLandmark.RIGHT_HIP].y) / 2
-                up = shoulder_y < hip_y - 0.05
-            else:
-                elbow_ang = _elbow_angle(lm, mp_pose)
-                up = elbow_ang < 90
+    try:
+        with mp_pose.Pose(static_image_mode=False, min_detection_confidence=0.5) as pose:
+            while True:
+                ok, frame = cap.read()
+                if not ok:
+                    break
+                frame_idx += 1
+                if frame_idx % sample_every != 0:
+                    continue
+                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                result = pose.process(rgb)
+                if not result.pose_landmarks:
+                    continue
+                lm = result.pose_landmarks.landmark
+                if exercise_type == "pull_up":
+                    nose_y = lm[mp_pose.PoseLandmark.NOSE].y
+                    wrist_y = (lm[mp_pose.PoseLandmark.LEFT_WRIST].y + lm[mp_pose.PoseLandmark.RIGHT_WRIST].y) / 2
+                    up = nose_y < wrist_y - 0.03
+                elif exercise_type == "sit_up":
+                    shoulder_y = (lm[mp_pose.PoseLandmark.LEFT_SHOULDER].y + lm[mp_pose.PoseLandmark.RIGHT_SHOULDER].y) / 2
+                    hip_y = (lm[mp_pose.PoseLandmark.LEFT_HIP].y + lm[mp_pose.PoseLandmark.RIGHT_HIP].y) / 2
+                    up = shoulder_y < hip_y - 0.05
+                else:
+                    elbow_ang = _elbow_angle(lm, mp_pose)
+                    up = elbow_ang < 90
 
-            if up and state == "down":
-                state = "up"
-            elif not up and state == "up":
-                state = "down"
-                reps += 1
+                if up and state == "down":
+                    state = "up"
+                elif not up and state == "up":
+                    state = "down"
+                    reps += 1
+    except Exception:
+        return None
+    finally:
+        cap.release()
 
-    cap.release()
     return {
         "count": max(0, reps),
         "engine": "mediapipe",

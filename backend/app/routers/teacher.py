@@ -1194,7 +1194,9 @@ async def create_teacher_task(
     db: Session = Depends(get_db),
 ):
     """教师发布任务（与学生端「我的任务」、任务跑步关联）。支持多班 class_ids，返回创建的任务列表。"""
-    if task_in.starts_at and task_in.deadline and task_in.starts_at > task_in.deadline:
+    starts_at = getattr(task_in, "starts_at", None)
+    deadline = getattr(task_in, "deadline", None)
+    if starts_at and deadline and starts_at > deadline:
         raise HTTPException(status_code=400, detail="任务开始时间不能晚于截止时间")
     raw_ids = (
         [int(x) for x in task_in.class_ids if x is not None]
@@ -1224,8 +1226,8 @@ async def create_teacher_task(
             min_distance=task_in.min_distance,
             min_duration=task_in.min_duration,
             min_count=task_in.min_count,
-            starts_at=task_in.starts_at,
-            deadline=task_in.deadline,
+            starts_at=starts_at,
+            deadline=deadline,
             description=task_in.description,
             target_group=task_in.target_group or "class",
             class_id=cid,
