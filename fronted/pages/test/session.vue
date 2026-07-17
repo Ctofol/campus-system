@@ -10,7 +10,9 @@
             <view class="section">
               <text class="section-title">测试项目</text>
               <view class="exercise-summary">
-                <text class="exercise-summary-icon">{{ exercise.icon }}</text>
+                <view class="exercise-summary-icon">
+                  <image class="exercise-summary-icon-img" :src="exercise.iconPath" mode="aspectFit" />
+                </view>
                 <view class="exercise-summary-copy">
                   <text class="exercise-summary-name">{{ exercise.label }}</text>
                   <text class="exercise-summary-brief">{{ exercise.brief }}</text>
@@ -85,15 +87,30 @@
 
       <!-- 视频预览阶段 -->
       <template v-if="phase === 'preview'">
-        <view class="video-area" :class="{ 'video-area--loading': !videoReady }">
-          <view v-if="!videoReady" class="video-loading-mask">
-            <view class="processing-spinner"></view>
-            <text class="processing-title">视频加载中</text>
+        <view class="video-area" :class="{ 'video-area--loading': !videoReady && !videoError }">
+          <view v-if="videoError" class="video-error-mask">
+            <view class="preview-loading-card preview-loading-card--error">
+              <text class="processing-title">预览失败</text>
+              <text class="processing-desc">视频已保存，可以直接提交；如果画面没有出现，也可以重新录制</text>
+            </view>
+          </view>
+          <view v-if="!showPreviewVideo && !videoError" class="video-loading-mask">
+            <view class="preview-loading-card">
+              <view class="processing-spinner"></view>
+              <text class="processing-title">视频正在准备中</text>
+              <text class="processing-desc">如果首帧较慢，可以稍等后点击画面播放</text>
+            </view>
+          </view>
+          <view v-if="showPreviewVideo && !videoReady" class="preview-status-card">
+            <text class="preview-status-title">视频已录制</text>
+            <text class="preview-status-desc">如果画面没有显示，可以先直接提交；系统会使用刚录制的视频进行分析</text>
           </view>
           <video
-            :src="videoPath"
+            v-if="showPreviewVideo"
+            :key="previewRenderKey"
+            :src="previewVideoSrc || videoPath"
             class="preview-video"
-            :class="{ 'preview-video--hidden': !videoReady }"
+            :class="{ 'preview-video--visible': videoReady || videoError }"
             controls
             object-fit="contain"
             @loadedmetadata="onVideoReady"
@@ -114,7 +131,7 @@
       <template v-if="phase === 'analyzing'">
         <view class="analyzing-area">
           <view class="analyzing-animation">
-            <image class="analyzing-icon-img" src="/static/主页GO图标.png" mode="aspectFit" />
+            <image class="analyzing-icon-img" src="/static/icons/icon-teacher.svg" mode="aspectFit" />
           </view>
           <text class="analyzing-title">AI 正在分析中...</text>
           <text class="analyzing-desc">系统正在识别您的动作次数，请稍候</text>
@@ -128,8 +145,8 @@
       <template v-if="phase === 'done'">
         <view class="done-area">
           <view class="done-icon-wrap" :class="analysisPassed ? 'done-pass' : 'done-fail'">
-            <image v-if="analysisPassed" class="done-icon-img" src="/static/勾号图标.png" mode="aspectFit" />
-            <image v-else class="done-icon-img" src="/static/叉号图标.png" mode="aspectFit" />
+            <image v-if="analysisPassed" class="done-icon-img" src="/static/icons/icon-check.svg" mode="aspectFit" />
+            <image v-else class="done-icon-img" src="/static/icons/icon-cross.svg" mode="aspectFit" />
           </view>
           <text class="done-title">{{ analysisPassed ? '测试完成' : '未达标' }}</text>
           <text class="done-count">{{ analysisCount }} 次</text>
@@ -161,8 +178,12 @@ const exercise = computed(() => getExerciseById(exerciseId.value));
 
 const phase = ref('ready');
 const videoPath = ref('');
+const previewVideoSrc = ref('');
+const showPreviewVideo = ref(false);
+const previewRenderKey = ref(0);
 const videoUrl = ref('');
 const videoReady = ref(false);
+const videoError = ref(false);
 const uploading = ref(false);
 const dotIndex = ref(0);
 const analysisCount = ref(0);
@@ -179,6 +200,8 @@ const timerDisplay = ref('0:00');
 let timerInterval = null;
 let previewRevealTimer = null;
 let videoReadyFallbackTimer = null;
+let previewFallbackTried = false;
+let convertedPreviewSrc = '';
 
 const formattedTime = computed(() => timerDisplay.value);
 
@@ -198,29 +221,71 @@ const showUnsupportedCameraToast = () => {
 };
 
 const onVideoReady = () => {
+  clearTimeout(videoReadyFallbackTimer);
+  videoError.value = false;
   videoReady.value = true;
 };
 
 const onVideoError = (e) => {
-  videoReady.value = true;
+  if (!previewFallbackTried && convertedPreviewSrc && convertedPreviewSrc !== previewVideoSrc.value) {
+    previewFallbackTried = true;
+    previewVideoSrc.value = convertedPreviewSrc;
+    previewRenderKey.value += 1;
+    videoError.value = false;
+    return;
+  }
+  videoError.value = true;
+  videoReady.value = false;
   console.error('Video preview error', e);
+};
+
+const getConvertedPreviewVideoSrc = (path = '') => {
+  const raw = String(path || '').trim();
+  if (!raw) return '';
+
+  // #ifdef APP-PLUS
+  try {
+    if (typeof plus !== 'undefined' && plus.io && typeof plus.io.convertLocalFileSystemURL === 'function') {
+      return plus.io.convertLocalFileSystemURL(raw) || raw;
+    }
+  } catch (e) {
+    return raw;
+  }
+  // #endif
+
+  return raw;
 };
 
 const enterPreview = async (path) => {
   clearTimeout(previewRevealTimer);
   clearTimeout(videoReadyFallbackTimer);
   videoPath.value = path || '';
+  previewVideoSrc.value = videoPath.value;
+  convertedPreviewSrc = getConvertedPreviewVideoSrc(path);
   videoUrl.value = '';
   videoReady.value = false;
+  videoError.value = false;
+  showPreviewVideo.value = false;
+  previewRenderKey.value += 1;
+  previewFallbackTried = false;
   phase.value = 'processing';
 
   await nextTick();
   previewRevealTimer = setTimeout(() => {
     phase.value = 'preview';
+    showPreviewVideo.value = true;
+    nextTick(() => {
+      showPreviewVideo.value = true;
+    });
   }, 300);
 
   videoReadyFallbackTimer = setTimeout(() => {
-    if (phase.value === 'preview' && !videoReady.value) {
+    if (phase.value !== 'preview') return;
+    if (!showPreviewVideo.value) {
+      previewRenderKey.value += 1;
+      showPreviewVideo.value = true;
+    }
+    if (!videoReady.value) {
       videoReady.value = true;
     }
   }, 2500);
@@ -431,7 +496,14 @@ const stopCamRecord = () => {
 
   cameraCtx.stopRecord({
     success: (res) => {
-      enterPreview(res.tempVideoPath || res.tempFilePath);
+      const path = res.tempVideoPath || res.tempFilePath || '';
+      if (!path) {
+        uni.showToast({ title: '没有获取到视频文件，请重新录制', icon: 'none' });
+        phase.value = 'camera';
+        prepareCameraContext();
+        return;
+      }
+      enterPreview(path);
     },
     fail: (err) => {
       uni.showToast({ title: '停止录制失败', icon: 'none' });
@@ -441,9 +513,16 @@ const stopCamRecord = () => {
 };
 
 const retakeRecording = () => {
+  clearTimeout(previewRevealTimer);
+  clearTimeout(videoReadyFallbackTimer);
   videoPath.value = '';
+  previewVideoSrc.value = '';
+  showPreviewVideo.value = false;
   videoUrl.value = '';
   videoReady.value = false;
+  videoError.value = false;
+  previewFallbackTried = false;
+  convertedPreviewSrc = '';
   isRecording.value = false;
   cameraCtx = null;
   if (!isCameraApiAvailable()) {
@@ -462,6 +541,9 @@ const retakeRecording = () => {
 const submitTest = async () => {
   if (!videoPath.value) return;
   uploading.value = true;
+  showPreviewVideo.value = false;
+  clearTimeout(videoReadyFallbackTimer);
+  await nextTick();
   try {
     const uploadRes = await uploadFile(videoPath.value, 'video');
     const url = uploadRes.url;
@@ -498,6 +580,9 @@ const submitTest = async () => {
     uni.showToast({ title: e.message || '提交失败', icon: 'none' });
   } finally {
     uploading.value = false;
+    if (phase.value === 'preview' && videoPath.value) {
+      showPreviewVideo.value = true;
+    }
   }
 };
 
@@ -612,8 +697,17 @@ const goToResult = () => {
 }
 
 .exercise-summary-icon {
-  font-size: 56rpx;
+  width: 96rpx;
+  height: 68rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   margin-right: 20rpx;
+  flex-shrink: 0;
+}
+.exercise-summary-icon-img {
+  width: 88rpx;
+  height: 62rpx;
 }
 
 .exercise-summary-copy {
@@ -792,7 +886,7 @@ const goToResult = () => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: #f5f7fa;
+  background: linear-gradient(180deg, #f7fbfa 0%, #eef7f4 100%);
   padding: 60rpx 40rpx;
 }
 
@@ -803,6 +897,46 @@ const goToResult = () => {
   bottom: 0;
   left: 0;
   z-index: 2;
+  background: rgba(247, 248, 250, 0.96);
+}
+
+.video-error-mask {
+  position: absolute;
+  right: 0;
+  left: 0;
+  bottom: 32rpx;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 36rpx;
+  pointer-events: none;
+}
+
+.preview-loading-card {
+  width: 100%;
+  max-width: 560rpx;
+  min-height: 320rpx;
+  border-radius: 28rpx;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 16rpx 40rpx rgba(26, 43, 60, 0.08);
+  padding: 40rpx 32rpx;
+  text-align: center;
+}
+
+.preview-loading-card--error {
+  min-height: auto;
+  padding: 24rpx 28rpx;
+  border-radius: 20rpx;
+  background: rgba(255, 255, 255, 0.94);
+}
+
+.preview-loading-card .processing-desc {
+  max-width: 420rpx;
 }
 
 .processing-spinner {
@@ -834,24 +968,58 @@ const goToResult = () => {
 .video-area {
   position: relative;
   flex: 1;
+  min-height: 600rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #000;
+  background: linear-gradient(180deg, #f7fbfa 0%, #eef7f4 100%);
   overflow: hidden;
 }
 
 .video-area--loading {
-  background: #f5f7fa;
+  background: linear-gradient(180deg, #f7fbfa 0%, #eef7f4 100%);
 }
 
 .preview-video {
   width: 100%;
   height: 100%;
+  min-height: 600rpx;
+  background: #000;
+  opacity: 1;
 }
 
-.preview-video--hidden {
-  opacity: 0;
+.preview-status-card {
+  position: absolute;
+  left: 48rpx;
+  right: 48rpx;
+  top: 50%;
+  z-index: 1;
+  transform: translateY(-50%);
+  border-radius: 28rpx;
+  background: rgba(255, 255, 255, 0.92);
+  padding: 36rpx 30rpx;
+  text-align: center;
+  box-shadow: 0 16rpx 40rpx rgba(26, 43, 60, 0.08);
+}
+
+.preview-status-title {
+  display: block;
+  font-size: 32rpx;
+  font-weight: 800;
+  color: #1a2b3c;
+}
+
+.preview-status-desc {
+  display: block;
+  margin-top: 14rpx;
+  font-size: 24rpx;
+  line-height: 1.5;
+  color: #8a9bab;
+}
+
+.preview-video--visible {
+  position: relative;
+  opacity: 1;
 }
 
 /* 摄像头实时预览 */
