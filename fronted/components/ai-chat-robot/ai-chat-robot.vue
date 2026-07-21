@@ -5,7 +5,9 @@
       <!-- Header -->
       <view class="robot-header">
         <view class="header-left">
-          <view class="robot-avatar">🤖</view>
+          <view class="robot-avatar">
+            <AppIcon name="bot" :size="44" tone="white" />
+          </view>
           <view class="robot-info">
             <text class="robot-name">运动小助手</text>
             <text class="robot-status">在线分析中...</text>
@@ -20,14 +22,19 @@
       <scroll-view scroll-y class="chat-area" :scroll-top="scrollTop">
         <view class="message-list">
           <view v-for="(msg, index) in messages" :key="index" class="message-item" :class="msg.type">
-            <view class="msg-avatar" v-if="msg.type === 'robot'">🤖</view>
+            <view class="msg-avatar" v-if="msg.type === 'robot'">
+              <AppIcon name="bot" :size="34" tone="white" />
+            </view>
             <view class="msg-content-box">
               <view class="msg-content">
                 <text>{{ msg.text }}</text>
               </view>
               <!-- Card Content for Robot -->
               <view v-if="msg.card" class="msg-card">
-                <view class="card-title">{{ msg.card.title }}</view>
+                <view class="card-title">
+                  <AppIcon v-if="msg.card.iconName" :name="msg.card.iconName" :size="30" tone="brand" />
+                  <text class="card-title-text">{{ msg.card.title }}</text>
+                </view>
                 <view class="card-chart" v-if="msg.card.chartData">
                   <view class="chart-bar-item" v-for="(item, idx) in msg.card.chartData" :key="idx">
                     <text class="bar-label">{{ item.label }}</text>
@@ -38,13 +45,15 @@
                   </view>
                 </view>
                 <view class="card-suggestion" v-if="msg.card.suggestion">
-                  <text class="suggestion-icon">💡</text>
+                  <AppIcon name="bulb" :size="28" tone="warning" />
                   <text>{{ msg.card.suggestion }}</text>
                 </view>
                 <button v-if="msg.card.shareable" class="share-btn" size="mini" @click="shareToTeacher(msg.card)">分享给教官</button>
               </view>
             </view>
-            <view class="msg-avatar" v-if="msg.type === 'user'">👤</view>
+            <view class="msg-avatar" v-if="msg.type === 'user'">
+              <AppIcon name="user" :size="34" tone="white" />
+            </view>
           </view>
         </view>
       </scroll-view>
@@ -67,6 +76,7 @@
 
 <script setup>
 import { ref, watch, nextTick } from 'vue';
+import AppIcon from '@/components/app-icon/app-icon.vue';
 
 const props = defineProps({
   visible: Boolean,
@@ -131,7 +141,8 @@ const analyzeAndReply = (question) => {
     }
     
     reply.card = {
-      title: '🏃 配速分析',
+      iconName: 'run',
+      title: '配速分析',
       chartData: [
         { label: '当前', value: Math.min(100, (10/pace)*50), valText: `${pace.toFixed(1)}`, color: color },
         { label: '目标', value: 70, valText: '6.0', color: '#3A7BD5' } // Assume target 6.0
@@ -151,7 +162,8 @@ const analyzeAndReply = (question) => {
       suggestion = '运动量适中，保持这个节奏。';
     }
     reply.card = {
-      title: '📊 运动量评估',
+      iconName: 'chart',
+      title: '运动量评估',
       chartData: [
         { label: '今日', value: Math.min(100, (km/5)*100), valText: `${km}km`, color: '#20C997' },
         { label: '目标', value: 100, valText: '5.0km', color: '#eee' }
@@ -162,7 +174,8 @@ const analyzeAndReply = (question) => {
   } else if (question.includes('建议') || question.includes('分析')) {
     reply.text = '基于你的实时数据，我生成了一份简报：';
     reply.card = {
-      title: '💡 综合改进建议',
+      iconName: 'bulb',
+      title: '综合改进建议',
       suggestion: heartRate > 160 ? '心率偏高，建议适当放慢速度，调整呼吸。' : '心率控制良好，可以尝试进行间歇跑训练提升耐力。',
       chartData: [
         { label: '心率', value: Math.min(100, (heartRate/200)*100), valText: `${heartRate}bpm`, color: heartRate > 160 ? '#FF4757' : '#20C997' },
@@ -242,12 +255,11 @@ watch(() => props.visible, (val) => {
 .robot-avatar {
   width: 80rpx;
   height: 80rpx;
-  background: #E3F2FD;
+  background: linear-gradient(135deg, #20C997 0%, #17A2B8 100%);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 40rpx;
   margin-right: 20rpx;
 }
 
@@ -296,18 +308,17 @@ watch(() => props.visible, (val) => {
 .msg-avatar {
   width: 70rpx;
   height: 70rpx;
-  background: #fff;
+  background: linear-gradient(135deg, #20C997 0%, #17A2B8 100%);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 36rpx;
   margin: 0 16rpx;
   flex-shrink: 0;
 }
 
 .message-item.user .msg-avatar {
-  background: #DCF8C6;
+  background: linear-gradient(135deg, #3A7BD5 0%, #4DABF7 100%);
   order: 2;
 }
 
@@ -350,8 +361,14 @@ watch(() => props.visible, (val) => {
   font-weight: bold;
   margin-bottom: 20rpx;
   color: #333;
-  border-left: 6rpx solid #3A7BD5;
-  padding-left: 16rpx;
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+}
+.card-title-text {
+  font-size: 28rpx;
+  font-weight: bold;
+  color: #333;
 }
 
 .card-chart {
@@ -400,11 +417,8 @@ watch(() => props.visible, (val) => {
   color: #FBC02D;
   display: flex;
   align-items: flex-start;
+  gap: 10rpx;
   margin-bottom: 16rpx;
-}
-
-.suggestion-icon {
-  margin-right: 8rpx;
 }
 
 .share-btn {

@@ -2,7 +2,7 @@
   <view class="rank-page">
     <page-tab-header title="跑团排行榜" show-back theme="brand" />
 
-    <view class="rank-hero page-tab-body">
+    <view class="rank-hero page-tab-body page-tab-body--compact-top">
       <text class="rank-subtitle">按总里程排名</text>
     </view>
 
@@ -14,7 +14,7 @@
         :class="{ 'top-three': index < 3 }"
       >
         <view class="rank-number" :class="'rank-' + (index + 1)">
-          <image v-if="index < 3" class="rank-medal-img" src="/static/奖杯图标.png" mode="aspectFit" />
+          <image v-if="index < 3" class="rank-medal-img" src="/static/icons/icon-trophy.svg" mode="aspectFit" />
           <text v-else>{{ index + 1 }}</text>
         </view>
         <view class="group-info">

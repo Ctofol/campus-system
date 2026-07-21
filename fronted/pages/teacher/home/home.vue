@@ -43,6 +43,22 @@
         </view>
       </view>
 
+      <view class="section-block ai-briefing-block" @click="navTo('/pages/ai-assistant/index')">
+        <view class="section-head">
+          <text class="section-title">AI班级简报</text>
+          <view class="section-more" @click.stop="fetchAiBriefing">
+            <text>刷新</text>
+            <view class="more-arrow" />
+          </view>
+        </view>
+        <text class="ai-briefing-summary">
+          {{ aiBriefingLoading ? '正在生成今日班级简报...' : (aiBriefing?.summary || '生成班级运动摘要、低活跃提醒和干预建议。') }}
+        </text>
+        <view v-if="aiBriefing?.alerts?.length" class="ai-briefing-alerts">
+          <text class="ai-briefing-alert" v-for="item in aiBriefing.alerts" :key="item">{{ item }}</text>
+        </view>
+      </view>
+
       <view class="section-block">
         <view class="section-title">快捷操作</view>
         <view class="quick-grid">
@@ -150,6 +166,7 @@ import { onShow } from '@dcloudio/uni-app';
 import {
   request,
   getTeacherTasks,
+  getTeacherAiBriefing,
   getStoredUserInfo,
   patchStoredUserInfo,
   avatarImageSrc
@@ -161,6 +178,8 @@ const todos = ref([]);
 const activeTasks = ref([]);
 const weeklyTrend = ref(defaultWeeklyTrend());
 const abnormalAlerts = ref([]);
+const aiBriefing = ref(null);
+const aiBriefingLoading = ref(false);
 
 const teacherStats = ref({
   studentCount: 0,
@@ -234,7 +253,8 @@ const quickActions = [
   { label: '发布任务', icon: '/static/icons/teacher-publish-task.svg', svg: true, tone: 'tone-green', path: '/pages/teacher/tasks/create' },
   { label: '学员管理', icon: '/static/icons/teacher-student-manage.svg', svg: true, tone: 'tone-blue', path: '/pages/teacher/students/students' },
   { label: '成绩审批', icon: '/static/icons/teacher-score-approval.svg', svg: true, tone: 'tone-orange', path: '/pages/teacher/students/students?showHealth=true' },
-  { label: '数据统计', icon: '/static/icons/teacher-data-stats.svg', svg: true, tone: 'tone-purple', path: '/pages/teacher/sunshine/manage' }
+  { label: '数据统计', icon: '/static/icons/teacher-data-stats.svg', svg: true, tone: 'tone-purple', path: '/pages/teacher/sunshine/manage' },
+  { label: 'AI助手', icon: '/static/icons/icon-ai.svg', svg: true, tone: 'tone-green', path: '/pages/ai-assistant/index' }
 ];
 
 const pendingItems = computed(() => ([
@@ -397,6 +417,21 @@ const fetchAbnormalAlerts = async () => {
   }
 };
 
+const fetchAiBriefing = async () => {
+  aiBriefingLoading.value = true;
+  try {
+    aiBriefing.value = await getTeacherAiBriefing();
+  } catch (e) {
+    console.error('Failed to fetch AI briefing:', e);
+    aiBriefing.value = {
+      summary: 'AI班级简报暂时不可用，可稍后重试。',
+      alerts: []
+    };
+  } finally {
+    aiBriefingLoading.value = false;
+  }
+};
+
 const navTo = (path) => {
   if (!path) return;
   uni.navigateTo({ url: path });
@@ -438,6 +473,7 @@ const onPageShow = () => {
   fetchActiveTasks();
   fetchWeeklyTrend();
   fetchAbnormalAlerts();
+  fetchAiBriefing();
 };
 
 onShow(() => {
@@ -1030,5 +1066,33 @@ defineExpose({
 
 .bottom-spacer {
   height: 44rpx;
+}
+
+.ai-briefing-block {
+  border: 1rpx solid rgba(32, 201, 151, 0.14);
+  background: linear-gradient(180deg, #f7fffd 0%, #ffffff 100%);
+}
+
+.ai-briefing-summary {
+  display: block;
+  color: #405160;
+  font-size: 26rpx;
+  line-height: 1.55;
+}
+
+.ai-briefing-alerts {
+  margin-top: 16rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+}
+
+.ai-briefing-alert {
+  padding: 12rpx 14rpx;
+  border-radius: 12rpx;
+  background: #eefaf6;
+  color: #1f7a68;
+  font-size: 24rpx;
+  line-height: 1.4;
 }
 </style>

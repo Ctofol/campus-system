@@ -89,6 +89,7 @@
     <view class="map-card" v-if="showMap && activity.type === 'run'">
       <text class="page-section-title">运动轨迹</text>
       <map
+        id="teacher-run-route-map"
         class="map"
         :latitude="centerLat"
         :longitude="centerLng"
@@ -105,7 +106,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { nextTick, ref, computed } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import { getTeacherTaskRunDetail, resolveMediaUrl } from '@/utils/request.js';
 import { smoothTrajectoryForMap, DEFAULT_BRAND_POLYLINE_STYLE } from '@/utils/trajectory-smooth.js';
@@ -121,6 +122,8 @@ const centerLat = ref(39.909);
 const centerLng = ref(116.397);
 const polyline = ref([]);
 const markers = ref([]);
+const includePoints = ref([]);
+const mapPadding = [18, 18, 18, 18];
 const showMap = ref(false);
 const startPhotoUrl = ref('');
 const endPhotoUrl = ref('');
@@ -163,6 +166,19 @@ function normalizeTrajectoryPoints(raw) {
   return out;
 }
 
+function fitRouteMap() {
+  if (!includePoints.value.length) return;
+  nextTick(() => setTimeout(() => {
+    const mapContext = uni.createMapContext('teacher-run-route-map');
+    if (mapContext && typeof mapContext.includePoints === 'function') {
+      mapContext.includePoints({
+        points: includePoints.value,
+        padding: mapPadding
+      });
+    }
+  }, 220));
+}
+
 onLoad(async (options) => {
   const aid = options.activityId ? parseInt(options.activityId, 10) : 0;
   if (!aid) return;
@@ -195,6 +211,7 @@ onLoad(async (options) => {
     }
     polyline.value = [];
     markers.value = [];
+    includePoints.value = [];
     showMap.value = false;
     if (points.length >= 2) {
       const displayPts = smoothTrajectoryForMap(points);
@@ -202,12 +219,22 @@ onLoad(async (options) => {
       centerLat.value = points[0].latitude;
       centerLng.value = points[0].longitude;
       markers.value = buildRunRouteMarkers(points);
+      includePoints.value = points.map((p) => ({
+        latitude: p.latitude,
+        longitude: p.longitude
+      }));
       showMap.value = true;
+      fitRouteMap();
     } else if (points.length === 1) {
       centerLat.value = points[0].latitude;
       centerLng.value = points[0].longitude;
       markers.value = buildRunRouteMarkers(points.slice(0, 1));
+      includePoints.value = [{
+        latitude: points[0].latitude,
+        longitude: points[0].longitude
+      }];
       showMap.value = true;
+      fitRouteMap();
     }
 
   } catch (e) {
@@ -273,7 +300,7 @@ onLoad(async (options) => {
 .map-card {
   background: #fff;
   border-radius: 16rpx;
-  padding: 30rpx;
+  padding: 24rpx 18rpx 18rpx;
   .section-title {
     font-size: 30rpx;
     font-weight: bold;
@@ -317,8 +344,9 @@ onLoad(async (options) => {
 }
 .map {
   width: 100%;
-  height: 420rpx;
+  height: 620rpx;
   border-radius: 12rpx;
+  overflow: hidden;
 }
 .no-data-card {
   background: #fff;

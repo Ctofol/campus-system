@@ -84,6 +84,13 @@
       }
     },
     {
+      "path": "pages/ai-assistant/index",
+      "style": {
+        "navigationBarTitleText": "AI 体育助手",
+        "enablePullDownRefresh": false
+      }
+    },
+    {
       "path": "pages/student/tasks/list",
       "style": {
         "navigationBarTitleText": "我的任务"
@@ -300,10 +307,23 @@
       }
     },
     {
+      "path": "pages/mine/face-profile/face-profile",
+      "style": {
+        "navigationBarTitleText": "人脸认证"
+      }
+    },
+    {
       "path": "pages/mine/history-tasks/history-tasks",
       "style": {
         "navigationStyle": "custom",
         "navigationBarTitleText": "历史任务"
+      }
+    },
+    {
+      "path": "pages/mine/routes/routes",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "我的路线"
       }
     },
     {
@@ -454,26 +474,26 @@
     "list": [
       {
         "pagePath": "pages/tab/home",
-        "iconPath": "static/tab/home.png",
-        "selectedIconPath": "static/tab/home-active.png",
+        "iconPath": "static/tab/tab-home-v3.png",
+        "selectedIconPath": "static/tab/tab-home-v3-active.png",
         "text": "首页"
       },
       {
         "pagePath": "pages/tab/function",
-        "iconPath": "static/tab/function.png",
-        "selectedIconPath": "static/tab/function-active.png",
+        "iconPath": "static/tab/tab-run-v3.png",
+        "selectedIconPath": "static/tab/tab-run-v3-active.png",
         "text": "运动"
       },
       {
         "pagePath": "pages/tab/learn",
-        "iconPath": "static/tab/stats.png",
-        "selectedIconPath": "static/tab/stats-active.png",
+        "iconPath": "static/tab/tab-course-v3.png",
+        "selectedIconPath": "static/tab/tab-course-v3-active.png",
         "text": "课程"
       },
       {
         "pagePath": "pages/tab/mine",
-        "iconPath": "static/tab/mine.png",
-        "selectedIconPath": "static/tab/mine-active.png",
+        "iconPath": "static/tab/tab-mine-v3.png",
+        "selectedIconPath": "static/tab/tab-mine-v3-active.png",
         "text": "我的"
       }
     ]

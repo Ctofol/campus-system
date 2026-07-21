@@ -6,8 +6,8 @@
       <view class="grid-container">
         <!-- 模块迁移：学员管理（包含原班级管理的排课、考勤） -->
         <view class="grid-item" @click="navTo('/pages/teacher/students/students')">
-          <view class="icon-box purple">
-            <image class="icon-box-img" src="/static/主页跑团图标.png" mode="aspectFit" />
+          <view class="icon-box">
+            <image class="icon-box-img" src="/static/home-run-group.png" mode="aspectFit" />
           </view>
           <text class="grid-label">学员管理</text>
           <text class="grid-desc">分组、档案、排课、考勤</text>
@@ -15,15 +15,15 @@
 
         <!-- 任务管理 -->
         <view class="grid-item" @click="navTo('/pages/teacher/tasks/tasks')">
-          <view class="icon-box green"><image class="icon-box-img" src="/static/通知图标.png" mode="aspectFit" /></view>
+          <view class="icon-box"><image class="icon-box-img" src="/static/home-go.png" mode="aspectFit" /></view>
           <text class="grid-label">任务管理</text>
           <text class="grid-desc">发布、审批</text>
         </view>
 
         <!-- 功能打通：异常处理 -->
         <view class="grid-item" @click="navTo('/pages/teacher/exceptions/exceptions')">
-          <view class="icon-box orange">
-            <image class="icon-box-img" src="/static/叉号图标.png" mode="aspectFit" />
+          <view class="icon-box">
+            <image class="icon-box-img" src="/static/sport-today-status.png" mode="aspectFit" />
           </view>
           <text class="grid-label">异常处理</text>
           <text class="grid-desc">运动异常、防作弊</text>
@@ -31,8 +31,8 @@
 
         <!-- 教学资源 -->
         <view class="grid-item" @click="navTo('/pages/teacher/resources/resources')">
-          <view class="icon-box pink">
-            <image class="icon-box-img" src="/static/主页课程图标.png" mode="aspectFit" />
+          <view class="icon-box">
+            <image class="icon-box-img" src="/static/home-course.png" mode="aspectFit" />
           </view>
           <text class="grid-label">教学资源</text>
           <text class="grid-desc">课件、视频</text>
@@ -40,23 +40,23 @@
 
         <!-- 数据导出 -->
         <view class="grid-item" @click="handleDataExport">
-          <view class="icon-box indigo">
-            <image class="icon-box-img" src="/static/数据图标.png" mode="aspectFit" />
+          <view class="icon-box">
+            <image class="icon-box-img" src="/static/stats-distance-2.png" mode="aspectFit" />
           </view>
           <text class="grid-label">数据导出</text>
           <text class="grid-desc">成绩、任务完成情况</text>
         </view>
-        
+
         <!-- 测试监控 -->
         <view class="grid-item" @click="navTo('/pages/teacher/tests/tests')">
-          <view class="icon-box teal">
-            <image class="icon-box-img" src="/static/数据图标.png" mode="aspectFit" />
+          <view class="icon-box">
+            <image class="icon-box-img" src="/static/home-fitness-test.png" mode="aspectFit" />
           </view>
           <text class="grid-label">测试监控</text>
           <text class="grid-desc">数据分析、历史回顾</text>
         </view>
       </view>
-    
+
       <!-- 数据概览 -->
       <view class="stats-card">
         <view class="card-header">
@@ -77,7 +77,7 @@
           </view>
         </view>
       </view>
-    
+
       <view style="height: 20rpx;"></view>
     </view>
   </view>
@@ -311,14 +311,16 @@ const formatDate = () => {
 .icon-box {
   width: 100rpx;
   height: 100rpx;
-  border-radius: 50%;
+  border-radius: 22rpx;
+  background: #F4FAF8;
+  border: 1rpx solid rgba(36, 191, 162, 0.1);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 48rpx;
   margin-bottom: 20rpx;
 }
-.icon-box-img { width: 48rpx; height: 48rpx; }
+.icon-box-img { width: 70rpx; height: 70rpx; }
 .purple { background: #f3e5f5; color: #9c27b0; }
 .green { background: #e8f5e9; color: #4caf50; }
 .blue { background: #e3f2fd; color: #2196f3; }

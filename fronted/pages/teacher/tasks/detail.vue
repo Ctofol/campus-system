@@ -19,7 +19,7 @@
       <!-- 第二阶段新增：体测视频展示 -->
       <view v-if="task.videoUrl" class="video-section">
         <view class="video-label">
-          <image class="video-label-img" src="/static/通知图标.png" mode="aspectFit" />
+          <image class="video-label-img" src="/static/icons/icon-notification.svg" mode="aspectFit" />
           <text>示范视频</text>
         </view>
         <video 

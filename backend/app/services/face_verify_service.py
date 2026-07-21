@@ -1,15 +1,20 @@
 """
-跑步起止人脸核验：活体检测 + 起止 1:1 同人比对。
-未配置云厂商密钥时降级为「双照存在」采证模式。
+Run face verification.
+
+Local provider supports commercial-ready three-way comparison:
+profile vs start, profile vs end, and start vs end.
 """
 from __future__ import annotations
 
 import base64
-import os
+import json
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
-from .. import config
+from sqlalchemy.orm import Session
+
+from .. import config, models
+from .face_profile_service import get_student_face_profile, resolve_local_media_path
 
 
 @dataclass
@@ -20,25 +25,11 @@ class FaceVerifyOutcome:
     liveness_pass: Optional[bool]
     match_score: Optional[float]
     fail_code: Optional[str]
-
-
-def _resolve_local_path(data_ref: str) -> Optional[str]:
-    if not data_ref:
-        return None
-    ref = data_ref.strip()
-    if ref.startswith("http://") or ref.startswith("https://"):
-        return None
-    backend_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    rel = ref.lstrip("/")
-    if rel.startswith("uploads/"):
-        path = os.path.join(backend_root, rel)
-    else:
-        path = os.path.join(backend_root, "uploads", rel.replace("uploads/", ""))
-    return path if os.path.isfile(path) else None
+    detail: Optional[str] = None
 
 
 def _read_image_b64(data_ref: str) -> Optional[str]:
-    path = _resolve_local_path(data_ref)
+    path = resolve_local_media_path(data_ref)
     if not path:
         return None
     try:
@@ -52,7 +43,7 @@ def _tencent_liveness(image_b64: str) -> Tuple[bool, str]:
     try:
         from tencentcloud.common import credential
         from tencentcloud.common.exception.tencent_cloud_sdk_exception import TencentCloudSDKException
-        from tencentcloud.iai.v20200303 import iai_client, models
+        from tencentcloud.iai.v20200303 import iai_client, models as tc_models
     except ImportError:
         return False, "SDK_NOT_INSTALLED"
 
@@ -62,7 +53,7 @@ def _tencent_liveness(image_b64: str) -> Tuple[bool, str]:
     try:
         cred = credential.Credential(config.TENCENT_SECRET_ID, config.TENCENT_SECRET_KEY)
         client = iai_client.IaiClient(cred, config.TENCENT_REGION)
-        req = models.DetectLiveFaceAccurateRequest()
+        req = tc_models.DetectLiveFaceAccurateRequest()
         req.Image = image_b64
         req.FaceModelVersion = "3.0"
         resp = client.DetectLiveFaceAccurate(req)
@@ -79,7 +70,7 @@ def _tencent_compare(img_a_b64: str, img_b_b64: str) -> Tuple[Optional[float], s
     try:
         from tencentcloud.common import credential
         from tencentcloud.common.exception.tencent_cloud_sdk_exception import TencentCloudSDKException
-        from tencentcloud.iai.v20200303 import iai_client, models
+        from tencentcloud.iai.v20200303 import iai_client, models as tc_models
     except ImportError:
         return None, "SDK_NOT_INSTALLED"
 
@@ -89,68 +80,16 @@ def _tencent_compare(img_a_b64: str, img_b_b64: str) -> Tuple[Optional[float], s
     try:
         cred = credential.Credential(config.TENCENT_SECRET_ID, config.TENCENT_SECRET_KEY)
         client = iai_client.IaiClient(cred, config.TENCENT_REGION)
-        req = models.CompareFaceRequest()
+        req = tc_models.CompareFaceRequest()
         req.ImageA = img_a_b64
         req.ImageB = img_b_b64
         req.FaceModelVersion = "3.0"
         resp = client.CompareFace(req)
-        score = float(getattr(resp, "Score", 0) or 0)
-        return score, ""
+        return float(getattr(resp, "Score", 0) or 0), ""
     except TencentCloudSDKException as e:
         return None, str(e.get_message() if hasattr(e, "get_message") else e)
     except Exception as e:
         return None, str(e)
-
-
-def _verify_run_faces_local(start_url: str, end_url: str) -> FaceVerifyOutcome:
-    from .face_local_insightface import (
-        compare_two_images,
-        similarity_to_display_score,
-    )
-
-    start_path = _resolve_local_path(start_url)
-    end_path = _resolve_local_path(end_url)
-    if not start_path or not end_path:
-        return FaceVerifyOutcome(
-            ok=True,
-            reason="",
-            face_verified=True,
-            liveness_pass=None,
-            match_score=None,
-            fail_code="LOCAL_SKIP_NO_FILE",
-        )
-
-    sim, err = compare_two_images(start_path, end_path)
-    if sim is None:
-        return FaceVerifyOutcome(
-            ok=False,
-            reason=f"人脸验证失败：{err}",
-            face_verified=False,
-            liveness_pass=None,
-            match_score=None,
-            fail_code="LOCAL_DETECT_FAIL",
-        )
-
-    display = similarity_to_display_score(sim)
-    min_sim = config.FACE_LOCAL_MIN_SIMILARITY
-    if sim < min_sim:
-        return FaceVerifyOutcome(
-            ok=False,
-            reason=f"人脸验证失败：起止照片非同一人（相似度 {display}）",
-            face_verified=False,
-            liveness_pass=None,
-            match_score=display,
-            fail_code="NOT_SAME_PERSON",
-        )
-
-    return FaceVerifyOutcome(
-        ok=True,
-        reason="",
-        face_verified=True,
-        liveness_pass=None,
-        match_score=display,
-        fail_code=None,
-    )
 
 
 def _extract_face_urls(evidence: list) -> Tuple[Optional[str], Optional[str]]:
@@ -173,134 +112,219 @@ def _extract_face_urls(evidence: list) -> Tuple[Optional[str], Optional[str]]:
     return start_url, end_url
 
 
-def verify_run_faces(evidence: list) -> FaceVerifyOutcome:
-    """
-    对跑步活动证据做人脸核验。
-    返回 FaceVerifyOutcome；fail_code: MISSING_PHOTO | LIVENESS_FAIL | NOT_SAME_PERSON | PROVIDER_ERROR
-    """
-    start_url, end_url = _extract_face_urls(evidence)
+def _detail_json(data: Dict[str, Any]) -> str:
+    return json.dumps(data, ensure_ascii=False, separators=(",", ":"))
 
-    if not start_url and not end_url:
-        return FaceVerifyOutcome(
-            ok=False,
-            reason="人脸验证失败：缺少起跑与结束照片",
-            face_verified=False,
-            liveness_pass=False,
-            match_score=None,
-            fail_code="MISSING_PHOTO",
-        )
-    if not start_url:
-        return FaceVerifyOutcome(
-            ok=False,
-            reason="人脸验证失败：缺少起跑照片",
-            face_verified=False,
-            liveness_pass=False,
-            match_score=None,
-            fail_code="MISSING_PHOTO",
-        )
-    if not end_url:
-        return FaceVerifyOutcome(
-            ok=False,
-            reason="人脸验证失败：缺少结束照片",
-            face_verified=False,
-            liveness_pass=False,
-            match_score=None,
-            fail_code="MISSING_PHOTO",
-        )
 
-    provider = (config.FACE_PROVIDER or "none").lower()
-    if provider == "none":
+def _verify_run_faces_local(start_url: str, end_url: str) -> FaceVerifyOutcome:
+    from .face_local_insightface import compare_two_images, similarity_to_display_score
+
+    start_path = resolve_local_media_path(start_url)
+    end_path = resolve_local_media_path(end_url)
+    if not start_path or not end_path:
         return FaceVerifyOutcome(
             ok=True,
             reason="",
             face_verified=True,
             liveness_pass=None,
             match_score=None,
-            fail_code=None,
+            fail_code="LOCAL_SKIP_NO_FILE",
+            detail=_detail_json({"mode": "legacy_two_photo", "risk_flags": ["local_file_missing"]}),
         )
 
-    if provider == "local":
-        return _verify_run_faces_local(start_url, end_url)
-
-    if provider != "tencent":
+    sim, err = compare_two_images(start_path, end_path)
+    if sim is None:
         return FaceVerifyOutcome(
-            ok=True,
-            reason="",
-            face_verified=True,
+            ok=False,
+            reason=f"Face verification failed: {err}",
+            face_verified=False,
             liveness_pass=None,
             match_score=None,
-            fail_code=None,
+            fail_code="LOCAL_DETECT_FAIL",
+            detail=_detail_json({"mode": "legacy_two_photo", "error": err}),
         )
 
-    start_b64 = _read_image_b64(start_url)
-    end_b64 = _read_image_b64(end_url)
-    if not start_b64 or not end_b64:
+    display = similarity_to_display_score(sim)
+    if sim < config.FACE_LOCAL_MIN_SIMILARITY:
         return FaceVerifyOutcome(
-            ok=True,
-            reason="",
-            face_verified=True,
+            ok=False,
+            reason=f"Face verification failed: start/end photos are not the same person ({display})",
+            face_verified=False,
             liveness_pass=None,
-            match_score=None,
-            fail_code="PROVIDER_SKIP_LOCAL",
-        )
-
-    live_start, err_s = _tencent_liveness(start_b64)
-    if not live_start:
-        msg = "人脸验证失败：起跑照片未通过活体检测"
-        if err_s:
-            msg += f"（{err_s}）"
-        return FaceVerifyOutcome(
-            ok=False,
-            reason=msg,
-            face_verified=False,
-            liveness_pass=False,
-            match_score=None,
-            fail_code="LIVENESS_FAIL",
-        )
-
-    live_end, err_e = _tencent_liveness(end_b64)
-    if not live_end:
-        msg = "人脸验证失败：结束照片未通过活体检测"
-        if err_e:
-            msg += f"（{err_e}）"
-        return FaceVerifyOutcome(
-            ok=False,
-            reason=msg,
-            face_verified=False,
-            liveness_pass=False,
-            match_score=None,
-            fail_code="LIVENESS_FAIL",
-        )
-
-    score, err_c = _tencent_compare(start_b64, end_b64)
-    if score is None:
-        return FaceVerifyOutcome(
-            ok=True,
-            reason="",
-            face_verified=True,
-            liveness_pass=True,
-            match_score=None,
-            fail_code="COMPARE_UNAVAILABLE",
-        )
-
-    if score < config.FACE_MATCH_THRESHOLD:
-        return FaceVerifyOutcome(
-            ok=False,
-            reason=f"人脸验证失败：起止照片非同一人（相似度 {score:.1f}）",
-            face_verified=False,
-            liveness_pass=True,
-            match_score=score,
+            match_score=display,
             fail_code="NOT_SAME_PERSON",
+            detail=_detail_json({
+                "mode": "legacy_two_photo",
+                "start_end_similarity": round(sim, 4),
+                "threshold": config.FACE_LOCAL_MIN_SIMILARITY,
+                "risk_flags": ["start_end_low_similarity"],
+            }),
         )
 
     return FaceVerifyOutcome(
         ok=True,
         reason="",
         face_verified=True,
-        liveness_pass=True,
-        match_score=score,
+        liveness_pass=None,
+        match_score=display,
         fail_code=None,
+        detail=_detail_json({
+            "mode": "legacy_two_photo",
+            "start_end_similarity": round(sim, 4),
+            "threshold": config.FACE_LOCAL_MIN_SIMILARITY,
+        }),
     )
+
+
+def _verify_run_faces_with_profile(
+    start_url: str,
+    end_url: str,
+    user: models.User,
+    db: Session,
+) -> FaceVerifyOutcome:
+    from .face_local_insightface import (
+        MODEL_VERSION,
+        compare_embeddings,
+        extract_verified_embedding,
+        similarity_to_display_score,
+    )
+    from .face_profile_service import load_embedding
+
+    start_path = resolve_local_media_path(start_url)
+    end_path = resolve_local_media_path(end_url)
+    if not start_path or not end_path:
+        detail = {"mode": "profile_three_way", "risk_flags": ["local_file_missing"]}
+        return FaceVerifyOutcome(False, "Face verification failed: local photos missing", False, None, None, "MISSING_PHOTO", _detail_json(detail))
+
+    profile = get_student_face_profile(db, user.id)
+    if not profile or profile.status != "verified":
+        detail = {"mode": "profile_three_way", "risk_flags": ["face_profile_required"]}
+        return FaceVerifyOutcome(False, "Student face profile is not verified", False, None, None, "FACE_PROFILE_REQUIRED", _detail_json(detail))
+
+    profile_emb = load_embedding(profile)
+    if profile_emb is None:
+        detail = {"mode": "profile_three_way", "risk_flags": ["face_profile_invalid"]}
+        return FaceVerifyOutcome(False, "Student face profile is invalid", False, None, None, "FACE_PROFILE_INVALID", _detail_json(detail))
+
+    start = extract_verified_embedding(start_path)
+    end = extract_verified_embedding(end_path)
+    risk_flags = []
+    detail: Dict[str, Any] = {
+        "mode": "profile_three_way",
+        "threshold": config.FACE_LOCAL_MIN_SIMILARITY,
+        "model_version": MODEL_VERSION,
+        "profile_image_url": profile.image_url,
+    }
+    if start.embedding is None:
+        risk_flags.append("start_face_detect_failed")
+        detail["start_error"] = start.error
+        detail["start_quality"] = start.quality
+    if end.embedding is None:
+        risk_flags.append("end_face_detect_failed")
+        detail["end_error"] = end.error
+        detail["end_quality"] = end.quality
+    if start.embedding is None or end.embedding is None:
+        detail["risk_flags"] = risk_flags
+        return FaceVerifyOutcome(False, "Face verification failed: cannot detect valid face", False, None, None, "LOCAL_DETECT_FAIL", _detail_json(detail))
+
+    scores = {
+        "profile_start_similarity": compare_embeddings(profile_emb, start.embedding),
+        "profile_end_similarity": compare_embeddings(profile_emb, end.embedding),
+        "start_end_similarity": compare_embeddings(start.embedding, end.embedding),
+    }
+    min_sim = min(scores.values())
+    for key, value in scores.items():
+        if value < config.FACE_LOCAL_MIN_SIMILARITY:
+            risk_flags.append(f"{key}_low")
+
+    detail.update({
+        "similarities": {k: round(v, 4) for k, v in scores.items()},
+        "scores": {k.replace("_similarity", "_score"): similarity_to_display_score(v) for k, v in scores.items()},
+        "start_quality": start.quality,
+        "end_quality": end.quality,
+        "risk_flags": risk_flags,
+    })
+    display = similarity_to_display_score(min_sim)
+    if risk_flags:
+        return FaceVerifyOutcome(
+            ok=False,
+            reason=f"Face verification failed: three-way comparison below threshold ({display})",
+            face_verified=False,
+            liveness_pass=None,
+            match_score=display,
+            fail_code="NOT_SAME_PERSON",
+            detail=_detail_json(detail),
+        )
+
+    return FaceVerifyOutcome(True, "", True, None, display, None, _detail_json(detail))
+
+
+def verify_run_faces(evidence: list, user: Optional[models.User] = None, db: Optional[Session] = None) -> FaceVerifyOutcome:
+    start_url, end_url = _extract_face_urls(evidence)
+
+    if not start_url or not end_url:
+        missing = []
+        if not start_url:
+            missing.append("start_face")
+        if not end_url:
+            missing.append("end_face")
+        return FaceVerifyOutcome(
+            ok=False,
+            reason="Face verification failed: missing start/end face photos",
+            face_verified=False,
+            liveness_pass=False,
+            match_score=None,
+            fail_code="MISSING_PHOTO",
+            detail=_detail_json({"missing": missing, "risk_flags": ["missing_photo"]}),
+        )
+
+    provider = (config.FACE_PROVIDER or "none").lower()
+    if provider == "none":
+        return FaceVerifyOutcome(True, "", True, None, None, None, _detail_json({"mode": "provider_none"}))
+
+    if provider == "local":
+        if user is not None and db is not None:
+            return _verify_run_faces_with_profile(start_url, end_url, user, db)
+        return _verify_run_faces_local(start_url, end_url)
+
+    if provider != "tencent":
+        return FaceVerifyOutcome(True, "", True, None, None, None, _detail_json({"mode": "unknown_provider_skip", "provider": provider}))
+
+    start_b64 = _read_image_b64(start_url)
+    end_b64 = _read_image_b64(end_url)
+    if not start_b64 or not end_b64:
+        return FaceVerifyOutcome(True, "", True, None, None, "PROVIDER_SKIP_LOCAL", _detail_json({"mode": "tencent", "risk_flags": ["local_file_missing"]}))
+
+    live_start, err_s = _tencent_liveness(start_b64)
+    if not live_start:
+        msg = "Face verification failed: start photo liveness failed"
+        if err_s:
+            msg += f" ({err_s})"
+        return FaceVerifyOutcome(False, msg, False, False, None, "LIVENESS_FAIL", _detail_json({"mode": "tencent", "start_liveness_error": err_s}))
+
+    live_end, err_e = _tencent_liveness(end_b64)
+    if not live_end:
+        msg = "Face verification failed: end photo liveness failed"
+        if err_e:
+            msg += f" ({err_e})"
+        return FaceVerifyOutcome(False, msg, False, False, None, "LIVENESS_FAIL", _detail_json({"mode": "tencent", "end_liveness_error": err_e}))
+
+    score, err_c = _tencent_compare(start_b64, end_b64)
+    if score is None:
+        return FaceVerifyOutcome(True, "", True, True, None, "COMPARE_UNAVAILABLE", _detail_json({"mode": "tencent", "compare_error": err_c}))
+
+    if score < config.FACE_MATCH_THRESHOLD:
+        return FaceVerifyOutcome(
+            False,
+            f"Face verification failed: start/end photos are not the same person ({score:.1f})",
+            False,
+            True,
+            score,
+            "NOT_SAME_PERSON",
+            _detail_json({"mode": "tencent", "score": score, "threshold": config.FACE_MATCH_THRESHOLD}),
+        )
+
+    return FaceVerifyOutcome(True, "", True, True, score, None, _detail_json({"mode": "tencent", "score": score}))
 
 
 def apply_face_outcome_to_activity(activity, outcome: FaceVerifyOutcome) -> None:
@@ -308,3 +332,5 @@ def apply_face_outcome_to_activity(activity, outcome: FaceVerifyOutcome) -> None
     activity.face_liveness_pass = outcome.liveness_pass
     activity.face_match_score = outcome.match_score
     activity.face_fail_code = outcome.fail_code
+    if hasattr(activity, "face_detail"):
+        activity.face_detail = outcome.detail

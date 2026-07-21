@@ -69,6 +69,7 @@ class User(Base):
     health_requests = relationship("HealthRequest", back_populates="student")
     # 教师选科
     teacher_subjects = relationship("TeacherSubject", back_populates="teacher")
+    face_profile = relationship("StudentFaceProfile", back_populates="user", uselist=False)
 
     @property
     def major(self):
@@ -94,6 +95,28 @@ class User(Base):
             m_name = self.student_class.major.name if self.student_class.major else ""
             return f"{m_name} {self.student_class.name}".strip()
         return None
+
+
+class StudentFaceProfile(Base):
+    """学生本人基准人脸档案，用于跑步和体测身份核验。"""
+
+    __tablename__ = "student_face_profiles"
+    __table_args__ = (
+        UniqueConstraint("user_id", name="uq_student_face_profile_user"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    image_url = Column(String, nullable=False)
+    embedding_json = Column(String, nullable=False)
+    status = Column(String(32), default="verified", nullable=False)
+    model_version = Column(String(64), nullable=True)
+    fail_reason = Column(String(512), nullable=True)
+    quality_score = Column(Float, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = relationship("User", back_populates="face_profile")
 
 
 class Class(Base):
@@ -176,6 +199,7 @@ class Activity(Base):
     face_liveness_pass = Column(Boolean, nullable=True)  # 起止活体是否通过
     face_match_score = Column(Float, nullable=True)  # 起止 1:1 相似度 0-100
     face_fail_code = Column(String(64), nullable=True)  # LIVENESS_FAIL / NOT_SAME_PERSON / MISSING_PHOTO
+    face_detail = Column(String, nullable=True)  # 三方比对/体测身份校验详情 JSON
     task_id = Column(Integer, ForeignKey("tasks.id"), nullable=True)  # 任务跑步关联
 
     user = relationship("User")

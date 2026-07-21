@@ -29,7 +29,7 @@
     <!-- Video Preview (if exists) -->
     <view class="video-card" v-if="videoUrl">
       <view class="card-title">
-        <image class="card-title-img" src="/static/通知图标.png" mode="aspectFit" />
+        <image class="card-title-img" src="/static/icons/icon-notification.svg" mode="aspectFit" />
         <text>活动视频</text>
       </view>
       <video 

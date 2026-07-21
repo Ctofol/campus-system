@@ -35,16 +35,24 @@
     <!-- Map Trajectory（微信折线至少 2 点；仅 1 点时只显示标记、不传折线，避免渲染层 MultiPolyline 崩溃） -->
     <view class="map-card" v-if="showMap">
       <text class="page-section-title">运动轨迹</text>
-      <map 
+      <map
+        id="history-route-map"
         class="map" 
         :latitude="centerLat" 
         :longitude="centerLng" 
         :polyline="polyline"
         :markers="markers"
-        :include-points="includePoints"
         :enable-zoom="true"
         :enable-scroll="true"
       ></map>
+      <view class="route-pace-legend">
+        <text class="route-pace-legend__label">慢</text>
+        <view class="route-pace-legend__swatch route-pace-legend__swatch--blue" />
+        <view class="route-pace-legend__swatch route-pace-legend__swatch--green" />
+        <view class="route-pace-legend__swatch route-pace-legend__swatch--amber" />
+        <view class="route-pace-legend__swatch route-pace-legend__swatch--red" />
+        <text class="route-pace-legend__label">快</text>
+      </view>
     </view>
     <view class="no-data-card" v-else-if="!showMap && activity && (activity.status === 'finished' || activity.status === 'completed')">
         <text class="tip">暂无轨迹数据</text>
@@ -59,7 +67,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { nextTick, ref } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import { smoothTrajectoryForMap, DEFAULT_BRAND_POLYLINE_STYLE } from '@/utils/trajectory-smooth.js';
 import { buildPaceColoredPolylines } from '@/utils/trajectory-pace-polyline.js';
@@ -71,6 +79,7 @@ const centerLng = ref(116.397);
 const polyline = ref([]);
 const markers = ref([]);
 const includePoints = ref([]);
+const mapPadding = [18, 18, 18, 18];
 const videoUrl = ref('');
 /** 是否展示地图区：≥2 点可走折线；1 点仅标记；0 点不展示（避免传非法 polyline） */
 const showMap = ref(false);
@@ -109,6 +118,19 @@ function normalizeTrajectoryPoints(raw) {
     }
   }
   return out;
+}
+
+function fitRouteMap() {
+  if (!includePoints.value.length) return;
+  nextTick(() => setTimeout(() => {
+    const mapContext = uni.createMapContext('history-route-map');
+    if (mapContext && typeof mapContext.includePoints === 'function') {
+      mapContext.includePoints({
+        points: includePoints.value,
+        padding: mapPadding
+      });
+    }
+  }, 220));
 }
 
 onLoad((options) => {
@@ -172,6 +194,7 @@ onLoad((options) => {
                   longitude: p.longitude
                 }));
                 showMap.value = true;
+                fitRouteMap();
             } else if (points.length === 1) {
                 centerLat.value = points[0].latitude;
                 centerLng.value = points[0].longitude;
@@ -181,6 +204,7 @@ onLoad((options) => {
                   longitude: points[0].longitude
                 }];
                 showMap.value = true;
+                fitRouteMap();
             }
             
             // Process Video
@@ -255,8 +279,27 @@ onLoad((options) => {
   }
 }
 .map-card {
-  padding: 24rpx 20rpx 20rpx;
+  padding: 24rpx 18rpx 18rpx;
+  position: relative;
 }
+.route-pace-legend {
+  position: absolute;
+  right: 34rpx;
+  bottom: 32rpx;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  padding: 10rpx 14rpx;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 8rpx;
+  box-shadow: 0 4rpx 12rpx rgba(24, 35, 46, 0.14);
+}
+.route-pace-legend__label { color: #64748B; font-size: 20rpx; }
+.route-pace-legend__swatch { width: 22rpx; height: 10rpx; margin: 0 3rpx; border-radius: 3rpx; }
+.route-pace-legend__swatch--blue { background: #1E88E5; }
+.route-pace-legend__swatch--green { background: #4CAF50; }
+.route-pace-legend__swatch--amber { background: #FFC107; }
+.route-pace-legend__swatch--red { background: #FF5252; }
 .page-section-title {
   font-size: 32rpx;
   font-weight: bold;
@@ -267,7 +310,8 @@ onLoad((options) => {
 }
 .map {
     width: 100%;
-    height: 640rpx;
+    height: 900rpx;
+    min-height: 560rpx;
     border-radius: 12rpx;
     overflow: hidden;
 }

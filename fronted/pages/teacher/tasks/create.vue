@@ -21,7 +21,7 @@
         <text class="label required">体测示范视频</text>
         <view class="video-upload-area">
           <view v-if="!form.videoUrl" class="upload-placeholder" @click="chooseVideo">
-            <image class="upload-icon" src="/static/通知图标.png" mode="aspectFit" />
+            <image class="upload-icon" src="/static/icons/icon-notification.svg" mode="aspectFit" />
             <text class="upload-text">点击上传体测示范视频</text>
             <text class="upload-hint">支持mp4/webm格式，最大50MB</text>
           </view>
@@ -232,7 +232,7 @@ const form = ref({
   videoFile: null  // 临时存储视频文件
 });
 
-const attachCourse = ref(true);
+const attachCourse = ref(false);
 const courseForm = ref({
   title: '',
   category: 'fitness',
@@ -536,6 +536,12 @@ const createAttachedCourseIfNeeded = async () => {
   return createdCourse;
 };
 
+const getRequestErrorMessage = (e, fallback = '操作失败') => {
+  if (!e) return fallback;
+  if (typeof e === 'string') return e;
+  return e.message || e.detail || e.data?.detail || e.data?.message || fallback;
+};
+
 const submitTask = async () => {
   // 验证必填项
   if (!form.value.title || !form.value.type || !form.value.deadline) {
@@ -592,22 +598,43 @@ const submitTask = async () => {
     };
 
     const created = await createTeacherTask(payload);
-    await createAttachedCourseIfNeeded();
+    let courseSyncFailed = false;
+    let courseSyncMessage = '';
+
+    if (attachCourse.value) {
+      try {
+        await createAttachedCourseIfNeeded();
+      } catch (courseError) {
+        courseSyncFailed = true;
+        courseSyncMessage = getRequestErrorMessage(courseError, '课程资料同步失败');
+        console.error('Create attached course failed:', courseError);
+      }
+    }
+
     const n = Array.isArray(created) ? created.length : 1;
 
     uni.hideLoading();
-    uni.showToast({
-      title: attachCourse.value ? '任务和课程资料已发布' : (n > 1 ? `已向 ${n} 个班级发布相同任务` : '任务发布成功'),
-      icon: 'success'
-    });
+    if (courseSyncFailed) {
+      uni.showModal({
+        title: '任务已发布',
+        content: `任务发布成功，但课程资料同步失败：${courseSyncMessage}`,
+        confirmText: '我知道了',
+        showCancel: false
+      });
+    } else {
+      uni.showToast({
+        title: attachCourse.value ? '任务和课程资料已发布' : (n > 1 ? `已向 ${n} 个班级发布相同任务` : '任务发布成功'),
+        icon: 'success'
+      });
+    }
     
     setTimeout(() => {
       uni.navigateBack();
     }, 1500);
   } catch (e) {
     uni.hideLoading();
-    console.error(e);
-    uni.showToast({ title: '发布失败', icon: 'none' });
+    console.error('Create teacher task failed:', e);
+    uni.showToast({ title: getRequestErrorMessage(e, '发布失败'), icon: 'none' });
   }
 };
 </script>

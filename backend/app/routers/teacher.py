@@ -22,9 +22,40 @@ from ..services.score_service import (
     week_bounds,
 )
 from ..services.notification_service import create_notification, create_notifications, sanitize_notification_type
+from ..services.face_profile_service import profile_to_status
 from ..database import get_db
 
 router = APIRouter(prefix="/teacher", tags=["teacher"])
+
+
+@router.get("/students/{student_user_id}/face-profile", response_model=schemas.FaceProfileStatusOut)
+async def get_student_face_profile_for_teacher(
+    student_user_id: int,
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db),
+):
+    student_query = await get_managed_students_query(current_user, db)
+    student = student_query.filter(models.User.id == student_user_id).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found or not managed by this teacher")
+    return profile_to_status(getattr(student, "face_profile", None))
+
+
+@router.delete("/students/{student_user_id}/face-profile")
+async def reset_student_face_profile_for_teacher(
+    student_user_id: int,
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db),
+):
+    student_query = await get_managed_students_query(current_user, db)
+    student = student_query.filter(models.User.id == student_user_id).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found or not managed by this teacher")
+    profile = getattr(student, "face_profile", None)
+    if profile:
+        db.delete(profile)
+        db.commit()
+    return {"ok": True, "student_user_id": student_user_id}
 
 async def _get_teacher_stats_data(current_user: models.User, db: Session):
     """教师端统计逻辑：委托给 teacher_service 处理"""

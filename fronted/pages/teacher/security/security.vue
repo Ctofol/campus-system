@@ -6,7 +6,7 @@
       <!-- 修改密码 -->
       <view class="menu-item" @click="changePassword">
         <view class="item-left">
-          <image class="item-icon" src="/static/叉号图标.png" mode="aspectFit" />
+          <image class="item-icon" src="/static/icons/icon-cross.svg" mode="aspectFit" />
           <text class="item-text">修改密码</text>
         </view>
         <text class="arrow">→</text>
@@ -15,7 +15,7 @@
       <!-- 绑定手机号 -->
       <view class="menu-item" @click="bindPhone">
         <view class="item-left">
-          <image class="item-icon" src="/static/主页GO图标.png" mode="aspectFit" />
+          <image class="item-icon" src="/static/icons/icon-teacher.svg" mode="aspectFit" />
           <text class="item-text">绑定手机号</text>
         </view>
         <view class="item-right">
@@ -27,7 +27,7 @@
       <!-- 账号注销 -->
       <view class="menu-item danger" @click="deleteAccount">
         <view class="item-left">
-          <image class="item-icon" src="/static/叉号图标.png" mode="aspectFit" />
+          <image class="item-icon" src="/static/icons/icon-cross.svg" mode="aspectFit" />
           <text class="item-text">账号注销</text>
         </view>
         <text class="arrow">→</text>

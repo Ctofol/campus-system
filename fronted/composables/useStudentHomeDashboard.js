@@ -60,9 +60,9 @@ export function useStudentHomeDashboard() {
 
   const greetingIcon = computed(() => {
     const h = new Date().getHours();
-    if (h >= 5 && h < 12) return '☀️';
-    if (h >= 12 && h < 18) return '🌤️';
-    return '🌙';
+    if (h >= 5 && h < 12) return 'weather-sunny';
+    if (h >= 12 && h < 18) return 'weather-cloudy';
+    return 'weather-night';
   });
 
   const greetingSub = computed(() => '坚持运动，遇见更好的自己');

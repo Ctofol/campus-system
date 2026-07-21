@@ -346,6 +346,21 @@ export const checkIn = (data) => {
   });
 };
 
+export const getFaceProfile = () => {
+  return request({
+    url: '/users/face-profile',
+    method: 'GET'
+  });
+};
+
+export const submitFaceProfile = (imageUrl) => {
+  return request({
+    url: '/users/face-profile',
+    method: 'POST',
+    data: { image_url: imageUrl }
+  });
+};
+
 // 文件上传
 export const uploadFile = (filePath, fileType = 'image') => {
   return new Promise((resolve, reject) => {
@@ -354,7 +369,7 @@ export const uploadFile = (filePath, fileType = 'image') => {
       url: `${BASE_URL}/upload/file`,
       filePath: filePath,
       name: 'file',
-      timeout: 120000,
+      timeout: fileType === 'video' ? 600000 : 120000,
       header: {
         'Authorization': token ? `Bearer ${token}` : ''
       },
@@ -432,6 +447,49 @@ export const getSunshineStats = () => {
   });
 };
 
+// AI Sports Assistant
+export const getAiAssistantStatus = () => {
+  return request({
+    url: '/ai-assistant/status',
+    method: 'GET'
+  });
+};
+
+export const askAiAssistant = (question) => {
+  return request({
+    url: '/ai-assistant/chat',
+    method: 'POST',
+    data: { question },
+    timeout: 90000
+  });
+};
+
+export const getAiRunReport = (data = {}) => {
+  return request({
+    url: '/ai-assistant/student/run-report',
+    method: 'POST',
+    data,
+    timeout: 90000
+  });
+};
+
+export const getAiTestFeedback = (data = {}) => {
+  return request({
+    url: '/ai-assistant/student/test-feedback',
+    method: 'POST',
+    data,
+    timeout: 90000
+  });
+};
+
+export const getTeacherAiBriefing = () => {
+  return request({
+    url: '/ai-assistant/teacher/briefing',
+    method: 'GET',
+    timeout: 90000
+  });
+};
+
 export default {
   login,
   register,
@@ -444,7 +502,12 @@ export default {
   getStudentTasks,
   getTeacherTaskDetail,
   getCheckpoints,
-  checkIn
+  checkIn,
+  getAiAssistantStatus,
+  askAiAssistant,
+  getAiRunReport,
+  getAiTestFeedback,
+  getTeacherAiBriefing
 };
 
 

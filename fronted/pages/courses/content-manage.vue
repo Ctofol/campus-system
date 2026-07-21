@@ -9,132 +9,145 @@
     </page-tab-header>
 
     <view class="page-tab-body">
-    <!-- 课程信息 -->
-    <view class="course-info-card">
-      <text class="course-title">{{ courseTitle }}</text>
-      <text class="content-count">共 {{ contents.length }} 个内容</text>
-    </view>
+      <view class="course-info-card">
+        <text class="course-title">{{ courseTitle || '课程内容' }}</text>
+        <text class="content-count">共 {{ contents.length }} 个内容</text>
+      </view>
 
-    <!-- 内容列表 -->
-    <view class="content-list">
-      <view 
-        class="content-item" 
-        v-for="(content, index) in contents" 
-        :key="content.id"
-      >
-        <view class="content-index">{{ index + 1 }}</view>
-        <view class="content-info">
-          <text class="content-title">{{ content.title }}</text>
-          <view class="content-meta">
-            <text class="meta-type">{{ getTypeLabel(content.content_type) }}</text>
-            <text class="meta-duration" v-if="content.duration">
-              {{ formatDuration(content.duration) }}
-            </text>
+      <view class="content-list" v-if="contents.length > 0">
+        <view
+          class="content-item"
+          v-for="(content, index) in contents"
+          :key="content.id"
+        >
+          <view class="content-index">{{ index + 1 }}</view>
+          <view class="content-info">
+            <text class="content-title">{{ content.title }}</text>
+            <view class="content-meta">
+              <text class="meta-type" :class="'meta-type--' + content.content_type">
+                {{ getTypeLabel(content.content_type) }}
+              </text>
+              <text class="meta-duration" v-if="content.duration">
+                {{ formatDuration(content.duration) }}
+              </text>
+            </view>
           </view>
-        </view>
-        <view class="content-actions">
-          <view class="action-btn edit" @click="editContent(content)">
-            <text>编辑</text>
-          </view>
-          <view class="action-btn delete" @click="deleteContent(content)">
-            <text>删除</text>
+          <view class="content-actions">
+            <view class="action-btn edit" @click="editContent(content)">
+              <text>编辑</text>
+            </view>
+            <view class="action-btn delete" @click="deleteContent(content)">
+              <text>删除</text>
+            </view>
           </view>
         </view>
       </view>
-    </view>
 
-    <!-- 空状态 -->
-    <view class="empty-state" v-if="contents.length === 0 && !loading">
-      <image class="empty-icon-img" src="/static/通知图标.png" mode="aspectFit" />
-      <text class="empty-text">还没有添加课程内容</text>
-      <button class="add-btn" @click="addContent">添加内容</button>
-    </view>
+      <view class="empty-state" v-if="contents.length === 0 && !loading">
+        <image class="empty-icon-img" src="/static/icons/icon-notification.svg" mode="aspectFit" />
+        <text class="empty-text">还没有添加课程内容</text>
+        <button class="add-btn" @click="addContent">添加内容</button>
+      </view>
 
-    <!-- 添加/编辑内容弹窗 -->
-    <view class="popup-mask" v-if="showPopup" @click="closePopup"></view>
-    <view class="popup-container" :class="{ show: showPopup }">
-      <view class="popup-content">
-        <view class="popup-header">
-          <text class="popup-title">{{ editingContent ? '编辑内容' : '添加内容' }}</text>
-          <view class="popup-close" @click="closePopup">
-            <text>×</text>
-          </view>
-        </view>
-
-        <view class="form-section">
-          <view class="form-item">
-            <text class="form-label">内容标题 <text class="required">*</text></text>
-            <input 
-              class="form-input" 
-              v-model="contentForm.title" 
-              placeholder="请输入内容标题"
-            />
-          </view>
-
-          <view class="form-item">
-            <text class="form-label">内容类型 <text class="required">*</text></text>
-            <view class="type-selector">
-              <view 
-                class="type-option" 
-                :class="{ active: contentForm.content_type === type.value }"
-                v-for="type in contentTypes" 
-                :key="type.value"
-                @click="selectType(type.value)"
-              >
-                <text>{{ type.label }}</text>
-              </view>
+      <view class="popup-mask" v-if="showPopup" @click="closePopup"></view>
+      <view class="popup-container" :class="{ show: showPopup }">
+        <view class="popup-content">
+          <view class="popup-header">
+            <text class="popup-title">{{ editingContent ? '编辑内容' : '添加内容' }}</text>
+            <view class="popup-close" @click="closePopup">
+              <text>×</text>
             </view>
           </view>
 
-          <view class="form-item" v-if="contentForm.content_type === 'link'">
-            <text class="form-label">外部链接 <text class="required">*</text></text>
-            <input 
-              class="form-input" 
-              v-model="contentForm.content_url" 
-              placeholder="粘贴视频或文档链接（小程序内将复制到剪贴板打开）"
-            />
-            <text class="form-hint">提示：小程序不支持直接打开外链，学生端将自动复制链接到剪贴板</text>
-          </view>
+          <view class="form-section">
+            <view class="form-item">
+              <text class="form-label">内容标题 <text class="required">*</text></text>
+              <input
+                class="form-input"
+                v-model="contentForm.title"
+                placeholder="请输入内容标题"
+              />
+            </view>
 
-          <view class="form-item" v-if="contentForm.content_type === 'document'">
-            <text class="form-label">文档文件 <text class="required">*</text></text>
-            <view class="upload-section">
-              <button class="upload-btn" @click="uploadDocument" :loading="uploading">
-                {{ contentForm.content_url ? '重新上传' : '上传文档' }}
-              </button>
-              <view class="upload-hint" v-if="contentForm.content_url">
-                <image class="upload-hint-img" src="/static/勾号图标.png" mode="aspectFit" /><text> 已上传</text>
+            <view class="form-item">
+              <text class="form-label">内容类型 <text class="required">*</text></text>
+              <view class="type-selector">
+                <view
+                  class="type-option"
+                  :class="{ active: contentForm.content_type === type.value }"
+                  v-for="type in contentTypes"
+                  :key="type.value"
+                  @click="selectType(type.value)"
+                >
+                  <text>{{ type.label }}</text>
+                </view>
               </view>
+            </view>
+
+            <view class="form-item" v-if="contentForm.content_type === 'video'">
+              <text class="form-label">视频文件 <text class="required">*</text></text>
+              <view class="upload-section">
+                <button class="upload-btn" @click="uploadVideo" :loading="uploading">
+                  {{ contentForm.content_url ? '重新上传视频' : '上传视频' }}
+                </button>
+                <view class="upload-hint" v-if="contentForm.content_url">
+                  <image class="upload-hint-img" src="/static/icons/icon-check.svg" mode="aspectFit" />
+                  <text>已上传</text>
+                </view>
+              </view>
+              <text class="form-hint">支持 MP4 视频，建议单个文件不超过 500MB。上传完成后再点击保存。</text>
+            </view>
+
+            <view class="form-item" v-if="contentForm.content_type === 'link'">
+              <text class="form-label">外部链接 <text class="required">*</text></text>
+              <input
+                class="form-input"
+                v-model="contentForm.content_url"
+                placeholder="粘贴视频、文档或网页链接"
+              />
+              <text class="form-hint">App 端会复制链接到剪贴板，学生可在浏览器或其他应用打开。</text>
+            </view>
+
+            <view class="form-item" v-if="contentForm.content_type === 'document'">
+              <text class="form-label">文档文件 <text class="required">*</text></text>
+              <view class="upload-section">
+                <button class="upload-btn" @click="uploadDocument" :loading="uploading">
+                  {{ contentForm.content_url ? '重新上传' : '上传文档' }}
+                </button>
+                <view class="upload-hint" v-if="contentForm.content_url">
+                  <image class="upload-hint-img" src="/static/icons/icon-check.svg" mode="aspectFit" />
+                  <text>已上传</text>
+                </view>
+              </view>
+            </view>
+
+            <view class="form-item">
+              <text class="form-label">排序</text>
+              <input
+                class="form-input"
+                v-model.number="contentForm.order"
+                type="number"
+                placeholder="数字越小越靠前"
+              />
             </view>
           </view>
 
-          <view class="form-item">
-            <text class="form-label">排序</text>
-            <input 
-              class="form-input" 
-              v-model.number="contentForm.order" 
-              type="number"
-              placeholder="数字越小越靠前"
-            />
+          <view class="popup-actions">
+            <button class="cancel-btn" @click="closePopup">取消</button>
+            <button class="submit-btn" @click="saveContent" :loading="submitting">
+              保存
+            </button>
           </view>
-        </view>
-
-        <view class="popup-actions">
-          <button class="cancel-btn" @click="closePopup">取消</button>
-          <button class="submit-btn" @click="saveContent" :loading="submitting">
-            保存
-          </button>
         </view>
       </view>
-    </view>
     </view>
   </view>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref } from 'vue';
 import { onLoad, onShow } from '@dcloudio/uni-app';
-import { request, uploadFile, BASE_URL } from '@/utils/request.js';
+import { request, uploadFile } from '@/utils/request.js';
 
 const courseId = ref(null);
 const courseTitle = ref('');
@@ -146,25 +159,20 @@ const editingContent = ref(null);
 const showPopup = ref(false);
 
 const contentTypes = [
+  { label: '视频课时', value: 'video' },
   { label: '外部链接', value: 'link' },
   { label: '文档', value: 'document' }
 ];
 
-const contentForm = ref({
+const createEmptyForm = () => ({
   title: '',
-  content_type: '',
+  content_type: 'video',
   content_url: '',
-  order: 0
+  duration: null,
+  order: contents.value.length
 });
 
-const selectedTypeIndex = computed(() => {
-  return contentTypes.findIndex(t => t.value === contentForm.value.content_type);
-});
-
-const selectedTypeLabel = computed(() => {
-  const type = contentTypes.find(t => t.value === contentForm.value.content_type);
-  return type ? type.label : '';
-});
+const contentForm = ref(createEmptyForm());
 
 const loadCourseInfo = async () => {
   try {
@@ -172,7 +180,7 @@ const loadCourseInfo = async () => {
       url: `/courses/${courseId.value}`,
       method: 'GET'
     });
-    courseTitle.value = res.title;
+    courseTitle.value = res.title || '';
   } catch (e) {
     console.error('Failed to load course info:', e);
   }
@@ -185,7 +193,7 @@ const loadContents = async () => {
       url: `/courses/${courseId.value}/contents`,
       method: 'GET'
     });
-    contents.value = res;
+    contents.value = Array.isArray(res) ? res : [];
   } catch (e) {
     console.error('Failed to load contents:', e);
     uni.showToast({ title: '加载失败', icon: 'none' });
@@ -196,62 +204,86 @@ const loadContents = async () => {
 
 const getTypeLabel = (type) => {
   const typeObj = contentTypes.find(t => t.value === type);
-  return typeObj ? typeObj.label : '未知';
+  return typeObj ? typeObj.label : '内容';
 };
 
 const formatDuration = (seconds) => {
-  if (!seconds) return '';
-  const minutes = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  return `${minutes}:${secs.toString().padStart(2, '0')}`;
+  const total = Math.max(0, Number(seconds) || 0);
+  const minutes = Math.floor(total / 60);
+  const secs = total % 60;
+  return `${minutes}:${String(secs).padStart(2, '0')}`;
 };
 
 const addContent = () => {
   editingContent.value = null;
-  contentForm.value = {
-    title: '',
-    content_type: '',
-    content_url: '',
-    duration: null,
-    order: contents.value.length
-  };
+  contentForm.value = createEmptyForm();
   showPopup.value = true;
 };
 
 const editContent = (content) => {
   editingContent.value = content;
   contentForm.value = {
-    title: content.title,
-    content_type: content.content_type,
-    content_url: content.content_url,
-    duration: content.duration,
-    order: content.order
+    title: content.title || '',
+    content_type: content.content_type || 'video',
+    content_url: content.content_url || '',
+    duration: content.duration || null,
+    order: content.order ?? contents.value.length
   };
   showPopup.value = true;
 };
 
 const selectType = (type) => {
+  if (contentForm.value.content_type === type) return;
   contentForm.value.content_type = type;
-  // 切换类型时清空URL
   contentForm.value.content_url = '';
+  contentForm.value.duration = null;
 };
 
-const onTypeChange = (e) => {
-  contentForm.value.content_type = contentTypes[e.detail.value].value;
-  // 切换类型时清空URL
-  contentForm.value.content_url = '';
+const uploadVideo = () => {
+  uni.chooseVideo({
+    sourceType: ['album', 'camera'],
+    compressed: false,
+    maxDuration: 600,
+    success: async (res) => {
+      const tempFilePath = res.tempFilePath || res.tempFile;
+      if (!tempFilePath) {
+        uni.showToast({ title: '未选择视频', icon: 'none' });
+        return;
+      }
+
+      uploading.value = true;
+      try {
+        const uploaded = await uploadFile(tempFilePath, 'video');
+        contentForm.value.content_url = uploaded.url;
+        contentForm.value.duration = Math.max(1, Math.round(Number(res.duration) || 0)) || null;
+        if (!contentForm.value.title) {
+          contentForm.value.title = uploaded.original_filename || '视频课时';
+        }
+        uni.showToast({ title: '视频上传成功', icon: 'success' });
+      } catch (e) {
+        console.error('Upload video failed:', e);
+        uni.showToast({ title: e.message || '视频上传失败', icon: 'none' });
+      } finally {
+        uploading.value = false;
+      }
+    },
+    fail: (err) => {
+      if (err && String(err.errMsg || '').includes('cancel')) return;
+      uni.showToast({ title: '选择视频失败', icon: 'none' });
+    }
+  });
 };
 
 const uploadDocument = () => {
   uni.showModal({
     title: '提示',
-    content: '暂不支持直接上传文档，请选择「外部链接」类型粘贴文档或网盘地址',
+    content: '当前版本暂不支持直接上传文档，请选择“外部链接”类型粘贴文档或网盘地址。',
     showCancel: false
   });
 };
 
 const validateForm = () => {
-  if (!contentForm.value.title.trim()) {
+  if (!String(contentForm.value.title || '').trim()) {
     uni.showToast({ title: '请输入内容标题', icon: 'none' });
     return false;
   }
@@ -268,21 +300,29 @@ const validateForm = () => {
 
 const saveContent = async () => {
   if (!validateForm()) return;
-  
+
   submitting.value = true;
   try {
+    const payload = {
+      title: String(contentForm.value.title || '').trim(),
+      content_type: contentForm.value.content_type,
+      content_url: contentForm.value.content_url,
+      duration: contentForm.value.duration,
+      order: Number(contentForm.value.order) || 0
+    };
+
     if (editingContent.value) {
       await request({
         url: `/courses/${courseId.value}/contents/${editingContent.value.id}`,
         method: 'PUT',
-        data: contentForm.value
+        data: payload
       });
       uni.showToast({ title: '更新成功', icon: 'success' });
     } else {
       await request({
         url: `/courses/${courseId.value}/contents`,
         method: 'POST',
-        data: contentForm.value
+        data: payload
       });
       uni.showToast({ title: '添加成功', icon: 'success' });
     }
@@ -303,20 +343,19 @@ const saveContent = async () => {
 const deleteContent = (content) => {
   uni.showModal({
     title: '确认删除',
-    content: `确定要删除"${content.title}"吗？`,
+    content: `确定要删除“${content.title}”吗？`,
     success: async (res) => {
-      if (res.confirm) {
-        try {
-          await request({
-            url: `/courses/${courseId.value}/contents/${content.id}`,
-            method: 'DELETE'
-          });
-          uni.showToast({ title: '已删除', icon: 'success' });
-          loadContents();
-        } catch (e) {
-          console.error('Delete failed:', e);
-          uni.showToast({ title: '删除失败', icon: 'none' });
-        }
+      if (!res.confirm) return;
+      try {
+        await request({
+          url: `/courses/${courseId.value}/contents/${content.id}`,
+          method: 'DELETE'
+        });
+        uni.showToast({ title: '已删除', icon: 'success' });
+        loadContents();
+      } catch (e) {
+        console.error('Delete failed:', e);
+        uni.showToast({ title: '删除失败', icon: 'none' });
       }
     }
   });
@@ -324,10 +363,6 @@ const deleteContent = (content) => {
 
 const closePopup = () => {
   showPopup.value = false;
-};
-
-const goBack = () => {
-  uni.navigateBack();
 };
 
 onLoad((options) => {
@@ -352,14 +387,6 @@ onShow(() => {
   padding-bottom: 40rpx;
 }
 
-.nav-action {
-  width: 60rpx;
-  height: 60rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
 .action-icon {
   font-size: 48rpx;
   color: #20C997;
@@ -370,7 +397,7 @@ onShow(() => {
   padding: 30rpx;
   margin: 20rpx 30rpx;
   border-radius: 20rpx;
-  box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.04);
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.04);
 }
 
 .course-title {
@@ -397,7 +424,7 @@ onShow(() => {
   margin-bottom: 20rpx;
   display: flex;
   align-items: center;
-  box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.04);
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.04);
 }
 
 .content-index {
@@ -429,8 +456,15 @@ onShow(() => {
   white-space: nowrap;
 }
 
-.content-meta {
+.content-meta,
+.content-actions,
+.upload-section,
+.upload-hint {
   display: flex;
+  align-items: center;
+}
+
+.content-meta {
   gap: 20rpx;
 }
 
@@ -442,13 +476,22 @@ onShow(() => {
   border-radius: 8rpx;
 }
 
+.meta-type--video {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.meta-type--link {
+  background: #fff4e5;
+  color: #c77800;
+}
+
 .meta-duration {
   font-size: 22rpx;
   color: #999;
 }
 
 .content-actions {
-  display: flex;
   gap: 16rpx;
   flex-shrink: 0;
 }
@@ -457,16 +500,16 @@ onShow(() => {
   padding: 12rpx 24rpx;
   border-radius: 8rpx;
   font-size: 24rpx;
-  
-  &.edit {
-    background: #20C997;
-    color: #fff;
-  }
-  
-  &.delete {
-    background: #f5f7fa;
-    color: #ff6b6b;
-  }
+}
+
+.action-btn.edit {
+  background: #20C997;
+  color: #fff;
+}
+
+.action-btn.delete {
+  background: #f5f7fa;
+  color: #ff6b6b;
 }
 
 .empty-state {
@@ -516,10 +559,10 @@ onShow(() => {
   z-index: 1000;
   transform: translateY(100%);
   transition: transform 0.3s;
-  
-  &.show {
-    transform: translateY(0);
-  }
+}
+
+.popup-container.show {
+  transform: translateY(0);
 }
 
 .popup-content {
@@ -582,31 +625,12 @@ onShow(() => {
   box-sizing: border-box;
 }
 
-.picker-view {
-  width: 100%;
-  height: 88rpx;
-  background: #f5f7fa;
-  border-radius: 12rpx;
-  padding: 0 24rpx;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  box-sizing: border-box;
-}
-
-.selected {
-  font-size: 28rpx;
-  color: #333;
-}
-
-.placeholder {
-  font-size: 28rpx;
-  color: #999;
-}
-
-.arrow {
-  font-size: 40rpx;
-  color: #999;
+.form-hint {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 24rpx;
+  color: #8a9bab;
+  line-height: 1.5;
 }
 
 .type-selector {
@@ -625,16 +649,14 @@ onShow(() => {
   font-size: 28rpx;
   color: #666;
   transition: all 0.3s;
-  
-  &.active {
-    background: #20C997;
-    color: #fff;
-  }
+}
+
+.type-option.active {
+  background: #20C997;
+  color: #fff;
 }
 
 .upload-section {
-  display: flex;
-  align-items: center;
   gap: 20rpx;
 }
 
@@ -651,8 +673,6 @@ onShow(() => {
 .upload-hint {
   font-size: 26rpx;
   color: #4caf50;
-  display: flex;
-  align-items: center;
   gap: 6rpx;
 }
 

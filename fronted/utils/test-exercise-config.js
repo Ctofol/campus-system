@@ -17,21 +17,24 @@ export const TEST_EXERCISES = [
   {
     id: 'pull_up',
     label: '引体向上',
-    icon: '🏋️',
+    iconName: 'pull-up',
+    iconPath: '/static/test/exercise-pull-up.svg',
     apiType: 'pull_up',
     brief: '下颏过杠，双臂伸直'
   },
   {
     id: 'push_up',
     label: '俯卧撑',
-    icon: '💪',
+    iconName: 'push-up',
+    iconPath: '/static/test/exercise-push-up.svg',
     apiType: 'push_up',
     brief: '身体平直，胸部触地'
   },
   {
     id: 'sit_up',
     label: '仰卧起坐',
-    icon: '🤸',
+    iconName: 'sit-up',
+    iconPath: '/static/test/exercise-sit-up.svg',
     apiType: 'sit_up',
     brief: '双手抱头，起身触膝'
   }

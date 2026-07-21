@@ -10,7 +10,7 @@
       <!-- 跑团卡片 -->
       <view class="card group-card">
         <view class="group-info">
-          <view class="group-avatar"><image class="group-avatar-img" src="/static/home-outdoor-run.png" mode="aspectFit" /></view>
+          <view class="group-avatar"><image class="group-avatar-img" src="/static/icons/icon-route.svg" mode="aspectFit" /></view>
           <view class="group-detail">
             <view class="group-name-row">
               <text class="group-name">{{ groupName }}</text>
@@ -79,7 +79,7 @@
             @tap="cell.day && selectDay(cell.day)"
           >
             <text v-if="cell.day" class="cc-txt">{{ cell.day }}</text>
-            <image v-if="cell.checked" class="cc-dot-img" src="/static/icon-check.png" mode="aspectFit" />
+            <image v-if="cell.checked" class="cc-dot-img" src="/static/icons/icon-check.svg" mode="aspectFit" />
           </view>
         </view>
         <view class="cal-legend">
@@ -98,14 +98,14 @@
         </view>
         <view v-if="selectedRecords.length">
           <view v-for="r in selectedRecords" :key="r.id" class="rec-item" @tap="goDetail(r)">
-            <image class="rec-icon-img" src="/static/home-outdoor-run.png" mode="aspectFit" />
+            <image class="rec-icon-img" src="/static/icons/icon-route.svg" mode="aspectFit" />
             <view class="rec-info">
               <view class="rec-main">
                 <text class="rec-dist">{{ r.distance_km }} <text class="rec-unit">公里</text></text>
-                <view class="rec-stat"><image class="rec-stat-img" src="/static/home-duration.png" mode="aspectFit" /><text>{{ formatDuration(r.duration) }}</text><text class="rec-stat-l">用时</text></view>
-                <view class="rec-stat"><image class="rec-stat-img" src="/static/home-pace.png" mode="aspectFit" /><text>{{ formatPace(r.pace) }}</text><text class="rec-stat-l">配速</text></view>
+                <view class="rec-stat"><image class="rec-stat-img" src="/static/icons/icon-duration.svg" mode="aspectFit" /><text>{{ formatDuration(r.duration) }}</text><text class="rec-stat-l">用时</text></view>
+                <view class="rec-stat"><image class="rec-stat-img" src="/static/icons/icon-pace.svg" mode="aspectFit" /><text>{{ formatPace(r.pace) }}</text><text class="rec-stat-l">配速</text></view>
               </view>
-              <view class="rec-meta"><image class="rec-meta-img" src="/static/location.png" mode="aspectFit" /><text>户外跑 · {{ formatTime(r.started_at) }}</text></view>
+              <view class="rec-meta"><image class="rec-meta-img" src="/static/icons/icon-activity-location.svg" mode="aspectFit" /><text>户外跑 · {{ formatTime(r.started_at) }}</text></view>
             </view>
             <text class="rec-chev">›</text>
           </view>
@@ -138,7 +138,7 @@
           </view>
           <view v-for="m in milestones" :key="m.days" class="reward-node" :style="{ left: m.pct + '%' }">
             <view class="rn-icon" :class="{ 'rn-unlocked': calData.streak >= m.days }">
-              <image v-if="calData.streak >= m.days" class="rn-icon-emoji" src="/static/icon-check.png" mode="aspectFit" /><image v-else class="rn-icon-emoji" src="/static/icon-cross.png" mode="aspectFit" />
+              <image v-if="calData.streak >= m.days" class="rn-icon-emoji" src="/static/icons/icon-check.svg" mode="aspectFit" /><image v-else class="rn-icon-emoji" src="/static/icons/icon-cross.svg" mode="aspectFit" />
             </view>
             <text class="rn-label">{{ m.days }}天</text>
           </view>

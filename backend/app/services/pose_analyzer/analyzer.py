@@ -69,6 +69,7 @@ def _analyze_with_mediapipe(video_path: str, exercise_type: str) -> Optional[Dic
     reps = 0
     state = "down"
     frame_idx = 0
+    pose_frames = 0
     sample_every = 2
 
     try:
@@ -84,6 +85,7 @@ def _analyze_with_mediapipe(video_path: str, exercise_type: str) -> Optional[Dic
                 result = pose.process(rgb)
                 if not result.pose_landmarks:
                     continue
+                pose_frames += 1
                 lm = result.pose_landmarks.landmark
                 if exercise_type == "pull_up":
                     nose_y = lm[mp_pose.PoseLandmark.NOSE].y
@@ -111,6 +113,7 @@ def _analyze_with_mediapipe(video_path: str, exercise_type: str) -> Optional[Dic
         "count": max(0, reps),
         "engine": "mediapipe",
         "frames_sampled": frame_idx,
+        "pose_frames": pose_frames,
     }
 
 
@@ -210,7 +213,36 @@ def analyze_test_video(
 
     raw = _analyze_with_mediapipe(path, ex)
     if raw is None:
-        raw = _analyze_motion_heuristic(path, ex)
+        detail = json.dumps(
+            {
+                "engine": "mediapipe",
+                "exercise_type": ex,
+                "min_required": min_need,
+                "count": 0,
+                "qualified": False,
+                "review_reason": "pose_engine_unavailable",
+                "risk_flags": ["pose_engine_unavailable"],
+            },
+            ensure_ascii=False,
+        )
+        return 0, False, 0, detail
+
+    if int(raw.get("pose_frames") or 0) < 5:
+        detail = json.dumps(
+            {
+                "engine": raw.get("engine"),
+                "exercise_type": ex,
+                "min_required": min_need,
+                "count": 0,
+                "qualified": False,
+                "frames_sampled": raw.get("frames_sampled"),
+                "pose_frames": raw.get("pose_frames"),
+                "review_reason": "too_few_pose_frames",
+                "risk_flags": ["too_few_pose_frames"],
+            },
+            ensure_ascii=False,
+        )
+        return 0, False, 0, detail
 
     count = int(raw.get("count", 0))
     qualified = count >= min_need

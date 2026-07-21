@@ -45,6 +45,10 @@ page {
   box-sizing: border-box;
 }
 
+.page-tab-body--compact-top {
+  padding-top: 0;
+}
+
 /* 顶栏右侧操作（配合 page-tab-header #right 插槽，避免与标题重叠） */
 .page-tab-header-text-action {
   font-size: 26rpx;

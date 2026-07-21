@@ -32,7 +32,7 @@
       <!-- 3. 工具栏 -->
       <view class="tools-section">
         <view class="search-bar">
-           <image class="search-icon" src="/static/主页GO图标.png" mode="aspectFit" />
+           <image class="search-icon" src="/static/icons/icon-teacher.svg" mode="aspectFit" />
            <input v-model="keyword" class="search-input" placeholder="搜索姓名/学号..." confirm-type="search" @confirm="onSearchConfirm" />
         </view>
         
@@ -61,7 +61,7 @@
       <!-- 4. 通知栏: 请假审批 -->
       <view class="notice-bar" v-if="(pendingRequests||[]).length > 0" @click="showHealthModal = true">
         <view class="notice-content">
-          <image class="notice-icon" src="/static/数据图标.png" mode="aspectFit" />
+          <image class="notice-icon" src="/static/icons/icon-data.svg" mode="aspectFit" />
           <text>有 {{ (pendingRequests||[]).length }} 条请假申请待处理</text>
         </view>
         <text class="arrow">去处理 →</text>
@@ -70,7 +70,7 @@
       <!-- 5. 通知栏: 运动异常 (新增) -->
       <view class="notice-bar exception" v-if="pendingExceptionCount > 0" @click="goToExceptions">
         <view class="notice-content">
-          <image class="notice-icon" src="/static/主页户外跑图标.png" mode="aspectFit" />
+          <image class="notice-icon" src="/static/icons/icon-route.svg" mode="aspectFit" />
           <text>有 {{ pendingExceptionCount }} 条运动异常待核实</text>
         </view>
         <text class="arrow">去核实 →</text>
@@ -80,7 +80,7 @@
     <!-- AI Analysis Reports Notification -->
     <view class="report-notice" v-if="(sharedReports||[]).length > 0" @click="showReportsModal = true">
       <view class="notice-left">
-        <image class="notice-icon" src="/static/叉号图标.png" mode="aspectFit" />
+        <image class="notice-icon" src="/static/icons/icon-cross.svg" mode="aspectFit" />
         <text class="notice-text">收到 {{ (sharedReports||[]).length }} 份新的运动分析报告</text>
       </view>
       <text class="notice-arrow">查看 →</text>
@@ -148,7 +148,7 @@
       <view class="report-modal" @click.stop>
         <view class="modal-header">
           <view class="modal-title">
-            <image class="notif-inline-icon" src="/static/通知图标.png" mode="aspectFit" />
+            <image class="notif-inline-icon" src="/static/icons/icon-notification.svg" mode="aspectFit" />
             <text>请假/伤病审批</text>
           </view>
           <text class="close-btn" @click="showHealthModal = false">×</text>
@@ -162,14 +162,14 @@
             <view class="report-card" :class="req.type">
               <view class="card-header">
                 <view class="report-type-tag" :class="req.type">
-                  <image v-if="req.type === 'leave'" class="report-type-tag-img" src="/static/请假申请图标.png" mode="aspectFit" />
-                  <image v-else class="report-type-tag-img" src="/static/叉号图标.png" mode="aspectFit" />
+                  <image v-if="req.type === 'leave'" class="report-type-tag-img" src="/static/icons/icon-leave-request.svg" mode="aspectFit" />
+                  <image v-else class="report-type-tag-img" src="/static/icons/icon-cross.svg" mode="aspectFit" />
                   <text>{{ req.type === 'leave' ? '请假申请' : '伤病报告' }}</text>
                 </view>
               </view>
               <view class="report-body">
                 <text class="report-time-range" v-if="req.type === 'leave' && (req.start_date || req.end_date)">
-                  请假时间：{{ (req.start_date || '').substring(0, 10) }} 至 {{ (req.end_date || '').substring(0, 10) }}
+                  请假时间：{{ formatLeaveDateTime(req.start_date) }} 至 {{ formatLeaveDateTime(req.end_date) }}
                 </text>
                 <text class="report-content">{{ req.reason }}</text>
               </view>
@@ -191,7 +191,7 @@
       <view class="report-modal" @click.stop>
         <view class="modal-header">
           <view class="modal-title">
-            <image class="notif-inline-icon" src="/static/数据图标.png" mode="aspectFit" />
+            <image class="notif-inline-icon" src="/static/icons/icon-data.svg" mode="aspectFit" />
             <text>学员运动分析报告</text>
           </view>
           <text class="close-btn" @click="showReportsModal = false">×</text>
@@ -205,7 +205,7 @@
             <view class="report-card">
               <text class="report-title">{{ report.card.title }}</text>
               <view class="report-suggestion" v-if="report.card.suggestion">
-                <image class="report-suggestion-img" src="/static/通知图标（收到通知红点版）.png" mode="aspectFit" />
+                <image class="report-suggestion-img" src="/static/icons/icon-notification-unread.svg" mode="aspectFit" />
                 <text>{{ report.card.suggestion }}</text>
               </view>
               <view class="report-chart" v-if="report.card.chartData">
@@ -804,6 +804,11 @@ const handleRequest = async (req, action) => {
 const formatDate = (str) => {
   if (!str) return '';
   return new Date(str).toLocaleDateString();
+};
+
+const formatLeaveDateTime = (str) => {
+  if (!str) return '';
+  return String(str).replace('T', ' ').substring(0, 16);
 };
 
 const replyStudent = (report) => {

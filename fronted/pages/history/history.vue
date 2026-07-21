@@ -2,7 +2,7 @@
   <view class="container">
     <page-tab-header title="全部运动记录" show-back theme="white" />
 
-    <view class="content-wrapper page-tab-body">
+    <view class="content-wrapper page-tab-body page-tab-body--compact-top">
       <scroll-view scroll-y class="record-list" @scrolltolower="loadMore">
         <view 
           class="record-item" 
@@ -133,15 +133,19 @@ const formatDuration = (seconds) => {
 .container {
   min-height: 100vh;
   background-color: #f5f7fa;
+  display: flex;
+  flex-direction: column;
 }
 .content-wrapper {
-    height: 100vh;
-    box-sizing: border-box;
+  flex: 1;
+  min-height: 0;
+  box-sizing: border-box;
 }
 .record-list {
-    height: 100%;
-    padding: 20rpx;
-    box-sizing: border-box;
+  flex: 1;
+  min-height: 0;
+  padding: 20rpx 20rpx 0;
+  box-sizing: border-box;
 }
 .record-item {
   background: #fff;

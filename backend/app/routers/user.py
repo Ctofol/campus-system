@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from .. import models, schemas, auth, database, config
 from ..db_migrate import ensure_schema_upgrades
+from ..services.face_profile_service import profile_to_status, upsert_student_face_profile
 from datetime import timedelta
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -15,6 +16,35 @@ def _safe_rel_str(getter):
         return getter()
     except Exception:
         return None
+
+
+@router.get("/face-profile", response_model=schemas.FaceProfileStatusOut)
+def get_my_face_profile(
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
+    ensure_schema_upgrades()
+    db.refresh(current_user)
+    return profile_to_status(getattr(current_user, "face_profile", None))
+
+
+@router.post("/face-profile", response_model=schemas.FaceProfileStatusOut)
+def submit_my_face_profile(
+    payload: schemas.FaceProfileSubmit,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
+    ensure_schema_upgrades()
+    if current_user.role != "student":
+        raise HTTPException(status_code=403, detail="Only students can submit face profiles")
+    image_url = (payload.image_url or "").strip()
+    if not image_url:
+        raise HTTPException(status_code=400, detail="image_url is required")
+    try:
+        profile = upsert_student_face_profile(db, current_user, image_url)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return profile_to_status(profile)
 
 
 @router.get("/profile", response_model=schemas.UserProfile)
@@ -46,6 +76,8 @@ def get_my_profile(
         "weekly_run_goal_km": float(current_user.weekly_run_goal_km or 0)
         if getattr(current_user, "weekly_run_goal_km", None)
         else 0.0,
+        "face_profile_status": profile_to_status(getattr(current_user, "face_profile", None)).get("status"),
+        "face_profile_updated_at": profile_to_status(getattr(current_user, "face_profile", None)).get("updated_at"),
     }
     return profile_data
 

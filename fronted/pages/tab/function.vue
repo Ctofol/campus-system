@@ -32,6 +32,17 @@
           </view>
         </view>
 
+        <view class="ai-entry page-card" @click="goToAiAssistant">
+          <view class="ai-entry__icon">
+            <image class="ai-entry__icon-img" src="/static/icons/icon-ai.svg" mode="aspectFit" />
+          </view>
+          <view class="ai-entry__body">
+            <text class="ai-entry__title">AI助手</text>
+            <text class="ai-entry__desc">规则问答、训练建议、班级简报</text>
+          </view>
+          <text class="entry-arrow">›</text>
+        </view>
+
         <!-- 阳光跑看板 / 今日状态 -->
         <view class="today-card page-card" @click="goToSunshineDetail">
           <view class="card-header">
@@ -187,6 +198,7 @@ const ringStyle = computed(() => {
 
 const goToRun = () => uni.navigateTo({ url: '/pages/run/run' });
 const goToPhysicalTest = () => uni.navigateTo({ url: '/pages/test/test' });
+const goToAiAssistant = () => uni.navigateTo({ url: '/pages/ai-assistant/index' });
 const goToSunshineDetail = () => {
   if (role.value !== 'student') return;
   uni.navigateTo({ url: '/pages/sunshine/detail' });
@@ -388,4 +400,48 @@ onMounted(() => {
 
 /* 最近记录 */
 
+.ai-entry {
+  margin: 0 30rpx 24rpx;
+  display: flex;
+  align-items: center;
+  min-height: 112rpx;
+  padding: 24rpx;
+  box-sizing: border-box;
+}
+
+.ai-entry__icon {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 18rpx;
+  background: #E8F8F2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 18rpx;
+  flex-shrink: 0;
+}
+
+.ai-entry__icon-img {
+  width: 52rpx;
+  height: 52rpx;
+}
+
+.ai-entry__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ai-entry__title {
+  font-size: 29rpx;
+  color: #191C1E;
+  font-weight: 800;
+}
+
+.ai-entry__desc {
+  margin-top: 6rpx;
+  font-size: 23rpx;
+  color: #718094;
+}
 </style>

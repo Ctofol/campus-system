@@ -55,6 +55,8 @@ class UserProfile(BaseModel):
     avatar_url: Optional[str] = None
     header_bg_url: Optional[str] = None
     weekly_run_goal_km: Optional[float] = 0.0
+    face_profile_status: Optional[str] = None
+    face_profile_updated_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
 
     class Config:
@@ -67,6 +69,23 @@ class UserProfileUpdate(BaseModel):
     avatar_url: Optional[str] = None
     header_bg_url: Optional[str] = None
     weekly_run_goal_km: Optional[float] = None
+
+
+class FaceProfileSubmit(BaseModel):
+    image_url: str
+
+
+class FaceProfileStatusOut(BaseModel):
+    status: str
+    image_url: Optional[str] = None
+    updated_at: Optional[datetime] = None
+    model_version: Optional[str] = None
+    fail_reason: Optional[str] = None
+    quality_score: Optional[float] = None
+
+    class Config:
+        from_attributes = True
+
 
 class TokenData(BaseModel):
     phone: str | None = None
@@ -239,6 +258,7 @@ class ActivityOut(BaseModel):
     face_liveness_pass: Optional[bool] = None
     face_match_score: Optional[float] = None
     face_fail_code: Optional[str] = None
+    face_detail: Optional[str] = None
     today_completed: Optional[bool] = None
     task_id: Optional[int] = None
     task_title: Optional[str] = None
@@ -455,6 +475,7 @@ class StudentDetail(StudentInfo):
     # 鏁欏笀绔睍绀猴細琛屾斂鐝?/ 涓撲笟锛堜笌 User.plain_class_name銆乵ajor 瀵归綈锛?    plain_class_name: Optional[str] = None
     major_name: Optional[str] = None
     class_name: Optional[str] = None
+
 
 class StudentUpdate(BaseModel):
     student_id: Optional[str] = None

@@ -168,7 +168,7 @@ import {
   TEST_FLOW_STEPS,
   exerciseIdToApiType
 } from '@/utils/test-exercise-config.js';
-import { uploadFile, submitActivity, getTestAnalysisStatus } from '@/utils/request.js';
+import { uploadFile, submitActivity, getTestAnalysisStatus, getFaceProfile } from '@/utils/request.js';
 
 const exerciseId = ref('pull_up');
 const taskId = ref(null);
@@ -418,7 +418,29 @@ const prepareCameraContext = async () => {
   return !!cameraCtx;
 };
 
+const ensureFaceProfileReady = async () => {
+  try {
+    const profile = await getFaceProfile();
+    if (profile?.status === 'verified') return true;
+    uni.showModal({
+      title: '需要人脸认证',
+      content: '体测会先校验本人身份，请先完成人脸认证。',
+      confirmText: '去认证',
+      success: (res) => {
+        if (res.confirm) {
+          uni.navigateTo({ url: '/pages/mine/face-profile/face-profile' });
+        }
+      }
+    });
+    return false;
+  } catch (e) {
+    uni.showToast({ title: e.message || '认证状态读取失败', icon: 'none' });
+    return false;
+  }
+};
+
 const startRecording = async () => {
+  if (!(await ensureFaceProfileReady())) return;
   if (!isCameraApiAvailable()) {
     if (isNativeVideoCaptureAvailable()) {
       await captureVideoWithNativeCamera();
@@ -446,6 +468,7 @@ const onCameraError = (e) => {
 };
 
 const startCamRecord = async () => {
+  if (!(await ensureFaceProfileReady())) return;
   if (!isCameraApiAvailable()) {
     if (isNativeVideoCaptureAvailable()) {
       await captureVideoWithNativeCamera();
@@ -609,6 +632,12 @@ const pollAnalysis = () => {
         analysisScore.value = res?.score || 0;
         analysisPassed.value = !!res?.qualified;
         phase.value = 'done';
+        return;
+      }
+      if (status === 'needs_review') {
+        clearInterval(dotTimer);
+        uni.showToast({ title: res?.analysis_error || '需要教师复核', icon: 'none' });
+        phase.value = 'preview';
         return;
       }
       if (status === 'failed') {

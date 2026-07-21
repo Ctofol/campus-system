@@ -84,7 +84,7 @@ def verify_activity(user: models.User, activity: models.Activity, db) -> Tuple[b
     # 人脸核验优先执行并写入 activity，便于短距离测试也能看到相似度
     from .face_verify_service import apply_face_outcome_to_activity, verify_run_faces
 
-    face_outcome = verify_run_faces(activity.evidence)
+    face_outcome = verify_run_faces(activity.evidence, user=user, db=db)
     apply_face_outcome_to_activity(activity, face_outcome)
     face_verified = face_outcome.face_verified
 
