@@ -79,7 +79,7 @@
 
     <!-- 空状态 -->
     <view class="empty-state" v-if="filteredResources.length === 0 && !loading">
-      <image class="empty-icon" src="/static/主页课程图标.png" mode="aspectFit" />
+      <image class="empty-icon" src="/static/icons/teacher-resource.svg" mode="aspectFit" />
       <text class="empty-text">还没有教学资源</text>
       <button class="create-btn" @click="createResource">创建资源</button>
     </view>
@@ -405,10 +405,10 @@ uni.$on('courseCreated', () => {
 }
 
 .empty-icon {
-  width: 120rpx;
-  height: 120rpx;
+  width: 108rpx;
+  height: 108rpx;
   display: block;
-  margin-bottom: 30rpx;
+  margin: 0 auto 30rpx;
 }
 
 .empty-text {

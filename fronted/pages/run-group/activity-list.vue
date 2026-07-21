@@ -50,15 +50,15 @@
         </view>
         <text class="title">{{ activity.title }}</text>
         <view class="info-row">
-          <image class="info-icon-img" src="/static/日历.png" mode="aspectFit" />
+          <image class="info-icon-img" src="/static/icons/icon-calendar.svg" mode="aspectFit" />
           <text class="text">{{ formatTime(activity.activity_time) }}</text>
         </view>
         <view class="info-row" v-if="activity.location">
-          <image class="info-icon-img" src="/static/location.png" mode="aspectFit" />
+          <image class="info-icon-img" src="/static/icons/icon-activity-location.svg" mode="aspectFit" />
           <text class="text">{{ activity.location }}</text>
         </view>
         <view class="info-row" v-if="activity.distance">
-          <image class="info-icon-img" src="/static/主页户外跑图标.png" mode="aspectFit" />
+          <image class="info-icon-img" src="/static/icons/icon-route.svg" mode="aspectFit" />
           <text class="text">{{ activity.distance }}km</text>
         </view>
         <view class="apply-info">
@@ -172,15 +172,16 @@ onMounted(() => {
 <style scoped>
 .activity-list-page {
   min-height: 100vh;
-  background: #f5f7fa;
+  background: #F5F8FA;
 }
 
 .filter-bar {
   display: flex;
   background: #fff;
-  padding: 18rpx 30rpx;
-  gap: 16rpx;
+  padding: 18rpx 24rpx;
+  gap: 12rpx;
   box-sizing: border-box;
+  border-bottom: 1rpx solid rgba(24, 35, 46, 0.05);
 }
 
 .filter-item {
@@ -190,21 +191,22 @@ onMounted(() => {
   height: 60rpx;
   line-height: 60rpx;
   padding: 0 8rpx;
-  border-radius: 20rpx;
+  border-radius: 18rpx;
   font-size: 24rpx;
-  color: #666;
-  background: #f5f7fa;
+  color: #718094;
+  background: #F1F5F7;
   box-sizing: border-box;
+  font-weight: 600;
 }
 
 .filter-item.active {
-  background: #20C997;
+  background: #24BFA2;
   color: #fff;
 }
 
 .activity-scroll {
   height: calc(100vh - 104rpx);
-  padding: 18rpx 30rpx 30rpx;
+  padding: 18rpx 24rpx 30rpx;
   box-sizing: border-box;
 }
 
@@ -213,9 +215,13 @@ onMounted(() => {
   border-radius: 18rpx;
   padding: 28rpx 24rpx;
   margin-bottom: 18rpx;
-  box-shadow: 0 6rpx 18rpx rgba(26, 43, 60, 0.05);
+  box-shadow: 0 8rpx 22rpx rgba(24, 35, 46, 0.045);
+  border: 1rpx solid rgba(24, 35, 46, 0.06);
   position: relative;
   box-sizing: border-box;
+}
+.activity-card:active {
+  background: #F7FAFB;
 }
 
 .status-badge {
@@ -229,7 +235,7 @@ onMounted(() => {
 }
 
 .status-upcoming {
-  background: #20C997;
+  background: #24BFA2;
 }
 
 .status-ongoing {
@@ -243,7 +249,7 @@ onMounted(() => {
 .title {
   font-size: 30rpx;
   font-weight: bold;
-  color: #333;
+  color: #18232E;
   display: block;
   margin-bottom: 20rpx;
   padding-right: 140rpx;
@@ -264,7 +270,7 @@ onMounted(() => {
   flex: 1;
   min-width: 0;
   font-size: 24rpx;
-  color: #666;
+  color: #718094;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -273,26 +279,26 @@ onMounted(() => {
 .apply-info {
   margin-top: 20rpx;
   padding-top: 20rpx;
-  border-top: 1px solid #f0f0f0;
+  border-top: 1rpx solid #EEF2F5;
 }
 
 .apply-text {
   font-size: 24rpx;
-  color: #999;
+  color: #718094;
   display: block;
   margin-bottom: 12rpx;
 }
 
 .progress-bar {
   height: 8rpx;
-  background: #f0f0f0;
+  background: #EEF2F5;
   border-radius: 4rpx;
   overflow: hidden;
 }
 
 .progress-fill {
   height: 100%;
-  background: #20C997;
+  background: #24BFA2;
   border-radius: 4rpx;
 }
 

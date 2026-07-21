@@ -8,9 +8,9 @@
     <view class="todos-list">
       <view class="todo-item" v-for="(todo, index) in todos" :key="index" @click="handleTodoClick(todo)">
         <view class="todo-icon" :class="getTodoIconClass(todo.type)">
-          <image v-if="todo.type === 'approval'" class="icon-text-img" src="/static/勾号图标.png" mode="aspectFit" />
-          <image v-else-if="todo.type === 'task'" class="icon-text-img" src="/static/数据图标.png" mode="aspectFit" />
-          <image v-else-if="todo.type === 'alert'" class="icon-text-img" src="/static/叉号图标.png" mode="aspectFit" />
+          <image v-if="todo.type === 'approval'" class="icon-text-img" src="/static/icons/icon-check.svg" mode="aspectFit" />
+          <image v-else-if="todo.type === 'task'" class="icon-text-img" src="/static/icons/icon-data.svg" mode="aspectFit" />
+          <image v-else-if="todo.type === 'alert'" class="icon-text-img" src="/static/icons/icon-cross.svg" mode="aspectFit" />
           <text v-else class="icon-text">•</text>
         </view>
         <view class="todo-content">
@@ -24,7 +24,7 @@
       </view>
       
       <view class="empty-state" v-if="todos.length === 0 && !loading">
-        <image class="empty-icon" src="/static/勾号图标.png" mode="aspectFit" />
+        <image class="empty-icon" src="/static/icons/icon-check.svg" mode="aspectFit" />
         <text class="empty-text">暂无待办事项</text>
         <text class="empty-desc">所有任务已完成</text>
       </view>
@@ -70,15 +70,6 @@ const fetchTodos = async () => {
   } finally {
     loading.value = false;
   }
-};
-
-const getTodoIcon = (type) => {
-  const icons = {
-    'approval': '✓',
-    'task': '📝',
-    'alert': '⚠️'
-  };
-  return icons[type] || '•';
 };
 
 const getTodoIconClass = (type) => {

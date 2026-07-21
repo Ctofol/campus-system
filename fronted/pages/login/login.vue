@@ -115,10 +115,22 @@ const onAgreementChange = (e) => {
 };
 
 const openPrivacy = () => {
-  wx.openPrivacyContract({
-    fail: () => {
-      uni.showToast({ title: '暂时无法打开协议', icon: 'none' });
-    }
+  // #ifdef MP-WEIXIN
+  if (typeof wx !== 'undefined' && typeof wx.openPrivacyContract === 'function') {
+    wx.openPrivacyContract({
+      fail: () => {
+        uni.showToast({ title: '暂时无法打开协议', icon: 'none' });
+      }
+    });
+    return;
+  }
+  // #endif
+
+  uni.showModal({
+    title: '用户服务协议及隐私政策',
+    content: '请在登录前阅读并同意用户服务协议及隐私政策。我们仅会为登录认证、运动记录、体测分析和教学管理使用必要信息。',
+    confirmText: '我知道了',
+    showCancel: false
   });
 };
 

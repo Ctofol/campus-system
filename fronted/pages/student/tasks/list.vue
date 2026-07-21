@@ -55,7 +55,7 @@
             </button>
             <text v-else-if="item.status === 'not_started'" class="expired-text">未到开始时间</text>
             <view v-else-if="item.status === 'completed'" class="completed-wrap">
-              <image class="completed-icon-img" src="/static/勾号图标.png" mode="aspectFit" />
+              <image class="completed-icon-img" src="/static/icons/icon-check.svg" mode="aspectFit" />
               <text class="completed-text">已完成</text>
             </view>
             <text v-else class="expired-text">已过期</text>

@@ -19,7 +19,7 @@
         <HomeRecentMapThumb :preview="run.trajectoryPreview" :has-track="run.hasTrack" />
         <view class="home-recent-item__info">
           <view class="home-recent-item__type-row">
-            <image class="home-recent-item__type-icon" src="/static/主页户外跑图标.png" mode="aspectFit" />
+            <image class="home-recent-item__type-icon" src="/static/icons/icon-route.svg" mode="aspectFit" />
             <text class="home-recent-item__type-label">{{ run.title }}</text>
           </view>
           <view class="home-recent-item__dist-row">

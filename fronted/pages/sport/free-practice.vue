@@ -4,7 +4,7 @@
 
     <view class="content-wrapper page-tab-body">
       <view class="placeholder-section">
-        <image class="placeholder-icon-img" src="/static/主页户外跑图标.png" mode="aspectFit" />
+        <image class="placeholder-icon-img" src="/static/icons/icon-route.svg" mode="aspectFit" />
         <text class="placeholder-title">自由练习</text>
         <text class="placeholder-desc">自由跑步，自动记录里程与配速</text>
 

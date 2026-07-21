@@ -20,7 +20,7 @@
         :show-location="showMapNativeLocation"
       >
         <cover-view
-          v-if="showMapTopHintBar"
+          v-show="showMapTopHintBar"
           class="location-status-bar"
           :class="{ 'location-status-tappable': showMapTopHintTappable }"
           @tap="onLocationStatusBarTap"
@@ -29,7 +29,7 @@
         </cover-view>
 
         <cover-view
-          v-if="!hideMapCoverLayer && !isRunning"
+          v-show="!hideMapCoverLayer && !isRunning"
           class="sport-dash cover-panel"
         >
           <cover-view class="sport-dash-main">
@@ -46,8 +46,9 @@
         </cover-view>
 
         <cover-view
-          v-if="!hideMapCoverLayer && taskRunLocked && !isRunning"
+          v-show="!hideMapCoverLayer && taskRunLocked && !isRunning"
           class="sport-task-hint cover-panel"
+          :style="taskHintStyle"
         >
           <cover-view class="sport-task-hint-t">任务跑步 · 专项模式已锁定</cover-view>
         </cover-view>
@@ -70,13 +71,17 @@
         </view>
       </view>
 
+      <view v-if="isRunCalibrating" class="run-calibration-overlay">
+        <text class="run-calibration-count">{{ runCalibrationCountdown }}</text>
+      </view>
+
       <view
         v-if="!hideMapCoverLayer"
         class="sport-recenter-float"
         :style="recenterFloatStyle"
         @tap="recenterMap"
       >
-        <text class="sport-recenter-icon">◎</text>
+        <image class="sport-recenter-icon" src="/static/icons/icon-recenter.svg" mode="aspectFit" />
       </view>
 
       <view
@@ -159,7 +164,11 @@
                   :class="{ 'run-ctrl-side--on': runControlsLocked }"
                   @tap="toggleRunLock"
                 >
-                  <text class="run-ctrl-side-icon">{{ runControlsLocked ? '🔒' : '🔓' }}</text>
+                  <image
+                    class="run-ctrl-lock-img"
+                    :src="runControlsLocked ? '/static/icons/icon-lock-filled-white.svg' : '/static/icons/icon-unlock-filled-white.svg'"
+                    mode="aspectFit"
+                  />
                   <text class="run-ctrl-side-lbl">{{ runControlsLocked ? '已锁' : '锁定' }}</text>
                 </view>
                 <view
@@ -168,7 +177,7 @@
                   :class="{ 'run-ctrl-main--resume': isRunPaused }"
                   @tap="toggleRunPause"
                 >
-                  <text class="run-ctrl-main-icon">{{ isRunPaused ? '▶' : '❚❚' }}</text>
+                  <AppIcon :name="isRunPaused ? 'play' : 'pause'" :size="34" tone="white" />
                   <text class="run-ctrl-main-lbl">{{ isRunPaused ? '继续' : '暂停' }}</text>
                 </view>
                 <view class="run-ctrl-end" hover-class="run-ctrl-end--hover" @tap="onCompactStopTap">
@@ -200,7 +209,11 @@
             :class="{ 'run-ctrl-side--on': runControlsLocked }"
             @tap="toggleRunLock"
           >
-            <text class="run-ctrl-side-icon">{{ runControlsLocked ? '🔒' : '🔓' }}</text>
+            <image
+              class="run-ctrl-lock-img"
+              :src="runControlsLocked ? '/static/icons/icon-lock-filled-white.svg' : '/static/icons/icon-unlock-filled-white.svg'"
+              mode="aspectFit"
+            />
             <text class="run-ctrl-side-lbl">{{ runControlsLocked ? '已锁' : '锁定' }}</text>
           </view>
           <view
@@ -209,7 +222,7 @@
             :class="{ 'run-ctrl-main--resume': isRunPaused }"
             @tap="toggleRunPause"
           >
-            <text class="run-ctrl-main-icon">{{ isRunPaused ? '▶' : '❚❚' }}</text>
+            <AppIcon :name="isRunPaused ? 'play' : 'pause'" :size="34" tone="white" />
             <text class="run-ctrl-main-lbl">{{ isRunPaused ? '继续' : '暂停' }}</text>
           </view>
           <view class="run-ctrl-end" hover-class="run-ctrl-end--hover" @tap="onCompactStopTap">
@@ -300,7 +313,7 @@
 
         <view v-else-if="currentMode === 'campus'" class="run-prep-body">
           <view class="run-prep-select" hover-class="run-prep-select--hover" @tap="handleMapSelect">
-            <text class="run-prep-select-icon">📍</text>
+            <AppIcon name="pin" :size="34" tone="brand" />
             <view class="run-prep-select-copy">
               <text class="run-prep-select-title">{{ checkpoint.name || '选择校园打卡点' }}</text>
               <text class="run-prep-select-desc">
@@ -366,10 +379,12 @@ import {
 } from '@/utils/request.js';
 import { getCurrentLocation } from '@/utils/location.js';
 import { smoothTrajectoryForMap } from '@/utils/trajectory-smooth.js';
-import { buildPaceColoredPolylines } from '@/utils/trajectory-pace-polyline.js';
 import { createRunEndpointMarker } from '@/utils/run-map-markers.js';
 import { createStepCounter } from '@/utils/step-counter.js';
 import { createTrajectoryFilter } from '@/utils/trajectory-filter.js';
+import { wgs84ToGcj02 } from '@/utils/coord-transform.js';
+import { buildRunPaceSeries } from '@/utils/run-pace-series.js';
+import AppIcon from '@/components/app-icon/app-icon.vue';
 import {
   pushRunGpsRawSample,
   resetRunGpsRawWindow,
@@ -536,6 +551,15 @@ const onPageShow = (options = {}) => {
     });
 
     if (!isRunning.value) {
+      // The result page is opened with navigateTo, so this page stays alive
+      // underneath it. Clear the completed run's in-memory map state when
+      // returning to the preparation screen; saved history is unaffected.
+      runPolyline.value.points = [];
+      trajectoryPoints.value = [];
+      displayTrackPoints.value = [];
+      runStartMarker.value = null;
+      runEndMarker.value = null;
+      lastPolylineJson = '';
       checkpoint.value = {};
       checkpointName.value = '';
       checkpointMarker.value = null;
@@ -672,6 +696,7 @@ const refreshActiveRunTasks = async () => {
   }
 };
 const showFaceCamera = ref(false);
+const faceCameraLayerVisible = ref(false);
 const faceCapturePhase = ref('start');
 const faceCameraBusy = ref(false);
 const faceCameraErrorText = ref('');
@@ -744,10 +769,13 @@ const WX_LOCATION_CHANGE_STALE_MS = 6500;
 const GPS_RUN_READY_ACCURACY_M = 25;
 /** 璺戞涓?GPS 鎸囨暟骞虫粦鐘舵€侊紝鍑忚交灏忕▼搴忕杞ㄨ抗閿娇涓庝弗閲嶅亸绉绘姈鍔?*/
 let runLocationSmooth = null;
+// Steps only bound implausible GPS movement; they are never converted into distance.
+let lastAcceptedMileageStepCount = 0;
 /** 宸茶閲岀▼閫昏緫鎺ョ撼鐨勬湁鏁堣建杩圭偣鏁帮紝鐢ㄤ簬鍒ゆ柇 GPS 閫熷害鏄剧ず鏄惁杩涘叆绋冲畾闃舵 */
 let gpsAcceptedPointCount = 0;
 /** 鏈€杩戜竴娆″師濮嬪畾浣嶉噰鏍凤細鐢ㄤ簬鍘婚噸鍜屾姂鍒跺苟琛屽洖璋冨鑷寸殑闈欐鎶栧姩 */
 let lastRawLocationSample = null;
+let lastRouteFixInput = null;
 let lastStepDetectedAt = 0;
 let lastStrongStepMotionAt = 0;
 let lastGpsMotionAt = 0;
@@ -800,10 +828,12 @@ const isRunGpsUnlocked = () =>
   (hasRecentGpsMotionEvidence() && distance.value >= 5) ||
   (hasRecentStepMotion() && stepCount.value >= 12 && duration.value >= 8);
 
-const getMergePolylineGapM = () => (isRunGpsUnlocked() ? MERGE_POLYLINE_GAP_RUN_M : MERGE_POLYLINE_GAP_IDLE_M);
+const getMergePolylineGapM = () => 0.5;
 
 /** 仅“站着抖手机、GPS 几乎不动”时冻结；起跑就开跑（有位移/步频）不冻结 */
 const shouldFreezeRunPosition = (rawLat, rawLng) => {
+  return false;
+  /*
   if (!isRunning.value || isRunGpsUnlocked()) return false;
   if (hasRecentStepMotion() && stepCount.value >= 8) return false;
   const anchor = getLastTrackAnchor();
@@ -828,6 +858,7 @@ const shouldFreezeRunPosition = (rawLat, rawLng) => {
     !hasStrongStepMotion() &&
     !hasRecentStepMotion();
   return shakeOnly || rawM < 2.2;
+  */
 };
 
 const noteStepMotion = (now) => {
@@ -976,7 +1007,7 @@ const scheduleWxRunLocationAssist = () => {
     }
     syncRunElapsedDisplay();
     tickPoliceFinishHint();
-    getCurrentLocation({ type: 'gcj02', fastFix: true })
+      getCurrentLocation({ type: 'gcj02', fastFix: true, timeout: 5000 })
       .then((res) => {
         updateLocationLogic(res.latitude, res.longitude, res.speed || 0, res);
       })
@@ -1013,10 +1044,12 @@ const lat = ref(DEFAULT_MAP_LAT);
 const lng = ref(DEFAULT_MAP_LNG);
 const mapCenterLat = ref(DEFAULT_MAP_LAT);
 const mapCenterLng = ref(DEFAULT_MAP_LNG);
+let lastLiveMapCenterAt = 0;
 const markers = ref([]);
 const checkpointMarker = ref(null);
 const runStartMarker = ref(null);
 const runEndMarker = ref(null);
+let pendingRunTrajectoryForResult = null;
 
 const hasPlausibleCoords = () => {
   if (!Number.isFinite(lat.value) || !Number.isFinite(lng.value)) return false;
@@ -1026,12 +1059,12 @@ const hasPlausibleCoords = () => {
   );
 };
 
-/** 未开跑：微信原生半透明蓝点；开跑：仅自定义方向箭头，二者不同时开避免叠影 */
-const showMapNativeLocation = computed(
-  () =>
-    !isRunning.value &&
-    hasPlausibleCoords() &&
-    (locationState.value === 'success' || locationState.value === 'locating')
+/** Always use one compass-driven custom arrow. The native location dot cannot
+ * follow heading consistently on App and stays north-facing before a run. */
+const showMapNativeLocation = computed(() => false);
+
+const showCurrentLocationMarker = computed(
+  () => hasPlausibleCoords() && locationState.value === 'success'
 );
 
 const MAP_ID = 'runMap';
@@ -1051,7 +1084,7 @@ const applyMapHeading = (deg) => {
   const snapped = snapCompassHeading(deg);
   if (snapped === mapHeading.value) return;
   mapHeading.value = snapped;
-  if (locationState.value !== 'success' || !hasPlausibleCoords() || !isRunning.value) return;
+  if (locationState.value !== 'success' || !hasPlausibleCoords()) return;
   const idx = markers.value.findIndex((m) => m.id === 0);
   if (idx < 0) {
     refreshMarkers();
@@ -1066,7 +1099,7 @@ const applyMapHeading = (deg) => {
 
 /** 仅更新 id=0 的当前位置 marker，避免整表重建导致微信地图箭头叠影 */
 const patchCurrentLocationMarker = () => {
-  if (!hasPlausibleCoords() || !isRunning.value) return;
+  if (!hasPlausibleCoords()) return;
   const fresh = createCurrentLocationMarker(lat.value, lng.value);
   const idx = markers.value.findIndex((m) => m.id === 0);
   if (idx < 0) {
@@ -1113,14 +1146,13 @@ const stopCompassWatch = () => {
   // #endif
 };
 
-/** 人脸验证打开时隐藏地图 cover-view（原生层会压在普通 view 之上） */
-const hideMapCoverLayer = computed(() => showFaceCamera.value);
+/** 人脸验证打开/关闭瞬间隐藏地图浮层，错开 camera 与 map 原生层切换 */
+const hideMapCoverLayer = computed(() => showFaceCamera.value || faceCameraLayerVisible.value);
 
 const showLocationStatusBar = computed(
   () =>
     locationState.value !== 'success' ||
-    lastLocationFixWasStale.value ||
-    (locationState.value === 'success' && !gpsRunReady.value && !isRunning.value)
+    lastLocationFixWasStale.value
 );
 
 const createCurrentLocationMarker = (latitude, longitude) => {
@@ -1158,10 +1190,7 @@ const createRunPointMarker = (id, latitude, longitude, labelText) => {
 /** 开跑初期隐藏起点 pin，避免与蓝箭头叠在一起难辨认 */
 const showRunStartOnMap = computed(() => {
   if (!runStartMarker.value) return false;
-  if (!isRunning.value) return true;
-  if (distance.value >= 28) return true;
-  if (duration.value >= 18 && trajectoryPointCount.value >= 3) return true;
-  return false;
+  return true;
 });
 
 watch(showRunStartOnMap, () => {
@@ -1179,6 +1208,9 @@ watch(locationState, () => {
 const refreshMarkers = () => {
   if (!isMapReady.value) return;
   const nextMarkers = [];
+  if (showCurrentLocationMarker.value) {
+    nextMarkers.push(createCurrentLocationMarker(lat.value, lng.value));
+  }
   if (runStartMarker.value && showRunStartOnMap.value) {
     nextMarkers.push({ ...runStartMarker.value });
   }
@@ -1206,9 +1238,9 @@ const runPolyline = ref({
 });
 
 /** 未确认真实跑动前：计里程轨迹点合并间距 */
-const MERGE_POLYLINE_GAP_IDLE_M = 2.5;
+const MERGE_POLYLINE_GAP_IDLE_M = 0.5;
 /** 已确认在跑后：合并间距（慢走也能连续记里程） */
-const MERGE_POLYLINE_GAP_RUN_M = 1.8;
+const MERGE_POLYLINE_GAP_RUN_M = 0.5;
 /** 地图展示轨迹间距（与计里程解耦，保证折线连续可见） */
 const DISPLAY_TRACK_GAP_M = 1.2;
 /** 未解锁前：相对末点 GPS 位移过小视为静止抖动 */
@@ -1232,18 +1264,23 @@ const getPolylineSourcePoints = () => {
   return trajectoryPoints.value;
 };
 
+// The finish marker and result map must end on the same accepted track that
+// produced mileage. A raw latest GPS callback can be a short-lived drift.
+const getValidatedRunFinishPoint = () => {
+  const points = getPolylineSourcePoints();
+  const last = points[points.length - 1];
+  if (last && Number.isFinite(last.latitude) && Number.isFinite(last.longitude)) {
+    return { latitude: last.latitude, longitude: last.longitude };
+  }
+  return { latitude: lat.value, longitude: lng.value };
+};
+
 // Helper to update map polyline with deep clone to force render
 const updateMapPolyline = () => {
   const lines = [];
-  const raw = getPolylineSourcePoints();
-  if (raw.length >= 2) {
-    const paceLines = buildPaceColoredPolylines(raw);
-    if (paceLines.length > 0) {
-      paceLines.forEach((ln) => lines.push({ ...ln, points: [...ln.points] }));
-    } else if (runPolyline.value.points && runPolyline.value.points.length >= 2) {
-      lines.push({ ...runPolyline.value, points: [...runPolyline.value.points] });
-    }
-  } else if (runPolyline.value.points && runPolyline.value.points.length >= 2) {
+  // One smoothed line is visually continuous. Splitting every GPS pair into
+  // pace-coloured segments makes Android maps look like stacked dashes.
+  if (runPolyline.value.points && runPolyline.value.points.length >= 2) {
     lines.push({ ...runPolyline.value, points: [...runPolyline.value.points] });
   }
   if (navPolyline.value && navPolyline.value.points && navPolyline.value.points.length >= 2) {
@@ -1269,7 +1306,7 @@ const rebuildDisplayPolyline = () => {
         : [];
   } else {
     const flat = raw.map((p) => ({ latitude: p.latitude, longitude: p.longitude }));
-    runPolyline.value.points = smoothTrajectoryForMap(flat);
+    runPolyline.value.points = smoothTrajectoryForMap(flat, { sampleStepM: 1.5 });
   }
   updateMapPolyline();
 };
@@ -1437,15 +1474,58 @@ const maybeEstimateStepsFromDistance = () => {
 };
 
 const filterTrackCoordsForMileage = (latIn, lngIn, accuracyM) => {
-  if (!runTrajectoryFilter) {
-    runTrajectoryFilter = createTrajectoryFilter();
+  return { lat: latIn, lng: lngIn };
+};
+
+const clearRunCalibrationTimer = () => {
+  if (runCalibrationTimer != null) {
+    clearInterval(runCalibrationTimer);
+    runCalibrationTimer = null;
   }
-  const out = runTrajectoryFilter.filter(latIn, lngIn, accuracyM);
-  return { lat: out.latitude, lng: out.longitude };
+};
+
+const finishRunCalibration = () => {
+  if (!isRunning.value || !isRunCalibrating.value || !lastRunCalibrationFix) return false;
+  const anchor = { ...lastRunCalibrationFix, speed: 0 };
+  clearRunCalibrationTimer();
+  isRunCalibrating.value = false;
+  runCalibrationCountdown.value = 0;
+  duration.value = 0;
+  runActiveBaseSec.value = 0;
+  runSegmentStartMs.value = Date.now();
+  stepCount.value = 0;
+  trajectoryPoints.value = [anchor];
+  displayTrackPoints.value = [];
+  runPolyline.value.points = [];
+  lastRouteFixInput = { ...anchor };
+  lastAcceptedMileageStepCount = 0;
+  appendDisplayTrackPoint(anchor.latitude, anchor.longitude, anchor);
+  runStartMarker.value = createRunPointMarker(2, anchor.latitude, anchor.longitude, '起');
+  refreshMarkers();
+  return true;
+};
+
+const startRunCalibrationCountdown = () => {
+  clearRunCalibrationTimer();
+  runCalibrationCountdownDone = false;
+  lastRunCalibrationFix = null;
+  runCalibrationCountdown.value = 3;
+  runCalibrationTimer = setInterval(() => {
+    if (!isRunning.value || !isRunCalibrating.value) {
+      clearRunCalibrationTimer();
+      return;
+    }
+    runCalibrationCountdown.value = Math.max(0, runCalibrationCountdown.value - 1);
+    if (runCalibrationCountdown.value === 0) {
+      runCalibrationCountdownDone = true;
+      finishRunCalibration();
+      if (runCalibrationCountdownDone) clearRunCalibrationTimer();
+    }
+  }, 1000);
 };
 
 // Unified location update logic
-const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
+const updateLocationLogicLegacy = (newLat, newLng, speed, accuracyOrRes) => {
   const nowTs = Date.now();
   if (
     isRunning.value &&
@@ -1501,6 +1581,11 @@ const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
   let workLat = newLat;
   let workLng = newLng;
   if (isRunning.value) {
+    if (true) {
+      runLocationSmooth = { lat: newLat, lng: newLng };
+      workLat = newLat;
+      workLng = newLng;
+    } else {
     const lastTrackPoint = trajectoryPoints.value[trajectoryPoints.value.length - 1];
     const rawDistanceToLast = lastTrackPoint
       ? getDistance(lastTrackPoint.latitude, lastTrackPoint.longitude, newLat, newLng)
@@ -1531,6 +1616,7 @@ const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
     }
     workLat = runLocationSmooth.lat;
     workLng = runLocationSmooth.lng;
+    }
   } else {
     runLocationSmooth = null;
   }
@@ -1544,6 +1630,40 @@ const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
       timestamp: nowTs,
       speed: typeof speed === 'number' && speed >= 0 ? speed : currentSpeed.value
     });
+
+    // One real location update drives the marker, route, mileage, and result data.
+    mapCenterLat.value = workLat;
+    mapCenterLng.value = workLng;
+    const lastPoint = trajectoryPoints.value[trajectoryPoints.value.length - 1];
+    if (lastPoint) {
+      const segmentM = getDistance(lastPoint.latitude, lastPoint.longitude, workLat, workLng);
+      const segmentSeconds = Math.max(0.1, (nowTs - lastPoint.timestamp) / 1000);
+      if (segmentM >= 0.5) {
+        const segmentSpeed = segmentM / segmentSeconds;
+        distance.value += segmentM;
+        currentSpeed.value = segmentSpeed;
+        gpsAcceptedPointCount += 1;
+        noteGpsMotion(nowTs, segmentM, segmentSpeed, getHorizontalAccuracyM(accuracyOrRes));
+        appendRunTrackPoint(workLat, workLng, {
+          latitude: workLat,
+          longitude: workLng,
+          timestamp: nowTs,
+          speed: segmentSpeed
+        });
+        if (currentMode.value === 'normal') {
+          normalProgress.value = Math.min(100, ((distance.value / 1000) / dailyTarget.value) * 100);
+        } else if (currentMode.value === 'police') {
+          policeProgress.value = Math.min(100, (distance.value / policeTargetDistance.value) * 100);
+        }
+      }
+      if (currentMode.value === 'campus' && checkpoint.value.lat) {
+        distanceToCheckpoint.value = Math.floor(
+          getDistance(workLat, workLng, checkpoint.value.lat, checkpoint.value.lng)
+        );
+        isReach.value = distanceToCheckpoint.value <= (checkpoint.value.radius || 100);
+      }
+      return;
+    }
   }
 
   if (isRunning.value) {
@@ -1631,61 +1751,28 @@ const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
       lastGpsAccuracyM.value = accM;
     }
     /** 开跑后 GPS 防抖；有步频时放宽，避免「有步数无里程」 */
-    const runUnlocked = isRunGpsUnlocked();
-    const stableCadence = runStepCounter?.hasStableCadence?.() ?? false;
-    const coldPhase = !runUnlocked && duration.value < (stableCadence ? 35 : 50);
+    const runUnlocked = true;
+    const stableCadence = true;
+    const coldPhase = false;
     const recentStepMotion = hasRecentStepMotion();
     const trustedMotion = hasTrustedRunMotion();
     const stepBoosted = recentStepMotion && stepCount.value >= 8;
-    const tightenNoSteps =
-      stepCount.value < 8 &&
-      !trustedMotion &&
-      !stableCadence &&
-      duration.value >= 30 &&
-      duration.value < 90 &&
-      distance.value < 80;
-    const driftTight = !runUnlocked && (coldPhase || tightenNoSteps) && !stepBoosted && !stableCadence;
+    const tightenNoSteps = false;
+    const driftTight = false;
     const driftOscillation = driftTight && oscillationActive;
-    const weakGpsSignal = Number.isFinite(accM) && accM > 45;
-    const veryWeakGpsSignal = Number.isFinite(accM) && accM > 80;
-    const earlyMotionStrict =
-      !runUnlocked &&
-      !trustedMotion &&
-      !stepBoosted &&
-      duration.value >= 10 &&
-      duration.value < 25 &&
-      distance.value < 80;
-    const motionTier = classifyMotionTier({
-      speedMps: calculatedSpeed,
-      distanceM: d,
-      timeDiffS: timeDiff,
-      trustedMotion,
-      recentStepMotion,
-      accuracyM: accM
-    });
-    const tierConfig = getMotionTierConfig(motionTier, {
-      coldPhase,
-      weakGpsSignal,
-      earlyMotionStrict,
-      tightenNoSteps
-    });
+    const weakGpsSignal = false;
+    const veryWeakGpsSignal = false;
+    const earlyMotionStrict = false;
+    const motionTier = 'walk';
+    const tierConfig = {
+      minDistance: 0.5,
+      maxSpeed: 12,
+      minSpeed: 0,
+      maxStepDistance: 50,
+      requiresTrustedMotion: false
+    };
 
-    let minD = computeDynamicMinDistanceM({
-      accuracyM: accM,
-      runUnlocked,
-      coldPhase,
-      tierMinDistance: tierConfig.minDistance,
-      recentStepMotion,
-      hasStrongStepMotion: hasStrongStepMotion(),
-      stableCadence,
-      hasRecentGpsMotionEvidence: hasRecentGpsMotionEvidence()
-    });
-    if (!runUnlocked && (recentStepMotion || hasStrongStepMotion()) && !hasRecentGpsMotionEvidence()) {
-      minD = hasStrongStepMotion() ? Math.max(minD, 2.4) : Math.max(minD, 4);
-    }
-    if (runUnlocked) {
-      minD = Math.min(minD, stableCadence ? 2.5 : 3);
-    }
+    let minD = 0.5;
 
     const maxStepGate = Math.min(Math.max(1.2, timeDiff * 7.5), tierConfig.maxStepDistance);
     const maxSpeedCold = driftTight ? Math.min(5.2, tierConfig.maxSpeed) : tierConfig.maxSpeed;
@@ -1700,6 +1787,7 @@ const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
     }
 
     if (
+      false &&
       stepCount.value < 8 &&
       !trustedMotion &&
       duration.value >= 15 &&
@@ -1799,9 +1887,150 @@ const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
         } else if (currentMode.value === 'police') {
            policeProgress.value = Math.min(100, (distance.value / policeTargetDistance.value) * 100);
         }
-        maybeEstimateStepsFromDistance();
-        syncStepsFromDistanceFallback();
     }
+  }
+};
+
+// Keep the running data path deliberately simple: every real GPS fix updates
+// the live marker, route, mileage, and the route stored for the result page.
+const updateLocationLogic = (newLat, newLng, speed, accuracyOrRes) => {
+  let latitude = Number(newLat);
+  let longitude = Number(newLng);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    console.warn('[run-gps] ignored invalid coordinates:', newLat, newLng);
+    return;
+  }
+
+  const nowTs = Date.now();
+  const accuracyM = getHorizontalAccuracyM(accuracyOrRes);
+  if (Number.isFinite(accuracyM)) lastGpsAccuracyM.value = accuracyM;
+
+  if (isRunning.value && !isRunPaused.value && runTrajectoryFilter) {
+    const filtered = runTrajectoryFilter.filter(latitude, longitude, accuracyM);
+    if (Number.isFinite(filtered.latitude) && Number.isFinite(filtered.longitude)) {
+      latitude = filtered.latitude;
+      longitude = filtered.longitude;
+    }
+  }
+
+  // A live run fix is authoritative. Do not leave the UI in "locating"
+  // after the continuous location channel has already delivered coordinates.
+  locationState.value = 'success';
+  lastLocationFixWasStale.value = false;
+
+  lat.value = latitude;
+  lng.value = longitude;
+  runLocationSmooth = { lat: latitude, lng: longitude };
+  patchCurrentLocationMarker();
+
+  if (!isRunning.value || isRunPaused.value) return;
+  syncRunElapsedDisplay();
+
+  // Keep the native map following real movement. This changes map attributes
+  // only; it never mounts or unmounts the map view.
+  if (nowTs - lastLiveMapCenterAt >= 350) {
+    mapCenterLat.value = latitude;
+    mapCenterLng.value = longitude;
+    lastLiveMapCenterAt = nowTs;
+  }
+
+  if (isRunCalibrating.value) {
+    runCalibrationFixCount += 1;
+    lastRunCalibrationFix = { latitude, longitude, timestamp: nowTs };
+    if (runCalibrationCountdownDone) finishRunCalibration();
+    return;
+  }
+
+  const lastPoint = trajectoryPoints.value[trajectoryPoints.value.length - 1];
+  if (!lastPoint) {
+    const firstPoint = { latitude, longitude, timestamp: nowTs, speed: 0 };
+    trajectoryPoints.value.push(firstPoint);
+    appendDisplayTrackPoint(latitude, longitude, firstPoint);
+    runStartMarker.value = createRunPointMarker(2, latitude, longitude, '起');
+    refreshMarkers();
+    lastRouteFixInput = { latitude, longitude, timestamp: nowTs };
+    return;
+  }
+
+  const segmentM = getDistance(lastPoint.latitude, lastPoint.longitude, latitude, longitude);
+  const inputGapM = lastRouteFixInput
+    ? getDistance(lastRouteFixInput.latitude, lastRouteFixInput.longitude, latitude, longitude)
+    : Infinity;
+  const inputGapMs = lastRouteFixInput ? nowTs - lastRouteFixInput.timestamp : Infinity;
+  // The system watcher and uni callback can report the same fix milliseconds
+  // apart. Ignore only that duplicate; the next genuine movement is preserved.
+  if (inputGapMs < 700 && inputGapM < 1.2) return;
+  const elapsedS = Math.max(0.1, (nowTs - lastPoint.timestamp) / 1000);
+  const segmentSpeed = segmentM / elapsedS;
+  // A human run cannot cover hundreds of metres within a few seconds. Keep
+  // high-frequency points, but never turn a one-off GPS teleport into mileage.
+  if (segmentM > Math.max(35, elapsedS * 8.5)) {
+    console.warn('[run-gps] ignored implausible segment:', segmentM, elapsedS);
+    return;
+  }
+  lastRouteFixInput = { latitude, longitude, timestamp: nowTs };
+  currentSpeed.value = Number.isFinite(speed) && speed >= 0 ? speed : segmentSpeed;
+
+  // Display and mileage deliberately have different gates. A point that is
+  // plausible enough to show can make the route follow a turn immediately,
+  // while it still must pass the stricter cadence/noise rules before it adds
+  // any distance.
+  appendDisplayTrackPoint(latitude, longitude, {
+    timestamp: nowTs,
+    speed: currentSpeed.value
+  });
+
+  // 里程 anchor 要超过当前定位噪声半径才移动。小于门槛的真实位移不会丢失，
+  // 因为下一个点仍然相对旧 anchor 累积；反之则不会把原地 GPS 抖动计成里程。
+  const dynamicMinSegmentM = Number.isFinite(accuracyM)
+    ? Math.max(3, Math.min(8, accuracyM * 0.6))
+    : 4;
+  const hasStepEvidence = hasRecentStepMotion() || hasStrongStepMotion();
+  // GPS is the distance source. Step callbacks can arrive late on Android, so
+  // they must not hold a real walking route at 0.00 before the first steps.
+  const hasPlausibleMotion = segmentM >= dynamicMinSegmentM;
+  const implausibleSpeed = shouldRejectMileageSegment({ segmentM, timeDiffS: elapsedS });
+  const stepsSinceLastAccepted = Math.max(0, stepCount.value - lastAcceptedMileageStepCount);
+  // Walking drift often reports a large displacement after only one or two
+  // steps. This only rejects GPS outliers; it never derives distance from steps.
+  const maxSegmentFromCadence = hasStepEvidence
+    ? Math.max(4.5, stepsSinceLastAccepted * 1.55 + 3)
+    : Math.max(7, elapsedS * 2.2);
+  const exceedsCadenceLimit = segmentM > maxSegmentFromCadence;
+
+  // Keep the high-frequency marker responsive, but only add route distance
+  // after movement is larger than the current GPS noise floor and is backed by
+  // cadence (or is unambiguously large). This prevents GPS jitter from
+  // becoming extra distance while preserving accumulated real movement.
+  if (
+    !implausibleSpeed &&
+    !exceedsCadenceLimit &&
+    hasPlausibleMotion &&
+    segmentM >= dynamicMinSegmentM
+  ) {
+    distance.value += segmentM;
+    gpsAcceptedPointCount += 1;
+    lastAcceptedMileageStepCount = stepCount.value;
+    noteGpsMotion(nowTs, segmentM, segmentSpeed, accuracyM);
+    appendRunTrackPoint(latitude, longitude, {
+      latitude,
+      longitude,
+      timestamp: nowTs,
+      speed: currentSpeed.value
+    });
+
+    if (currentMode.value === 'normal') {
+      normalProgress.value = Math.min(100, ((distance.value / 1000) / dailyTarget.value) * 100);
+    } else if (currentMode.value === 'police') {
+      policeProgress.value = Math.min(100, (distance.value / policeTargetDistance.value) * 100);
+    }
+  }
+
+  if (currentMode.value === 'campus' && checkpoint.value.lat) {
+    distanceToCheckpoint.value = Math.floor(
+      getDistance(latitude, longitude, checkpoint.value.lat, checkpoint.value.lng)
+    );
+    isReach.value = distanceToCheckpoint.value <= (checkpoint.value.radius || 100);
   }
 };
 
@@ -1879,7 +2108,7 @@ const startRealLocationTracking = () => {
       if (!isRunning.value) return;
       syncRunElapsedDisplay();
       tickPoliceFinishHint();
-      getCurrentLocation({ type: preferredType })
+      getCurrentLocation({ type: preferredType, fastFix: true, timeout: 5000 })
         .then((res) => {
           updateLocationLogic(res.latitude, res.longitude, res.speed || 0, res);
         })
@@ -1926,7 +2155,7 @@ const startRealLocationTracking = () => {
     ...wxLocOpts,
     success: () => {
       registerLocationChange();
-      clearWxRunAssistTimer();
+      scheduleWxRunLocationAssist();
       tryStartWxBackgroundAfterForeground();
     },
     fail: () => {
@@ -1954,35 +2183,163 @@ const startRealLocationTracking = () => {
     }
   }, 8000);
   // #endif
-  // #if !defined(H5) && !defined(MP-WEIXIN)
-  uni.startLocationUpdate({
-    ...buildWxLocationUpdateOptions(),
-    success: () => {
-      locationCallback = (res) => {
-        updateLocationLogic(res.latitude, res.longitude, res.speed, res);
-      };
-      uni.onLocationChange(locationCallback);
-    },
-    fail: (err) => {
-      console.log('startLocationUpdate failed:', err);
-      uni.showToast({ title: '定位服务兼容模式已启动', icon: 'none' });
-      if (h5LocationTimer) clearInterval(h5LocationTimer);
-      let preferredType = 'gcj02';
-      const doPoll = () => {
-        getCurrentLocation({ type: preferredType }).then((res) => {
-          updateLocationLogic(res.latitude, res.longitude, res.speed, res);
-        }).catch((err2) => {
-          console.error(`Polling fallback failed for ${preferredType}`, err2);
-        });
-      };
-      h5LocationTimer = setInterval(doPoll, 2000);
-      doPoll();
+  // #ifdef APP-PLUS
+  const claimAppRunLocationSource = (source) => {
+    if (!isRunning.value) return true;
+    if (appRunLocationSource === source) return true;
+    if (appRunLocationSource) return false;
+    if (source === 'uni' && appNativeWatchStartedAt > 0 && Date.now() - appNativeWatchStartedAt < 2500) {
+      return false;
     }
-  });
+    appRunLocationSource = source;
+    return true;
+  };
+  const startAppNativeLocationWatch = (provider = 'tencent') => {
+    if (typeof plus === 'undefined' || !plus.geolocation) return false;
+    if (appLocationWatchId != null) {
+      try {
+        plus.geolocation.clearWatch(appLocationWatchId);
+      } catch (e) {}
+    }
+    lastAppLocationFixAt = 0;
+    lastAppNativeWatchFixAt = 0;
+    appNativeWatchStartedAt = Date.now();
+    try {
+      appLocationWatchId = plus.geolocation.watchPosition(
+        (position) => {
+          lastAppLocationFixAt = Date.now();
+          lastAppNativeWatchFixAt = lastAppLocationFixAt;
+          // A late watch callback means the temporary polling fallback is no
+          // longer needed. Keeping both would duplicate fixes and distort the
+          // route even when their coordinate system is the same.
+          if (appLocationPollingActive) {
+            appLocationPollingActive = false;
+            if (h5LocationTimer) {
+              clearTimeout(h5LocationTimer);
+              h5LocationTimer = null;
+            }
+          }
+          const coords = position?.coords;
+          if (!coords) return;
+          if (!claimAppRunLocationSource('native')) return;
+          const point = wgs84ToGcj02(coords.latitude, coords.longitude);
+          updateLocationLogic(point.latitude, point.longitude, coords.speed, {
+            accuracy: coords.accuracy,
+            direction: coords.heading
+          });
+        },
+        (error) => {
+          console.warn('App native location watch failed:', error?.message || error);
+          // Tencent SDK is configured in manifest.json. Some devices can still
+          // reject that provider, in which case stay on one system source
+          // rather than enabling uni.onLocationChange in parallel.
+          if (provider === 'tencent' && isRunning.value) {
+            startAppNativeLocationWatch('system');
+          } else if (isRunning.value) {
+            startAppLocationPolling();
+          }
+        },
+        {
+          provider,
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 500,
+          // plus.geolocation on Android supports WGS84 only. Convert at the
+          // boundary above so every point used by the Tencent map is GCJ02.
+          coordsType: 'wgs84',
+          geocode: false
+        }
+      );
+    } catch (error) {
+      console.warn('App native location watch unavailable:', error);
+      appLocationWatchId = null;
+      return false;
+    }
+
+    if (appLocationWatchdogTimer) clearTimeout(appLocationWatchdogTimer);
+    appLocationWatchdogTimer = setTimeout(() => {
+      appLocationWatchdogTimer = null;
+      if (isRunning.value && !lastAppNativeWatchFixAt) startAppLocationPolling();
+    }, 3000);
+    return true;
+  };
+  const requestAppSystemLocation = () =>
+    new Promise((resolve, reject) => {
+      if (typeof plus === 'undefined' || !plus.geolocation) {
+        reject(new Error('system geolocation unavailable'));
+        return;
+      }
+      try {
+        plus.geolocation.getCurrentPosition(
+          (position) => {
+            const coords = position?.coords;
+            if (!coords) {
+              reject(new Error('system geolocation returned no coordinates'));
+              return;
+            }
+            const point = wgs84ToGcj02(coords.latitude, coords.longitude);
+            resolve({
+              latitude: point.latitude,
+              longitude: point.longitude,
+              speed: coords.speed,
+              accuracy: coords.accuracy,
+              direction: coords.heading
+            });
+          },
+          reject,
+          {
+            provider: 'system',
+            enableHighAccuracy: true,
+            timeout: 8000,
+            maximumAge: 0,
+            coordsType: 'wgs84',
+            geocode: false
+          }
+        );
+      } catch (error) {
+        reject(error);
+      }
+    });
+  const startAppLocationPolling = () => {
+    if (appLocationPollingActive) return;
+    appLocationPollingActive = true;
+    if (h5LocationTimer) {
+      clearTimeout(h5LocationTimer);
+      clearInterval(h5LocationTimer);
+    }
+    const poll = () => {
+      if (!isRunning.value || !appLocationPollingActive) return;
+      requestAppSystemLocation()
+        .then((res) => ({ res, source: 'native' }))
+        .catch(() =>
+          getCurrentLocation({ type: 'gcj02', timeout: 5000 }).then((res) => ({ res, source: 'uni' }))
+        )
+        .then(({ res, source }) => {
+          if (claimAppRunLocationSource(source)) {
+            updateLocationLogic(res.latitude, res.longitude, res.speed, res);
+          }
+        })
+        .catch((err) => console.warn('[run-gps] App location poll failed:', err))
+        .finally(() => {
+          if (isRunning.value && appLocationPollingActive) {
+            h5LocationTimer = setTimeout(poll, 1000);
+          }
+        });
+    };
+    poll();
+  };
+  // App runs use one native location channel for the entire session. Mixing
+  // plus.geolocation and uni.onLocationChange was the source of the flashing
+  // marker and sudden kilometre jumps reported on Android devices.
+  lastAppLocationFixAt = 0;
+  if (!startAppNativeLocationWatch('tencent')) {
+    startAppLocationPolling();
+  }
   // #endif
 };
 
 const stopRealLocationTracking = () => {
+  clearRunCalibrationTimer();
   if (wxLocationWatchdogTimer) {
     clearTimeout(wxLocationWatchdogTimer);
     wxLocationWatchdogTimer = null;
@@ -1995,6 +2352,23 @@ const stopRealLocationTracking = () => {
     clearInterval(h5LocationTimer);
     h5LocationTimer = null;
   }
+  // #ifdef APP-PLUS
+  if (appLocationWatchdogTimer) {
+    clearTimeout(appLocationWatchdogTimer);
+    appLocationWatchdogTimer = null;
+  }
+  if (appLocationWatchId != null && typeof plus !== 'undefined' && plus.geolocation) {
+    try {
+      plus.geolocation.clearWatch(appLocationWatchId);
+    } catch (e) {}
+  }
+  appLocationWatchId = null;
+  lastAppLocationFixAt = 0;
+  lastAppNativeWatchFixAt = 0;
+  appLocationPollingActive = false;
+  appRunLocationSource = null;
+  appNativeWatchStartedAt = 0;
+  // #endif
   // #ifndef H5
   // #ifdef MP-WEIXIN
   // 鏈叧闂悗鍙版寔缁畾浣嶆椂锛岄儴鍒嗘満鍨嬬浜屾 startLocationUpdate 寮傚父銆佸叏绋嬫棤鐐癸紙鏃堕暱/閲岀▼涓€鐩?0锛?
@@ -2021,6 +2395,12 @@ const stopRealLocationTracking = () => {
 // 2. 璺戞鏍稿績閰嶇疆
 const currentMode = ref('normal'); // normal-鏅€?police-璀﹀姟 campus-鏍″洯
 const isRunning = ref(false);
+const isRunCalibrating = ref(false);
+const runCalibrationCountdown = ref(3);
+let runCalibrationFixCount = 0;
+let runCalibrationTimer = null;
+let runCalibrationCountdownDone = false;
+let lastRunCalibrationFix = null;
 const duration = ref(0);
 /** 寰俊灏忕▼搴?map 椤靛父瑙?setInterval 琚妭娴?鍋滆〃锛岀敤澧欓挓 + 鍒嗘鍩哄噯淇濊瘉鏃堕暱涓庡績鐜囧彲鏇存柊 */
 const runActiveBaseSec = ref(0);
@@ -2097,6 +2477,22 @@ const scheduleRunClock = () => {
 let accelerometerCallback = null;
 let locationCallback = null;
 let h5LocationTimer = null;
+let appLocationWatchId = null;
+let appLocationWatchdogTimer = null;
+let lastAppLocationFixAt = 0;
+let lastAppNativeWatchFixAt = 0;
+let appLocationPollingActive = false;
+let appRunLocationSource = null;
+let appNativeWatchStartedAt = 0;
+let appAccelerometerWatchId = null;
+let appAccelerometerWatchdogTimer = null;
+let lastAppAccelerometerAt = 0;
+let isStepActive = false;
+let lastStepTime = 0;
+const STEP_THRESHOLD_UP = 1.25;
+const STEP_THRESHOLD_DOWN = 1.05;
+const MIN_STEP_INTERVAL = 300;
+const STEP_RESET_TIMEOUT = 1500;
 const startFaceUrl = ref(null);
 const endFaceUrl = ref(null);
 
@@ -2592,7 +2988,7 @@ const locationStatusText = computed(() => {
       if (lastLocationFixWasStale.value) {
         return '已用上次位置 · 点此重新定位';
       }
-      if (gpsRunReady.value) {
+        if (true) {
         return 'GPS 已就绪';
       }
       if (Number.isFinite(lastGpsAccuracyM.value) && lastGpsAccuracyM.value > GPS_RUN_READY_ACCURACY_M) {
@@ -2613,16 +3009,16 @@ const runMileageHint = computed(() => {
   if (locationState.value !== 'success') {
     return '定位未完成，请到室外开阔处';
   }
-  if (Number.isFinite(acc) && acc > 80) {
+    if (false && Number.isFinite(acc) && acc > 80) {
     return 'GPS 信号较弱，请到空旷处再跑';
   }
-  if (stepCount.value >= 10 && duration.value >= 6 && !hasRecentGpsMotionEvidence()) {
+    if (false && stepCount.value >= 10 && duration.value >= 6 && !hasRecentGpsMotionEvidence()) {
     return '正在校准 GPS，请正常跑动…';
   }
-  if (duration.value >= 8 && stepCount.value < 4) {
-    return '请正常跑动，原地不动不计里程';
+  if (duration.value >= 12 && stepCount.value < 4 && distance.value < 5) {
+    return '正在等待稳定定位';
   }
-  if (duration.value >= 4 && distance.value < 8) {
+    if (false && duration.value >= 4 && distance.value < 8) {
     return '正在校准 GPS…';
   }
   return '';
@@ -2666,17 +3062,21 @@ const runPrepSheetStyle = computed(() => ({
   paddingBottom: `${runSheetSafeBottomPx.value}px`
 }));
 
+const taskHintStyle = computed(() => ({
+  bottom: `${runPrepSheetHeightPx.value + 18}px`
+}));
+
 const initRunPrepSheetHeight = () => {
   try {
     const sys = uni.getSystemInfoSync();
     const h = sys.windowHeight || 667;
     const safe = sys.safeAreaInsets?.bottom || 0;
     const mode = currentMode.value;
-    const ratio = mode === 'campus' ? 0.38 : mode === 'police' ? 0.34 : 0.32;
+    const ratio = mode === 'campus' ? 0.36 : mode === 'police' ? 0.31 : 0.30;
     runPrepSheetHeightPx.value = Math.round(h * ratio + safe * 0.35);
   } catch (e) {
     const mode = currentMode.value;
-    runPrepSheetHeightPx.value = mode === 'campus' ? 320 : mode === 'police' ? 300 : 280;
+    runPrepSheetHeightPx.value = mode === 'campus' ? 310 : mode === 'police' ? 280 : 260;
   }
 };
 
@@ -2906,6 +3306,11 @@ const goRunHistory = () => {
 };
 
 const recenterMap = () => {
+  if (isRunning.value) {
+    mapCenterLat.value = lat.value;
+    mapCenterLng.value = lng.value;
+    return;
+  }
   doGetLocation({ silent: false });
 };
 
@@ -3241,6 +3646,7 @@ const switchMode = (mode) => {
   runEndMarker.value = null;
   runLocationSmooth = null;
   gpsAcceptedPointCount = 0;
+  lastAcceptedMileageStepCount = 0;
   lastRawLocationSample = null;
   resetRunMotionEvidence();
   if (mode === 'campus' && checkpoint.value && checkpoint.value.lat && checkpoint.value.lng) {
@@ -3287,9 +3693,78 @@ const ensureRunStepCounter = () => {
   return runStepCounter;
 };
 
+const feedRunStepMotion = (x, y, z) => {
+  if (!isRunning.value || isRunPaused.value) return;
+  let acceleration = Math.sqrt(x * x + y * y + z * z);
+  if (!Number.isFinite(acceleration)) return;
+  if (acceleration > 5) acceleration /= 9.8;
+
+  const now = Date.now();
+  if (isStepActive && now - lastStepTime > STEP_RESET_TIMEOUT) {
+    isStepActive = false;
+  }
+  if (!isStepActive && acceleration > STEP_THRESHOLD_UP && now - lastStepTime > MIN_STEP_INTERVAL) {
+    stepCount.value += 1;
+    if (runStepCounter) runStepCounter.setStepCount(stepCount.value);
+    lastStepTime = now;
+    isStepActive = true;
+    noteStepMotion(now);
+  } else if (isStepActive && acceleration < STEP_THRESHOLD_DOWN) {
+    isStepActive = false;
+  }
+};
+
+const startAppNativeStepCount = () => {
+  if (typeof plus === 'undefined' || !plus.accelerometer) return false;
+  if (appAccelerometerWatchId != null) {
+    try {
+      plus.accelerometer.clearWatch(appAccelerometerWatchId);
+    } catch (e) {}
+  }
+  lastAppAccelerometerAt = 0;
+  const counter = ensureRunStepCounter();
+  counter.reset();
+  counter.setStepCount(stepCount.value);
+  try {
+    appAccelerometerWatchId = plus.accelerometer.watchAcceleration(
+      (acceleration) => {
+        lastAppAccelerometerAt = Date.now();
+        feedRunStepMotion(
+          Number(acceleration?.xAxis) || 0,
+          Number(acceleration?.yAxis) || 0,
+          Number(acceleration?.zAxis) || 0
+        );
+      },
+      (error) => {
+        console.warn('App native accelerometer failed:', error?.message || error);
+        appAccelerometerWatchId = null;
+      },
+      { frequency: 60 }
+    );
+    if (appAccelerometerWatchdogTimer) clearTimeout(appAccelerometerWatchdogTimer);
+    appAccelerometerWatchdogTimer = setTimeout(() => {
+      appAccelerometerWatchdogTimer = null;
+      if (!isRunning.value || lastAppAccelerometerAt) return;
+      if (appAccelerometerWatchId != null) {
+        try {
+          plus.accelerometer.clearWatch(appAccelerometerWatchId);
+        } catch (e) {}
+        appAccelerometerWatchId = null;
+      }
+      startAccelerometerWithRetry(0);
+    }, 1500);
+    resetRunMotionEvidence();
+    return true;
+  } catch (error) {
+    console.warn('App native accelerometer unavailable:', error);
+    appAccelerometerWatchId = null;
+    return false;
+  }
+};
+
 const startAccelerometerWithRetry = (retryCount) => {
   const MAX_RETRIES = 3;
-  const intervals = ['game', 'game', 'normal'];
+  const intervals = ['ui', 'normal', 'game'];
   const interval = intervals[Math.min(retryCount, intervals.length - 1)];
 
   const bindAccelerometerListener = () => {
@@ -3304,13 +3779,7 @@ const startAccelerometerWithRetry = (retryCount) => {
     counter.reset();
     counter.setStepCount(stepCount.value);
     accelerometerCallback = (res) => {
-      if (!isRunning.value || isRunPaused.value) return;
-      const now = Date.now();
-      const result = counter.feed(res.x, res.y, res.z, now);
-      if (result.stepped) {
-        stepCount.value = result.steps;
-        noteStepMotion(now);
-      }
+      feedRunStepMotion(res.x, res.y, res.z);
     };
     uni.onAccelerometerChange(accelerometerCallback);
   };
@@ -3350,6 +3819,8 @@ const startAccelerometerWithRetry = (retryCount) => {
 };
 
 const startStepCount = (retryCount = 0) => {
+  isStepActive = false;
+  lastStepTime = Date.now();
   uni.stopAccelerometer({
     complete: () => {
       setTimeout(() => startAccelerometerWithRetry(retryCount), 200);
@@ -3358,13 +3829,24 @@ const startStepCount = (retryCount = 0) => {
 };
 
 const stopStepCount = () => {
-  if (!accelerometerCallback) {
-    resetRunMotionEvidence();
-    return;
+  // #if !defined(H5) && !defined(MP-WEIXIN)
+  if (appAccelerometerWatchdogTimer) {
+    clearTimeout(appAccelerometerWatchdogTimer);
+    appAccelerometerWatchdogTimer = null;
   }
-  uni.stopAccelerometer();
-  uni.offAccelerometerChange(accelerometerCallback);
-  accelerometerCallback = null;
+  if (appAccelerometerWatchId != null && typeof plus !== 'undefined' && plus.accelerometer) {
+    try {
+      plus.accelerometer.clearWatch(appAccelerometerWatchId);
+    } catch (e) {}
+  }
+  appAccelerometerWatchId = null;
+  lastAppAccelerometerAt = 0;
+  // #endif
+  if (accelerometerCallback) {
+    uni.stopAccelerometer();
+    uni.offAccelerometerChange(accelerometerCallback);
+    accelerometerCallback = null;
+  }
   resetRunMotionEvidence();
   stepFusionSkewSince = 0;
   stepFusionLastAdjustAt = 0;
@@ -3398,6 +3880,9 @@ const initializeRunState = () => {
   }
 
   isRunning.value = true;
+  isRunCalibrating.value = true;
+  runCalibrationCountdown.value = 3;
+  runCalibrationFixCount = 0;
   isRunPaused.value = false;
   runControlsLocked.value = false;
   duration.value = 0;
@@ -3411,13 +3896,18 @@ const initializeRunState = () => {
   currentSpeed.value = 0;
   endFaceUrl.value = null;
   gpsAcceptedPointCount = 0;
+  lastAcceptedMileageStepCount = 0;
   resetRunMotionEvidence();
   stepFusionSkewSince = 0;
   stepFusionLastAdjustAt = 0;
   if (runTrajectoryFilter) {
     runTrajectoryFilter.reset();
   } else {
-    runTrajectoryFilter = createTrajectoryFilter();
+    runTrajectoryFilter = createTrajectoryFilter({
+      medianWindow: 3,
+      processNoise: 6e-8,
+      measurementNoiseBase: 2e-8
+    });
   }
   if (runStepCounter) {
     runStepCounter.reset();
@@ -3427,20 +3917,16 @@ const initializeRunState = () => {
   runPolyline.value.points = [];
   trajectoryPoints.value = [];
   displayTrackPoints.value = [];
+  pendingRunTrajectoryForResult = null;
+  runStartMarker.value = null;
   runEndMarker.value = null;
   runLocationSmooth = null;
   lastRawLocationSample = null;
+  lastRouteFixInput = null;
   resetRunGpsRawWindow();
-
-  // Add start point immediately to avoid delay in drawing line
-  if (lat.value && lng.value) {
-    const startPoint = { latitude: lat.value, longitude: lng.value, timestamp: Date.now(), speed: 0 };
-    trajectoryPoints.value.push(startPoint);
-    displayTrackPoints.value.push({ ...startPoint });
-    runStartMarker.value = createRunPointMarker(2, lat.value, lng.value, '起');
-    refreshMarkers();
-    scheduleRebuildDisplayPolyline(true);
-  }
+  startRunCalibrationCountdown();
+  refreshMarkers();
+  updateMapPolyline();
   return true;
 };
 
@@ -3495,6 +3981,9 @@ const finishFaceCamera = (result) => {
   faceCameraBusy.value = false;
   faceCameraErrorText.value = '';
   faceCameraContext = null;
+  setTimeout(() => {
+    faceCameraLayerVisible.value = false;
+  }, 180);
   if (resolver) resolver(!!result);
 };
 
@@ -3502,6 +3991,7 @@ const cancelFaceCamera = () => finishFaceCamera(false);
 
 const handleFaceCameraReady = () => {
   // #ifdef MP-WEIXIN
+  if (!showFaceCamera.value) return;
   faceCameraContext = uni.createCameraContext('faceCamera');
   // #endif
   faceCameraErrorText.value = '';
@@ -3516,6 +4006,7 @@ const openInlineFaceCamera = (phase) => {
   faceCapturePhase.value = phase;
   faceCameraBusy.value = false;
   faceCameraErrorText.value = '';
+  faceCameraLayerVisible.value = true;
   showFaceCamera.value = true;
   return new Promise((resolve) => {
     faceCameraResolve = resolve;
@@ -3527,6 +4018,7 @@ const openInlineFaceCamera = (phase) => {
     }, 15000);
     nextTick(() => {
       // #ifdef MP-WEIXIN
+      if (!showFaceCamera.value) return;
       faceCameraContext = uni.createCameraContext('faceCamera');
       // #endif
     });
@@ -3738,6 +4230,7 @@ const startCampusRun = async () => {
 
 // 缁撴潫璺戞鏃惰嫢鐢ㄦ埛鍙栨秷浜鸿劯楠岃瘉锛氭仮澶嶈鏃躲€佽姝ヤ笌瀹氫綅锛堥伩鍏嶅凡鍋滆〃鍗存棤娉曠户缁窇锛?
 const resumeRunAfterEndFaceCancelled = () => {
+  pendingRunTrajectoryForResult = null;
   runEndMarker.value = null;
   refreshMarkers();
   isRunPaused.value = false;
@@ -3750,6 +4243,8 @@ const resumeRunAfterEndFaceCancelled = () => {
 
 // 鎻愪氦璺戞璁板綍骞惰烦杞粨绠楅〉
 const redirectToRunResult = () => {
+  runEndMarker.value = null;
+  refreshMarkers();
   // Use navigateTo instead of redirectTo to avoid destroying the current
   // page's native map component (which triggers view-layer DOM errors on App)
   uni.navigateTo({
@@ -3761,7 +4256,7 @@ const redirectToRunResult = () => {
   });
 };
 
-/** 璇诲彇鏈湴璺戞鏉★紙鍏煎瀛楃涓插瓨鍌級 */
+/** Run record storage helper. */
 const getStoredRunRecordsList = () => {
   let raw = uni.getStorageSync('runRecordsList');
   if (raw == null || raw === '') return [];
@@ -3794,6 +4289,47 @@ const appendLocalRunRecord = (runData) => {
   }
 };
 
+// Freeze the display route before end-face capture can trigger lifecycle cleanup.
+const captureRunTrajectoryForResult = () => {
+  rebuildDisplayPolyline();
+  const source = getPolylineSourcePoints();
+  const points = source.map((point) => ({
+    latitude: point.latitude,
+    longitude: point.longitude,
+    timestamp: point.timestamp,
+    speed: point.speed
+  }));
+  const endPoint = getValidatedRunFinishPoint();
+  if (
+    points.length === 0 ||
+    getDistance(
+      points[points.length - 1].latitude,
+      points[points.length - 1].longitude,
+      endPoint.latitude,
+      endPoint.longitude
+    ) > 0.2
+  ) {
+    points.push(endPoint);
+  }
+  const polylinePoints = runPolyline.value.points.length >= 2
+    ? runPolyline.value.points.map((point) => ({ latitude: point.latitude, longitude: point.longitude }))
+    : smoothTrajectoryForMap(points, { sampleStepM: 1.5 });
+  return {
+    points,
+    mileagePoints: trajectoryPoints.value.map((point) => ({
+      latitude: point.latitude,
+      longitude: point.longitude,
+      timestamp: point.timestamp,
+      speed: point.speed
+    })),
+    polylinePoints,
+    startLat: points.length > 0 ? points[0].latitude : endPoint.latitude,
+    startLng: points.length > 0 ? points[0].longitude : endPoint.longitude,
+    endLat: endPoint.latitude,
+    endLng: endPoint.longitude
+  };
+};
+
 const submitCurrentRunToServer = async (runData) => {
   uni.showLoading({ title: '正在核验运动数据...' });
   try {
@@ -3806,15 +4342,15 @@ const submitCurrentRunToServer = async (runData) => {
       campus_reached: currentMode.value === 'campus' ? !!isReach.value : undefined,
       campus_checkpoint: currentMode.value === 'campus' ? (checkpoint.value?.name || '') : ''
     });
+    uni.setStorageSync('tempRunPaceSeries', runData?.metrics?.pace_series || []);
     // 同时保存轨迹数据用于结算页展示
-    const trajForDisplay = getPolylineSourcePoints();
-    uni.setStorageSync('tempRunTrajectory', {
-      points: trajForDisplay.map((p) => ({ latitude: p.latitude, longitude: p.longitude })),
-      startLat: trajForDisplay.length > 0 ? trajForDisplay[0].latitude : lat.value,
-      startLng: trajForDisplay.length > 0 ? trajForDisplay[0].longitude : lng.value,
-      endLat: lat.value,
-      endLng: lng.value
-    });
+    const trajectoryForResult = pendingRunTrajectoryForResult || captureRunTrajectoryForResult();
+    console.info(
+      '[run-result] stored route points:',
+      trajectoryForResult.points.length,
+      trajectoryForResult.polylinePoints.length
+    );
+    uni.setStorageSync('tempRunTrajectory', trajectoryForResult);
     appendLocalRunRecord(runData);
     redirectToRunResult();
     return res;
@@ -3831,9 +4367,11 @@ const stopRun = async () => {
   runControlsLocked.value = false;
   syncRunElapsedDisplay();
   if (hasPlausibleCoords()) {
-    runEndMarker.value = createRunPointMarker(3, lat.value, lng.value, '终');
+    const finishPoint = getValidatedRunFinishPoint();
+    runEndMarker.value = createRunPointMarker(3, finishPoint.latitude, finishPoint.longitude, '终');
     refreshMarkers();
   }
+  pendingRunTrajectoryForResult = captureRunTrajectoryForResult();
   isRunning.value = false;
   clearRunSession();
   clearRunTickTimer();
@@ -3878,11 +4416,6 @@ const stopRun = async () => {
       reportM = Math.max(filtM, Math.min(relaxedTraj, filtM * 1.28));
     }
   }
-  if (!taskId.value && reportM < 30 && stepCount.value >= 40) {
-    const strideM = currentMode.value === 'police' ? 0.72 : 0.78;
-    const stepEstM = stepCount.value * strideM;
-    reportM = Math.max(reportM, Math.min(stepEstM, stepCount.value * 0.55));
-  }
   const distKm = reportM / 1000;
   const durSec = Math.max(duration.value, 1);
   const paceFromDist = distKm > 1e-6 ? (durSec / 60) / distKm : Number(currentPace.value) || 0;
@@ -3891,6 +4424,8 @@ const stopRun = async () => {
   const durOk = !taskMinDurationSec.value || duration.value >= taskMinDurationSec.value;
   const distOk = !policeTargetDistance.value || reportM >= policeTargetDistance.value;
   const taskMetPreview = !taskId.value || (distOk && durOk);
+  const trajectoryForHistory = pendingRunTrajectoryForResult?.mileagePoints || trajectoryPoints.value;
+  const paceSeries = buildRunPaceSeries(trajectoryForHistory);
 
   const runData = {
     type: 'run',
@@ -3904,7 +4439,8 @@ const stopRun = async () => {
       step_count: reportedStepCount,
       count: currentMode.value === 'police' ? 1 : null,
       qualified: taskId.value ? taskMetPreview : (currentMode.value === 'police' ? currentPace.value <= policeTargetPace.value : false),
-      trajectory: JSON.stringify(trajectoryPoints.value),
+      trajectory: JSON.stringify(trajectoryForHistory),
+      pace_series: paceSeries,
       checkpoints: JSON.stringify(checkinRecords.value)
     },
     evidence: []
@@ -4140,9 +4676,8 @@ const buildHistory = (records) => {
   transition: bottom 0.32s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .sport-recenter-icon {
-  color: #333333;
-  font-size: 36rpx;
-  line-height: 1;
+  width: 42rpx;
+  height: 42rpx;
 }
 
 .location-overlay {
@@ -4397,6 +4932,33 @@ const buildHistory = (records) => {
   align-items: center;
   opacity: 0.85;
 }
+
+.run-calibration-overlay {
+  position: absolute;
+  top: 34%;
+  left: 50%;
+  z-index: 180;
+  width: 132rpx;
+  height: 132rpx;
+  margin-left: -66rpx;
+  border-radius: 66rpx;
+  background-color: rgba(19, 32, 48, 0.78);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.run-calibration-count {
+  color: #ffffff;
+  font-size: 76rpx;
+  font-weight: 700;
+  line-height: 1;
+}
+.run-ctrl-lock-img {
+  width: 34rpx;
+  height: 34rpx;
+}
 .run-ctrl-side--on {
   opacity: 1;
 }
@@ -4550,7 +5112,8 @@ const buildHistory = (records) => {
   flex: 1;
   min-height: 0;
   padding: 0 24rpx;
-  overflow: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 .run-prep-card {
   background: rgba(255, 255, 255, 0.06);

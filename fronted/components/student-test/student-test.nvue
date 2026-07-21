@@ -6,7 +6,7 @@
         <text class="navbar-title">体能测试</text>
       </view>
     </view>
-    
+
     <!-- Content Wrapper -->
     <scroll-view scroll-y="true" class="content-wrapper" :style="{paddingTop: (statusBarHeight + 44) + 'px'}">
       <view v-if="role === 'teacher'" class="teacher-tools">
@@ -24,7 +24,7 @@
             <text class="badge-text">国家学生体质健康标准</text>
           </view>
           <text class="standard-desc">动作标准：{{ standardDesc }}</text>
-          
+
           <view class="test-type-switch">
             <button class="switch-btn" @click="showTypeSelector"><text class="switch-btn-text">切换测试类型</text></button>
             <view class="type-selector" v-if="showSelector">
@@ -34,7 +34,7 @@
             </view>
           </view>
         </view>
-      
+
         <view class="camera-area">
           <!-- #ifdef H5 -->
           <view class="h5-camera-wrapper">
@@ -51,26 +51,29 @@
             flash="off"
             @error="handleCameraError"
           ></camera>
-          
+
           <view class="camera-controls" v-if="showCamera">
             <button class="switch-cam-btn" @click="toggleCamera">
-               <text class="switch-text">📷 切换</text>
+               <view class="switch-text">
+                 <AppIcon name="camera" :size="28" tone="white" />
+                 <text class="switch-label">切换</text>
+               </view>
             </button>
           </view>
-          
+
           <view v-if="!showCamera" class="camera-error-view">
              <text class="error-text">无法访问摄像头</text>
              <button class="retry-btn" @click="retryCamera"><text class="retry-text">重试</text></button>
              <button class="retry-btn setting-btn" @click="openSysSettings" style="margin-top: 20rpx; background-color: #555;"><text class="retry-text">去设置开启权限</text></button>
           </view>
-          
+
           <!-- In nvue, standard view can overlay camera if placed after it -->
           <view class="camera-overlay-content" v-if="isTesting">
             <view class="count-overlay">
               <text class="count-val">{{ count }}</text>
               <text class="count-label">次</text>
             </view>
-            
+
             <view class="progress-bar-container">
               <view class="progress-fill" :style="{ width: progressPercent + '%' }"></view>
             </view>
@@ -81,13 +84,13 @@
           </view>
           <!-- #endif -->
         </view>
-        
+
         <view class="action-area">
           <view class="timer-box">
             <text class="timer-label">{{ isTesting ? '测试用时' : (lastResult ? '上次用时' : '测试用时') }}</text>
             <text class="timer-text">{{ isTesting ? formatTime(duration) : (lastResult ? lastResult.duration : '00:00') }}</text>
           </view>
-          
+
           <!-- Last Result Display -->
           <view v-if="!isTesting && lastResult" class="last-result-box">
             <text class="result-title">上次成绩 ({{ projectName }})</text>
@@ -118,13 +121,13 @@
         <view class="guide-content" @click.stop>
           <text class="guide-title">动作指南</text>
           <view class="guide-visual">
-            <text class="guide-emoji">{{ projectEmoji }}</text>
+            <image class="guide-icon-img" :src="projectIconPath" mode="aspectFit" />
           </view>
           <text class="guide-desc">{{ standardDesc }}</text>
           <button class="guide-btn" @click="showGuide = false"><text class="guide-btn-text">我知道了</text></button>
         </view>
       </view>
-      
+
     </scroll-view>
   </view>
 </template>
@@ -133,6 +136,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import { request, BASE_URL } from '@/utils/request.js';
+import AppIcon from '@/components/app-icon/app-icon.vue';
 
 // 状态栏高度
 const statusBarHeight = ref(20);
@@ -158,15 +162,19 @@ const projectName = ref('引体向上');
 const standardDesc = ref('下颌过杠，双臂伸直');
 const testType = ref('pull-up');
 
-const projectEmoji = computed(() => {
-  const map = { 'pull-up': '💪', 'sit-up': '🧘', 'push-up': '🙇' };
-  return map[testType.value] || '🏃';
+const projectIconPath = computed(() => {
+  const map = {
+    'pull-up': '/static/test/exercise-pull-up.svg',
+    'sit-up': '/static/test/exercise-sit-up.svg',
+    'push-up': '/static/test/exercise-push-up.svg'
+  };
+  return map[testType.value] || '/static/home-fitness-test.png';
 });
 
 const onPageShow = () => {
   const userRole = uni.getStorageSync('userRole') || 'student';
   role.value = userRole;
-  
+
   // #ifndef H5
   if (!cameraContext.value && uni.createCameraContext) {
     cameraContext.value = uni.createCameraContext();
@@ -199,11 +207,11 @@ const switchTestType = (name, type) => {
   projectName.value = name;
   testType.value = type;
   showSelector.value = false;
-  
+
   if (type === 'pull-up') standardDesc.value = '下颌过杠，双臂伸直';
   else if (type === 'sit-up') standardDesc.value = '双手抱头，肘部触膝';
   else if (type === 'push-up') standardDesc.value = '身体平直，屈臂90度';
-  
+
   count.value = 0;
   duration.value = 0;
   isTesting.value = false;
@@ -246,17 +254,17 @@ const startTest = () => {
       });
   }
   // #endif
-  
+
   isTesting.value = true;
   count.value = 0;
   duration.value = 0;
   statusText.value = '正在识别...';
   pendingVideoUrl.value = '';
-  
+
   timer.value = setInterval(() => {
     duration.value++;
   }, 1000);
-  
+
   captureTimer.value = setInterval(() => {
     mockCount();
   }, 3000);
@@ -264,20 +272,20 @@ const startTest = () => {
 
 const endTest = async () => {
   if (!isTesting.value) return;
-  
+
   clearInterval(timer.value);
   clearInterval(captureTimer.value);
   isTesting.value = false;
   statusText.value = '测试结束';
-  
+
   lastResult.value = {
     count: count.value,
     duration: formatTime(duration.value),
     date: new Date().toLocaleString()
   };
-  
+
   uni.showLoading({ title: '正在处理视频...' });
-  
+
   // #ifdef APP-PLUS
   if (cameraContext.value) {
       cameraContext.value.stopRecord({
@@ -303,7 +311,7 @@ const endTest = async () => {
               fallbackToSnapshot();
           }
       });
-      return; 
+      return;
   }
   // #endif
 
@@ -366,7 +374,7 @@ const uploadFile = (filePath) => {
   return new Promise((resolve, reject) => {
     const token = uni.getStorageSync('token');
     uni.uploadFile({
-      url: `${BASE_URL}/upload`,
+      url: `${BASE_URL}/upload/file`,
       filePath: filePath,
       name: 'file',
       header: {
@@ -412,13 +420,13 @@ const submitResult = (evidenceUrlArg) => {
 const handleOptions = (options) => {
   if (options.project) projectName.value = options.project;
   if (options.type) testType.value = options.type;
-  
+
   const standards = {
     '引体向上': '下颌过杠，双臂伸直',
     '仰卧起坐': '双手抱头，肘部触膝',
     '俯卧撑': '身体平直，屈臂90度'
   };
-  
+
   if (standards[projectName.value]) {
     standardDesc.value = standards[projectName.value];
   }
@@ -680,7 +688,7 @@ const handleCameraError = (e) => {
   top: 200rpx;
   left: 375rpx;
   /* translate not fully supported in styles, use layout */
-  transform: translateX(-50%); 
+  transform: translateX(-50%);
   flex-direction: row;
   align-items: flex-end;
   justify-content: center;
@@ -894,9 +902,21 @@ const handleCameraError = (e) => {
   justify-content: center;
   margin-bottom: 30rpx;
 }
+.guide-icon-img {
+  width: 112rpx;
+  height: 112rpx;
+}
 
-.guide-emoji {
-  font-size: 80rpx;
+.switch-text {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+}
+.switch-label {
+  margin-left: 8rpx;
+  font-size: 26rpx;
+  color: #fff;
 }
 
 .guide-desc {

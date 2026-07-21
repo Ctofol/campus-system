@@ -12,7 +12,7 @@
       
       <view class="info-card">
         <view class="info-item">
-          <image class="detail-icon-img" src="/static/日历.png" mode="aspectFit" />
+          <image class="detail-icon-img" src="/static/icons/icon-activity-time.svg" mode="aspectFit" />
           <view class="info-content">
             <text class="label">活动时间</text>
             <text class="value">{{ formatTime(activity.activity_time) }}</text>
@@ -20,7 +20,7 @@
         </view>
         
         <view class="info-item" v-if="activity.location">
-          <image class="detail-icon-img" src="/static/location.png" mode="aspectFit" />
+          <image class="detail-icon-img" src="/static/icons/icon-activity-location.svg" mode="aspectFit" />
           <view class="info-content">
             <text class="label">活动地点</text>
             <text class="value">{{ activity.location }}</text>
@@ -28,7 +28,7 @@
         </view>
         
         <view class="info-item" v-if="activity.distance">
-          <image class="detail-icon-img" src="/static/主页户外跑图标.png" mode="aspectFit" />
+          <image class="detail-icon-img" src="/static/icons/icon-activity-distance.svg" mode="aspectFit" />
           <view class="info-content">
             <text class="label">目标距离</text>
             <text class="value">{{ activity.distance }}km</text>
@@ -36,7 +36,7 @@
         </view>
         
         <view class="info-item">
-          <image class="detail-icon-img" src="/static/主页跑团图标.png" mode="aspectFit" />
+          <image class="detail-icon-img" src="/static/icons/icon-learning-users.svg" mode="aspectFit" />
           <view class="info-content">
             <text class="label">报名人数</text>
             <text class="value">{{ activity.apply_count }}/{{ activity.total_quota }}人</text>
@@ -179,13 +179,13 @@ onLoad((options = {}) => {
 <style scoped>
 .detail-page {
   min-height: 100vh;
-  background: #f5f7fa;
+  background: #F5F8FA;
   padding-bottom: 120rpx;
 }
 
 .header-bg {
-  height: 300rpx;
-  background: linear-gradient(135deg, #20C997, #17a589);
+  height: 286rpx;
+  background: #24BFA2;
 }
 
 .content {
@@ -195,10 +195,11 @@ onLoad((options = {}) => {
 
 .title-section {
   background: #fff;
-  border-radius: 20rpx;
-  padding: 30rpx;
-  margin-bottom: 20rpx;
-  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.08);
+  border-radius: 18rpx;
+  padding: 30rpx 28rpx;
+  margin-bottom: 18rpx;
+  box-shadow: 0 8rpx 22rpx rgba(24, 35, 46, 0.045);
+  border: 1rpx solid rgba(24, 35, 46, 0.06);
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -208,7 +209,7 @@ onLoad((options = {}) => {
   flex: 1;
   font-size: 36rpx;
   font-weight: bold;
-  color: #333;
+  color: #18232E;
   line-height: 1.4;
 }
 
@@ -221,7 +222,7 @@ onLoad((options = {}) => {
 }
 
 .status-upcoming {
-  background: #20C997;
+  background: #24BFA2;
 }
 
 .status-ongoing {
@@ -234,16 +235,17 @@ onLoad((options = {}) => {
 
 .info-card {
   background: #fff;
-  border-radius: 20rpx;
-  padding: 30rpx;
-  margin-bottom: 20rpx;
+  border-radius: 18rpx;
+  padding: 28rpx;
+  margin-bottom: 18rpx;
+  border: 1rpx solid rgba(24, 35, 46, 0.06);
 }
 
 .info-item {
   display: flex;
   align-items: center;
   padding: 20rpx 0;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1rpx solid #EEF2F5;
 }
 
 .info-item:last-child {
@@ -260,21 +262,22 @@ onLoad((options = {}) => {
 
 .label {
   font-size: 24rpx;
-  color: #999;
+  color: #718094;
   margin-bottom: 8rpx;
 }
 
 .value {
   font-size: 28rpx;
-  color: #333;
+  color: #18232E;
   font-weight: 500;
 }
 
 .progress-section {
   background: #fff;
-  border-radius: 20rpx;
-  padding: 30rpx;
-  margin-bottom: 20rpx;
+  border-radius: 18rpx;
+  padding: 28rpx;
+  margin-bottom: 18rpx;
+  border: 1rpx solid rgba(24, 35, 46, 0.06);
 }
 
 .progress-label {
@@ -286,7 +289,7 @@ onLoad((options = {}) => {
 
 .progress-bar {
   height: 16rpx;
-  background: #f0f0f0;
+  background: #EEF2F5;
   border-radius: 8rpx;
   overflow: hidden;
   margin-bottom: 12rpx;
@@ -294,20 +297,21 @@ onLoad((options = {}) => {
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #20C997, #17a589);
+  background: #24BFA2;
   border-radius: 8rpx;
 }
 
 .progress-text {
   font-size: 24rpx;
-  color: #20C997;
+  color: #24BFA2;
   font-weight: bold;
 }
 
 .desc-section {
   background: #fff;
-  border-radius: 20rpx;
-  padding: 30rpx;
+  border-radius: 18rpx;
+  padding: 28rpx;
+  border: 1rpx solid rgba(24, 35, 46, 0.06);
 }
 
 .section-title {
@@ -354,7 +358,7 @@ onLoad((options = {}) => {
 }
 
 .action-btn.apply {
-  background: linear-gradient(135deg, #20C997, #17a589);
+  background: #24BFA2;
   color: #fff;
 }
 

@@ -15,7 +15,7 @@ from .. import auth, database
 router = APIRouter(prefix="/upload", tags=["upload"])
 
 # 文件大小限制（字节）
-MAX_VIDEO_SIZE = 100 * 1024 * 1024  # 100MB
+MAX_VIDEO_SIZE = 500 * 1024 * 1024  # 500MB
 MAX_IMAGE_SIZE = 5 * 1024 * 1024    # 5MB
 
 # 允许的文件类型

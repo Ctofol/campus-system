@@ -34,20 +34,33 @@
       <!-- 请假时间（仅请假申请显示） -->
       <view class="form-item" v-if="formData.type === 'leave'">
         <text class="label">请假时间</text>
-        <view class="time-range">
-          <picker mode="date" :value="formData.start_date" @change="onStartDateChange">
-            <view class="time-input">
-              <text>{{ formData.start_date || '开始日期' }}</text>
-            </view>
-          </picker>
-          <text class="time-separator">至</text>
-          <picker mode="date" :value="formData.end_date" @change="onEndDateChange">
-            <view class="time-input">
-              <text>{{ formData.end_date || '结束日期' }}</text>
-            </view>
-          </picker>
+        <view class="time-block">
+          <view class="time-row">
+            <picker class="time-picker time-picker--date" mode="date" :value="formData.start_date" @change="onStartDateChange">
+              <view class="time-input">
+                <text>{{ formatDatePart(formData.start_date) || '开始日期' }}</text>
+              </view>
+            </picker>
+            <picker class="time-picker time-picker--hour" mode="time" :value="formData.start_time" @change="onStartTimeChange">
+              <view class="time-input time-input--narrow">
+                <text>{{ formData.start_time || '开始小时' }}</text>
+              </view>
+            </picker>
+          </view>
+          <view class="time-row">
+            <picker class="time-picker time-picker--date" mode="date" :value="formData.end_date" @change="onEndDateChange">
+              <view class="time-input">
+                <text>{{ formatDatePart(formData.end_date) || '结束日期' }}</text>
+              </view>
+            </picker>
+            <picker class="time-picker time-picker--hour" mode="time" :value="formData.end_time" @change="onEndTimeChange">
+              <view class="time-input time-input--narrow">
+                <text>{{ formData.end_time || '结束小时' }}</text>
+              </view>
+            </picker>
+          </view>
         </view>
-        <text class="label-tip">请假开始和结束日期（精确到天）</text>
+        <text class="label-tip">请假开始和结束时间（精确到小时）</text>
       </view>
       
       <view class="form-item">
@@ -103,7 +116,7 @@
           </view>
           <view class="item-time-range" v-if="item.type === 'leave' && (item.start_date || item.end_date)">
             <text class="time-range-text">
-              {{ (item.start_date || '').substring(0, 10) }} 至 {{ (item.end_date || '').substring(0, 10) }}
+              {{ formatLeaveDateTime(item.start_date) }} 至 {{ formatLeaveDateTime(item.end_date) }}
             </text>
           </view>
           <text class="item-reason">{{ item.reason }}</text>
@@ -138,7 +151,9 @@ const formData = ref({
   type: 'leave',
   reason: '',
   start_date: '',
-  end_date: ''
+  end_date: '',
+  start_time: '08:00',
+  end_time: '18:00'
 });
 const uploadedImages = ref([]);
 const history = ref([]);
@@ -238,11 +253,13 @@ const submitRequest = async () => {
     return uni.showToast({ title: '请填写原因', icon: 'none' });
   }
   if (formData.value.type === 'leave') {
-    if (!formData.value.start_date || !formData.value.end_date) {
+    if (!formData.value.start_date || !formData.value.start_time || !formData.value.end_date || !formData.value.end_time) {
       return uni.showToast({ title: '请选择请假时间', icon: 'none' });
     }
-    if (formData.value.end_date < formData.value.start_date) {
-      return uni.showToast({ title: '结束日期不能早于开始日期', icon: 'none' });
+    const startAt = buildDateTime(formData.value.start_date, formData.value.start_time);
+    const endAt = buildDateTime(formData.value.end_date, formData.value.end_time);
+    if (endAt <= startAt) {
+      return uni.showToast({ title: '结束时间不能早于开始时间', icon: 'none' });
     }
   }
   
@@ -253,8 +270,8 @@ const submitRequest = async () => {
       data: {
         type: formData.value.type,
         reason: formData.value.reason,
-        start_date: formData.value.start_date || null,
-        end_date: formData.value.end_date || null,
+        start_date: formData.value.type === 'leave' ? buildDateTime(formData.value.start_date, formData.value.start_time) : null,
+        end_date: formData.value.type === 'leave' ? buildDateTime(formData.value.end_date, formData.value.end_time) : null,
         attachments: uploadedImages.value
       }
     });
@@ -263,6 +280,8 @@ const submitRequest = async () => {
     formData.value.reason = '';
     formData.value.start_date = '';
     formData.value.end_date = '';
+    formData.value.start_time = '08:00';
+    formData.value.end_time = '18:00';
     uploadedImages.value = [];
     
     // 刷新列表
@@ -295,13 +314,42 @@ const formatDate = (str) => {
   return str.replace('T', ' ').substring(0, 16);
 };
 
+const formatDatePart = (str) => {
+  if (!str) return '';
+  return String(str).replace('T', ' ').substring(0, 10);
+};
+
+const formatLeaveDateTime = (str) => {
+  if (!str) return '';
+  const text = String(str).replace('T', ' ');
+  return text.substring(0, 16);
+};
+
+const buildDateTime = (datePart, timePart) => {
+  if (!datePart || !timePart) return '';
+  return `${datePart}T${timePart}:00`;
+};
+
+const normalizeHour = (timeText) => {
+  const hour = String(timeText || '').slice(0, 2).padStart(2, '0');
+  return `${hour}:00`;
+};
+
 // 处理日期选择
 const onStartDateChange = (e) => {
   formData.value.start_date = e.detail.value;
 };
 
+const onStartTimeChange = (e) => {
+  formData.value.start_time = normalizeHour(e.detail.value);
+};
+
 const onEndDateChange = (e) => {
   formData.value.end_date = e.detail.value;
+};
+
+const onEndTimeChange = (e) => {
+  formData.value.end_time = normalizeHour(e.detail.value);
 };
 
 const promptUnreadHealthNotifications = async () => {
@@ -385,15 +433,29 @@ onShow(() => {
   }
 }
 
-.time-range {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
+.time-block {
   margin-top: 10rpx;
 }
 
-.time-input {
+.time-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-bottom: 16rpx;
+}
+
+.time-picker--date {
   flex: 1;
+  min-width: 0;
+}
+
+.time-picker--hour {
+  width: 170rpx;
+  flex-shrink: 0;
+  margin-left: 16rpx;
+}
+
+.time-input {
   background: #f7f9fc;
   border-radius: 12rpx;
   padding: 20rpx;
@@ -401,10 +463,9 @@ onShow(() => {
   color: #333;
 }
 
-.time-separator {
-  margin: 0 20rpx;
-  color: #999;
-  font-size: 26rpx;
+.time-input--narrow {
+  flex: 0 0 170rpx;
+  text-align: center;
 }
 
 .type-selector {

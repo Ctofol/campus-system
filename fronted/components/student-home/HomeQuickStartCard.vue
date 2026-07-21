@@ -1,12 +1,12 @@
 <template>
-  <view class="home-quick">
+  <view class="home-quick" @tap="$emit('go')">
     <view class="home-quick__left">
       <text class="home-quick__title">开始跑步</text>
-      <text class="home-quick__sub" @tap="$emit('go')">自由跑 · 随心跑 ›</text>
+      <text class="home-quick__sub">自由跑 · 随心跑 ›</text>
     </view>
-    <view class="home-quick__center" @tap="$emit('go')">
+    <view class="home-quick__center">
       <view class="home-quick__go">
-        <image class="home-quick__go-icon" src="/static/主页GO图标.png" mode="aspectFit" />
+        <image class="home-quick__go-icon" src="/static/home-go.png" mode="aspectFit" />
       </view>
       <text class="home-quick__go-txt">GO</text>
     </view>
@@ -22,7 +22,7 @@
         </view>
         <text class="home-quick__progress-txt">{{ goalHint }}</text>
       </view>
-      <view class="home-quick__goal" @tap="$emit('setGoal')">
+      <view class="home-quick__goal" @tap.stop="$emit('setGoal')">
         <text>{{ goalKm > 0 ? '修改目标' : '设置目标' }}</text>
         <text class="home-quick__goal-arrow">›</text>
       </view>
@@ -42,18 +42,21 @@ defineEmits(['go', 'settings', 'setGoal']);
 
 <style lang="scss" scoped>
 .home-quick {
-  margin: -48rpx 28rpx 0;
-  padding: 40rpx 28rpx 36rpx;
+  margin: -44rpx 24rpx 0;
+  padding: 32rpx 24rpx 30rpx;
   background: #fff;
-  border-radius: 22rpx;
-  border: 1rpx solid rgba(26, 43, 60, 0.05);
-  box-shadow: 0 2rpx 8rpx rgba(26, 43, 60, 0.025);
+  border-radius: 20rpx;
+  border: 1rpx solid rgba(24, 35, 46, 0.06);
+  box-shadow: 0 10rpx 24rpx rgba(24, 35, 46, 0.05);
   display: flex;
   flex-direction: row;
   align-items: center;
   position: relative;
   z-index: 2;
   box-sizing: border-box;
+}
+.home-quick:active {
+  background: #FBFEFD;
 }
 .home-quick__left {
   flex: 1;
@@ -62,9 +65,9 @@ defineEmits(['go', 'settings', 'setGoal']);
   flex-direction: column;
 }
 .home-quick__title {
-  font-size: 34rpx;
+  font-size: 32rpx;
   font-weight: 800;
-  color: #191C1E;
+  color: #18232E;
 }
 .home-quick__sub {
   font-size: 22rpx;
@@ -74,27 +77,27 @@ defineEmits(['go', 'settings', 'setGoal']);
 }
 .home-quick__center {
   flex-shrink: 0;
-  padding: 0 16rpx;
+  padding: 0 12rpx;
   display: flex;
   flex-direction: column;
   align-items: center;
 }
 .home-quick__go {
-  width: 168rpx;
-  height: 168rpx;
+  width: 152rpx;
+  height: 152rpx;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 .home-quick__go-icon {
-  width: 164rpx;
-  height: 164rpx;
+  width: 144rpx;
+  height: 144rpx;
 }
 .home-quick__go-txt {
-  font-size: 34rpx;
+  font-size: 30rpx;
   font-weight: 900;
-  color: #33C9AB;
-  letter-spacing: 6rpx;
+  color: #24BFA2;
+  letter-spacing: 4rpx;
   margin-top: -4rpx;
 }
 .home-quick__right {
@@ -118,9 +121,9 @@ defineEmits(['go', 'settings', 'setGoal']);
   margin-top: 8rpx;
 }
 .home-quick__km {
-  font-size: 56rpx;
+  font-size: 50rpx;
   font-weight: 900;
-  color: #191C1E;
+  color: #18232E;
   line-height: 1;
 }
 .home-quick__unit {
@@ -145,30 +148,30 @@ defineEmits(['go', 'settings', 'setGoal']);
 }
 .home-quick__progress-fill {
   height: 100%;
-  background: #33C9AB;
+  background: #24BFA2;
   border-radius: 5rpx;
 }
 .home-quick__progress-txt {
   font-size: 20rpx;
-  color: #33C9AB;
+  color: #24BFA2;
   margin-top: 8rpx;
   font-weight: 600;
 }
 .home-quick__goal {
   margin-top: 16rpx;
   padding: 10rpx 24rpx;
-  border: 2rpx solid rgba(51, 201, 171, 0.3);
+  border: 2rpx solid rgba(36, 191, 162, 0.26);
   border-radius: 30rpx;
   display: flex;
   align-items: center;
   gap: 4rpx;
   font-size: 22rpx;
   font-weight: 700;
-  color: #33C9AB;
+  color: #24BFA2;
   background: #fff;
 }
 .home-quick__goal:active {
-  background: rgba(51, 201, 171, 0.05);
+  background: rgba(36, 191, 162, 0.08);
 }
 .home-quick__goal-arrow {
   font-size: 26rpx;

@@ -15,7 +15,7 @@
           <view class="cover-upload" @click="chooseCover">
             <image v-if="coverImage" :src="coverImage" mode="aspectFill" class="cover-preview" />
             <view v-else class="cover-placeholder">
-              <image class="upload-icon-img" src="/static/主页GO图标.png" mode="aspectFit" />
+              <image class="upload-icon-img" src="/static/home-go.png" mode="aspectFit" />
               <text class="upload-text">点击上传封面</text>
             </view>
           </view>
@@ -395,7 +395,7 @@ const handleSubmit = async () => {
   justify-content: center;
 }
 
-.upload-icon-img { width: 60rpx; height: 60rpx; margin-bottom: 16rpx; }
+.upload-icon-img { width: 72rpx; height: 72rpx; margin-bottom: 16rpx; }
 
 .upload-text {
   font-size: 24rpx;

@@ -432,6 +432,7 @@ const gotoHealthRequest = () => uni.navigateTo({ url: '/pages/health/request' })
 const goMyCourses = () => uni.switchTab({ url: '/pages/tab/learn' });
 const goRunGroup = () => uni.navigateTo({ url: '/pages/run-group/discover' });
 const gotoDeviceBind = () => uni.showToast({ title: '功能开发中', icon: 'none' });
+const gotoFaceProfile = () => uni.navigateTo({ url: '/pages/mine/face-profile/face-profile' });
 const gotoAbout = () => uni.showModal({ title: '关于我们', content: '校园运动打卡系统 v1.0.0', showCancel: false });
 const gotoHelp = () => uni.showModal({ title: '帮助与反馈', content: '如有问题请联系管理员', showCancel: false });
 const goMyPlan = () => uni.switchTab({ url: '/pages/tab/function' });
@@ -444,6 +445,7 @@ const commonFunctions = [
   { key: 'route', label: '我的路线', icon: '/static/icons/icon-route.svg', action: goMyRoute },
   { key: 'group', label: '我的跑团', icon: '/static/icons/icon-group.svg', action: goRunGroup },
   { key: 'history', label: '训练记录', icon: '/static/icons/icon-training.svg', action: goMyData },
+  { key: 'face', label: '人脸认证', icon: '/static/icons/icon-face-scan.svg', action: gotoFaceProfile },
   { key: 'favorite', label: '我的收藏', icon: '/static/icons/icon-favorite.svg', action: goMyFavorites },
   { key: 'leave', label: '请假申请', icon: '/static/icons/icon-leave-request.svg', action: gotoHealthRequest },
   { key: 'notice', label: '我的通知', icon: '/static/icons/icon-notification.svg', action: gotoNotifications }

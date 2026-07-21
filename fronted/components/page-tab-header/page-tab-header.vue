@@ -12,7 +12,7 @@
       <view class="page-tab-header__bar" :style="barStyle">
         <view class="page-tab-header__side page-tab-header__side--left">
           <view v-if="showBack" class="page-tab-header__back" @click="handleBack">
-            <text class="page-tab-header__back-icon">‹</text>
+            <view class="page-tab-header__back-icon"></view>
           </view>
         </view>
         <view class="page-tab-header__center">
@@ -153,18 +153,8 @@ onMounted(() => {
   background: linear-gradient(to bottom, rgba(0, 0, 0, 0.45) 0%, rgba(0, 0, 0, 0) 100%);
 }
 
-.page-tab-header--transparent .page-tab-header__title,
-.page-tab-header--transparent .page-tab-header__back-icon {
-  color: #fff;
-}
-
 .page-tab-header--dark {
   background-color: #1a1a1a;
-}
-
-.page-tab-header--dark .page-tab-header__title,
-.page-tab-header--dark .page-tab-header__back-icon {
-  color: #fff;
 }
 
 .page-tab-header__bar {
@@ -220,9 +210,13 @@ onMounted(() => {
 }
 
 .page-tab-header__back-icon {
-  font-size: 48rpx;
-  line-height: 1;
-  font-weight: 300;
+  width: 14rpx;
+  height: 14rpx;
+  border-left: 3rpx solid currentColor;
+  border-bottom: 3rpx solid currentColor;
+  transform: rotate(45deg);
+  box-sizing: border-box;
+  flex-shrink: 0;
 }
 
 .page-tab-header--light .page-tab-header__back-icon,
@@ -230,7 +224,9 @@ onMounted(() => {
   color: #333;
 }
 
-.page-tab-header--brand .page-tab-header__back-icon {
+.page-tab-header--brand .page-tab-header__back-icon,
+.page-tab-header--transparent .page-tab-header__back-icon,
+.page-tab-header--dark .page-tab-header__back-icon {
   color: #fff;
 }
 
@@ -250,7 +246,9 @@ onMounted(() => {
   color: #333;
 }
 
-.page-tab-header--brand .page-tab-header__title {
+.page-tab-header--brand .page-tab-header__title,
+.page-tab-header--transparent .page-tab-header__title,
+.page-tab-header--dark .page-tab-header__title {
   color: #fff;
 }
 

@@ -245,7 +245,7 @@ onMounted(() => {
 <style scoped>
 .discover-page {
   min-height: 100vh;
-  background: #f5f7fa;
+  background: #F5F8FA;
 }
 
 .discover-body {
@@ -254,7 +254,7 @@ onMounted(() => {
 }
 
 .create-form {
-  padding: 24rpx 30rpx 40rpx;
+  padding: 24rpx 24rpx 40rpx;
 }
 
 .form-item {
@@ -274,7 +274,7 @@ onMounted(() => {
 .label {
   display: block;
   font-size: 28rpx;
-  color: #333;
+  color: #18232E;
   margin-bottom: 16rpx;
   font-weight: bold;
 }
@@ -285,9 +285,9 @@ onMounted(() => {
   line-height: 88rpx;
   padding: 0 24rpx;
   background: #fff;
-  border-radius: 16rpx;
+  border-radius: 18rpx;
   font-size: 28rpx;
-  border: 2rpx solid #e0e0e0;
+  border: 1rpx solid rgba(24, 35, 46, 0.08);
   box-sizing: border-box;
 }
 
@@ -296,18 +296,18 @@ onMounted(() => {
   min-height: 200rpx;
   padding: 24rpx;
   background: #fff;
-  border-radius: 16rpx;
+  border-radius: 18rpx;
   font-size: 28rpx;
-  border: 2rpx solid #e0e0e0;
+  border: 1rpx solid rgba(24, 35, 46, 0.08);
   box-sizing: border-box;
 }
 
 .submit-btn {
   width: 100%;
   padding: 28rpx;
-  background: #20c997;
+  background: #24BFA2;
   color: #fff;
-  border-radius: 50rpx;
+  border-radius: 24rpx;
   font-size: 32rpx;
   font-weight: bold;
   border: none;
@@ -318,27 +318,28 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: 0 30rpx 18rpx;
+  margin: 0 24rpx 18rpx;
   padding: 24rpx 28rpx;
   background: #fff;
   border-radius: 18rpx;
-  box-shadow: 0 6rpx 18rpx rgba(26, 43, 60, 0.06);
+  box-shadow: 0 8rpx 22rpx rgba(24, 35, 46, 0.045);
+  border: 1rpx solid rgba(24, 35, 46, 0.06);
 }
 
 .rank-entry-text {
   font-size: 28rpx;
   font-weight: 600;
-  color: #333;
+  color: #18232E;
 }
 
 .rank-entry-arrow {
   font-size: 32rpx;
-  color: #999;
+  color: #B8C3CC;
 }
 
 .group-list {
   height: calc(100vh - 220rpx);
-  padding: 0 30rpx 24rpx;
+  padding: 0 24rpx 24rpx;
   box-sizing: border-box;
 }
 
@@ -349,9 +350,13 @@ onMounted(() => {
   margin-bottom: 18rpx;
   display: flex;
   align-items: center;
-  box-shadow: 0 6rpx 18rpx rgba(26, 43, 60, 0.05);
+  box-shadow: 0 8rpx 22rpx rgba(24, 35, 46, 0.045);
+  border: 1rpx solid rgba(24, 35, 46, 0.06);
   position: relative;
   box-sizing: border-box;
+}
+.group-card:active {
+  background: #F7FAFB;
 }
 
 .rank-badge {
@@ -396,7 +401,7 @@ onMounted(() => {
 .name {
   font-size: 30rpx;
   font-weight: bold;
-  color: #333;
+  color: #18232E;
   margin-bottom: 8rpx;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -405,7 +410,7 @@ onMounted(() => {
 
 .desc {
   font-size: 24rpx;
-  color: #999;
+  color: #718094;
   margin-bottom: 8rpx;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -414,7 +419,7 @@ onMounted(() => {
 
 .stats {
   font-size: 22rpx;
-  color: #666;
+  color: #718094;
 }
 
 .avatar-picker {
@@ -436,7 +441,7 @@ onMounted(() => {
 
 .avatar-text {
   font-size: 26rpx;
-  color: #20c997;
+  color: #24BFA2;
   font-weight: 600;
 }
 
@@ -446,7 +451,7 @@ onMounted(() => {
   line-height: 68rpx;
   padding: 0;
   margin: 0;
-  background: #20c997;
+  background: #24BFA2;
   color: #fff;
   border-radius: 34rpx;
   font-size: 24rpx;

@@ -11,21 +11,27 @@ get_db = database.get_db
 
 # Medal definitions: key -> (name, description, icon_path)
 MEDAL_DEFS = [
-    ("run_5k", "5公里跑者", "累计跑步里程达5km", "/static/medals/5k距离勋章.png"),
-    ("run_10k", "10公里跑者", "累计跑步里程达10km", "/static/medals/10k距离勋章.png"),
-    ("run_21k", "半程马拉松", "累计跑步里程达21km", "/static/medals/21k距离勋章.png"),
-    ("run_42k", "全程马拉松", "累计跑步里程达42km", "/static/medals/42k距离勋章.png"),
-    ("streak_100", "百日坚持", "累计打卡天数达100天", "/static/medals/打卡100天勋章.png"),
-    ("test_perfect", "体测达人", "单次体测AI评分满分", "/static/medals/奖杯图标.png"),
+    ("run_5k", "5公里跑者", "累计跑步里程达5km", "/static/medals/medal-distance-5k.png"),
+    ("run_10k", "10公里跑者", "累计跑步里程达10km", "/static/medals/medal-distance-10k.png"),
+    ("run_21k", "半程马拉松", "累计跑步里程达21km", "/static/medals/medal-distance-21k.png"),
+    ("run_42k", "全程马拉松", "累计跑步里程达42km", "/static/medals/medal-distance-42k.png"),
+    ("streak_100", "百日坚持", "累计打卡天数达100天", "/static/medals/medal-streak-100.png"),
+    ("test_perfect", "体测达人", "单次体测AI评分满分", "/static/medals/medal-trophy.png"),
 ]
 
 
 def _ensure_medals_exist(db: Session):
+    changed = False
     for key, name, desc, icon in MEDAL_DEFS:
         existing = db.query(models.Medal).filter(models.Medal.key == key).first()
         if not existing:
             db.add(models.Medal(key=key, name=name, description=desc, icon_path=icon))
-    db.commit()
+            changed = True
+        elif existing.icon_path != icon:
+            existing.icon_path = icon
+            changed = True
+    if changed:
+        db.commit()
 
 
 def _get_user_stats(db: Session, user_id: int):

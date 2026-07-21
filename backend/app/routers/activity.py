@@ -35,8 +35,8 @@ def _finish_response(
     return out.model_copy(update=extra)
 
 
-def _apply_run_face_verify(act: models.Activity) -> None:
-    outcome = verify_run_faces(act.evidence)
+def _apply_run_face_verify(act: models.Activity, user: models.User, db: Session) -> None:
+    outcome = verify_run_faces(act.evidence, user=user, db=db)
     apply_face_outcome_to_activity(act, outcome)
     if not outcome.ok and config.FACE_BLOCK_ON_FAIL:
         act.is_valid = False
@@ -117,7 +117,7 @@ def finish_activity(
             ok, reason = evaluate_task_run(task, db_metrics)
             db_activity.is_valid = ok
             db_activity.fail_reason = reason
-            _apply_run_face_verify(db_activity)
+            _apply_run_face_verify(db_activity, current_user, db)
         else:
             is_valid, fail_reason, face_verified = verify_activity(current_user, db_activity, db)
             db_activity.is_valid = is_valid
@@ -128,7 +128,7 @@ def finish_activity(
             task = db.query(models.Task).filter(models.Task.id == db_activity.task_id).first()
             db_activity.is_valid = False
             db_activity.fail_reason = "视频分析中，请稍后查看结果"
-            db_activity.face_verified = True
+            db_activity.face_verified = False
             if not db_metrics.video_url:
                 ok, reason = True, None
                 if task.min_count and int(task.min_count) > 0:
@@ -217,6 +217,10 @@ def get_analysis_status(
         "score": m.score,
         "score_detail": m.score_detail,
         "exercise_type": m.exercise_type,
+        "face_verified": act.face_verified,
+        "face_match_score": act.face_match_score,
+        "face_fail_code": act.face_fail_code,
+        "face_detail": getattr(act, "face_detail", None),
         "is_valid": act.is_valid,
         "fail_reason": act.fail_reason,
     }

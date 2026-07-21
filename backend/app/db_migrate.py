@@ -24,6 +24,7 @@ def ensure_schema_upgrades() -> None:
         "face_liveness_pass": "INTEGER" if dialect == "sqlite" else "BOOLEAN",
         "face_match_score": "REAL" if dialect == "sqlite" else "FLOAT",
         "face_fail_code": "VARCHAR(64)",
+        "face_detail": "VARCHAR",
     }
     metrics_cols = {
         "exercise_type": "VARCHAR(32)",
@@ -108,6 +109,39 @@ def ensure_schema_upgrades() -> None:
                         enabled BOOLEAN NOT NULL DEFAULT TRUE,
                         updated_at TIMESTAMP,
                         created_at TIMESTAMP
+                    )
+                """))
+
+        if not inspector.has_table("student_face_profiles"):
+            if dialect == "sqlite":
+                conn.execute(text("""
+                    CREATE TABLE student_face_profiles (
+                        id INTEGER NOT NULL PRIMARY KEY,
+                        user_id INTEGER NOT NULL,
+                        image_url VARCHAR NOT NULL,
+                        embedding_json VARCHAR NOT NULL,
+                        status VARCHAR(32) NOT NULL DEFAULT 'verified',
+                        model_version VARCHAR(64),
+                        fail_reason VARCHAR(512),
+                        quality_score REAL,
+                        created_at DATETIME,
+                        updated_at DATETIME,
+                        UNIQUE (user_id)
+                    )
+                """))
+            else:
+                conn.execute(text("""
+                    CREATE TABLE student_face_profiles (
+                        id SERIAL PRIMARY KEY,
+                        user_id INTEGER NOT NULL UNIQUE,
+                        image_url VARCHAR NOT NULL,
+                        embedding_json VARCHAR NOT NULL,
+                        status VARCHAR(32) NOT NULL DEFAULT 'verified',
+                        model_version VARCHAR(64),
+                        fail_reason VARCHAR(512),
+                        quality_score FLOAT,
+                        created_at TIMESTAMP,
+                        updated_at TIMESTAMP
                     )
                 """))
 

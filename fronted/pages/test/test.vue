@@ -14,8 +14,10 @@
               :class="{ 'exercise-card--active': selectedId === item.id }"
               @tap="selectExercise(item.id)"
             >
-              <image v-if="selectedId === item.id" class="exercise-card__badge-img" src="/static/勾号图标.png" mode="aspectFit" />
-              <text class="exercise-card__icon">{{ item.icon }}</text>
+              <image v-if="selectedId === item.id" class="exercise-card__badge-img" src="/static/icons/icon-check.svg" mode="aspectFit" />
+              <view class="exercise-card__icon">
+                <image class="exercise-card__icon-img" :src="item.iconPath" mode="aspectFit" />
+              </view>
               <text class="exercise-card__label">{{ item.label }}</text>
             </view>
           </view>
@@ -29,7 +31,7 @@
               :key="idx"
               class="instruction-item"
             >
-              <image class="instruction-check-img" src="/static/勾号图标.png" mode="aspectFit" />
+              <image class="instruction-check-img" src="/static/icons/icon-check.svg" mode="aspectFit" />
               <text class="instruction-text">{{ line }}</text>
             </view>
           </view>
@@ -159,9 +161,16 @@ const onStartTest = () => {
 }
 
 .exercise-card__icon {
-  font-size: 64rpx;
-  line-height: 1.1;
+  width: 116rpx;
+  height: 86rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   margin-bottom: 16rpx;
+}
+.exercise-card__icon-img {
+  width: 108rpx;
+  height: 78rpx;
 }
 
 .exercise-card__label {

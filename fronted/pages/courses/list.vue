@@ -18,7 +18,7 @@
         <view class="course-body">
           <text class="course-title">{{ course.title }}</text>
           <view class="course-meta-row">
-            <view class="course-meta" v-if="course.duration_minutes > 0"><image class="meta-icon-inline" src="/static/主页时长图标.png" mode="aspectFit" /><text> {{ course.duration_minutes }}分钟</text></view>
+            <view class="course-meta" v-if="course.duration_minutes > 0"><image class="meta-icon-inline" src="/static/icons/icon-duration.svg" mode="aspectFit" /><text> {{ course.duration_minutes }}分钟</text></view>
             <text class="course-meta">{{ course.lesson_completed || 0 }}/{{ course.lesson_total || 0 }} 课时</text>
           </view>
           <view class="course-progress-block">

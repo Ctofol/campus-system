@@ -8,7 +8,12 @@
       @click="onItemTap(item.id)"
     >
       <view class="home-feature-grid__icon-wrap">
-        <image class="home-feature-grid__icon" :src="item.icon" mode="aspectFit" />
+        <image
+          class="home-feature-grid__icon"
+          :style="{ transform: `scale(${item.iconScale || 1})` }"
+          :src="item.icon"
+          mode="aspectFit"
+        />
       </view>
       <text class="home-feature-grid__label">{{ item.label }}</text>
       <text class="home-feature-grid__desc">{{ item.desc }}</text>
@@ -42,45 +47,53 @@ const onItemTap = (id) => {
   display: flex;
   flex-direction: row;
   justify-content: space-between;
-  gap: 4rpx;
+  gap: 8rpx;
 }
 .home-feature-grid__item {
   flex: 1;
   min-width: 0;
-  min-height: 156rpx;
+  min-height: 148rpx;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 8rpx 4rpx 4rpx;
+  padding: 10rpx 4rpx 6rpx;
   box-sizing: border-box;
+  border-radius: 16rpx;
+}
+.home-feature-grid__item:active {
+  background: #F5FAFA;
 }
 .home-feature-grid__icon-wrap {
-  width: 88rpx;
-  height: 88rpx;
-  border-radius: 24rpx;
-  background: #FFFFFF;
+  width: 82rpx;
+  height: 82rpx;
+  border-radius: 20rpx;
+  background: #F4FAF8;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 12rpx;
-  border: 1rpx solid rgba(51, 201, 171, 0.08);
+  margin-bottom: 10rpx;
+  border: 1rpx solid rgba(36, 191, 162, 0.1);
 }
 .home-feature-grid__icon {
-  width: 76rpx;
-  height: 76rpx;
+  width: 64rpx;
+  height: 64rpx;
+  transition: transform 0.18s ease;
+  transform-origin: center center;
 }
 .home-feature-grid__label {
-  font-size: 26rpx;
+  font-size: 25rpx;
   font-weight: 700;
-  color: #1a2b3c;
+  color: #18232E;
   text-align: center;
+  line-height: 1.25;
 }
 .home-feature-grid__desc {
-  font-size: 20rpx;
-  color: #8a9bab;
+  font-size: 19rpx;
+  color: #718094;
   text-align: center;
-  margin-top: 6rpx;
-  line-height: 1.3;
+  margin-top: 5rpx;
+  line-height: 1.25;
   padding: 0 4rpx;
+  max-width: 144rpx;
 }
 </style>

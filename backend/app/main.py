@@ -17,6 +17,7 @@ from .routers.activity import router as activity_router
 from .routers.feedback_diagnose import router as feedback_diagnose_router
 from .routers.medal import router as medal_router
 from .routers.notifications import router as notifications_router
+from .routers.ai_assistant import router as ai_assistant_router
 
 # 初始化数据库表
 models.Base.metadata.create_all(bind=database.engine)
@@ -62,6 +63,7 @@ app.include_router(run_groups_router)
 app.include_router(admin_router)
 app.include_router(feedback_diagnose_router)
 app.include_router(medal_router)
+app.include_router(ai_assistant_router)
 
 # 挂载管理端前端静态文件
 admin_frontend_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "admin", "frontend", "dist")

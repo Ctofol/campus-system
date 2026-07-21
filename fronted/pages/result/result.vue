@@ -2,7 +2,7 @@
   <view class="result-page result-sport">
     <view
       class="result-map-wrap"
-      v-if="currentMode !== 'test' && (trajectoryPoints.length >= 1 || mapCenterLat !== 0)"
+      v-if="resultMapReady && currentMode !== 'test' && (trajectoryPoints.length >= 1 || mapCenterLat !== 0)"
     >
       <map
         class="result-map-full"
@@ -12,9 +12,17 @@
         :markers="mapMarkers"
         :enable-zoom="true"
         :enable-scroll="true"
-        scale="15"
+        :scale="mapScale"
         :show-location="false"
       />
+      <view class="route-pace-legend">
+        <text class="route-pace-legend__label">慢</text>
+        <view class="route-pace-legend__swatch route-pace-legend__swatch--blue" />
+        <view class="route-pace-legend__swatch route-pace-legend__swatch--green" />
+        <view class="route-pace-legend__swatch route-pace-legend__swatch--amber" />
+        <view class="route-pace-legend__swatch route-pace-legend__swatch--red" />
+        <text class="route-pace-legend__label">快</text>
+      </view>
     </view>
 
     <!-- 跑步结算：深色浮层 -->
@@ -103,6 +111,14 @@
         </text>
       </view>
 
+      <view class="ai-insight-card" v-if="aiInsight || aiInsightLoading">
+        <text class="ai-insight-title">{{ aiInsightLoading ? 'AI正在生成运动建议' : (aiInsight?.title || 'AI运动报告') }}</text>
+        <text class="ai-insight-summary">{{ aiInsight?.summary || '正在结合本次运动数据生成训练建议。' }}</text>
+        <view class="ai-insight-list" v-if="aiInsight?.suggestions?.length">
+          <text class="ai-insight-item" v-for="item in aiInsight.suggestions" :key="item">{{ item }}</text>
+        </view>
+      </view>
+
       <button class="result-primary-btn" @click="backToHome">返回首页</button>
     </view>
 
@@ -143,16 +159,24 @@
           <text class="sugg-text">{{ suggestionText }}</text>
         </view>
       </view>
+      <view class="ai-insight-card" v-if="aiInsight || aiInsightLoading">
+        <text class="ai-insight-title">{{ aiInsightLoading ? 'AI正在生成体测反馈' : (aiInsight?.title || 'AI体测反馈') }}</text>
+        <text class="ai-insight-summary">{{ aiInsight?.summary || '正在结合体测成绩生成训练建议。' }}</text>
+        <view class="ai-insight-list" v-if="aiInsight?.suggestions?.length">
+          <text class="ai-insight-item" v-for="item in aiInsight.suggestions" :key="item">{{ item }}</text>
+        </view>
+      </view>
       <button class="result-primary-btn" @click="backToHome">返回首页</button>
     </view>
   </view>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, nextTick } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
-import { buildPaceColoredPolylines } from '@/utils/trajectory-pace-polyline.js';
 import { buildRunRouteMarkers } from '@/utils/run-map-markers.js';
+import { buildPaceColoredPolylines } from '@/utils/trajectory-pace-polyline.js';
+import { getAiRunReport, getAiTestFeedback } from '@/utils/request.js';
 
 const currentMode = ref('normal');
 const duration = ref(0);
@@ -178,12 +202,49 @@ const standardReq = ref(0);
 const faceVerified = ref(null);
 const faceMatchScore = ref(null);
 const faceVerifyText = ref('');
+const aiInsightLoading = ref(false);
+const aiInsight = ref(null);
 
 const trajectoryPoints = ref([]);
 const mapCenterLat = ref(0);
 const mapCenterLng = ref(0);
 const mapPolyline = ref([]);
 const mapMarkers = ref([]);
+const mapScale = ref(15);
+// App native maps must be mounted after their initial polyline is ready.
+const resultMapReady = ref(false);
+const resultRoutePoints = ref([]);
+
+const setResultRoutePolyline = () => {
+  if (resultRoutePoints.value.length < 2) return;
+  const paceLines = buildPaceColoredPolylines(resultRoutePoints.value, { maxSegments: 6 });
+  if (paceLines.length > 0) {
+    mapPolyline.value = paceLines;
+    return;
+  }
+  mapPolyline.value = [{
+    points: resultRoutePoints.value.map((point) => ({ ...point })),
+    color: '#1E88E5',
+    width: 6,
+    borderColor: '#FFFFFF',
+    borderWidth: 2
+  }];
+};
+
+const parseStoredTrajectory = (value) => {
+  if (typeof value !== 'string') return value;
+  try {
+    return JSON.parse(value);
+  } catch (error) {
+    console.warn('[run-result] failed to parse stored trajectory:', error);
+    return null;
+  }
+};
+
+const normalizeStoredPoints = (value) => {
+  const parsed = parseStoredTrajectory(value);
+  return Array.isArray(parsed) ? parsed : [];
+};
 
 const modeTitle = computed(() => {
   if (isTaskRun.value) return '任务跑步';
@@ -236,6 +297,38 @@ const buildFaceVerifyText = (data) => {
   return '起止人脸核验未通过';
 };
 
+const loadAiInsight = async (data) => {
+  aiInsightLoading.value = true;
+  aiInsight.value = null;
+  try {
+    const isTest = currentMode.value === 'test';
+    const payload = isTest
+      ? {
+          project: data.test_project || testProject.value || '体测项目',
+          exercise_type: data.metrics?.exercise_type || data.exercise_type || '',
+          count: Number(data.metrics?.count || testCount.value || 0),
+          score: data.metrics?.score || null,
+          qualified: !!(data.metrics?.qualified ?? testQualified.value)
+        }
+      : {
+          activity_id: data.id || data.activity_id || null,
+          distance_km: Number(data.metrics?.distance || 0),
+          duration_sec: Number(data.metrics?.duration || 0),
+          pace: data.metrics?.pace || null,
+          qualified: typeof data.is_valid === 'boolean' ? data.is_valid : !!data.metrics?.qualified
+        };
+    aiInsight.value = isTest ? await getAiTestFeedback(payload) : await getAiRunReport(payload);
+  } catch (e) {
+    aiInsight.value = {
+      title: currentMode.value === 'test' ? 'AI体测反馈' : 'AI运动报告',
+      summary: 'AI建议暂时生成失败，可稍后在 AI 体育助手中重试。',
+      suggestions: []
+    };
+  } finally {
+    aiInsightLoading.value = false;
+  }
+};
+
 const failReasonText = computed(() => {
   const r = failReason.value || '';
   if (r.includes('人脸验证') || r.includes('人脸核验')) {
@@ -276,29 +369,56 @@ const parseCheckpointsReached = (metrics) => {
   }
 };
 
-const applyMapFromTrajectory = (pts) => {
-  if (!pts || pts.length < 1) return;
-  const mid = Math.floor(pts.length / 2);
-  mapCenterLat.value = pts[mid].latitude;
-  mapCenterLng.value = pts[mid].longitude;
+const getRouteScale = (spanM) => {
+  if (spanM <= 120) return 17;
+  if (spanM <= 260) return 16;
+  if (spanM <= 650) return 15;
+  if (spanM <= 1300) return 14;
+  if (spanM <= 2600) return 13;
+  return 12;
+};
 
-  if (pts.length >= 2) {
-    const paceLines = buildPaceColoredPolylines(pts);
-    mapPolyline.value =
-      paceLines.length > 0
-        ? paceLines
-        : [
-            {
-              points: pts.map((p) => ({ latitude: p.latitude, longitude: p.longitude })),
-              color: '#1E88E5',
-              width: 6,
-              borderColor: '#FFFFFF',
-              borderWidth: 2
-            }
-          ];
+const getPointDistanceM = (a, b) => {
+  const R = 6371e3;
+  const dLat = ((b.latitude - a.latitude) * Math.PI) / 180;
+  const dLng = ((b.longitude - a.longitude) * Math.PI) / 180;
+  const m =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((a.latitude * Math.PI) / 180) *
+      Math.cos((b.latitude * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(m), Math.sqrt(1 - m));
+};
+
+const applyMapFromTrajectory = (pts, endpoints = {}) => {
+  const routePoints = (Array.isArray(pts) ? pts : [])
+    .map((point) => ({
+      latitude: Number(point?.latitude ?? point?.lat),
+      longitude: Number(point?.longitude ?? point?.lng ?? point?.lon),
+      timestamp: point?.timestamp != null ? Number(point.timestamp) : null,
+      speed: point?.speed != null ? Number(point.speed) : null
+    }))
+    .filter((point) => Number.isFinite(point.latitude) && Number.isFinite(point.longitude));
+  if (routePoints.length < 1) return;
+  const mid = Math.floor(routePoints.length / 2);
+  mapCenterLat.value = routePoints[mid].latitude;
+  mapCenterLng.value = routePoints[mid].longitude;
+  const start = endpoints.start || routePoints[0];
+  const end = endpoints.end || routePoints[routePoints.length - 1];
+  const spanM = routePoints.reduce(
+    (max, point) => Math.max(max, getPointDistanceM(start, point), getPointDistanceM(end, point)),
+    getPointDistanceM(start, end)
+  );
+  mapScale.value = getRouteScale(spanM);
+
+  // Keep the saved route as one explicit native-map polyline. The previous
+  // pace-segment rebuild can produce no visible line on App after navigation.
+  if (routePoints.length >= 2) {
+    resultRoutePoints.value = routePoints;
+    setResultRoutePolyline();
   }
 
-  mapMarkers.value = buildRunRouteMarkers(pts);
+  mapMarkers.value = buildRunRouteMarkers([start, end]);
 };
 
 onLoad((options) => {
@@ -390,6 +510,8 @@ onLoad((options) => {
       userScorePercent.value = Math.min(100, score);
       standardScorePercent.value = 60;
     }
+
+    loadAiInsight(data);
   } else {
     currentMode.value = options.mode || 'normal';
     duration.value = Number(options.duration) || 0;
@@ -399,17 +521,53 @@ onLoad((options) => {
     policePace.value = Number(options.policePace) || 0;
   }
 
-  const trajectoryData = uni.getStorageSync('tempRunTrajectory');
-  if (trajectoryData && trajectoryData.points && trajectoryData.points.length >= 1) {
-    trajectoryPoints.value = trajectoryData.points;
-    applyMapFromTrajectory(trajectoryData.points);
+  const trajectoryData = parseStoredTrajectory(uni.getStorageSync('tempRunTrajectory'));
+  const storedPoints = normalizeStoredPoints(trajectoryData?.points);
+  const storedPolylinePoints = normalizeStoredPoints(trajectoryData?.polylinePoints);
+  if (trajectoryData && storedPoints.length >= 1) {
+    const start = {
+      latitude: trajectoryData.startLat ?? storedPoints[0].latitude,
+      longitude: trajectoryData.startLng ?? storedPoints[0].longitude
+    };
+    const end = {
+      latitude: trajectoryData.endLat ?? storedPoints[storedPoints.length - 1].latitude,
+      longitude: trajectoryData.endLng ?? storedPoints[storedPoints.length - 1].longitude
+    };
+    const renderPoints = storedPoints.length >= 2 ? storedPoints : storedPolylinePoints;
+    console.info('[run-result] restored route points:', storedPoints.length, renderPoints.length);
+    trajectoryPoints.value = renderPoints;
+    applyMapFromTrajectory(renderPoints, { start, end });
   } else if (trajectoryData && trajectoryData.startLat) {
     mapCenterLat.value = trajectoryData.startLat;
     mapCenterLng.value = trajectoryData.startLng;
-    mapMarkers.value = buildRunRouteMarkers([
+    const fallbackPoints = [
       { latitude: trajectoryData.startLat, longitude: trajectoryData.startLng }
-    ]);
+    ];
+    if (
+      trajectoryData.endLat != null &&
+      trajectoryData.endLng != null &&
+      (trajectoryData.endLat !== trajectoryData.startLat || trajectoryData.endLng !== trajectoryData.startLng)
+    ) {
+      fallbackPoints.push({
+        latitude: trajectoryData.endLat,
+        longitude: trajectoryData.endLng
+      });
+    }
+    mapMarkers.value = buildRunRouteMarkers(fallbackPoints);
   }
+
+  // Mount after the route state has reached Vue. Otherwise App can render
+  // markers but silently miss the first polyline assignment.
+  nextTick(() => {
+    resultMapReady.value = mapCenterLat.value !== 0 && mapCenterLng.value !== 0;
+    // Some App native map instances accept markers on first mount but ignore
+    // the polyline prop. Re-apply it after the component has attached.
+    setTimeout(() => {
+      if (!resultMapReady.value || resultRoutePoints.value.length < 2) return;
+      mapPolyline.value = [];
+      setTimeout(setResultRoutePolyline, 60);
+    }, 0);
+  });
 });
 
 const formatDuration = (seconds) => {
@@ -440,10 +598,30 @@ const backToHome = () => {
 
 .result-map-wrap {
   width: 100%;
-  height: 52vh;
-  min-height: 400rpx;
+  height: 60vh;
+  min-height: 520rpx;
   flex-shrink: 0;
+  position: relative;
 }
+
+.route-pace-legend {
+  position: absolute;
+  right: 22rpx;
+  bottom: 20rpx;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  padding: 10rpx 14rpx;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 8rpx;
+  box-shadow: 0 4rpx 12rpx rgba(24, 35, 46, 0.14);
+}
+.route-pace-legend__label { color: #64748B; font-size: 20rpx; }
+.route-pace-legend__swatch { width: 22rpx; height: 10rpx; margin: 0 3rpx; border-radius: 3rpx; }
+.route-pace-legend__swatch--blue { background: #1E88E5; }
+.route-pace-legend__swatch--green { background: #4CAF50; }
+.route-pace-legend__swatch--amber { background: #FFC107; }
+.route-pace-legend__swatch--red { background: #FF5252; }
 
 .result-map-full {
   width: 100%;
@@ -687,5 +865,41 @@ const backToHome = () => {
 .sugg-text {
   font-size: 26rpx;
   color: #555;
+}
+
+.ai-insight-card {
+  margin-top: 24rpx;
+  padding: 24rpx;
+  border-radius: 16rpx;
+  background: #f4faf8;
+  border: 1rpx solid rgba(32, 201, 151, 0.16);
+}
+
+.ai-insight-title {
+  display: block;
+  color: #102433;
+  font-size: 28rpx;
+  font-weight: 800;
+}
+
+.ai-insight-summary {
+  display: block;
+  margin-top: 12rpx;
+  color: #405160;
+  font-size: 26rpx;
+  line-height: 1.55;
+}
+
+.ai-insight-list {
+  margin-top: 12rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.ai-insight-item {
+  color: #1f7a68;
+  font-size: 24rpx;
+  line-height: 1.5;
 }
 </style>

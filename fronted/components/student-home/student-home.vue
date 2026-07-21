@@ -1,24 +1,20 @@
 <template>
   <view class="home-page">
     <page-tab-header title="首页" theme="brand" />
-    <scroll-view
-      scroll-y
-      class="home-scroll"
-      :style="{ paddingBottom: safeBottom + 'px' }"
-      :show-scrollbar="false"
-      refresher-enabled
-      :refresher-triggered="refreshing"
-      @refresherrefresh="onPullRefresh"
-    >
+    <view class="home-scroll" :style="{ paddingBottom: safeBottom + 'px' }">
       <view class="home-hero">
         <!-- 顶栏：日历通知 -->
         <view class="home-hero__actions">
           <view class="home-hero__action" @tap="goSunshineDetail">
-            <image class="home-hero__action-icon-img" src="/static/日历.png" mode="aspectFit" />
+            <image class="home-hero__action-icon-img" src="/static/icons/home-calendar.svg" mode="aspectFit" />
             <text class="home-hero__action-label">日历</text>
           </view>
           <view class="home-hero__action home-hero__action--notif" @tap="goNotifications">
-            <image class="home-hero__action-icon-img" src="/static/通知图标2.png" mode="aspectFit" />
+            <image
+              class="home-hero__action-icon-img"
+              :src="unreadNotifyCount > 0 ? '/static/icons/home-notification-unread.svg' : '/static/icons/home-notification.svg'"
+              mode="aspectFit"
+            />
             <text
               v-if="unreadNotifyCount > 0"
               class="home-hero__badge"
@@ -29,7 +25,7 @@
 
         <!-- 居中问候 -->
         <view class="home-hero__greet">
-          <text class="home-hero__greet-title">{{ greetingText }}{{ greetingIcon }}</text>
+          <text class="home-hero__greet-title">{{ greetingText }}</text>
           <text class="home-hero__greet-sub">{{ greetingSub }}</text>
         </view>
 
@@ -70,7 +66,7 @@
         </view>
 
         <view class="home-card">
-          <HomeSectionHeader title="最近活动" more-text="全部任务" @more="handleTaskClick" />
+          <HomeSectionHeader title="最近任务" more-text="全部任务" @more="handleTaskClick" />
           <view v-if="loading" class="home-recent__skeleton">
             <view v-for="i in 3" :key="i" class="home-recent__sk-row" />
           </view>
@@ -101,7 +97,7 @@
       </view>
 
       <view style="height: 32rpx;" />
-    </scroll-view>
+    </view>
 
     <!-- 本周跑步目标 -->
     <view v-if="showGoalModal" class="home-overlay" @tap="closeGoalModal">
@@ -132,7 +128,7 @@
         @tap.stop
       >
         <!-- 关闭按钮 -->
-        <image class="notif-close-img" src="/static/叉号图标.png" mode="aspectFit" @tap="closeTaskModal" />
+        <image class="notif-close-img" src="/static/icons/icon-cross.svg" mode="aspectFit" @tap="closeTaskModal" />
 
         <!-- 顶部图标 -->
         <view class="notif-icon-wrap" :class="'notif-icon-wrap--' + currentNotifTheme">
@@ -163,7 +159,7 @@
 
         <!-- 提示框 -->
         <view v-if="currentTask.desc" class="notif-tip" :class="'notif-tip--' + currentNotifTheme">
-          <image class="notif-tip-icon-img" src="/static/通知图标（收到通知红点版）.png" mode="aspectFit" />
+          <image class="notif-tip-icon-img" src="/static/icons/home-notification-unread.svg" mode="aspectFit" />
           <text class="notif-tip-text">{{ currentTask.desc }}</text>
         </view>
 
@@ -230,7 +226,6 @@ let mountedByPageShow = false;
 const {
   loading,
   greetingText,
-  greetingIcon,
   greetingSub,
   weeklySubTitle,
   totalDistanceKm,
@@ -247,10 +242,11 @@ const {
 } = useStudentHomeDashboard();
 
 const featureItems = [
-  { id: 'outdoor', icon: '/static/主页户外跑图标.png', label: '户外跑', desc: '记录户外路线' },
-  { id: 'test', icon: '/static/主页体能测试图标.png', label: '体能测试', desc: '评估身体状态' },
-  { id: 'learn', icon: '/static/主页课程图标.png', label: '课程', desc: '科学训练指导' },
-  { id: 'rungroup', icon: '/static/主页跑团图标.png', label: '跑团', desc: '一起跑步' }
+  { id: 'outdoor', icon: '/static/home-outdoor-run.png', iconScale: 1.08, label: '户外跑', desc: '记录户外路线' },
+  { id: 'test', icon: '/static/home-fitness-test.png', iconScale: 0.9, label: '体能测试', desc: '评估身体状态' },
+  { id: 'learn', icon: '/static/home-course.png', iconScale: 0.92, label: '课程', desc: '科学训练指导' },
+  { id: 'rungroup', icon: '/static/home-run-group.png', iconScale: 1.02, label: '跑团', desc: '一起跑步' },
+  { id: 'ai', icon: '/static/icons/icon-ai.svg', iconScale: 0.92, label: 'AI助手', desc: '训练建议问答' }
 ];
 
 const checkNewTasks = (tasks) => {
@@ -319,6 +315,7 @@ const onFeatureTap = (id) => {
   else if (id === 'test') startPhysicalTest();
   else if (id === 'learn') switchToTab('/pages/tab/learn', '课程页面打开失败');
   else if (id === 'rungroup') navigateToPage('/pages/run-group/discover', '跑团页面打开失败');
+  else if (id === 'ai') navigateToPage('/pages/ai-assistant/index', 'AI助手打开失败');
 };
 
 const onRunSettings = () => {
@@ -441,9 +438,9 @@ const getTaskTypeIcon = (task) => {
     task.title?.includes('课程') ||
     task.title?.includes('学习')
   ) {
-    return '/static/主页课程图标.png';
+    return '/static/icons/icon-course.svg';
   }
-  return '/static/主页户外跑图标.png';
+  return '/static/icons/icon-route.svg';
 };
 
 // 通知弹窗 computed
@@ -458,9 +455,9 @@ const currentNotifTheme = computed(() => {
 
 const currentNotifIcon = computed(() => {
   const theme = currentNotifTheme.value;
-  if (theme === 'orange') return '/static/数据图标.png';
-  if (theme === 'purple') return '/static/主页户外跑图标.png';
-  return '/static/数据图标.png';
+  if (theme === 'orange') return '/static/icons/icon-data.svg';
+  if (theme === 'purple') return '/static/icons/icon-route.svg';
+  return '/static/icons/icon-data.svg';
 });
 
 const currentNotifTypeLabel = computed(() => {

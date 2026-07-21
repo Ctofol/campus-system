@@ -1,6 +1,5 @@
 <template>
   <view class="detail-container">
-    <!-- 加载中骨架屏 -->
     <view class="skeleton-wrapper" v-if="loading">
       <view class="skeleton-banner"></view>
       <view class="skeleton-content">
@@ -10,25 +9,28 @@
       </view>
     </view>
 
-    <!-- 课程内容 -->
-    <view v-else-if="!loading && course.id">
-      <!-- 课程封面 -->
-      <image 
-        class="course-banner" 
-        :src="getFullImageUrl(course.cover_url)" 
+    <view v-else-if="course.id">
+      <image
+        class="course-banner"
+        :src="getFullImageUrl(course.cover_url)"
         mode="aspectFill"
         @error="handleImageError(course.cover_url)"
       ></image>
 
-      <!-- 课程信息 -->
       <view class="course-header">
         <text class="course-title">{{ course.title }}</text>
-        <text class="course-desc">{{ course.description }}</text>
+        <text class="course-desc">{{ course.description || '暂无课程简介' }}</text>
         <view class="course-stats">
-          <view class="stat-item"><image class="stat-icon-img" src="/static/主页跑团图标.png" mode="aspectFit" /><text> {{ course.enrollment_count || 0 }}人已选</text></view>
-          <view class="stat-item"><image class="stat-icon-img" src="/static/主页课程图标.png" mode="aspectFit" /><text> {{ course.contents?.length || 0 }}节课</text></view>
+          <view class="stat-item">
+            <image class="stat-icon-img" src="/static/icons/icon-learning-users.svg" mode="aspectFit" />
+            <text>{{ course.enrollment_count || 0 }} 人已选</text>
+          </view>
+          <view class="stat-item">
+            <image class="stat-icon-img" src="/static/icons/icon-course-meta.svg" mode="aspectFit" />
+            <text>{{ course.contents?.length || 0 }} 节课</text>
+          </view>
         </view>
-        <!-- 学习进度 -->
+
         <view class="progress-section" v-if="course.enrolled && userRole === 'student'">
           <view class="progress-header">
             <text class="progress-label">学习进度</text>
@@ -40,40 +42,68 @@
         </view>
       </view>
 
-      <!-- 课程内容列表 -->
       <view class="content-section">
         <view class="page-section-title">课程内容</view>
-        <view 
-          class="content-item" 
-          v-for="(content, index) in course.contents" 
+        <view
+          class="content-item"
+          v-for="(content, index) in course.contents"
           :key="content.id"
           @click="playContent(content)"
         >
           <view class="content-index">{{ index + 1 }}</view>
           <view class="content-info">
             <text class="content-title">{{ content.title }}</text>
-            <text class="content-duration">{{ getContentMeta(content) }}</text>
+            <view class="content-meta">
+              <text class="content-type" :class="'content-type--' + content.content_type">
+                {{ getContentTypeLabel(content.content_type) }}
+              </text>
+              <text class="content-duration" v-if="content.duration">
+                {{ formatDuration(content.duration) }}
+              </text>
+            </view>
           </view>
-          <text class="content-icon">{{ getContentIcon(content) }}</text>
+          <view class="content-action">
+            <view class="play-mark" v-if="content.content_type === 'video'"></view>
+            <text class="content-action-text" v-else>打开</text>
+          </view>
         </view>
-        
-        <!-- 空状态 -->
+
         <view class="empty-content" v-if="!course.contents || course.contents.length === 0">
           <text class="empty-text">暂无课程内容</text>
         </view>
       </view>
     </view>
 
-    <!-- 空状态 -->
     <view class="empty-state" v-else>
-      <image class="empty-icon-img" src="/static/主页课程图标.png" mode="aspectFit" />
+      <image class="empty-icon-img" src="/static/icons/icon-course.svg" mode="aspectFit" />
       <text class="empty-text">课程不存在</text>
     </view>
 
-    <!-- 底部操作栏 -->
+    <view class="video-player-mask" v-if="activeVideo" @click="closeVideoPlayer">
+      <view class="video-player-panel" @click.stop>
+        <view class="video-player-header">
+          <text class="video-player-title">{{ activeVideo.title }}</text>
+          <view class="video-player-close" @click="closeVideoPlayer">
+            <text>×</text>
+          </view>
+        </view>
+        <video
+          class="course-video"
+          :src="activeVideoUrl"
+          :initial-time="videoInitialTime"
+          controls
+          autoplay
+          object-fit="contain"
+          @timeupdate="onVideoTimeUpdate"
+          @ended="onVideoEnded"
+          @error="onVideoError"
+        ></video>
+      </view>
+    </view>
+
     <view class="bottom-bar" v-if="!loading && course.id">
-      <button 
-        class="enroll-btn" 
+      <button
+        class="enroll-btn"
         :class="{ enrolled: course.enrolled }"
         @click="handleEnroll"
         :loading="enrolling"
@@ -81,8 +111,8 @@
       >
         {{ course.enrolled ? '进入学习' : '加入课程' }}
       </button>
-      <button 
-        class="manage-btn" 
+      <button
+        class="manage-btn"
         @click="manageContent"
         v-if="userRole === 'teacher' && course.teacher_id === userId"
       >
@@ -114,6 +144,199 @@ const userId = ref(0);
 const loading = ref(true);
 const enrolling = ref(false);
 const brokenImages = ref(new Set());
+const activeVideo = ref(null);
+const activeVideoUrl = ref('');
+const videoInitialTime = ref(0);
+const lastProgressSaveAt = ref(0);
+
+const isNotEnrolledError = (e) => {
+  const message = String(e?.message || e?.data?.detail || '');
+  return e?.statusCode === 404 && message.includes('Not enrolled');
+};
+
+const getFullImageUrl = (url) => {
+  if (!url) return '/static/home/hero-bg.png';
+  if (brokenImages.value.has(url)) return '/static/home/hero-bg.png';
+  if (url.startsWith('http') || url.startsWith('blob:') || url.startsWith('wxfile:')) return url;
+  return resolveMediaUrl(url);
+};
+
+const handleImageError = (url) => {
+  if (url) brokenImages.value.add(url);
+};
+
+const loadCourseDetail = async () => {
+  loading.value = true;
+  try {
+    const res = await request({
+      url: `/courses/${courseId.value}`,
+      method: 'GET'
+    });
+    course.value = {
+      ...res,
+      contents: Array.isArray(res.contents) ? res.contents : []
+    };
+
+    if (res.enrolled && userRole.value === 'student') {
+      loadProgress();
+    }
+  } catch (e) {
+    console.error('Failed to load course detail:', e);
+    let errorMsg = '加载失败';
+    if (e.statusCode === 404) {
+      errorMsg = '课程不存在';
+    } else if (e.type === 'network') {
+      errorMsg = '网络连接失败';
+    } else if (e.message) {
+      errorMsg = e.message;
+    }
+    uni.showModal({
+      title: '加载失败',
+      content: errorMsg,
+      showCancel: false
+    });
+  } finally {
+    loading.value = false;
+  }
+};
+
+const loadProgress = async () => {
+  if (!course.value.enrolled || userRole.value !== 'student') {
+    courseProgress.value = 0;
+    return;
+  }
+
+  try {
+    const res = await request({
+      url: `/courses/me/enrollments/${courseId.value}/progress`,
+      method: 'GET'
+    });
+    courseProgress.value = res.percent || 0;
+  } catch (e) {
+    if (isNotEnrolledError(e)) {
+      course.value.enrolled = false;
+      courseProgress.value = 0;
+      return;
+    }
+    console.error('Failed to load progress:', e);
+  }
+};
+
+const handleEnroll = async () => {
+  if (course.value.enrolled) {
+    if (!course.value.contents || course.value.contents.length === 0) {
+      uni.showToast({ title: '暂无课程内容', icon: 'none' });
+      return;
+    }
+    playContent(course.value.contents[0]);
+    return;
+  }
+
+  enrolling.value = true;
+  try {
+    await request({
+      url: `/courses/${courseId.value}/enroll`,
+      method: 'POST'
+    });
+    course.value.enrolled = true;
+    course.value.enrollment_count = (course.value.enrollment_count || 0) + 1;
+    uni.showToast({
+      title: '加入成功',
+      icon: 'success',
+      duration: 1500
+    });
+    uni.$emit('courseEnrolled');
+    loadProgress();
+  } catch (e) {
+    console.error('Failed to enroll:', e);
+    let errorMsg = '加入失败';
+    if (e.statusCode === 400) {
+      errorMsg = '已加入过此课程';
+      await loadCourseDetail();
+    } else if (e.type === 'network') {
+      errorMsg = '网络连接失败';
+    } else if (e.message) {
+      errorMsg = e.message;
+    }
+    if (e.statusCode !== 400) {
+      uni.showModal({
+        title: '加入失败',
+        content: errorMsg,
+        showCancel: false
+      });
+    }
+  } finally {
+    enrolling.value = false;
+  }
+};
+
+const saveVideoProgress = async (position, completed = false) => {
+  if (!activeVideo.value?.id) return;
+  if (!course.value.enrolled || userRole.value !== 'student') return;
+  const safePosition = Math.max(0, Math.round(Number(position) || 0));
+  try {
+    await request({
+      url: `/courses/content/${activeVideo.value.id}/progress?last_position=${safePosition}&completed=${completed}`,
+      method: 'POST'
+    });
+    if (completed) {
+      loadProgress();
+    }
+  } catch (e) {
+    if (isNotEnrolledError(e)) return;
+    console.error('Save video progress failed:', e);
+  }
+};
+
+const openVideoContent = async (content) => {
+  activeVideo.value = content;
+  activeVideoUrl.value = resolveMediaUrl(content.content_url);
+  videoInitialTime.value = 0;
+  lastProgressSaveAt.value = 0;
+
+  if (!course.value.enrolled || userRole.value !== 'student') return;
+
+  try {
+    const progress = await request({
+      url: `/courses/content/${content.id}/progress`,
+      method: 'GET'
+    });
+    if (progress && !progress.completed && Number(progress.last_position) > 0) {
+      videoInitialTime.value = Number(progress.last_position);
+    }
+  } catch (e) {
+    if (isNotEnrolledError(e)) return;
+    console.error('Load video progress failed:', e);
+  }
+};
+
+const closeVideoPlayer = () => {
+  if (activeVideo.value && lastProgressSaveAt.value > 0) {
+    saveVideoProgress(lastProgressSaveAt.value, false);
+  }
+  activeVideo.value = null;
+  activeVideoUrl.value = '';
+  videoInitialTime.value = 0;
+  lastProgressSaveAt.value = 0;
+};
+
+const onVideoTimeUpdate = (e) => {
+  const currentTime = Number(e.detail?.currentTime || 0);
+  if (currentTime - lastProgressSaveAt.value >= 5) {
+    lastProgressSaveAt.value = currentTime;
+    saveVideoProgress(currentTime, false);
+  }
+};
+
+const onVideoEnded = (e) => {
+  const duration = Number(e.detail?.duration || activeVideo.value?.duration || lastProgressSaveAt.value || 0);
+  saveVideoProgress(duration, true);
+};
+
+const onVideoError = (e) => {
+  console.error('Course video error:', e);
+  uni.showToast({ title: '视频播放失败', icon: 'none' });
+};
 
 const copyExternalLink = (url) => {
   uni.setClipboardData({
@@ -140,127 +363,27 @@ const openExternalLink = (url) => {
   });
 };
 
-const getFullImageUrl = (url) => {
-  if (!url) return '/static/home/hero-bg.png';
-  if (brokenImages.value.has(url)) return '/static/home/hero-bg.png';
-  if (url.startsWith('http') || url.startsWith('blob:') || url.startsWith('wxfile:')) return url;
-  return resolveMediaUrl(url);
-};
-
-const handleImageError = (url) => {
-  if (url) brokenImages.value.add(url);
-};
-
-const loadCourseDetail = async () => {
-  loading.value = true;
-  
-  try {
-    const res = await request({
-      url: `/courses/${courseId.value}`,
-      method: 'GET'
-    });
-    course.value = res;
-    
-    // 如果已选课，加载学习进度
-    if (res.enrolled && userRole.value === 'student') {
-      loadProgress();
-    }
-  } catch (e) {
-    console.error('Failed to load course detail:', e);
-    
-    let errorMsg = '加载失败';
-    if (e.statusCode === 404) {
-      errorMsg = '课程不存在';
-    } else if (e.type === 'network') {
-      errorMsg = '网络连接失败';
-    }
-    
+const playContent = (content) => {
+  if (!course.value.enrolled && userRole.value === 'student') {
     uni.showModal({
-      title: '加载失败',
-      content: errorMsg,
+      title: '提示',
+      content: '请先加入课程后再学习',
       showCancel: false
     });
-  } finally {
-    loading.value = false;
-  }
-};
-
-const loadProgress = async () => {
-  try {
-    const res = await request({
-      url: `/courses/me/enrollments/${courseId.value}/progress`,
-      method: 'GET'
-    });
-    courseProgress.value = res.percent || 0;
-  } catch (e) {
-    console.error('Failed to load progress:', e);
-  }
-};
-
-const handleEnroll = async () => {
-  if (course.value.enrolled) {
-    // 已加入，进入学习
-    if (!course.value.contents || course.value.contents.length === 0) {
-      uni.showToast({ title: '暂无课程内容', icon: 'none' });
-      return;
-    }
-    playContent(course.value.contents[0]);
     return;
   }
 
-  // 未加入，加入课程
-  enrolling.value = true;
-  
-  try {
-    await request({
-      url: `/courses/${courseId.value}/enroll`,
-      method: 'POST'
-    });
-    
-    // 立即更新本地数据
-    course.value.enrolled = true;
-    course.value.enrollment_count = (course.value.enrollment_count || 0) + 1;
-    
-    uni.showToast({ 
-      title: '加入成功', 
-      icon: 'success',
-      duration: 1500
-    });
-    
-    // 通知课程列表页刷新数据
-    uni.$emit('courseEnrolled');
-    
-  } catch (e) {
-    console.error('Failed to enroll:', e);
-    
-    let errorMsg = '加入失败';
-    if (e.statusCode === 400) {
-      errorMsg = '已加入过此课程';
-      // 如果已加入，也重新加载一下课程详情
-      await loadCourseDetail();
-    } else if (e.type === 'network') {
-      errorMsg = '网络连接失败';
-    }
-    
-    if (e.statusCode !== 400) {
-      uni.showModal({
-        title: '加入失败',
-        content: errorMsg,
-        showCancel: false
-      });
-    }
-  } finally {
-    enrolling.value = false;
-  }
-};
-
-const playContent = (content) => {
-  if (!content.content_url) {
+  if (!content?.content_url) {
     uni.showToast({ title: '暂无内容地址', icon: 'none' });
     return;
   }
 
   const fullUrl = resolveMediaUrl(content.content_url);
+  if (content.content_type === 'video') {
+    openVideoContent(content);
+    return;
+  }
+
   if (content.content_type === 'document') {
     uni.downloadFile({
       url: fullUrl,
@@ -286,10 +409,7 @@ const playContent = (content) => {
 
   if (content.content_type === 'link') {
     openExternalLink(fullUrl);
-    return;
   }
-
-  return;
 };
 
 const manageContent = () => {
@@ -298,42 +418,40 @@ const manageContent = () => {
   });
 };
 
-const getContentMeta = (content) => {
-  if (!content) return '--';
-  if (content.content_type === 'document') {
-    return '文档资料';
-  }
-  if (content.content_type === 'link') {
-    return '外部链接';
-  }
+const getContentTypeLabel = (type) => {
+  if (type === 'video') return '视频课时';
+  if (type === 'document') return '文档资料';
+  if (type === 'link') return '外部链接';
   return '课程内容';
 };
 
-const getContentIcon = (content) => {
-  if (!content) return '▶';
-  if (content.content_type === 'document') return '文';
-  if (content.content_type === 'link') return '链';
-  return '▶';
+const formatDuration = (seconds) => {
+  const total = Math.max(0, Number(seconds) || 0);
+  const minutes = Math.floor(total / 60);
+  const secs = total % 60;
+  return `${minutes}:${String(secs).padStart(2, '0')}`;
 };
 
 onLoad((options) => {
-  if (options.id) {
-    courseId.value = options.id;
-    
-    // 获取用户角色
-    userRole.value = uni.getStorageSync('userRole') || 'student';
-    const userInfo = uni.getStorageSync('userInfo');
-    if (userInfo) {
-      try {
-        const info = typeof userInfo === 'string' ? JSON.parse(userInfo) : userInfo;
-        userId.value = info.id || 0;
-      } catch (e) {
-        console.error('Parse userInfo error:', e);
-      }
-    }
-    
-    loadCourseDetail();
+  if (!options.id) {
+    uni.showToast({ title: '课程ID不存在', icon: 'none' });
+    loading.value = false;
+    return;
   }
+
+  courseId.value = options.id;
+  userRole.value = uni.getStorageSync('userRole') || 'student';
+  const userInfo = uni.getStorageSync('userInfo');
+  if (userInfo) {
+    try {
+      const info = typeof userInfo === 'string' ? JSON.parse(userInfo) : userInfo;
+      userId.value = info.id || 0;
+    } catch (e) {
+      console.error('Parse userInfo error:', e);
+    }
+  }
+
+  loadCourseDetail();
 });
 </script>
 
@@ -344,7 +462,6 @@ onLoad((options) => {
   padding-bottom: 120rpx;
 }
 
-/* 骨架屏样式 */
 .skeleton-wrapper {
   background: #fff;
 }
@@ -361,28 +478,28 @@ onLoad((options) => {
   padding: 40rpx 30rpx;
 }
 
-.skeleton-title {
-  width: 60%;
-  height: 40rpx;
+.skeleton-title,
+.skeleton-text {
   background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
   background-size: 200% 100%;
   animation: skeleton-loading 1.5s infinite;
   border-radius: 8rpx;
+}
+
+.skeleton-title {
+  width: 60%;
+  height: 40rpx;
   margin-bottom: 20rpx;
 }
 
 .skeleton-text {
   width: 100%;
   height: 28rpx;
-  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-  background-size: 200% 100%;
-  animation: skeleton-loading 1.5s infinite;
-  border-radius: 8rpx;
   margin-bottom: 16rpx;
-  
-  &.short {
-    width: 80%;
-  }
+}
+
+.skeleton-text.short {
+  width: 80%;
 }
 
 @keyframes skeleton-loading {
@@ -394,7 +511,6 @@ onLoad((options) => {
   }
 }
 
-/* 空状态 */
 .empty-state {
   display: flex;
   flex-direction: column;
@@ -421,7 +537,8 @@ onLoad((options) => {
   background: #f0f0f0;
 }
 
-.course-header {
+.course-header,
+.content-section {
   background: #fff;
   padding: 40rpx 30rpx;
   margin-bottom: 20rpx;
@@ -433,6 +550,7 @@ onLoad((options) => {
   color: #333;
   display: block;
   margin-bottom: 20rpx;
+  line-height: 1.35;
 }
 
 .course-desc {
@@ -445,6 +563,7 @@ onLoad((options) => {
 
 .course-stats {
   display: flex;
+  flex-wrap: wrap;
   gap: 40rpx;
   margin-bottom: 30rpx;
 }
@@ -454,7 +573,7 @@ onLoad((options) => {
   color: #999;
   display: flex;
   align-items: center;
-  gap: 6rpx;
+  gap: 8rpx;
 }
 
 .stat-icon-img {
@@ -476,16 +595,18 @@ onLoad((options) => {
   margin-bottom: 16rpx;
 }
 
-.progress-label {
+.progress-label,
+.progress-value {
   font-size: 28rpx;
-  color: #333;
   font-weight: bold;
 }
 
+.progress-label {
+  color: #333;
+}
+
 .progress-value {
-  font-size: 28rpx;
   color: #20C997;
-  font-weight: bold;
 }
 
 .progress-bar {
@@ -503,15 +624,7 @@ onLoad((options) => {
 }
 
 .content-section {
-  background: #fff;
-  padding: 30rpx;
-}
-
-.section-title {
-  font-size: 32rpx;
-  font-weight: bold;
-  color: #333;
-  margin-bottom: 30rpx;
+  padding-top: 30rpx;
 }
 
 .content-item {
@@ -519,14 +632,14 @@ onLoad((options) => {
   align-items: center;
   padding: 30rpx 0;
   border-bottom: 1rpx solid #f0f0f0;
-  
-  &:last-child {
-    border-bottom: none;
-  }
-  
-  &:active {
-    background: #fafafa;
-  }
+}
+
+.content-item:last-child {
+  border-bottom: none;
+}
+
+.content-item:active {
+  background: #fafafa;
 }
 
 .content-index {
@@ -540,10 +653,12 @@ onLoad((options) => {
   font-size: 24rpx;
   color: #666;
   margin-right: 20rpx;
+  flex-shrink: 0;
 }
 
 .content-info {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
 }
@@ -551,7 +666,34 @@ onLoad((options) => {
 .content-title {
   font-size: 28rpx;
   color: #333;
-  margin-bottom: 8rpx;
+  margin-bottom: 10rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.content-meta {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.content-type {
+  font-size: 22rpx;
+  color: #2196f3;
+  background: #e3f2fd;
+  border-radius: 8rpx;
+  padding: 4rpx 14rpx;
+}
+
+.content-type--video {
+  color: #2e7d32;
+  background: #e8f5e9;
+}
+
+.content-type--link {
+  color: #c77800;
+  background: #fff4e5;
 }
 
 .content-duration {
@@ -559,8 +701,26 @@ onLoad((options) => {
   color: #999;
 }
 
-.content-icon {
-  font-size: 32rpx;
+.content-action {
+  width: 72rpx;
+  height: 56rpx;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+.play-mark {
+  width: 0;
+  height: 0;
+  border-top: 16rpx solid transparent;
+  border-bottom: 16rpx solid transparent;
+  border-left: 24rpx solid #20C997;
+}
+
+.content-action-text {
+  font-size: 24rpx;
+  color: #20C997;
 }
 
 .empty-content {
@@ -568,9 +728,64 @@ onLoad((options) => {
   text-align: center;
 }
 
-.empty-text {
+.video-player-mask {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32rpx;
+  box-sizing: border-box;
+}
+
+.video-player-panel {
+  width: 100%;
+  background: #111;
+  border-radius: 24rpx;
+  overflow: hidden;
+}
+
+.video-player-header {
+  min-height: 88rpx;
+  padding: 0 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-sizing: border-box;
+}
+
+.video-player-title {
+  flex: 1;
+  min-width: 0;
+  color: #fff;
   font-size: 28rpx;
-  color: #999;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.video-player-close {
+  width: 64rpx;
+  height: 64rpx;
+  margin-left: 20rpx;
+  color: #fff;
+  font-size: 42rpx;
+  line-height: 64rpx;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.course-video {
+  width: 100%;
+  height: 420rpx;
+  background: #000;
+  display: block;
 }
 
 .bottom-bar {
@@ -580,7 +795,9 @@ onLoad((options) => {
   right: 0;
   background: #fff;
   padding: 20rpx 30rpx;
-  box-shadow: 0 -2rpx 10rpx rgba(0,0,0,0.05);
+  padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
+  box-shadow: 0 -2rpx 10rpx rgba(0, 0, 0, 0.05);
+  z-index: 100;
 }
 
 .enroll-btn,
@@ -593,11 +810,11 @@ onLoad((options) => {
   font-size: 32rpx;
   font-weight: bold;
   border: none;
-  
-  &.enrolled {
-    background: #e0e0e0;
-    color: #999;
-  }
+}
+
+.enroll-btn.enrolled {
+  background: #4dabf7;
+  color: #fff;
 }
 
 .manage-btn {

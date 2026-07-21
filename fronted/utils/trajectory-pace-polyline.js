@@ -50,11 +50,6 @@ const normalizeRawPoint = (p) => {
 };
 
 const segmentPaceMinPerKm = (a, b) => {
-  const v = b.speed;
-  if (Number.isFinite(v) && v > 0.15 && v < 12) {
-    const kmh = v * 3.6;
-    return 60 / kmh;
-  }
   const t0 = a.timestamp;
   const t1 = b.timestamp;
   if (t0 != null && t1 != null && t1 > t0) {
@@ -64,6 +59,11 @@ const segmentPaceMinPerKm = (a, b) => {
       const km = d / 1000;
       return km > 0 ? dt / 60 / km : null;
     }
+  }
+  const v = b.speed;
+  if (Number.isFinite(v) && v > 0.15 && v < 8) {
+    const kmh = v * 3.6;
+    return 60 / kmh;
   }
   return null;
 };
@@ -83,7 +83,9 @@ export const buildPaceColoredPolylines = (rawPoints, options = {}) => {
     borderColor: options.borderColor ?? DEFAULT_RUN_POLYLINE_STYLE.borderColor,
     borderWidth: options.borderWidth ?? DEFAULT_RUN_POLYLINE_STYLE.borderWidth
   };
-  const maxSegments = options.maxSegments ?? 120;
+  // A small number of continuous colour bands communicates pace without
+  // turning every GPS callback into a visually broken dash.
+  const maxSegments = options.maxSegments ?? 6;
   const smoothSegment = options.smoothSegment !== false;
 
   const segments = [];

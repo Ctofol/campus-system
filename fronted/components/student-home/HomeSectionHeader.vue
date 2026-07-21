@@ -26,35 +26,40 @@ defineEmits(['more']);
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 20rpx;
+  margin-bottom: 18rpx;
 }
 .home-section-header__left {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 12rpx;
+  gap: 10rpx;
 }
 .home-section-header__bar {
-  width: 4rpx;
-  height: 28rpx;
-  border-radius: 2rpx;
-  background: #33C9AB;
+  width: 6rpx;
+  height: 24rpx;
+  border-radius: 3rpx;
+  background: #24BFA2;
 }
 .home-section-header__title {
-  font-size: 30rpx;
+  font-size: 28rpx;
   font-weight: 800;
-  color: #191C1E;
+  color: #18232E;
 }
 .home-section-header__more {
   display: flex;
   flex-direction: row;
   align-items: center;
-  font-size: 24rpx;
-  color: #8E8E93;
+  font-size: 22rpx;
+  color: #718094;
   font-weight: 600;
+  padding: 6rpx 0 6rpx 10rpx;
+}
+.home-section-header__more:active {
+  opacity: 0.72;
 }
 .home-section-header__arrow {
-  margin-left: 4rpx;
-  font-size: 28rpx;
+  margin-left: 2rpx;
+  font-size: 26rpx;
+  color: #B8C3CC;
 }
 </style>

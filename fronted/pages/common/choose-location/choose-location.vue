@@ -13,7 +13,7 @@
     >
       <!-- Center Pin (simulated with cover-view centered) -->
       <cover-view class="center-pin">
-        <cover-image src="/static/location.png" class="pin-icon"></cover-image>
+        <cover-image src="/static/icons/icon-activity-location.svg" class="pin-icon"></cover-image>
       </cover-view>
       
       <!-- Back Button -->
