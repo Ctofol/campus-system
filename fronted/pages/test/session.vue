@@ -263,10 +263,26 @@ const parseScoreDetail = (value) => {
     return null;
   }
 };
+const userFacingAnalysisError = (res = {}) => {
+  const detail = parseScoreDetail(res.score_detail) || {};
+  const reason = detail.review_reason || '';
+  if (reviewReasonTextMap[reason]) return reviewReasonTextMap[reason];
+  const raw = String(res.analysis_error || '').trim();
+  if (!raw) return res.analysis_status === 'needs_review' ? '需要老师复核' : '';
+  if (reviewReasonTextMap[raw]) return reviewReasonTextMap[raw];
+  if (raw.includes('no sampled frame matched')) return '视频中未识别到与本人匹配的人脸，需要老师复核';
+  if (raw.includes('student face profile not verified')) return '请先完成本人脸部档案认证后再提交';
+  if (raw.includes('face profile embedding invalid')) return '脸部档案异常，请重新认证后再提交';
+  if (raw.includes('pose_engine_unavailable')) return '识别引擎暂不可用，请稍后重试或联系老师';
+  if (raw.includes('cannot open video')) return '视频无法打开，请重新录制并提交';
+  if (raw.includes('video file is not available locally')) return '视频文件暂不可用于识别，需要老师复核';
+  if (raw.includes('pose analysis needs review')) return '动作识别结果需要老师复核';
+  return raw;
+};
 const buildAnalysisFeedback = (res = {}) => {
   const detail = parseScoreDetail(res.score_detail) || {};
   analysisDetail.value = detail;
-  analysisStatusText.value = res.analysis_error || '';
+  analysisStatusText.value = userFacingAnalysisError(res);
   const reviewReason = detail.review_reason || '';
   analysisReviewRequired.value = res.analysis_status === 'needs_review' || !!reviewReason;
 };
@@ -728,13 +744,13 @@ const pollAnalysis = () => {
         analysisScore.value = res?.score || 0;
         analysisPassed.value = false;
         buildAnalysisFeedback(res);
-        uni.showToast({ title: res?.analysis_error || '需要教师复核', icon: 'none' });
+        uni.showToast({ title: analysisStatusText.value || '需要教师复核', icon: 'none' });
         phase.value = 'done';
         return;
       }
       if (status === 'failed') {
         clearInterval(dotTimer);
-        uni.showToast({ title: res?.analysis_error || '分析失败', icon: 'none' });
+        uni.showToast({ title: userFacingAnalysisError(res) || '分析失败', icon: 'none' });
         phase.value = 'preview';
         return;
       }

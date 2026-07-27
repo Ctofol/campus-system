@@ -149,7 +149,7 @@ def verify_profile_in_video(
     db: Session,
     user: models.User,
     video_url: str,
-    sample_count: int = 3,
+    sample_count: int = 9,
 ) -> Dict[str, Any]:
     profile = get_student_face_profile(db, user.id)
     if not profile or profile.status != "verified":
@@ -201,9 +201,11 @@ def verify_profile_in_video(
     if total_frames <= 0:
         positions = [0]
     else:
+        sample_count = max(3, min(int(sample_count or 9), 20))
+        ratios = [(i + 1) / (sample_count + 1) for i in range(sample_count)]
         positions = [
             max(0, min(total_frames - 1, int(total_frames * ratio)))
-            for ratio in (0.15, 0.5, 0.85)[: max(1, sample_count)]
+            for ratio in ratios
         ]
 
     samples = []
