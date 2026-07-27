@@ -247,7 +247,9 @@ const setResultRoutePolyline = () => {
 };
 
 const parseStoredTrajectory = (value) => {
+  if (value == null || value === '') return null;
   if (typeof value !== 'string') return value;
+  if (!value.trim()) return null;
   try {
     return JSON.parse(value);
   } catch (error) {
@@ -336,6 +338,9 @@ const testAiTips = computed(() => {
     tips.push('保持光线充足，尽量避免逆光和画面晃动。');
   } else if (reason === 'only_partial_reps_detected') {
     tips.push('系统检测到动作幅度不足，建议完整完成起始和结束姿态。');
+  } else if (reason === 'test_identity_verification_failed') {
+    tips.push('体测视频中的人脸未能和档案匹配，本次需要老师复核。');
+    tips.push('下次开始前请正对镜头停留 1-2 秒，避免侧脸、遮挡或离镜头过远。');
   }
   const flags = Array.isArray(detail.risk_flags) ? detail.risk_flags : [];
   flags.forEach((flag) => {

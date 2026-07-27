@@ -17,6 +17,30 @@ from .video_score import apply_analysis_to_metrics
 logger = logging.getLogger(__name__)
 
 
+def _merge_score_detail_with_identity(
+    detail: str,
+    identity: dict,
+    review_reason: str | None = None,
+) -> str:
+    try:
+        detail_obj = json.loads(detail or "{}")
+    except Exception:
+        detail_obj = {}
+    if not isinstance(detail_obj, dict):
+        detail_obj = {}
+
+    risk_flags = set(detail_obj.get("risk_flags") or [])
+    for flag in identity.get("risk_flags") or []:
+        risk_flags.add(flag)
+    if review_reason:
+        detail_obj["review_reason"] = review_reason
+        risk_flags.add(review_reason)
+
+    detail_obj["identity"] = identity
+    detail_obj["risk_flags"] = sorted(risk_flags)
+    return json.dumps(detail_obj, ensure_ascii=False)
+
+
 def _run_analysis_job(activity_id: int) -> None:
     db: Session = database.SessionLocal()
     try:
@@ -34,25 +58,12 @@ def _run_analysis_job(activity_id: int) -> None:
         db.commit()
 
         identity = verify_profile_in_video(db, act.user, metrics.video_url)
-        act.face_verified = bool(identity.get("ok"))
+        identity_ok = bool(identity.get("ok"))
+        act.face_verified = identity_ok
         act.face_match_score = identity.get("best_score")
         act.face_fail_code = identity.get("fail_code")
         if hasattr(act, "face_detail"):
             act.face_detail = json.dumps({"type": "test_identity", **identity}, ensure_ascii=False)
-        if not identity.get("ok"):
-            metrics.analysis_status = "needs_review"
-            metrics.analysis_error = identity.get("reason") or "test identity verification needs review"
-            metrics.score_detail = json.dumps(
-                {
-                    "review_reason": "test_identity_verification_failed",
-                    "identity": identity,
-                },
-                ensure_ascii=False,
-            )
-            act.is_valid = False
-            act.fail_reason = "体测身份校验需教师复核"
-            db.commit()
-            return
 
         task_min = None
         if act.task_id:
@@ -71,6 +82,18 @@ def _run_analysis_job(activity_id: int) -> None:
                 detail_obj = json.loads(detail or "{}")
             except Exception:
                 detail_obj = {}
+            if not identity_ok:
+                metrics.analysis_status = "needs_review"
+                metrics.analysis_error = "视频身份校验未通过，需要老师复核"
+                metrics.score_detail = _merge_score_detail_with_identity(
+                    detail,
+                    identity,
+                    "test_identity_verification_failed",
+                )
+                act.is_valid = False
+                act.fail_reason = "体测身份校验需教师复核"
+                db.commit()
+                return
             if detail_obj.get("review_reason") or detail_obj.get("risk_flags"):
                 metrics.analysis_status = "needs_review"
                 metrics.analysis_error = detail_obj.get("review_reason") or "pose analysis needs review"
