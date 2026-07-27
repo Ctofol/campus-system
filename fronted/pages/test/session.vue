@@ -42,6 +42,16 @@
                 </view>
               </view>
             </view>
+
+            <view class="section">
+              <text class="section-title">拍摄规范</text>
+              <view class="shooting-guide">
+                <view v-for="item in shootingGuide" :key="item.title" class="shooting-guide-item">
+                  <text class="shooting-guide-title">{{ item.title }}</text>
+                  <text class="shooting-guide-desc">{{ item.desc }}</text>
+                </view>
+              </view>
+            </view>
           </view>
         </scroll-view>
 
@@ -64,8 +74,14 @@
           />
           <!-- 身体框线引导覆盖层 -->
 
-
+          <cover-view class="body-guide-frame">
+            <cover-view class="body-guide-line body-guide-line--top" />
+            <cover-view class="body-guide-line body-guide-line--bottom" />
+            <cover-view class="body-guide-line body-guide-line--left" />
+            <cover-view class="body-guide-line body-guide-line--right" />
+          </cover-view>
           <cover-view class="cam-hint">{{ isRecording ? '录制中...请完成动作' : '对准框线，确保全身入镜' }}</cover-view>
+          <cover-view class="cam-subhint">{{ cameraHintText }}</cover-view>
           <cover-view v-if="isRecording" class="cam-timer">{{ formattedTime }}</cover-view>
           <cover-view v-if="isRecording" class="cam-rec-dot" />
         </view>
@@ -148,9 +164,12 @@
             <image v-if="analysisPassed" class="done-icon-img" src="/static/icons/icon-check.svg" mode="aspectFit" />
             <image v-else class="done-icon-img" src="/static/icons/icon-cross.svg" mode="aspectFit" />
           </view>
-          <text class="done-title">{{ analysisPassed ? '测试完成' : '未达标' }}</text>
+          <text class="done-title">{{ doneTitle }}</text>
           <text class="done-count">{{ analysisCount }} 次</text>
           <text class="done-score">得分 {{ analysisScore }} 分</text>
+          <view class="done-feedback" v-if="analysisFeedbackItems.length">
+            <text class="done-feedback-item" v-for="item in analysisFeedbackItems" :key="item">{{ item }}</text>
+          </view>
           <button class="btn-primary" @tap="goToResult">查看详情</button>
         </view>
       </template>
@@ -175,6 +194,12 @@ const taskId = ref(null);
 const instructions = TEST_INSTRUCTIONS;
 const flowSteps = TEST_FLOW_STEPS;
 const exercise = computed(() => getExerciseById(exerciseId.value));
+const shootingGuide = [
+  { title: '全身入镜', desc: '脚、头和手臂动作都要留在画面内' },
+  { title: '固定手机', desc: '尽量放在支架或稳定位置，避免边拍边移动' },
+  { title: '光线充足', desc: '避开逆光和过暗环境，人物轮廓要清晰' },
+  { title: '距离适中', desc: '建议距离 2-3 米，让身体占画面主要区域' }
+];
 
 const phase = ref('ready');
 const videoPath = ref('');
@@ -189,6 +214,9 @@ const dotIndex = ref(0);
 const analysisCount = ref(0);
 const analysisScore = ref(0);
 const analysisPassed = ref(false);
+const analysisDetail = ref(null);
+const analysisReviewRequired = ref(false);
+const analysisStatusText = ref('');
 const isRecording = ref(false);
 const cameraRef = ref(null);
 let cameraCtx = null;
@@ -204,6 +232,65 @@ let previewFallbackTried = false;
 let convertedPreviewSrc = '';
 
 const formattedTime = computed(() => timerDisplay.value);
+const cameraHintText = computed(() => {
+  if (isRecording.value) return '保持手机稳定，动作完成后再结束录制';
+  return '人物站在框内，画面中只保留测试者一人';
+});
+const reviewReasonTextMap = {
+  pose_quality_too_low: '画面质量不足，建议重录时让人物更靠近并保持全身入镜',
+  too_few_pose_frames: '识别到的人体关键点太少，建议检查光线和拍摄角度',
+  only_partial_reps_detected: '检测到半程动作，建议动作幅度做到位后再提交',
+  pose_engine_unavailable: '当前环境暂时无法完成自动识别，请稍后重试或联系老师复核',
+  video_not_found_local: '视频文件未找到，请重新录制并提交',
+  cannot_open_video: '视频无法打开，请重新录制并提交',
+  test_identity_verification_failed: '视频身份校验未通过，需要老师复核'
+};
+const riskFlagTextMap = {
+  push_up_body_line_unstable: '俯卧撑过程中身体直线不稳定',
+  push_up_depth_too_shallow: '俯卧撑下降深度可能不足',
+  pull_up_range_too_small: '引体向上动作幅度可能不足',
+  sit_up_range_too_small: '仰卧起坐起身幅度可能不足',
+  pose_quality_too_low: '人物过远、出框或关键点不清晰',
+  too_few_pose_frames: '有效姿态帧不足',
+  only_partial_reps_detected: '只检测到半程动作'
+};
+const parseScoreDetail = (value) => {
+  if (!value) return null;
+  if (typeof value === 'object') return value;
+  try {
+    return JSON.parse(value);
+  } catch (e) {
+    return null;
+  }
+};
+const buildAnalysisFeedback = (res = {}) => {
+  const detail = parseScoreDetail(res.score_detail) || {};
+  analysisDetail.value = detail;
+  analysisStatusText.value = res.analysis_error || '';
+  const reviewReason = detail.review_reason || '';
+  analysisReviewRequired.value = res.analysis_status === 'needs_review' || !!reviewReason;
+};
+const analysisFeedbackItems = computed(() => {
+  const detail = analysisDetail.value || {};
+  const items = [];
+  if (detail.valid_reps != null) items.push(`有效动作 ${detail.valid_reps} 次`);
+  if (detail.invalid_reps) items.push(`疑似无效 ${detail.invalid_reps} 次`);
+  if (detail.partial_reps) items.push(`半程动作 ${detail.partial_reps} 次`);
+  if (detail.confidence != null) items.push(`识别可信度 ${Math.round(Number(detail.confidence) * 100)}%`);
+  const reason = detail.review_reason || '';
+  if (reason && reviewReasonTextMap[reason]) items.push(reviewReasonTextMap[reason]);
+  const flags = Array.isArray(detail.risk_flags) ? detail.risk_flags : [];
+  flags.forEach((flag) => {
+    const text = riskFlagTextMap[flag];
+    if (text && !items.includes(text)) items.push(text);
+  });
+  if (!items.length && analysisStatusText.value) items.push(analysisStatusText.value);
+  return items.slice(0, 4);
+});
+const doneTitle = computed(() => {
+  if (analysisReviewRequired.value) return '需要复核';
+  return analysisPassed.value ? '测试完成' : '未达标';
+});
 
 const cameraAreaHeight = ref(500);
 
@@ -631,13 +718,18 @@ const pollAnalysis = () => {
         analysisCount.value = res?.count || 0;
         analysisScore.value = res?.score || 0;
         analysisPassed.value = !!res?.qualified;
+        buildAnalysisFeedback(res);
         phase.value = 'done';
         return;
       }
       if (status === 'needs_review') {
         clearInterval(dotTimer);
+        analysisCount.value = res?.count || 0;
+        analysisScore.value = res?.score || 0;
+        analysisPassed.value = false;
+        buildAnalysisFeedback(res);
         uni.showToast({ title: res?.analysis_error || '需要教师复核', icon: 'none' });
-        phase.value = 'preview';
+        phase.value = 'done';
         return;
       }
       if (status === 'failed') {
@@ -666,14 +758,19 @@ const goToResult = () => {
   const data = {
     type: 'test',
     test_project: exercise.value.label,
-    metrics: {
-      count: analysisCount.value,
-      qualified: analysisPassed.value,
-      score: analysisScore.value,
-      duration: 0,
-      distance: 0
-    },
-    display_mode: 'test'
+      metrics: {
+        count: analysisCount.value,
+        qualified: analysisPassed.value,
+        score: analysisScore.value,
+        score_detail: analysisDetail.value ? JSON.stringify(analysisDetail.value) : '',
+        analysis_status: analysisReviewRequired.value ? 'needs_review' : 'success',
+        analysis_error: analysisStatusText.value,
+        exercise_type: exerciseIdToApiType(exerciseId.value),
+        duration: 0,
+        distance: 0
+      },
+      fail_reason: analysisStatusText.value,
+      display_mode: 'test'
   };
   const dataStr = encodeURIComponent(JSON.stringify(data));
   uni.redirectTo({ url: `/pages/result/result?data=${dataStr}` });
@@ -843,6 +940,36 @@ const goToResult = () => {
   font-size: 26rpx;
   color: #4a5568;
   line-height: 1.5;
+}
+
+.shooting-guide {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16rpx;
+}
+
+.shooting-guide-item {
+  min-height: 132rpx;
+  border-radius: 16rpx;
+  background: #fff;
+  padding: 22rpx 20rpx;
+  box-shadow: 0 4rpx 20rpx rgba(26, 43, 60, 0.05);
+  box-sizing: border-box;
+}
+
+.shooting-guide-title {
+  display: block;
+  font-size: 27rpx;
+  font-weight: 800;
+  color: #1a2b3c;
+}
+
+.shooting-guide-desc {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 23rpx;
+  line-height: 1.45;
+  color: #6b7c8f;
 }
 
 .test-session-footer {
@@ -1064,7 +1191,49 @@ const goToResult = () => {
   height: 100%;
 }
 
+.body-guide-frame {
+  position: absolute;
+  left: 18%;
+  right: 18%;
+  top: 16%;
+  bottom: 12%;
+  border-radius: 999rpx;
+}
 
+.body-guide-line {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.body-guide-line--top,
+.body-guide-line--bottom {
+  left: 28%;
+  right: 28%;
+  height: 4rpx;
+}
+
+.body-guide-line--top {
+  top: 0;
+}
+
+.body-guide-line--bottom {
+  bottom: 0;
+}
+
+.body-guide-line--left,
+.body-guide-line--right {
+  top: 18%;
+  bottom: 18%;
+  width: 4rpx;
+}
+
+.body-guide-line--left {
+  left: 0;
+}
+
+.body-guide-line--right {
+  right: 0;
+}
 
 .cam-hint {
   position: absolute;
@@ -1078,6 +1247,20 @@ const goToResult = () => {
   padding: 10rpx 28rpx;
   border-radius: 36rpx;
   white-space: nowrap;
+}
+
+.cam-subhint {
+  position: absolute;
+  left: 40rpx;
+  right: 40rpx;
+  bottom: 42rpx;
+  background: rgba(0, 0, 0, 0.46);
+  color: #fff;
+  font-size: 23rpx;
+  line-height: 1.4;
+  padding: 14rpx 22rpx;
+  border-radius: 14rpx;
+  text-align: center;
 }
 
 .cam-timer {
@@ -1221,6 +1404,28 @@ const goToResult = () => {
 .done-score {
   font-size: 28rpx;
   color: #8E8E93;
-  margin-bottom: 48rpx;
+  margin-bottom: 24rpx;
+}
+
+.done-feedback {
+  width: 100%;
+  margin-bottom: 36rpx;
+  padding: 22rpx 24rpx;
+  border-radius: 18rpx;
+  background: #fff;
+  box-shadow: 0 4rpx 20rpx rgba(26, 43, 60, 0.05);
+  box-sizing: border-box;
+}
+
+.done-feedback-item {
+  display: block;
+  font-size: 25rpx;
+  line-height: 1.55;
+  color: #4a5568;
+  margin-bottom: 8rpx;
+}
+
+.done-feedback-item:last-child {
+  margin-bottom: 0;
 }
 </style>
