@@ -159,6 +159,18 @@
           <text class="sugg-text">{{ suggestionText }}</text>
         </view>
       </view>
+      <view class="test-ai-detail" v-if="testAiDetailItems.length">
+        <text class="test-ai-title">AI识别说明</text>
+        <view class="test-ai-grid">
+          <view class="test-ai-item" v-for="item in testAiDetailItems" :key="item.label">
+            <text class="test-ai-label">{{ item.label }}</text>
+            <text class="test-ai-value">{{ item.value }}</text>
+          </view>
+        </view>
+        <view class="test-ai-tips" v-if="testAiTips.length">
+          <text class="test-ai-tip" v-for="tip in testAiTips" :key="tip">{{ tip }}</text>
+        </view>
+      </view>
       <view class="ai-insight-card" v-if="aiInsight || aiInsightLoading">
         <text class="ai-insight-title">{{ aiInsightLoading ? 'AI正在生成体测反馈' : (aiInsight?.title || 'AI体测反馈') }}</text>
         <text class="ai-insight-summary">{{ aiInsight?.summary || '正在结合体测成绩生成训练建议。' }}</text>
@@ -204,6 +216,9 @@ const faceMatchScore = ref(null);
 const faceVerifyText = ref('');
 const aiInsightLoading = ref(false);
 const aiInsight = ref(null);
+const testScoreDetail = ref(null);
+const testAnalysisStatus = ref('');
+const testAnalysisError = ref('');
 
 const trajectoryPoints = ref([]);
 const mapCenterLat = ref(0);
@@ -263,6 +278,73 @@ const modeTitle = computed(() => {
 const isPaceQualified = ref(false);
 
 const faceFailCode = ref('');
+
+const reviewReasonTextMap = {
+  pose_quality_too_low: '画面质量不足',
+  too_few_pose_frames: '有效姿态帧不足',
+  only_partial_reps_detected: '只检测到半程动作',
+  pose_engine_unavailable: '识别引擎暂不可用',
+  video_not_found_local: '视频文件未找到',
+  cannot_open_video: '视频无法打开',
+  test_identity_verification_failed: '身份校验未通过'
+};
+
+const riskFlagTextMap = {
+  push_up_body_line_unstable: '身体直线不稳定',
+  push_up_depth_too_shallow: '下降深度不足',
+  pull_up_range_too_small: '引体幅度不足',
+  sit_up_range_too_small: '起身幅度不足',
+  pose_quality_too_low: '人物过远、出框或光线不足',
+  too_few_pose_frames: '人体关键点太少',
+  only_partial_reps_detected: '动作未形成完整闭环'
+};
+
+const parseScoreDetail = (value) => {
+  if (!value) return null;
+  if (typeof value === 'object') return value;
+  try {
+    return JSON.parse(value);
+  } catch (e) {
+    return null;
+  }
+};
+
+const testAiDetailItems = computed(() => {
+  const detail = testScoreDetail.value || {};
+  const rows = [];
+  const score = Number(userScorePercent.value || 0);
+  rows.push({ label: 'AI得分', value: `${Math.round(score)} 分` });
+  if (detail.valid_reps != null) rows.push({ label: '有效动作', value: `${detail.valid_reps} 次` });
+  if (detail.invalid_reps != null) rows.push({ label: '疑似无效', value: `${detail.invalid_reps} 次` });
+  if (detail.partial_reps != null) rows.push({ label: '半程动作', value: `${detail.partial_reps} 次` });
+  if (detail.confidence != null) {
+    rows.push({ label: '识别可信度', value: `${Math.round(Number(detail.confidence) * 100)}%` });
+  }
+  const reviewReason = detail.review_reason || (testAnalysisStatus.value === 'needs_review' ? 'test_identity_verification_failed' : '');
+  if (reviewReason) {
+    rows.push({ label: '复核状态', value: reviewReasonTextMap[reviewReason] || '需要老师复核' });
+  }
+  return rows.slice(0, 6);
+});
+
+const testAiTips = computed(() => {
+  const detail = testScoreDetail.value || {};
+  const tips = [];
+  const reason = detail.review_reason || '';
+  if (reason === 'pose_quality_too_low' || reason === 'too_few_pose_frames') {
+    tips.push('下次录制时请让人物全身入镜，距离手机约 2-3 米。');
+    tips.push('保持光线充足，尽量避免逆光和画面晃动。');
+  } else if (reason === 'only_partial_reps_detected') {
+    tips.push('系统检测到动作幅度不足，建议完整完成起始和结束姿态。');
+  }
+  const flags = Array.isArray(detail.risk_flags) ? detail.risk_flags : [];
+  flags.forEach((flag) => {
+    const text = riskFlagTextMap[flag];
+    if (text && !tips.includes(text)) tips.push(text);
+  });
+  if (testAnalysisError.value && !tips.length) tips.push(testAnalysisError.value);
+  return tips.slice(0, 4);
+});
 
 const buildFaceVerifyText = (data) => {
   const scoreExtra =
@@ -460,6 +542,9 @@ onLoad((options) => {
       distance.value = (data.metrics.distance || 0) * 1000;
       testCount.value = data.metrics.count || 0;
       testQualified.value = data.metrics.qualified;
+      testScoreDetail.value = parseScoreDetail(data.metrics.score_detail);
+      testAnalysisStatus.value = data.metrics.analysis_status || '';
+      testAnalysisError.value = data.metrics.analysis_error || '';
       policePace.value = Number(data.metrics.pace) || 0;
       isPaceQualified.value = data.metrics.qualified;
     }
@@ -505,10 +590,14 @@ onLoad((options) => {
 
     if (currentMode.value === 'test') {
       testProject.value = data.test_project || '体测项目';
-      suggestionText.value = testQualified.value ? '恭喜达标！' : '继续加油！';
       const score = data.metrics?.score || 0;
       userScorePercent.value = Math.min(100, score);
       standardScorePercent.value = 60;
+      if (testAnalysisStatus.value === 'needs_review' || testScoreDetail.value?.review_reason) {
+        suggestionText.value = '本次视频需要老师复核，请查看 AI 识别说明并按提示调整拍摄。';
+      } else {
+        suggestionText.value = testQualified.value ? '恭喜达标！' : '继续加油！';
+      }
     }
 
     loadAiInsight(data);
@@ -865,6 +954,69 @@ const backToHome = () => {
 .sugg-text {
   font-size: 26rpx;
   color: #555;
+}
+
+.test-ai-detail {
+  margin-top: 24rpx;
+  padding: 24rpx;
+  border-radius: 16rpx;
+  background: #ffffff;
+  border: 1rpx solid #e8eef2;
+}
+
+.test-ai-title {
+  display: block;
+  color: #102433;
+  font-size: 28rpx;
+  font-weight: 800;
+  margin-bottom: 18rpx;
+}
+
+.test-ai-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14rpx;
+}
+
+.test-ai-item {
+  min-height: 92rpx;
+  padding: 16rpx;
+  border-radius: 12rpx;
+  background: #f7fafb;
+  box-sizing: border-box;
+}
+
+.test-ai-label {
+  display: block;
+  color: #708090;
+  font-size: 22rpx;
+}
+
+.test-ai-value {
+  display: block;
+  margin-top: 8rpx;
+  color: #17212b;
+  font-size: 26rpx;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.test-ai-tips {
+  margin-top: 18rpx;
+  padding-top: 16rpx;
+  border-top: 1rpx solid #edf2f5;
+}
+
+.test-ai-tip {
+  display: block;
+  color: #586575;
+  font-size: 24rpx;
+  line-height: 1.5;
+  margin-bottom: 8rpx;
+}
+
+.test-ai-tip:last-child {
+  margin-bottom: 0;
 }
 
 .ai-insight-card {
