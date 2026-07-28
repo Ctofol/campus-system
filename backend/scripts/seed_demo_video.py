@@ -215,13 +215,12 @@ def reset_demo_data(db):
         )
 
     if demo_user_ids:
-        db.query(models.User).filter(models.User.id.in_(demo_user_ids)).delete(
-            synchronize_session=False
+        db.query(models.User).filter(models.User.id.in_(demo_user_ids)).update(
+            {models.User.class_id: None}, synchronize_session=False
         )
-    if demo_student_nos:
-        db.query(models.StudentProfile).filter(
-            models.StudentProfile.student_id.in_(demo_student_nos)
-        ).delete(synchronize_session=False)
+        db.query(models.User).filter(models.User.id.in_(demo_user_ids)).update(
+            {models.User.major_id: None}, synchronize_session=False
+        )
 
     demo_class_ids = [
         row.id
@@ -239,6 +238,15 @@ def reset_demo_data(db):
     db.query(models.Major).filter(
         models.Major.name.in_([MAJOR_NAME] + LEGACY_MAJOR_NAMES)
     ).delete(synchronize_session=False)
+
+    if demo_user_ids:
+        db.query(models.User).filter(models.User.id.in_(demo_user_ids)).delete(
+            synchronize_session=False
+        )
+    if demo_student_nos:
+        db.query(models.StudentProfile).filter(
+            models.StudentProfile.student_id.in_(demo_student_nos)
+        ).delete(synchronize_session=False)
     db.commit()
 
 

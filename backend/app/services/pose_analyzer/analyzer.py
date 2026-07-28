@@ -512,3 +512,31 @@ def analyze_test_video(
         **{k: v for k, v in raw.items() if k not in ("count", "engine", "confidence", "review_reason", "risk_flags")},
     }
     return count, qualified, score, _detail_json(detail)
+
+
+def warmup_mediapipe_pose() -> str:
+    try:
+        import numpy as np
+        import mediapipe as mp
+    except ImportError as e:
+        return f"mediapipe import failed: {e}"
+
+    solutions = getattr(mp, "solutions", None)
+    mp_pose = getattr(solutions, "pose", None) if solutions else None
+    if mp_pose is None:
+        return "mediapipe.solutions.pose not available"
+
+    dummy_frame = np.zeros((192, 192, 3), dtype=np.uint8)
+
+    try:
+        with mp_pose.Pose(
+            static_image_mode=True,
+            model_complexity=1,
+            min_detection_confidence=0.55,
+            min_tracking_confidence=0.5,
+        ) as pose:
+            pose.process(dummy_frame)
+    except Exception as e:
+        return f"mediapipe warmup exception: {e}"
+
+    return "ok"

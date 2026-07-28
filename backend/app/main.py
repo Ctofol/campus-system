@@ -47,6 +47,17 @@ if os.getenv("FACE_PROVIDER", "none").lower() == "local":
     except Exception as e:
         print(f"[startup] InsightFace 预加载异常: {e}")
 
+# 预加载 MediaPipe Pose 模型
+try:
+    from .services.pose_analyzer.analyzer import warmup_mediapipe_pose
+    _mp_result = warmup_mediapipe_pose()
+    if _mp_result == "ok":
+        print("[startup] MediaPipe Pose 模型已预加载")
+    else:
+        print(f"[startup] MediaPipe Pose 预加载跳过: {_mp_result}")
+except Exception as e:
+    print(f"[startup] MediaPipe Pose 预加载异常: {e}")
+
 # 挂载静态文件目录（必须在路由注册之前）
 # 开发环境: 使用项目目录下的 uploads 文件夹
 # 生产环境(Docker): 使用 /app/uploads

@@ -88,6 +88,7 @@ def update_my_profile(
     db: Session = Depends(get_db)
 ):
     ensure_schema_upgrades()
+    phone_changed = False
     if profile_update.name:
         current_user.name = str(profile_update.name).strip()[:50]
 
@@ -103,6 +104,7 @@ def update_my_profile(
             if exists:
                 raise HTTPException(status_code=400, detail="该手机号已被绑定")
             current_user.phone = phone
+            phone_changed = True
     
     if profile_update.signature is not None:
         current_user.signature = str(profile_update.signature).strip()[:100]
