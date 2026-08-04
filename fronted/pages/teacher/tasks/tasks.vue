@@ -234,7 +234,7 @@ const remindUnfinished = async (task) => {
 
 const showActionSheet = (task) => {
   uni.showActionSheet({
-    itemList: ['删除任务'],
+    itemList: ['归档任务'],
     itemColor: '#000000',
     success: async (res) => {
       if (res.tapIndex === 0) {
@@ -246,19 +246,19 @@ const showActionSheet = (task) => {
 
 const handleDelete = (task) => {
   uni.showModal({
-    title: '确认删除',
-    content: `确定要删除任务"${task.title}"吗？`,
+    title: '确认归档',
+    content: `确定归档任务“${task.title}”吗？归档后不再出现在任务列表，但学生提交历史仍会保留。`,
     success: async (res) => {
       if (res.confirm) {
         try {
           await deleteTask(task.id);
-          uni.showToast({ title: '删除成功' });
+          uni.showToast({ title: '已归档' });
           // Refresh list
           page.value = 1;
           loadTasks();
         } catch (e) {
           console.error(e);
-          uni.showToast({ title: '删除失败', icon: 'none' });
+          uni.showToast({ title: '归档失败', icon: 'none' });
         }
       }
     }

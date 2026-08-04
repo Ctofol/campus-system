@@ -1,9 +1,9 @@
 
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from typing import List, Optional, Any
 import json
 import numbers
@@ -13,10 +13,11 @@ import io
 from datetime import datetime
 
 from ..database import get_db
-from .. import models, schemas, auth
+from .. import models, schemas, auth, config
 from ..services.score_service import calculate_total_score
-from ..services.notification_service import create_notification as add_user_notification
-from ..services.notification_service import create_notifications as add_user_notifications
+from ..services.audit_service import record_audit
+from ..services.storage_report import build_upload_usage_report
+from ..services.notification_campaign_service import create_campaign as create_notification_campaign
 
 router = APIRouter(
     prefix="/manage",
@@ -222,6 +223,58 @@ def get_users(
     # 属性字段（major, class_name）已通过 models.py 的 @property 自动处理
     return users
 
+
+@router.get("/audit-logs")
+def get_audit_logs(
+    page: int = 1,
+    size: int = 20,
+    action: Optional[str] = None,
+    resource_type: Optional[str] = None,
+    actor_user_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_admin),
+):
+    """查看管理员关键操作记录。"""
+    page = max(page, 1)
+    size = min(max(size, 1), 100)
+    query = db.query(models.AuditLog)
+    if action:
+        query = query.filter(models.AuditLog.action == action)
+    if resource_type:
+        query = query.filter(models.AuditLog.resource_type == resource_type)
+    if actor_user_id is not None:
+        query = query.filter(models.AuditLog.actor_user_id == actor_user_id)
+    query = query.order_by(models.AuditLog.created_at.desc())
+    total = query.count()
+    rows = query.offset((page - 1) * size).limit(size).all()
+    return {
+        "items": [
+            {
+                "id": row.id,
+                "actor_user_id": row.actor_user_id,
+                "actor_name": row.actor.name if row.actor else "系统",
+                "action": row.action,
+                "resource_type": row.resource_type,
+                "resource_id": row.resource_id,
+                "detail": row.detail,
+                "created_at": row.created_at,
+            }
+            for row in rows
+        ],
+        "total": total,
+    }
+
+
+@router.get("/storage/usage")
+def get_storage_usage(
+    candidate_limit: int = Query(default=50, ge=0, le=100),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_admin),
+):
+    """只读盘点上传文件；候选项不会在此接口中被删除。"""
+
+    return build_upload_usage_report(db, candidate_limit=candidate_limit)
+
 @router.post("/users", response_model=schemas.UserProfile)
 def create_user(
     user_in: schemas.UserCreate, 
@@ -230,32 +283,124 @@ def create_user(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_admin)
 ):
-    db_user = db.query(models.User).filter(models.User.phone == user_in.phone).first()
-    if db_user:
-        raise HTTPException(status_code=400, detail="Phone already registered")
-        
-    hashed_password = auth.get_password_hash(user_in.password)
+    if user_in.role not in ("student", "teacher"):
+        raise HTTPException(status_code=400, detail="仅可创建学生或教师账号")
+    name = (user_in.name or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="姓名不能为空")
+    account_id = (
+        student_id
+        or (user_in.student_id if user_in.role == "student" else user_in.staff_id)
+        or ""
+    ).strip()
+    if not account_id:
+        raise HTTPException(status_code=400, detail="学号或工号不能为空")
+    if db.query(models.User).filter(
+        or_(models.User.student_id == account_id, models.User.staff_id == account_id)
+    ).first():
+        raise HTTPException(status_code=400, detail="学号或工号已存在")
+    phone = (user_in.phone or "").strip() or None
+    db_user = phone and db.query(models.User).filter(models.User.phone == phone).first()
+    if db_user is not None:
+        raise HTTPException(status_code=400, detail="手机号已被使用")
+
+    selected_class = None
+    if class_id is not None:
+        if user_in.role != "student":
+            raise HTTPException(status_code=400, detail="教师账号不能绑定学生班级")
+        selected_class = db.query(models.Class).filter(models.Class.id == class_id).first()
+        if selected_class is None:
+            raise HTTPException(status_code=400, detail="所选班级不存在")
+
+    hashed_password = auth.get_password_hash(config.INITIAL_ACCOUNT_PASSWORD)
     new_user = models.User(
-        phone=user_in.phone,
-        name=user_in.name,
+        phone=phone,
+        name=name,
         password_hash=hashed_password,
         role=user_in.role,
         class_id=class_id,
-        student_id=student_id,
+        student_id=account_id if user_in.role == "student" else None,
+        staff_id=account_id if user_in.role == "teacher" else None,
+        subject=(user_in.subject or "").strip() or None,
+        must_change_password=True,
     )
     db.add(new_user)
     db.flush()
-    if class_id:
-        cls = db.query(models.Class).filter(models.Class.id == class_id).first()
-        if cls and cls.major_id is not None:
-            new_user.major_id = cls.major_id
-            mj = db.query(models.Major).filter(models.Major.id == cls.major_id).first()
-            if mj:
-                new_user.major_name = mj.name
+    if selected_class and selected_class.major_id is not None:
+        new_user.major_id = selected_class.major_id
+        mj = db.query(models.Major).filter(models.Major.id == selected_class.major_id).first()
+        if mj:
+            new_user.major_name = mj.name
+    record_audit(
+        db,
+        actor=current_user,
+        action="user.create",
+        resource_type="user",
+        resource_id=new_user.id,
+        detail={"role": new_user.role, "account_id": account_id},
+    )
     db.commit()
     db.refresh(new_user)
 
     return new_user
+
+
+@router.post("/users/{user_id}/disable")
+def disable_user(
+    user_id: int,
+    payload: schemas.DisableAccountRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_admin),
+):
+    db_user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not db_user:
+        raise HTTPException(status_code=404, detail="用户不存在")
+    if db_user.role == "admin":
+        raise HTTPException(status_code=400, detail="管理员账号不能停用")
+    if not bool(db_user.is_active):
+        raise HTTPException(status_code=409, detail="账号已经停用")
+    reason = (payload.reason or "").strip() or None
+    db_user.is_active = False
+    db_user.disabled_at = datetime.utcnow()
+    db_user.disabled_reason = reason
+    db_user.token_version = int(db_user.token_version or 0) + 1
+    record_audit(
+        db,
+        actor=current_user,
+        action="user.disable",
+        resource_type="user",
+        resource_id=db_user.id,
+        detail={"role": db_user.role, "reason": reason},
+    )
+    db.commit()
+    return {"success": True, "is_active": False}
+
+
+@router.post("/users/{user_id}/enable")
+def enable_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_admin),
+):
+    db_user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not db_user:
+        raise HTTPException(status_code=404, detail="用户不存在")
+    if bool(db_user.is_active):
+        raise HTTPException(status_code=409, detail="账号当前为正常状态")
+    db_user.is_active = True
+    db_user.disabled_at = None
+    db_user.disabled_reason = None
+    db_user.token_version = int(db_user.token_version or 0) + 1
+    record_audit(
+        db,
+        actor=current_user,
+        action="user.enable",
+        resource_type="user",
+        resource_id=db_user.id,
+        detail={"role": db_user.role},
+    )
+    db.commit()
+    return {"success": True, "is_active": True}
 
 
 @router.delete("/users/{user_id}")
@@ -270,6 +415,14 @@ def delete_user(
     if db_user.role == "admin":
          raise HTTPException(status_code=400, detail="Cannot delete admin")
          
+    record_audit(
+        db,
+        actor=current_user,
+        action="user.delete",
+        resource_type="user",
+        resource_id=user_id,
+        detail={"role": db_user.role},
+    )
     db.delete(db_user)
     db.commit()
     return {"message": "User deleted"}
@@ -284,10 +437,18 @@ def reset_password(
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
         
-    # Default password is '123456'
-    db_user.password_hash = auth.get_password_hash("123456")
+    db_user.password_hash = auth.get_password_hash(config.INITIAL_ACCOUNT_PASSWORD)
+    db_user.must_change_password = True
+    db_user.token_version = int(db_user.token_version or 0) + 1
+    record_audit(
+        db,
+        actor=current_user,
+        action="user.reset_password",
+        resource_type="user",
+        resource_id=user_id,
+    )
     db.commit()
-    return {"message": "Password reset to 123456"}
+    return {"message": "密码已重置为统一初始密码，用户下次登录必须重新设置"}
 
 
 def _admin_activity_record_kind(act: models.Activity) -> str:
@@ -391,6 +552,8 @@ _STUDENT_IMPORT_HEADER_ALIASES = {
     "属班级名": "所属班级名称",
     "班级名称": "所属班级名称",
     "班级": "所属班级名称",
+    "专业": "专业/课程",
+    "专业名称": "专业/课程",
 }
 
 
@@ -439,6 +602,230 @@ def _excel_cell_str(val: Any) -> str:
     return s
 
 
+async def _read_import_excel(file: UploadFile) -> pd.DataFrame:
+    filename = file.filename or ""
+    if not filename.lower().endswith((".xls", ".xlsx")):
+        raise HTTPException(status_code=400, detail="无效的文件格式")
+    contents = await file.read()
+    if len(contents) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="导入文件不能超过5MB")
+    try:
+        return pd.read_excel(io.BytesIO(contents))
+    except Exception:
+        raise HTTPException(status_code=400, detail="Excel 文件无法读取，请检查文件是否损坏")
+
+
+def _create_import_batch(db: Session, kind: str, filename: str, total: int, actor: models.User) -> int:
+    batch = models.ImportBatch(
+        import_type=kind,
+        filename=filename,
+        status="processing",
+        total_count=total,
+        created_by=actor.id,
+    )
+    db.add(batch)
+    db.commit()
+    db.refresh(batch)
+    return batch.id
+
+
+def _finish_import_batch(
+    db: Session,
+    batch_id: int,
+    results: dict,
+    created_user_ids: list[int],
+    created_profile_ids: list[str] | None = None,
+) -> None:
+    batch = db.query(models.ImportBatch).filter(models.ImportBatch.id == batch_id).first()
+    if not batch:
+        return
+    batch.status = "completed" if not results["failed"] else "completed_with_errors"
+    batch.success_count = results["success"]
+    batch.failed_count = results["failed"]
+    batch.errors = json.dumps(results["errors"][:50], ensure_ascii=False)
+    batch.created_user_ids = json.dumps(created_user_ids)
+    batch.created_profile_ids = json.dumps(created_profile_ids or [], ensure_ascii=False)
+    db.commit()
+
+
+@router.post("/import/preview/{kind}")
+async def preview_import(
+    kind: str,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_admin),
+):
+    """只读校验导入文件，不创建专业、班级、档案或账号。"""
+    if kind not in {"student", "teacher"}:
+        raise HTTPException(status_code=404, detail="不支持的导入类型")
+    df = await _read_import_excel(file)
+    if kind == "student":
+        df = _normalize_student_import_df_columns(df)
+        required = ["姓名", "学号", "性别", "所属班级名称", "专业/课程"]
+    else:
+        required = ["姓名", "手机号", "工号"]
+    missing = [name for name in required if name not in df.columns]
+    if missing:
+        raise HTTPException(status_code=400, detail=f"缺少必需列：{missing}")
+
+    errors = []
+    valid = 0
+    seen = set()
+    samples = []
+    for index, row in df.iterrows():
+        row_no = int(index) + 2
+        if kind == "student":
+            name = _excel_cell_str(row.get("姓名"))
+            identity = _excel_cell_str(row.get("学号"))
+            gender = _excel_cell_str(row.get("性别")).lower()
+            class_name = _excel_cell_str(row.get("所属班级名称"))
+            major = _excel_cell_str(row.get("专业/课程"))
+            issue = None
+            if not all((name, identity, class_name, major)):
+                issue = "姓名、学号、班级和专业不能为空"
+            elif gender not in {"male", "female", "男", "女"}:
+                issue = "性别须填写男/女或 male/female"
+            elif identity in seen:
+                issue = "文件内学号重复"
+            elif db.query(models.User).filter(models.User.student_id == identity).first():
+                issue = "学号已存在对应账号"
+            sample = {"row": row_no, "name": name, "identity": identity, "class_name": class_name}
+        else:
+            name = _excel_cell_str(row.get("姓名"))
+            phone = _excel_cell_str(row.get("手机号"))
+            identity = _excel_cell_str(row.get("工号"))
+            issue = None
+            if not all((name, phone, identity)):
+                issue = "姓名、手机号和工号不能为空"
+            elif phone in seen:
+                issue = "文件内手机号重复"
+            elif db.query(models.User).filter(models.User.phone == phone).first():
+                issue = "手机号已存在"
+            elif db.query(models.User).filter(models.User.staff_id == identity).first():
+                issue = "工号已存在"
+            sample = {"row": row_no, "name": name, "identity": identity, "phone": phone}
+            identity = phone
+        if issue:
+            errors.append({"row": row_no, "error": issue})
+        else:
+            valid += 1
+            seen.add(identity)
+            if len(samples) < 8:
+                samples.append(sample)
+    return {
+        "total": len(df),
+        "valid": valid,
+        "invalid": len(errors),
+        "errors": errors[:50],
+        "samples": samples,
+        "can_import": valid > 0 and not errors,
+    }
+
+
+@router.get("/import/batches")
+def list_import_batches(
+    limit: int = Query(30, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_admin),
+):
+    rows = db.query(models.ImportBatch).order_by(models.ImportBatch.created_at.desc()).limit(limit).all()
+    return [
+        {
+            "id": row.id, "import_type": row.import_type, "filename": row.filename,
+            "status": row.status, "total_count": row.total_count,
+            "success_count": row.success_count, "failed_count": row.failed_count,
+            "created_at": row.created_at, "rolled_back_at": row.rolled_back_at,
+        }
+        for row in rows
+    ]
+
+
+def _user_has_business_data(db: Session, user_id: int) -> bool:
+    checks = (
+        db.query(models.Activity).filter(models.Activity.user_id == user_id),
+        db.query(models.HealthRequest).filter(models.HealthRequest.student_id == user_id),
+        db.query(models.Enrollment).filter(models.Enrollment.student_id == user_id),
+        db.query(models.CourseProgress).filter(models.CourseProgress.student_id == user_id),
+        db.query(models.RunGroupMember).filter(models.RunGroupMember.user_id == user_id),
+        db.query(models.RunGroupActivityApplication).filter(models.RunGroupActivityApplication.user_id == user_id),
+        db.query(models.CheckpointVisit).filter(models.CheckpointVisit.user_id == user_id),
+        db.query(models.ActivityAppeal).filter(models.ActivityAppeal.student_id == user_id),
+        db.query(models.UserNotification).filter(
+            (models.UserNotification.user_id == user_id) | (models.UserNotification.sender_user_id == user_id)
+        ),
+        db.query(models.Task).filter(models.Task.created_by == user_id),
+        db.query(models.Course).filter(models.Course.teacher_id == user_id),
+        db.query(models.RunGroup).filter(models.RunGroup.creator_id == user_id),
+        db.query(models.RunGroupActivity).filter(models.RunGroupActivity.created_by == user_id),
+        db.query(models.TeacherSubject).filter(models.TeacherSubject.teacher_id == user_id),
+        db.query(models.TeacherClass).filter(models.TeacherClass.teacher_id == user_id),
+        db.query(models.TeacherStudent).filter(
+            (models.TeacherStudent.teacher_id == user_id) | (models.TeacherStudent.student_user_id == user_id)
+        ),
+    )
+    return any(query.first() is not None for query in checks)
+
+
+@router.post("/import/batches/{batch_id}/rollback")
+def rollback_import_batch(
+    batch_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_admin),
+):
+    batch = db.query(models.ImportBatch).filter(models.ImportBatch.id == batch_id).first()
+    if not batch:
+        raise HTTPException(status_code=404, detail="导入批次不存在")
+    if batch.status == "rolled_back":
+        raise HTTPException(status_code=409, detail="该批次已经回滚")
+    try:
+        user_ids = [int(value) for value in json.loads(batch.created_user_ids or "[]")]
+        profile_ids = [str(value) for value in json.loads(batch.created_profile_ids or "[]")]
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=409, detail="批次回滚信息不完整，不能自动回滚")
+    blockers = []
+    for user_id in user_ids:
+        user = db.query(models.User).filter(models.User.id == user_id).first()
+        if user and _user_has_business_data(db, user_id):
+            blockers.append({"user_id": user_id, "name": user.name})
+    if blockers:
+        raise HTTPException(
+            status_code=409,
+            detail={"message": "批次中已有账号产生业务数据，已阻止回滚", "users": blockers[:20]},
+        )
+
+    deleted_users = 0
+    for user_id in user_ids:
+        user = db.query(models.User).filter(models.User.id == user_id).first()
+        if user:
+            if user.profile:
+                user.profile.is_activated = False
+            db.delete(user)
+            deleted_users += 1
+    db.flush()
+    deleted_profiles = 0
+    for student_id in profile_ids:
+        profile = db.query(models.StudentProfile).filter(
+            models.StudentProfile.student_id == student_id
+        ).first()
+        linked_user = db.query(models.User.id).filter(models.User.student_id == student_id).first()
+        if profile and not linked_user:
+            db.delete(profile)
+            deleted_profiles += 1
+    batch.status = "rolled_back"
+    batch.rolled_back_by = current_user.id
+    batch.rolled_back_at = datetime.utcnow()
+    record_audit(
+        db,
+        actor=current_user,
+        action="user.import_rollback",
+        resource_type="import_batch",
+        resource_id=batch.id,
+        detail={"deleted_users": deleted_users, "deleted_profiles": deleted_profiles},
+    )
+    db.commit()
+    return {"success": True, "deleted_users": deleted_users, "deleted_profiles": deleted_profiles}
+
+
 @router.post("/import/students")
 async def import_students(
     file: UploadFile = File(...),
@@ -455,7 +842,7 @@ async def import_students(
         raise HTTPException(status_code=400, detail=f"读取Excel文件失败: {str(e)}")
 
     df = _normalize_student_import_df_columns(df)
-    required_columns = ['姓名', '手机号', '密码', '学号', '所属班级名称', '专业/课程']
+    required_columns = ['姓名', '学号', '性别', '所属班级名称', '专业/课程']
     if not all(col in df.columns for col in required_columns):
         raise HTTPException(
             status_code=400,
@@ -463,31 +850,31 @@ async def import_students(
         )
         
     results = {"success": 0, "failed": 0, "errors": []}
+    batch_id = _create_import_batch(db, "student", file.filename or "", len(df), current_user)
+    created_user_ids: list[int] = []
+    created_profile_ids: list[str] = []
     
     for index, row in df.iterrows():
         try:
             name = _excel_cell_str(row.get("姓名"))
-            phone = _excel_cell_str(row.get("手机号"))
-            password = _excel_cell_str(row.get("密码"))
             student_id = _excel_cell_str(row.get("学号"))
+            gender = _excel_cell_str(row.get("性别")).lower()
             class_name = _excel_cell_str(row.get("所属班级名称"))
             major = _excel_cell_str(row.get("专业/课程"))
+            subject = _excel_cell_str(row.get("选科")) or None
 
             if not name:
                 raise ValueError("姓名为空")
-            if not phone:
-                raise ValueError("手机号为空")
-            if not password:
-                raise ValueError("密码为空")
             if not student_id:
                 raise ValueError("学号为空（若为科学计数请在 Excel 中将该列设为「文本」后重填）")
             if not class_name:
                 raise ValueError("所属班级名称为空")
             if not major:
                 raise ValueError("专业/课程为空")
+            if gender not in ("male", "female", "男", "女"):
+                raise ValueError("性别须填写男/女或 male/female")
+            gender = "male" if gender in ("male", "男") else "female"
 
-            if db.query(models.User).filter(models.User.phone == phone).first():
-                raise ValueError("手机号已存在")
             if db.query(models.User).filter(models.User.student_id == student_id).first():
                 raise ValueError("学号已存在对应账号")
 
@@ -515,24 +902,26 @@ async def import_students(
             if profile:
                 profile.full_name = name
                 profile.class_name = class_name
-                if not profile.gender:
-                    profile.gender = "male"
+                profile.gender = gender
                 profile.major = major or profile.major
+                profile.subject = subject or profile.subject
             else:
                 profile = models.StudentProfile(
                     student_id=student_id,
                     full_name=name,
-                    gender="male",
+                    gender=gender,
                     class_name=class_name,
                     major=major,
+                    subject=subject,
                     is_activated=False,
                 )
                 db.add(profile)
+                created_profile_ids.append(student_id)
             db.flush()
 
-            hashed_password = auth.get_password_hash(password)
+            hashed_password = auth.get_password_hash(config.INITIAL_ACCOUNT_PASSWORD)
             new_user = models.User(
-                phone=phone,
+                phone=None,
                 name=name,
                 password_hash=hashed_password,
                 role="student",
@@ -540,8 +929,13 @@ async def import_students(
                 class_id=db_class.id,
                 major_id=db_major.id,
                 major_name=major,
+                gender=gender,
+                subject=subject,
+                must_change_password=True,
             )
             db.add(new_user)
+            db.flush()
+            created_user_ids.append(new_user.id)
             profile.is_activated = True
 
             db.commit()
@@ -552,6 +946,16 @@ async def import_students(
             results["failed"] += 1
             results["errors"].append({"row": int(index) + 2, "name": row.get("姓名", "Unknown"), "error": str(e)})
             
+    _finish_import_batch(db, batch_id, results, created_user_ids, created_profile_ids)
+    results["batch_id"] = batch_id
+    record_audit(
+        db,
+        actor=current_user,
+        action="user.import_students",
+        resource_type="user",
+        detail={"success": results["success"], "failed": results["failed"]},
+    )
+    db.commit()
     return results
 
 @router.post("/import/profiles")
@@ -649,7 +1053,7 @@ def get_profiles_template(current_user: models.User = Depends(get_current_admin)
 
 @router.get("/import/template/students")
 def get_student_template(current_user: models.User = Depends(get_current_admin)):
-    df = pd.DataFrame(columns=["姓名", "手机号", "密码", "学号", "所属班级名称", "专业/课程"])
+    df = pd.DataFrame(columns=["学号", "姓名", "性别", "所属班级名称", "专业/课程", "选科"])
     stream = io.BytesIO()
     with pd.ExcelWriter(stream, engine='openpyxl') as writer:
         df.to_excel(writer, index=False)
@@ -663,7 +1067,7 @@ def get_student_template(current_user: models.User = Depends(get_current_admin))
 
 @router.get("/import/template/teachers")
 def get_teacher_template(current_user: models.User = Depends(get_current_admin)):
-    df = pd.DataFrame(columns=["姓名", "手机号", "密码", "工号"])
+    df = pd.DataFrame(columns=["姓名", "手机号", "工号"])
     stream = io.BytesIO()
     with pd.ExcelWriter(stream, engine='openpyxl') as writer:
         df.to_excel(writer, index=False)
@@ -681,42 +1085,41 @@ async def import_teachers(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_admin)
 ):
-    if not file.filename.endswith(('.xls', '.xlsx')):
-        raise HTTPException(status_code=400, detail="无效的文件格式")
-        
-    contents = await file.read()
-    try:
-        df = pd.read_excel(io.BytesIO(contents))
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"读取Excel文件失败: {str(e)}")
-        
-    required_columns = ['姓名', '手机号', '密码', '工号']
+    df = await _read_import_excel(file)
+    required_columns = ['姓名', '手机号', '工号']
     if not all(col in df.columns for col in required_columns):
         raise HTTPException(status_code=400, detail=f"缺少必需的列。需要: {required_columns}")
         
     results = {"success": 0, "failed": 0, "errors": []}
+    batch_id = _create_import_batch(db, "teacher", file.filename or "", len(df), current_user)
+    created_user_ids: list[int] = []
     
     for index, row in df.iterrows():
         try:
-            name = str(row['姓名']).strip()
-            phone = str(row['手机号']).strip()
-            password = str(row['密码']).strip()
-            # '工号' might be mapped to student_id or a new field, using student_id for simplicity as generic ID
-            staff_id = str(row['工号']).strip()
+            name = _excel_cell_str(row.get('姓名'))
+            phone = _excel_cell_str(row.get('手机号'))
+            staff_id = _excel_cell_str(row.get('工号'))
+            if not name or not phone or not staff_id:
+                raise ValueError("姓名、手机号和工号不能为空")
             
             # Check phone
             if db.query(models.User).filter(models.User.phone == phone).first():
                 raise ValueError("手机号已存在")
+            if db.query(models.User).filter(models.User.staff_id == staff_id).first():
+                raise ValueError("工号已存在")
                 
-            hashed_password = auth.get_password_hash(password)
+            hashed_password = auth.get_password_hash(config.INITIAL_ACCOUNT_PASSWORD)
             new_user = models.User(
                 phone=phone,
                 name=name,
                 password_hash=hashed_password,
                 role="teacher",
-                student_id=staff_id
+                staff_id=staff_id,
+                must_change_password=True,
             )
             db.add(new_user)
+            db.flush()
+            created_user_ids.append(new_user.id)
             db.commit()
             results["success"] += 1
             
@@ -725,6 +1128,16 @@ async def import_teachers(
             results["failed"] += 1
             results["errors"].append({"row": index + 2, "name": row.get('姓名', 'Unknown'), "error": str(e)})
             
+    _finish_import_batch(db, batch_id, results, created_user_ids)
+    results["batch_id"] = batch_id
+    record_audit(
+        db,
+        actor=current_user,
+        action="user.import_teachers",
+        resource_type="user",
+        detail={"success": results["success"], "failed": results["failed"], "batch_id": batch_id},
+    )
+    db.commit()
     return results
 
 
@@ -743,6 +1156,8 @@ def mock_import_student_profiles(
       {"student_id": "2024002", "full_name": "李四", "gender": "female", "class_name": "22级3班"}
     ]
     """
+    if config.APP_ENV == "production":
+        raise HTTPException(status_code=404, detail="接口不存在")
     success = 0
     failed = 0
     errors: list[dict] = []
@@ -1084,8 +1499,7 @@ class NotificationOut(BaseModel):
     is_read: bool = False
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class NotificationListOut(BaseModel):
     items: List[NotificationOut]
@@ -1100,37 +1514,50 @@ def create_notification(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_admin),
 ):
-    if body.target_user_id:
-        user = db.query(models.User).filter(models.User.id == body.target_user_id).first()
-        if not user:
-            raise HTTPException(status_code=404, detail="目标用户不存在")
-        note = add_user_notification(
-            db,
-            body.target_user_id,
-            body.title,
-            body.content,
-            body.ntype,
-        )
-        db.commit()
-        db.refresh(note)
-        return {"sent": 1, "notification_id": note.id}
+    allowed_targets = {"all", "students", "teachers", "single"}
+    if body.target not in allowed_targets:
+        raise HTTPException(status_code=400, detail="不支持的发送范围")
+    if body.target == "single" and not body.target_user_id:
+        raise HTTPException(status_code=400, detail="请选择目标用户")
+    if body.target != "single" and body.target_user_id:
+        raise HTTPException(status_code=400, detail="发送范围与目标用户不一致")
 
-    if body.target == "students":
+    if body.target == "single":
+        user = db.query(models.User).filter(models.User.id == body.target_user_id).first()
+        if not user or user.role not in {"student", "teacher"}:
+            raise HTTPException(status_code=404, detail="目标用户不存在")
+        users = [user]
+    elif body.target == "students":
         users = db.query(models.User).filter(models.User.role == "student").all()
     elif body.target == "teachers":
         users = db.query(models.User).filter(models.User.role == "teacher").all()
     else:
         users = db.query(models.User).filter(models.User.role.in_(["student", "teacher"])).all()
 
-    count = add_user_notifications(
-        db,
-        [u.id for u in users],
-        body.title,
-        body.content,
-        body.ntype,
-    )
-    db.commit()
-    return {"sent": count}
+    try:
+        campaign = create_notification_campaign(
+            db,
+            sender=current_user,
+            users=users,
+            title=body.title,
+            body=body.content,
+            ntype=body.ntype,
+            target_type="users" if body.target == "single" else body.target,
+            target_values=[body.target_user_id] if body.target == "single" else [],
+        )
+        record_audit(
+            db,
+            actor=current_user,
+            action="notification.campaign.send",
+            resource_type="notification_campaign",
+            resource_id=campaign.id,
+            detail={"legacy_endpoint": True, "target_type": body.target, "recipient_count": len(users)},
+        )
+        db.commit()
+        return {"sent": len(users), "campaign_id": campaign.id}
+    except ValueError as exc:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("/notifications", response_model=NotificationListOut)

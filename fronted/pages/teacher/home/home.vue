@@ -178,6 +178,7 @@ const todos = ref([]);
 const activeTasks = ref([]);
 const weeklyTrend = ref(defaultWeeklyTrend());
 const abnormalAlerts = ref([]);
+const notificationCount = ref(0);
 const aiBriefing = ref(null);
 const aiBriefingLoading = ref(false);
 
@@ -202,7 +203,6 @@ const notificationIcon = computed(() => (
 ));
 
 const displayName = computed(() => userInfo.value.name || '老师');
-const notificationCount = computed(() => Math.min(99, teacherStats.value.abnormalCount || todos.value.length || 0));
 
 const greeting = computed(() => {
   const hour = new Date().getHours();
@@ -284,7 +284,7 @@ const pendingItems = computed(() => ([
   },
   {
     label: '系统消息',
-    count: todos.value.length,
+    count: notificationCount.value,
     icon: '/static/icons/teacher-pending-notification.svg',
     svg: true,
     tone: 'tone-purple',
@@ -449,6 +449,15 @@ const goToNotifications = () => {
   uni.navigateTo({ url: '/pages/teacher/notifications/list' });
 };
 
+const fetchNotificationCount = async () => {
+  try {
+    const res = await request({ url: '/notifications/unread-count', method: 'GET' });
+    notificationCount.value = Math.min(99, Number(res?.count) || 0);
+  } catch (e) {
+    notificationCount.value = 0;
+  }
+};
+
 const goToSunshineBoard = () => {
   uni.navigateTo({ url: '/pages/teacher/sunshine/manage' });
 };
@@ -473,6 +482,7 @@ const onPageShow = () => {
   fetchActiveTasks();
   fetchWeeklyTrend();
   fetchAbnormalAlerts();
+  fetchNotificationCount();
   fetchAiBriefing();
 };
 

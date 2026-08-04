@@ -6,12 +6,14 @@ from fastapi.responses import Response
 import json
 from sqlalchemy.orm import Session
 from sqlalchemy import func, extract
+from sqlalchemy.exc import IntegrityError
 from typing import List, Optional
 from datetime import datetime, timedelta
 
 from .. import models, schemas, auth
 from ..database import get_db
 from ..services.notification_service import create_notification, create_notifications
+from ..services.audit_service import record_audit
 
 router = APIRouter(prefix="/run-group", tags=["run-groups"])
 
@@ -129,7 +131,10 @@ async def join_run_group(
     db: Session = Depends(get_db)
 ):
     """Join a run group without replacing existing memberships."""
-    group = db.query(models.RunGroup).filter(models.RunGroup.id == group_id).first()
+    group = db.query(models.RunGroup).filter(
+        models.RunGroup.id == group_id,
+        models.RunGroup.status == "active",
+    ).first()
     if not group:
         raise HTTPException(status_code=404, detail="跑团不存在")
 
@@ -160,7 +165,8 @@ async def get_my_run_group(
 ):
     """Return the first joined run group for backward compatibility."""
     member = db.query(models.RunGroupMember).filter(
-        models.RunGroupMember.user_id == current_user.id
+        models.RunGroupMember.user_id == current_user.id,
+        models.RunGroupMember.group.has(models.RunGroup.status == "active"),
     ).order_by(models.RunGroupMember.joined_at.asc()).first()
 
     if not member:
@@ -176,7 +182,8 @@ async def get_my_run_groups(
 ):
     """Return all run groups joined by the current user."""
     memberships = db.query(models.RunGroupMember).filter(
-        models.RunGroupMember.user_id == current_user.id
+        models.RunGroupMember.user_id == current_user.id,
+        models.RunGroupMember.group.has(models.RunGroup.status == "active"),
     ).order_by(models.RunGroupMember.joined_at.asc()).all()
 
     return [_build_group_detail(db, membership.group, membership.role) for membership in memberships]
@@ -194,7 +201,8 @@ async def get_run_groups(
     groups = db.query(models.RunGroup).filter(
         models.RunGroup.member_count >= 1,
         models.RunGroup.name.isnot(None),
-        models.RunGroup.name != ""
+        models.RunGroup.name != "",
+        models.RunGroup.status == "active",
     ).order_by(
         models.RunGroup.total_mileage.desc()
     ).offset((page - 1) * size).limit(size).all()
@@ -213,7 +221,9 @@ async def get_activities(
     db: Session = Depends(get_db)
 ):
     """List recent run group activities."""
-    query = db.query(models.RunGroupActivity)
+    query = db.query(models.RunGroupActivity).join(models.RunGroup).filter(
+        models.RunGroup.status == "active"
+    )
 
     if status:
         query = query.filter(models.RunGroupActivity.status == status)
@@ -266,6 +276,12 @@ async def create_activity(
         f"跑团发布了活动「{new_activity.title}」，快去查看报名信息。",
         "run_group_activity",
         {"activity_id": new_activity.id, "group_id": activity_in.group_id},
+        sender_user_id=current_user.id,
+        source_type="run_group_activity",
+        source_id=new_activity.id,
+        action_type="run_group_activity",
+        action_data={"activity_id": new_activity.id, "group_id": activity_in.group_id},
+        event_key_factory=lambda uid: f"run_group_activity:{new_activity.id}",
     )
     db.commit()
 
@@ -286,6 +302,8 @@ async def apply_activity(
 
     if not activity:
         raise HTTPException(status_code=404, detail="活动不存在")
+    if activity.group.status != "active" or activity.status != "upcoming":
+        return {"applyStatus": False, "message": "活动当前不可报名"}
 
     # 妫€鏌ユ槸鍚﹀凡鎶ュ悕
     existing = db.query(models.RunGroupActivityApplication).filter(
@@ -296,27 +314,43 @@ async def apply_activity(
     if existing:
         return {"applyStatus": False, "message": "您已报名该活动"}
 
-    # 妫€鏌ュ悕棰?
-    if activity.apply_count >= activity.total_quota:
+    updated = db.query(models.RunGroupActivity).filter(
+        models.RunGroupActivity.id == activity_id,
+        models.RunGroupActivity.status == "upcoming",
+        models.RunGroupActivity.apply_count < models.RunGroupActivity.total_quota,
+    ).update(
+        {models.RunGroupActivity.apply_count: models.RunGroupActivity.apply_count + 1},
+        synchronize_session=False,
+    )
+    if updated != 1:
+        db.rollback()
         return {"applyStatus": False, "message": "活动名额已满"}
 
-    # 鎶ュ悕
     application = models.RunGroupActivityApplication(
         activity_id=activity_id,
         user_id=current_user.id
     )
     db.add(application)
-
-    # 鏇存柊鎶ュ悕浜烘暟
-    activity.apply_count += 1
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        return {"applyStatus": False, "message": "您已报名该活动"}
+    db.refresh(activity)
     if activity.created_by and activity.created_by != current_user.id:
         create_notification(
             db,
             activity.created_by,
             "活动报名提醒",
-            f"{current_user.name or '有成员'}报名了活动「{activity.title}」。",
+            f"{current_user.display_name or '有成员'}报名了活动「{activity.title}」。",
             "run_group_apply",
             {"activity_id": activity.id, "user_id": current_user.id},
+            sender_user_id=current_user.id,
+            source_type="run_group_apply",
+            source_id=application.id,
+            action_type="run_group_activity",
+            action_data={"activity_id": activity.id, "group_id": activity.group_id},
+            event_key=f"run_group_apply:{activity.id}:{current_user.id}",
         )
     db.commit()
 
@@ -373,7 +407,8 @@ async def leave_run_group(
     group.member_count = max(0, (group.member_count or 0) - 1)
 
     if group.member_count == 0:
-        db.delete(group)
+        group.status = "dissolved"
+        group.archived_at = datetime.utcnow()
 
     db.commit()
 
@@ -386,7 +421,7 @@ async def delete_current_run_group(
     current_user: models.User = Depends(auth.get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Delete a specific run group created by the current user."""
+    """解散跑团但保留成员、活动和报名历史。"""
     query = db.query(models.RunGroupMember).filter(
         models.RunGroupMember.user_id == current_user.id
     )
@@ -401,31 +436,26 @@ async def delete_current_run_group(
         raise HTTPException(status_code=403, detail="只有跑团创建者可以删除跑团")
 
     group = member.group
-    group_id = group.id
-
-    activity_ids = [
-        row[0]
-        for row in db.query(models.RunGroupActivity.id).filter(
-            models.RunGroupActivity.group_id == group_id
-        ).all()
-    ]
-
-    if activity_ids:
-        db.query(models.RunGroupActivityApplication).filter(
-            models.RunGroupActivityApplication.activity_id.in_(activity_ids)
-        ).delete(synchronize_session=False)
-        db.query(models.RunGroupActivity).filter(
-            models.RunGroupActivity.id.in_(activity_ids)
-        ).delete(synchronize_session=False)
-
-    db.query(models.RunGroupMember).filter(
-        models.RunGroupMember.group_id == group_id
-    ).delete(synchronize_session=False)
-
-    db.delete(group)
+    if group.status != "active":
+        raise HTTPException(status_code=409, detail="跑团已解散")
+    now = datetime.utcnow()
+    group.status = "dissolved"
+    group.archived_at = now
+    db.query(models.RunGroupActivity).filter(
+        models.RunGroupActivity.group_id == group.id,
+        models.RunGroupActivity.status.in_(["upcoming", "ongoing"]),
+    ).update({models.RunGroupActivity.status: "finished"}, synchronize_session=False)
+    record_audit(
+        db,
+        actor=current_user,
+        action="run_group.dissolve",
+        resource_type="run_group",
+        resource_id=group.id,
+        detail={"member_count": group.member_count},
+    )
     db.commit()
 
-    return {"success": True, "message": "跑团已删除"}
+    return {"success": True, "message": "跑团已解散，历史记录已保留"}
 
 
 @router.post("/activity/cancel")
@@ -456,12 +486,14 @@ async def cancel_activity_application(
     if not application:
         return {"success": False, "message": "您还未报名该活动"}
 
-    # 鍒犻櫎鎶ュ悕璁板綍
     db.delete(application)
-
-    # 鏇存柊鎶ュ悕浜烘暟锛堜笉灏忎簬0锛?
-    if activity.apply_count > 0:
-        activity.apply_count -= 1
+    db.query(models.RunGroupActivity).filter(
+        models.RunGroupActivity.id == activity_id,
+        models.RunGroupActivity.apply_count > 0,
+    ).update(
+        {models.RunGroupActivity.apply_count: models.RunGroupActivity.apply_count - 1},
+        synchronize_session=False,
+    )
 
     db.commit()
 
@@ -495,7 +527,7 @@ async def get_group_members(
         result.append(schemas.RunGroupMemberOut(
             id=member.id,
             user_id=member.user_id,
-            user_name=member.user.name,
+            user_name=member.user.display_name,
             role=member.role,
             total_mileage=member.total_mileage,
             joined_at=member.joined_at
@@ -564,9 +596,5 @@ async def get_run_group_rank(
         ))
 
     return result
-
-
-
-
 
 

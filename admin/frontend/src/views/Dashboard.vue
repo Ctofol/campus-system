@@ -69,10 +69,15 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick } from 'vue'
-import * as echarts from 'echarts'
+import { ref, onBeforeUnmount, onMounted, nextTick } from 'vue'
+import { BarChart, PieChart } from 'echarts/charts'
+import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components'
+import { init, use } from 'echarts/core'
+import { CanvasRenderer } from 'echarts/renderers'
 import { UserFilled, Avatar, School, Bell } from '@element-plus/icons-vue'
 import { getDashboardStats, getSunshineClassStats } from '../api/index.js'
+
+use([BarChart, PieChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer])
 
 // 核心指标（须传入图标组件，不能用字符串）
 const stats = ref([
@@ -92,7 +97,7 @@ let pieChart = null
 
 const initCharts = () => {
   if (barRef.value) {
-    barChart = echarts.init(barRef.value)
+    barChart = init(barRef.value)
     const names = classStats.value.map(c => c.class_name)
     const rates = classStats.value.map(c => c.pass_rate)
     barChart.setOption({
@@ -105,7 +110,7 @@ const initCharts = () => {
   }
 
   if (pieRef.value) {
-    pieChart = echarts.init(pieRef.value)
+    pieChart = init(pieRef.value)
     const raw = majorActivity.value || []
     const slices = raw
       .map((m) => ({
@@ -155,6 +160,11 @@ const initCharts = () => {
   }
 }
 
+const resizeCharts = () => {
+  barChart?.resize()
+  pieChart?.resize()
+}
+
 onMounted(async () => {
   try {
     // 1. 获取基础统计
@@ -172,9 +182,16 @@ onMounted(async () => {
     // 渲染图表
     await nextTick()
     initCharts()
+    window.addEventListener('resize', resizeCharts)
   } catch (e) {
     console.error('Fetch dashboard data failed', e)
   }
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', resizeCharts)
+  barChart?.dispose()
+  pieChart?.dispose()
 })
 </script>
 

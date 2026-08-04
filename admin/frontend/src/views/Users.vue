@@ -6,7 +6,8 @@
           <el-radio-button label="student">学生</el-radio-button>
           <el-radio-button label="teacher">教师</el-radio-button>
         </el-radio-group>
-        <div style="display:flex;gap:8px;align-items:center" v-if="role === 'student'">
+        <div style="display:flex;gap:8px;align-items:center">
+          <template v-if="role === 'student'">
           <el-select v-model="filters.class_name" placeholder="按班级筛选" clearable style="min-width:140px" @change="load">
             <el-option
               v-for="cls in classOptions"
@@ -23,24 +24,38 @@
               :value="m"
             />
           </el-select>
+          </template>
+          <el-button type="primary" @click="openCreate">新增{{ role === 'student' ? '学生' : '教师' }}账号</el-button>
         </div>
       </div>
     </template>
     <el-table :data="users" stripe>
       <el-table-column prop="name" label="姓名" width="120" />
-      <el-table-column prop="phone" label="手机号" width="140" />
+      <el-table-column label="手机号" width="140">
+        <template #default="{ row }">{{ row.phone || '未绑定' }}</template>
+      </el-table-column>
+      <el-table-column prop="nickname" label="昵称" width="120">
+        <template #default="{ row }">{{ row.nickname || '-' }}</template>
+      </el-table-column>
+      <el-table-column label="账号状态" width="120">
+        <template #default="{ row }">
+          <el-tag :type="!row.is_active ? 'danger' : (row.must_complete_account ? 'warning' : 'success')">
+            {{ !row.is_active ? '已停用' : (row.must_complete_account ? '待首次完善' : '正常') }}
+          </el-tag>
+        </template>
+      </el-table-column>
       <el-table-column v-if="role==='student'" label="班级（行政班）" width="160">
         <template #default="{ row }">{{ row.plain_class_name || '-' }}</template>
       </el-table-column>
       <el-table-column v-if="role==='student'" prop="major" label="专业（Major）" width="160" />
       <el-table-column v-if="role==='student'" prop="subject" label="体育选科" width="120" />
       <el-table-column v-if="role==='teacher'" label="工号/标识" width="140">
-        <template #default="{row}">{{ row.student_id }}</template>
+        <template #default="{row}">{{ row.staff_id || row.student_id || '-' }}</template>
       </el-table-column>
       <el-table-column prop="created_at" label="创建时间" width="180">
         <template #default="{row}">{{ row.created_at ? new Date(row.created_at).toLocaleDateString() : '-' }}</template>
       </el-table-column>
-      <el-table-column label="操作" width="480">
+      <el-table-column label="操作" width="480" fixed="right">
         <template #default="{row}">
           <el-button
             v-if="role==='student'"
@@ -50,6 +65,8 @@
             @click="openSportDialog(row)"
           >运动记录</el-button>
           <el-button size="small" @click="handleReset(row)">重置密码</el-button>
+          <el-button v-if="row.is_active" size="small" type="warning" plain @click="handleDisable(row)">停用</el-button>
+          <el-button v-else size="small" type="success" plain @click="handleEnable(row)">恢复</el-button>
           <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
           <el-button
             v-if="role==='teacher'"
@@ -67,6 +84,41 @@
         </template>
       </el-table-column>
     </el-table>
+
+    <el-dialog v-model="createDialog.visible" title="新增学校账号" width="520px" destroy-on-close>
+      <el-alert
+        title="账号创建后使用统一初始密码，首次登录必须核对姓名、绑定手机号并设置新密码。"
+        type="info"
+        :closable="false"
+        style="margin-bottom:18px"
+      />
+      <el-form label-width="92px">
+        <el-form-item label="账号类型">
+          <el-radio-group v-model="createDialog.form.role">
+            <el-radio label="student">学生</el-radio>
+            <el-radio label="teacher">教师</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="真实姓名" required>
+          <el-input v-model="createDialog.form.name" maxlength="32" placeholder="请输入档案中的姓名" />
+        </el-form-item>
+        <el-form-item :label="createDialog.form.role === 'student' ? '学号' : '工号'" required>
+          <el-input v-model="createDialog.form.accountId" maxlength="32" placeholder="作为首次登录账号" />
+        </el-form-item>
+        <el-form-item label="手机号">
+          <el-input v-model="createDialog.form.phone" maxlength="11" placeholder="可不填，由用户首次登录时绑定" />
+        </el-form-item>
+        <el-form-item v-if="createDialog.form.role === 'student'" label="所属班级">
+          <el-select v-model="createDialog.form.classId" clearable filterable placeholder="可稍后分配" style="width:100%">
+            <el-option v-for="cls in classOptions" :key="cls.id" :label="cls.name" :value="cls.id" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="createDialog.visible = false">取消</el-button>
+        <el-button type="primary" :loading="createDialog.submitting" @click="submitCreate">创建账号</el-button>
+      </template>
+    </el-dialog>
 
     <el-dialog
       v-model="sportDialog.visible"
@@ -191,9 +243,12 @@
 import { computed, ref, onMounted } from 'vue'
 import {
   getUsers,
+  createUser,
   getUserMajors,
   deleteUser,
   resetPassword,
+  disableUser,
+  enableUser,
   getClasses,
   getTeacherSubjects,
   updateTeacherSubjects,
@@ -214,6 +269,55 @@ const filters = ref({
   class_name: '',
   major: ''
 })
+
+const emptyCreateForm = (accountRole = role.value) => ({
+  role: accountRole,
+  name: '',
+  accountId: '',
+  phone: '',
+  classId: null
+})
+
+const createDialog = ref({
+  visible: false,
+  submitting: false,
+  form: emptyCreateForm()
+})
+
+const openCreate = () => {
+  createDialog.value.form = emptyCreateForm(role.value)
+  createDialog.value.visible = true
+}
+
+const submitCreate = async () => {
+  const form = createDialog.value.form
+  const name = form.name.trim()
+  const accountId = form.accountId.trim()
+  const phone = form.phone.trim()
+  if (!name || !accountId) {
+    ElMessage.warning('请填写真实姓名和学号/工号')
+    return
+  }
+  if (phone && !/^1\d{10}$/.test(phone)) {
+    ElMessage.warning('手机号格式不正确')
+    return
+  }
+  createDialog.value.submitting = true
+  try {
+    await createUser(
+      { name, role: form.role, phone: phone || null, student_id: form.role === 'student' ? accountId : null, staff_id: form.role === 'teacher' ? accountId : null },
+      { student_id: accountId, class_id: form.role === 'student' ? form.classId : null }
+    )
+    createDialog.value.visible = false
+    role.value = form.role
+    ElMessage.success('账号已创建，首次登录将要求完善账号')
+    await load()
+  } catch (e) {
+    ElMessage.error(e?.detail || '创建账号失败')
+  } finally {
+    createDialog.value.submitting = false
+  }
+}
 
 const assignDialog = ref({
   visible: false,
@@ -304,10 +408,11 @@ const load = async () => {
 }
 
 const handleReset = async (row) => {
-  await ElMessageBox.confirm(`重置「${row.name}」的密码为 123456？`, '确认')
+  await ElMessageBox.confirm(`将「${row.name}」恢复为统一初始密码，并要求下次登录重新设置？`, '确认')
   try {
     await resetPassword(row.id)
-    ElMessage.success('重置成功')
+    row.must_complete_account = true
+    ElMessage.success('已重置，用户下次登录必须重新设置')
   } catch(e) { ElMessage.error(e?.detail || '失败') }
 }
 
@@ -318,6 +423,32 @@ const handleDelete = async (row) => {
     ElMessage.success('删除成功')
     load()
   } catch(e) { ElMessage.error(e?.detail || '删除失败') }
+}
+
+const handleDisable = async (row) => {
+  try {
+    const { value } = await ElMessageBox.prompt(
+      `停用后「${row.name}」已登录的设备会立即退出。可填写停用原因：`,
+      '停用账号',
+      { confirmButtonText: '确认停用', cancelButtonText: '取消', inputPlaceholder: '例如：离校、账号异常（可不填）', inputValidator: value => !value || value.length <= 255 || '原因不能超过255字' }
+    )
+    await disableUser(row.id, { reason: value || null })
+    ElMessage.success('账号已停用，原登录状态已失效')
+    await load()
+  } catch (e) {
+    if (e !== 'cancel' && e !== 'close') ElMessage.error(e?.detail || '停用失败')
+  }
+}
+
+const handleEnable = async (row) => {
+  try {
+    await ElMessageBox.confirm(`恢复「${row.name}」的登录权限？`, '恢复账号')
+    await enableUser(row.id)
+    ElMessage.success('账号已恢复，可重新登录')
+    await load()
+  } catch (e) {
+    if (e !== 'cancel' && e !== 'close') ElMessage.error(e?.detail || '恢复失败')
+  }
 }
 
 const loadSubjectOptions = async () => {

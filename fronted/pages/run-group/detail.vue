@@ -260,19 +260,23 @@ const goToActivity = (activityId) => {
 
 .header-card {
   position: relative;
-  margin-bottom: 20rpx;
+  padding-top: 300rpx;
+  margin-bottom: 24rpx;
 }
 
 .header-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
   height: 300rpx;
   background: linear-gradient(135deg, #20c997, #17a589);
 }
 
 .header-content {
-  position: absolute;
-  top: 100rpx;
-  left: 30rpx;
-  right: 30rpx;
+  position: relative;
+  z-index: 1;
+  margin: -200rpx 30rpx 0;
   background: #fff;
   border-radius: 20rpx;
   padding: 40rpx 30rpx;
@@ -337,10 +341,12 @@ const goToActivity = (activityId) => {
 .tab-bar {
   display: flex;
   background: #fff;
-  margin: 220rpx 30rpx 20rpx;
+  margin: 0 30rpx 20rpx;
   border-radius: 20rpx;
   padding: 10rpx;
   box-sizing: border-box;
+  position: relative;
+  z-index: 1;
 }
 
 .tab-item {
@@ -359,6 +365,7 @@ const goToActivity = (activityId) => {
 
 .tab-content {
   padding: 0 30rpx;
+  padding-bottom: calc(120rpx + env(safe-area-inset-bottom));
   box-sizing: border-box;
 }
 

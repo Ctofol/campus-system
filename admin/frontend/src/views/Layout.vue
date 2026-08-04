@@ -11,6 +11,9 @@
         <el-menu-item index="/import"><el-icon><Upload /></el-icon>批量导入</el-menu-item>
         <el-menu-item index="/notifications"><el-icon><Bell /></el-icon>通知管理</el-menu-item>
         <el-menu-item index="/feedback"><el-icon><ChatLineSquare /></el-icon>反馈诊断</el-menu-item>
+        <el-menu-item index="/audit-logs"><el-icon><Document /></el-icon>操作记录</el-menu-item>
+        <el-menu-item index="/system-health"><el-icon><Monitor /></el-icon>系统健康</el-menu-item>
+        <el-menu-item index="/storage-usage"><el-icon><FolderOpened /></el-icon>存储盘点</el-menu-item>
       </el-menu>
     </el-aside>
     <el-container>

@@ -41,6 +41,12 @@ export const importTeachers = (file) => {
   const f = new FormData(); f.append('file', file)
   return api.post('/manage/import/teachers', f, { headers: { 'Content-Type': 'multipart/form-data' } })
 }
+export const previewImport = (file, type) => {
+  const f = new FormData(); f.append('file', file)
+  return api.post(`/manage/import/preview/${type}`, f, { headers: { 'Content-Type': 'multipart/form-data' } })
+}
+export const getImportBatches = () => api.get('/manage/import/batches')
+export const rollbackImportBatch = (id) => api.post(`/manage/import/batches/${id}/rollback`)
 export const importProfiles = (file) => {
   const f = new FormData(); f.append('file', file)
   return api.post('/manage/import/profiles', f, { headers: { 'Content-Type': 'multipart/form-data' } })
@@ -49,6 +55,8 @@ export const getSunshineClassStats = () => api.get('/manage/sunshine/class-stats
 export const getUserMajors = () => api.get('/manage/users/majors')
 export const deleteUser = (id) => api.delete(`/manage/users/${id}`)
 export const resetPassword = (id) => api.post(`/manage/users/${id}/reset-password`)
+export const disableUser = (id, data) => api.post(`/manage/users/${id}/disable`, data)
+export const enableUser = (id) => api.post(`/manage/users/${id}/enable`)
 export const getTeacherSubjects = (id) => api.get(`/manage/teacher-subjects/${id}`)
 export const updateTeacherSubjects = (id, data) => api.post(`/manage/teacher-subjects/${id}`, data)
 export const getTeacherBoundStudents = (teacherId) =>
@@ -64,6 +72,17 @@ export const deleteSubject = (id) => api.delete(`/manage/subjects/${id}`)
 
 export const getNotifications = (params) => api.get('/manage/notifications', { params })
 export const createNotification = (data) => api.post('/manage/notifications', data)
+export const getNotificationTargetOptions = () => api.get('/manage/notification-targets/options')
+export const searchNotificationUsers = (q) => api.get('/manage/notification-targets/users', { params: { q } })
+export const previewNotificationCampaign = (data) => api.post('/manage/notification-campaigns/preview', data)
+export const createNotificationCampaign = (data) => api.post('/manage/notification-campaigns', data)
+export const getNotificationCampaigns = (params) => api.get('/manage/notification-campaigns', { params })
+export const getNotificationCampaign = (id) => api.get(`/manage/notification-campaigns/${id}`)
+export const getNotificationRecipients = (id, params) =>
+  api.get(`/manage/notification-campaigns/${id}/recipients`, { params })
 export const getFeedback = (params) => api.get('/manage/feedback', { params })
+export const getAuditLogs = (params) => api.get('/manage/audit-logs', { params })
+export const getSystemHealth = () => api.get('/system/health', { validateStatus: status => status < 600 })
+export const getStorageUsage = (params) => api.get('/manage/storage/usage', { params })
 
 export default api

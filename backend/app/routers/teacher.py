@@ -22,7 +22,9 @@ from ..services.score_service import (
     week_bounds,
 )
 from ..services.notification_service import create_notification, create_notifications, sanitize_notification_type
+from ..services.audit_service import record_audit
 from ..services.face_profile_service import profile_to_status
+from ..services.health_request_service import recompute_student_health, refresh_expired_health_requests
 from ..database import get_db
 
 router = APIRouter(prefix="/teacher", tags=["teacher"])
@@ -165,7 +167,7 @@ def mark_all_teacher_notifications_read(
     db.query(models.UserNotification).filter(
         models.UserNotification.user_id == current_user.id,
         models.UserNotification.is_read.is_(False),
-    ).update({"is_read": True})
+    ).update({"is_read": True, "read_at": datetime.utcnow()})
     db.commit()
     return {"ok": True}
 
@@ -186,7 +188,9 @@ def mark_teacher_notification_read(
     )
     if not row:
         raise HTTPException(status_code=404, detail="通知不存在")
-    row.is_read = True
+    if not row.is_read:
+        row.is_read = True
+        row.read_at = datetime.utcnow()
     db.commit()
     return {"ok": True}
 
@@ -687,6 +691,7 @@ async def get_health_requests_v2(
     
     if not managed_student_ids:
         return []
+    refresh_expired_health_requests(db)
         
     pending_requests = (
         db.query(models.HealthRequest)
@@ -1118,6 +1123,9 @@ async def get_invalid_activities(
                 started_at=activity.started_at,
                 start_photo_url=start_photo_url,
                 end_photo_url=end_photo_url,
+                appeal_id=activity.appeal.id if activity.appeal else None,
+                appeal_status=activity.appeal.status if activity.appeal else None,
+                appeal_reason=activity.appeal.reason if activity.appeal else None,
             )
         )
 
@@ -1165,9 +1173,60 @@ async def resolve_activity_exception(
         activity.fail_reason = None
         activity.face_verified = True
 
+    appeal = activity.appeal
+    if appeal and appeal.status == "pending":
+        appeal.status = "rejected" if action == "confirm_cheat" else "approved"
+        appeal.reviewed_by = current_user.id
+        appeal.review_comment = (payload.comment or "").strip() or None
+        appeal.reviewed_at = datetime.utcnow()
+        result_label = "已驳回" if appeal.status == "rejected" else "已通过"
+        create_notification(
+            db,
+            activity.user_id,
+            f"运动申诉{result_label}",
+            f"你提交的运动记录申诉{result_label}。" + (f"处理说明：{appeal.review_comment}" if appeal.review_comment else ""),
+            "system",
+            {"activity_id": activity.id, "appeal_id": appeal.id, "status": appeal.status},
+            sender_user_id=current_user.id,
+            source_type="activity_appeal",
+            source_id=appeal.id,
+            action_type="score_detail",
+            action_data={"activity_id": activity.id},
+            event_key=f"activity_appeal:{appeal.id}:{appeal.status}",
+        )
+    record_audit(
+        db,
+        actor=current_user,
+        action="activity_exception.resolve",
+        resource_type="activity",
+        resource_id=activity.id,
+        detail={"action": action, "appeal_id": appeal.id if appeal else None},
+    )
+
     db.commit()
     db.refresh(activity)
     return {"message": "处理成功", "activity_id": activity.id, "action": action}
+
+
+@router.put("/activity-appeals/{appeal_id}/review")
+async def review_activity_appeal(
+    appeal_id: int,
+    payload: schemas.ActivityAppealReview,
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db),
+):
+    appeal = db.query(models.ActivityAppeal).filter(models.ActivityAppeal.id == appeal_id).first()
+    if not appeal:
+        raise HTTPException(status_code=404, detail="申诉记录不存在")
+    if appeal.status != "pending":
+        raise HTTPException(status_code=409, detail="该申诉已处理")
+    action = "restore_valid" if payload.status == "approved" else "confirm_cheat"
+    return await resolve_activity_exception(
+        appeal.activity_id,
+        schemas.ResolveActivityExceptionRequest(action=action, comment=payload.comment),
+        current_user,
+        db,
+    )
 
 
 @router.get("/export/running-grades")
@@ -1282,7 +1341,20 @@ async def create_teacher_task(
             f"教师发布了任务「{t.title}」，请按要求完成。",
             "task",
             {"task_id": t.id, "class_id": t.class_id},
+            sender_user_id=current_user.id,
+            source_type="task",
+            source_id=t.id,
+            action_type="task_detail",
+            action_data={"task_id": t.id},
+            event_key_factory=lambda uid, task_id=t.id: f"task_created:{task_id}",
         )
+    record_audit(
+        db,
+        actor=current_user,
+        action="task.create",
+        resource_type="task_batch",
+        detail={"task_ids": [task.id for task in created], "class_ids": target_ids, "type": task_in.type},
+    )
     db.commit()
     return created
 
@@ -1326,6 +1398,20 @@ async def remind_unfinished_students(
         f"任务「{task.title}」尚未完成，请及时查看并提交。",
         "task_reminder",
         {"task_id": task.id, "class_id": task.class_id},
+        sender_user_id=current_user.id,
+        source_type="task",
+        source_id=task.id,
+        action_type="task_detail",
+        action_data={"task_id": task.id},
+        event_key_factory=lambda uid: f"task_reminder:{task.id}:{datetime.utcnow().date().isoformat()}",
+    )
+    record_audit(
+        db,
+        actor=current_user,
+        action="task.remind_unfinished",
+        resource_type="task",
+        resource_id=task.id,
+        detail={"sent": sent},
     )
     db.commit()
     return {"sent": sent}
@@ -1344,12 +1430,20 @@ async def delete_teacher_task(
     )
     if not task:
         raise HTTPException(status_code=404, detail="任务不存在")
-    sub = db.query(models.Activity).filter(models.Activity.task_id == task_id).count()
-    if sub > 0:
-        raise HTTPException(status_code=400, detail="已有学生任务运动记录，无法删除")
-    db.delete(task)
+    if task.lifecycle_status == "archived":
+        return {"success": True, "archived": True}
+    task.lifecycle_status = "archived"
+    task.archived_at = datetime.utcnow()
+    record_audit(
+        db,
+        actor=current_user,
+        action="task.archive",
+        resource_type="task",
+        resource_id=task.id,
+        detail={"has_submissions": bool(db.query(models.Activity.id).filter(models.Activity.task_id == task_id).first())},
+    )
     db.commit()
-    return {"success": True}
+    return {"success": True, "archived": True}
 
 
 @router.get("/tasks")
@@ -1362,6 +1456,7 @@ async def get_teacher_tasks(
 ):
     """获取该教师发布的任务及其统计（统一管理逻辑）"""
     query = db.query(models.Task).filter(models.Task.created_by == current_user.id)
+    query = query.filter(models.Task.lifecycle_status != "archived")
     now = datetime.utcnow()
     if status == "active":
         query = query.filter(or_(models.Task.deadline == None, models.Task.deadline > now))
@@ -1597,44 +1692,102 @@ async def review_health_request(
     hr = db.query(models.HealthRequest).filter(models.HealthRequest.id == req_id).first()
     if not hr:
         raise HTTPException(status_code=404, detail="申请记录不存在")
+    managed_students = await get_managed_students_query(current_user, db)
+    if not managed_students.filter(models.User.id == hr.student_id).first():
+        raise HTTPException(status_code=403, detail="该学生不在你的管辖范围内")
+    if hr.status != "pending":
+        raise HTTPException(status_code=409, detail="该申请已处理，不能重复审批")
         
     status = payload.get("status")
     if status not in ["approved", "rejected"]:
         raise HTTPException(status_code=400, detail="审批状态不合法")
         
+    comment = str(payload.get("comment") or "").strip()
+    if len(comment) > 500:
+        raise HTTPException(status_code=400, detail="审批说明不能超过500字")
+    now = datetime.utcnow()
     hr.status = status
-    # 如果批准，同时更新学生的健康状态
-    if status == "approved":
-        student = db.query(models.User).filter(models.User.id == hr.student_id).first()
-        if student:
-            # 映射类型：如果申请类型是 'injury'，状态设为 'injured'；其他非 normal 统一映射
-            raw_type = hr.type
-            if raw_type == "injury":
-                new_status = "injured"
-            elif raw_type in ["leave", "sick"]:
-                new_status = "leave"
-            else:
-                new_status = "abnormal"
-            
-            student.health_status = new_status
-            student.abnormal_reason = hr.reason
-    elif status == "rejected":
-        pass
-
-    hr.updated_at = datetime.utcnow()
-
-    import json as _json
+    hr.reviewed_by = current_user.id
+    hr.reviewed_at = now
+    hr.review_comment = comment or None
+    hr.updated_at = now
+    recompute_student_health(db, hr.student_id, now)
 
     type_label = "请假" if hr.type == "leave" else "伤病"
     status_label = "已通过" if status == "approved" else "已驳回"
-    db.add(
-        models.UserNotification(
-            user_id=hr.student_id,
-            title=f"健康报备{status_label}",
-            body=f"您的{type_label}申请已{status_label}，可在「健康报备」查看详情。",
-            ntype="health_review",
-            payload=_json.dumps({"request_id": hr.id, "status": status}),
-        )
+    create_notification(
+        db,
+        hr.student_id,
+        f"健康报备{status_label}",
+        f"您的{type_label}申请已{status_label}，可在「健康报备」查看详情。",
+        "health_review",
+        {"request_id": hr.id, "status": status},
+        sender_user_id=current_user.id,
+        source_type="health_request",
+        source_id=hr.id,
+        action_type="health_request",
+        action_data={"request_id": hr.id},
+        event_key=f"health_review:{hr.id}:{status}",
+    )
+    record_audit(
+        db,
+        actor=current_user,
+        action="health_request.review",
+        resource_type="health_request",
+        resource_id=hr.id,
+        detail={"status": status, "student_id": hr.student_id, "has_comment": bool(comment)},
+    )
+    db.commit()
+    return {"ok": True}
+
+
+@router.put("/health/requests/{req_id}/close")
+async def close_health_request(
+    req_id: int,
+    payload: dict = Body(default={}),
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db),
+):
+    """教师提前结束本人管辖学生已批准的请假或伤病状态。"""
+    hr = db.query(models.HealthRequest).filter(models.HealthRequest.id == req_id).first()
+    if not hr:
+        raise HTTPException(status_code=404, detail="申请记录不存在")
+    managed_students = await get_managed_students_query(current_user, db)
+    if not managed_students.filter(models.User.id == hr.student_id).first():
+        raise HTTPException(status_code=403, detail="该学生不在你的管辖范围内")
+    if hr.status != "approved":
+        raise HTTPException(status_code=409, detail="只有生效中的健康报备可以结束")
+    comment = str(payload.get("comment") or "").strip()
+    if len(comment) > 500:
+        raise HTTPException(status_code=400, detail="结束说明不能超过500字")
+    now = datetime.utcnow()
+    hr.status = "ended"
+    hr.ended_at = now
+    hr.updated_at = now
+    if comment:
+        hr.review_comment = comment
+    recompute_student_health(db, hr.student_id, now)
+    create_notification(
+        db,
+        hr.student_id,
+        "健康报备已结束",
+        "您的健康报备状态已由老师结束，可在「健康报备」查看详情。",
+        "health_review",
+        {"request_id": hr.id, "status": "ended"},
+        sender_user_id=current_user.id,
+        source_type="health_request",
+        source_id=hr.id,
+        action_type="health_request",
+        action_data={"request_id": hr.id},
+        event_key=f"health_review:{hr.id}:ended",
+    )
+    record_audit(
+        db,
+        actor=current_user,
+        action="health_request.close",
+        resource_type="health_request",
+        resource_id=hr.id,
+        detail={"student_id": hr.student_id, "has_comment": bool(comment)},
     )
     db.commit()
     return {"ok": True}
@@ -1777,7 +1930,33 @@ async def score_activity(
         if all_scored_activities:
             total_score = sum(m.teacher_score for m in all_scored_activities)
             student.regular_score = round(total_score / len(all_scored_activities), 2)
+        comment = (score_data.comment or "").strip()
+        score_body = f"你的一条运动记录已评分：{score_data.score}分。"
+        if comment:
+            score_body += f"教师评语：{comment}"
+        create_notification(
+            db,
+            student.id,
+            "运动成绩已更新",
+            score_body,
+            "score",
+            {"activity_id": activity.id, "task_id": activity.task_id},
+            sender_user_id=current_user.id,
+            source_type="activity_score",
+            source_id=activity.id,
+            action_type="score_detail",
+            action_data={"activity_id": activity.id, "task_id": activity.task_id},
+            event_key=f"activity_score:{activity.id}",
+        )
     
+    record_audit(
+        db,
+        actor=current_user,
+        action="activity.score",
+        resource_type="activity",
+        resource_id=activity_id,
+        detail={"student_id": activity.user_id, "score": score_data.score},
+    )
     db.commit()
     db.refresh(metrics)
     return {"message": "打分成功", "activity_id": activity_id, "score": metrics.teacher_score}
@@ -2001,6 +2180,9 @@ async def notify_student(
         payload.message,
         "teacher_message",
         {"teacher_id": current_user.id},
+        sender_user_id=current_user.id,
+        source_type="teacher_message",
+        source_id=current_user.id,
     )
     db.commit()
     return {"message": "通知已发送", "student_id": student_id, "content": payload.message}

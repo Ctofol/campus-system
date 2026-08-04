@@ -16,13 +16,18 @@
       </view>
 
       <view class="form-item">
-        <text class="label">姓名</text>
-        <input v-model="formData.name" class="input" maxlength="20" placeholder="请输入姓名" />
+        <text class="label">真实姓名</text>
+        <text class="value">{{ formData.name || '未设置' }}</text>
+      </view>
+
+      <view class="form-item">
+        <text class="label">昵称</text>
+        <input v-model="formData.nickname" class="input" maxlength="32" placeholder="用于个人中心展示" />
       </view>
 
       <view class="form-item">
         <text class="label">手机号</text>
-        <input v-model="formData.phone" class="input" type="number" maxlength="11" placeholder="请输入手机号" />
+        <text class="value">{{ formData.phone || '未绑定' }}</text>
       </view>
 
       <view class="form-item signature-item">
@@ -61,6 +66,7 @@ const avatarUrl = ref('/static/default-avatar.svg');
 const saving = ref(false);
 const formData = ref({
   name: '',
+  nickname: '',
   phone: '',
   signature: '',
   avatar_url: ''
@@ -76,6 +82,7 @@ const loadProfile = async () => {
     if (!res) return;
     formData.value = {
       name: res.name || '',
+      nickname: res.nickname || '',
       phone: res.phone || '',
       signature: res.signature || '',
       avatar_url: res.avatar_url || ''
@@ -112,18 +119,7 @@ const chooseAvatar = async () => {
 };
 
 const saveProfile = async () => {
-  const name = String(formData.value.name || '').trim();
-  const phone = String(formData.value.phone || '').trim();
-
-  if (!name) {
-    uni.showToast({ title: '请输入姓名', icon: 'none' });
-    return;
-  }
-
-  if (!/^1\d{10}$/.test(phone)) {
-    uni.showToast({ title: '手机号格式不正确', icon: 'none' });
-    return;
-  }
+  const nickname = String(formData.value.nickname || '').trim();
 
   saving.value = true;
   try {
@@ -131,8 +127,7 @@ const saveProfile = async () => {
       url: '/users/profile',
       method: 'PUT',
       data: {
-        name,
-        phone,
+        nickname,
         signature: formData.value.signature,
         avatar_url: formData.value.avatar_url
       }
@@ -143,8 +138,8 @@ const saveProfile = async () => {
     }
 
     patchStoredUserInfo({
-      name,
-      phone,
+      nickname,
+      display_name: nickname || formData.value.name,
       signature: formData.value.signature,
       avatar_url: formData.value.avatar_url
     });

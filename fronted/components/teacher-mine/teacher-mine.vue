@@ -7,7 +7,7 @@
         <image class="avatar-img" :src="avatarDisplay" mode="aspectFill" />
         <view class="info">
           <view class="name-row" @tap="handlePersonalInfo">
-            <text class="name">{{ userInfo.name || '教师' }}</text>
+            <text class="name">{{ userInfo.display_name || userInfo.nickname || userInfo.name || '教师' }}</text>
             <image class="edit-icon-img" src="/static/icons/icon-edit-profile.svg" mode="aspectFit" />
           </view>
           <text class="role">{{ userInfo.subject || userInfo.signature || '公共体育教研部' }}</text>
@@ -97,10 +97,20 @@ const fetchProfile = async () => {
   }
 };
 
+const fetchNotificationCount = async () => {
+  try {
+    const res = await request({ url: '/notifications/unread-count', method: 'GET' });
+    notificationCount.value = Math.min(99, Number(res?.count) || 0);
+  } catch (e) {
+    notificationCount.value = 0;
+  }
+};
+
 onShow(() => {
   uni.hideHomeButton && uni.hideHomeButton();
   syncFromStorage();
   fetchProfile();
+  fetchNotificationCount();
 });
 
 const handlePersonalInfo = () => {

@@ -87,7 +87,6 @@ def upsert_student_face_profile(
     if not image_path:
         raise ValueError("face image must be an uploaded local file")
 
-    result = extract_verified_embedding(image_path)
     profile = get_student_face_profile(db, user.id)
     if not profile:
         profile = models.StudentFaceProfile(user_id=user.id, image_url=image_url, embedding_json="[]")
@@ -96,6 +95,8 @@ def upsert_student_face_profile(
     profile.image_url = image_url
     profile.model_version = MODEL_VERSION
     profile.updated_at = datetime.utcnow()
+
+    result = extract_verified_embedding(image_path)
     profile.quality_score = (result.quality or {}).get("quality_score")
 
     if result.embedding is None:

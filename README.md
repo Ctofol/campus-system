@@ -1,5 +1,7 @@
 # 校园运动健康管理系统 (Campus Sports Health System)
 
+新接手项目请从 [`docs/README.md`](docs/README.md) 开始阅读，统一启动与检查命令见 [`docs/development.md`](docs/development.md)。
+
 一个基于 **Uni-app** 和 **FastAPI** 开发的校园运动健康管理系统，支持跑步打卡、体能测试、课程学习、跑团活动等功能。
 
 ## 🎯 项目特色

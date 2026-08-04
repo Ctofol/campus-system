@@ -9,32 +9,14 @@
 
     <!-- 2. 登录卡片 -->
     <view class="login-card">
-      <!-- 角色切换 Tab：仅学生端 / 教师端，管理端请使用独立端口访问 -->
-      <view class="role-tabs">
-        <view 
-          class="role-tab" 
-          :class="{active: currentRole === 'student'}" 
-          @click="currentRole = 'student'"
-        >
-          <text>学生端</text>
-        </view>
-        <view 
-          class="role-tab" 
-          :class="{active: currentRole === 'teacher'}" 
-          @click="currentRole = 'teacher'"
-        >
-          <text>教师端</text>
-        </view>
-      </view>
-
       <!-- 表单区域 -->
       <view class="form-area">
         <view class="input-group">
-          <text class="input-label">{{ accountLabel }}</text>
+          <text class="input-label">账号</text>
           <input 
             class="input-field" 
             v-model="loginForm.account" 
-            :placeholder="accountPlaceholder"
+            placeholder="请输入学号、工号或手机号"
             placeholder-class="placeholder-style"
           />
         </view>
@@ -71,21 +53,7 @@
         </view>
 
         <view class="footer-links">
-          <text class="link-text" @click="goToRegister">注册新账号</text>
-          <text class="divider">|</text>
           <text class="link-text" @click="forgotPassword">忘记密码？</text>
-        </view>
-
-        <!-- 快速体验按钮：演示使用 -->
-        <view class="demo-section">
-          <view class="demo-divider">
-            <view class="line"></view>
-            <text class="demo-text">演示账号</text>
-            <view class="line"></view>
-          </view>
-          <button class="demo-btn" @click="handleQuickLogin">
-            一键进入{{ currentRole === 'student' ? '学生' : '教师' }}端
-          </button>
         </view>
       </view>
     </view>
@@ -101,8 +69,6 @@
 import { ref, computed } from 'vue';
 import { login } from '@/utils/request.js';
 
-// 状态管理（仅学生/教师，管理端在独立端口访问）
-const currentRole = ref('student'); // student | teacher
 const loading = ref(false);
 const loginForm = ref({
   account: '',
@@ -133,14 +99,6 @@ const openPrivacy = () => {
     showCancel: false
   });
 };
-
-// 账号标签与占位符
-const accountLabel = computed(() => {
-  return currentRole.value === 'student' ? '学号 / 手机号' : '工号 / 手机号';
-});
-const accountPlaceholder = computed(() => {
-  return currentRole.value === 'student' ? '请输入学号/手机号' : '请输入工号/手机号';
-});
 
 // 计算属性：是否可提交
 const canSubmit = computed(() => {
@@ -186,22 +144,16 @@ const handleLogin = async () => {
       loading.value = false;
       return;
     }
-    if (res.role !== currentRole.value) {
-      uni.showToast({
-        title: '角色不匹配，请切换角色登录',
-        icon: 'none'
-      });
-      loading.value = false;
-      return;
-    }
-
     // 构造用户信息
     const userInfo = {
       userId: res.user_id,
       role: res.role,
       name: res.name,
+      nickname: res.nickname || '',
+      display_name: res.display_name || res.name,
       account: loginForm.value.account.trim(),
-      phone: /^\d{11}$/.test(loginForm.value.account.trim()) ? loginForm.value.account.trim() : '',
+      phone: res.phone || '',
+      mustCompleteAccount: !!res.must_complete_account,
       // 兼容字段
       schoolId: '10001', 
       isPoliceSchool: false
@@ -212,15 +164,13 @@ const handleLogin = async () => {
     uni.setStorageSync('userInfo', userInfo);
     uni.setStorageSync('userRole', res.role);
 
-    uni.showToast({
-      title: '登录成功',
-      icon: 'success'
-    });
+    if (res.must_complete_account) {
+      uni.reLaunch({ url: '/pages/account/complete' });
+      return;
+    }
 
-    // 学生、教师统一跳转首页
-    setTimeout(() => {
-      uni.reLaunch({ url: '/pages/tab/home' });
-    }, 1000);
+    uni.showToast({ title: '登录成功', icon: 'success' });
+    setTimeout(() => uni.reLaunch({ url: '/pages/tab/home' }), 600);
 
   } catch (error) {
     console.error('Login failed:', error);
@@ -264,35 +214,11 @@ const handleLogin = async () => {
   }
 };
 
-// 跳转注册
-const goToRegister = () => {
-  uni.navigateTo({ url: '/pages/register/register' });
-};
-
 // 忘记密码
 const forgotPassword = () => {
   uni.showToast({ title: '请联系管理员重置密码', icon: 'none' });
 };
 
-// 快速体验登录
-const handleQuickLogin = () => {
-  if (currentRole.value === 'student') {
-    loginForm.value.account = '13800138000';
-    loginForm.value.password = '123456';
-  } else {
-    loginForm.value.account = '13900139000';
-    loginForm.value.password = '123456';
-  }
-  
-  // 提示正在进入
-  uni.showLoading({ title: '正在进入演示端...' });
-  
-  // 直接调用登录逻辑
-  setTimeout(() => {
-    uni.hideLoading();
-    handleLogin();
-  }, 500);
-};
 </script>
 
 <style scoped>

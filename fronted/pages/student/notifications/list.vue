@@ -199,6 +199,7 @@ const getSystemTag = (ntype) => {
     task_reminder: '任务',
     teacher_message: '教师',
     health_review: '健康',
+    score: '成绩',
     system: '系统'
   };
   return map[ntype] || '系统';
@@ -234,25 +235,15 @@ const openItem = async (item) => {
     item.is_read = true;
     try { await request({ url: `/notifications/${item.id}/read`, method: 'PUT' }); } catch (e) {}
   }
-  if (item.ntype === 'health_review') {
-    uni.navigateTo({ url: '/pages/health/request' });
-    return;
-  }
-  if (item.ntype === 'run_group' || item.ntype === 'group' || item.ntype === 'run_group_activity') {
-    uni.navigateTo({ url: '/pages/run-group/my' });
-    return;
-  }
-  if (item.ntype === 'task' || item.ntype === 'task_reminder') {
-    uni.navigateTo({ url: '/pages/student/tasks/list' });
-    return;
-  }
-  uni.showModal({ title: item.title, content: item.body || '', showCancel: false });
+  uni.$emit('notifications:changed');
+  uni.navigateTo({ url: `/pages/notifications/detail?id=${item.id}` });
 };
 
 const clearUnread = async () => {
   try {
     await request({ url: '/notifications/read-all', method: 'PUT' });
     notifications.value.forEach(n => { n.is_read = true; });
+    uni.$emit('notifications:changed');
     uni.showToast({ title: '已清除未读', icon: 'success' });
   } catch (e) {
     uni.showToast({ title: '操作失败', icon: 'none' });

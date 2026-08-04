@@ -1,4 +1,5 @@
 from typing import Optional
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -62,9 +63,43 @@ def mark_all_notifications_read(
     db.query(models.UserNotification).filter(
         models.UserNotification.user_id == current_user.id,
         models.UserNotification.is_read.is_(False),
-    ).update({"is_read": True})
+    ).update({"is_read": True, "read_at": datetime.utcnow()})
     db.commit()
     return {"ok": True}
+
+
+@router.get("/{notification_id}", response_model=schemas.UserNotificationOut)
+def get_my_notification(
+    notification_id: int,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
+    row = db.query(models.UserNotification).filter(
+        models.UserNotification.id == notification_id,
+        models.UserNotification.user_id == current_user.id,
+    ).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="通知不存在")
+    result = schemas.UserNotificationOut.model_validate(row).model_dump()
+    action_data = row.action_data
+    target = None
+    target_id = None
+    if row.action_type == "task_detail":
+        target, target_id = models.Task, action_data.get("task_id")
+    elif row.action_type == "health_request":
+        target, target_id = models.HealthRequest, action_data.get("request_id")
+    elif row.action_type == "run_group":
+        target, target_id = models.RunGroup, action_data.get("group_id")
+    elif row.action_type == "run_group_activity":
+        target, target_id = models.RunGroupActivity, action_data.get("activity_id")
+    elif row.action_type == "student_detail":
+        target, target_id = models.User, action_data.get("student_id")
+    elif row.action_type == "score_detail":
+        target, target_id = models.Activity, action_data.get("activity_id")
+    if target is not None and (not target_id or not db.query(target).filter(target.id == target_id).first()):
+        result["action_available"] = False
+        result["action_message"] = "关联内容已删除或暂不可用，通知正文仍可正常查看。"
+    return result
 
 
 @router.put("/{notification_id}/read")
@@ -83,7 +118,9 @@ def mark_notification_read(
     )
     if not row:
         raise HTTPException(status_code=404, detail="通知不存在")
-    row.is_read = True
+    if not row.is_read:
+        row.is_read = True
+        row.read_at = datetime.utcnow()
     db.commit()
     return {"ok": True}
 
@@ -135,6 +172,11 @@ def send_to_my_teachers(
         f"{current_user.name}：{payload.message}",
         "student_message",
         {"student_id": current_user.id},
+        sender_user_id=current_user.id,
+        source_type="student_message",
+        source_id=current_user.id,
+        action_type="student_detail",
+        action_data={"student_id": current_user.id},
     )
     db.commit()
     return {"sent": sent}

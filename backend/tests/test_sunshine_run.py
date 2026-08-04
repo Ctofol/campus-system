@@ -54,7 +54,7 @@ class SunshineRunLogicTests(unittest.TestCase):
     # 场景 A：性别与里程标准校验
 
     def test_male_distance_below_standard_is_invalid(self):
-        user = SimpleNamespace(id=1, gender="male")
+        user = SimpleNamespace(id=1, gender="male", class_id=None)
         activity = make_activity(distance_km=1.9, pace_min_per_km=5.0)
         db = FakeDB(count_result=0)
 
@@ -62,10 +62,11 @@ class SunshineRunLogicTests(unittest.TestCase):
 
         self.assertFalse(is_valid)
         self.assertEqual(reason, "里程不足")
-        self.assertFalse(face_verified)
+        # 人脸核验结果与运动规则是否达标是两个独立维度。
+        self.assertTrue(face_verified)
 
     def test_male_distance_meet_standard_is_valid(self):
-        user = SimpleNamespace(id=1, gender="male")
+        user = SimpleNamespace(id=1, gender="male", class_id=None)
         activity = make_activity(distance_km=2.1, pace_min_per_km=5.0)
         db = FakeDB(count_result=0)
 
@@ -76,7 +77,7 @@ class SunshineRunLogicTests(unittest.TestCase):
         self.assertTrue(face_verified)
 
     def test_female_distance_below_standard_is_invalid(self):
-        user = SimpleNamespace(id=2, gender="female")
+        user = SimpleNamespace(id=2, gender="female", class_id=None)
         activity = make_activity(distance_km=1.1, pace_min_per_km=5.0)
         db = FakeDB(count_result=0)
 
@@ -84,10 +85,10 @@ class SunshineRunLogicTests(unittest.TestCase):
 
         self.assertFalse(is_valid)
         self.assertEqual(reason, "里程不足")
-        self.assertFalse(face_verified)
+        self.assertTrue(face_verified)
 
     def test_female_distance_meet_standard_is_valid(self):
-        user = SimpleNamespace(id=2, gender="female")
+        user = SimpleNamespace(id=2, gender="female", class_id=None)
         activity = make_activity(distance_km=1.3, pace_min_per_km=5.0)
         db = FakeDB(count_result=0)
 
@@ -101,7 +102,7 @@ class SunshineRunLogicTests(unittest.TestCase):
 
     def test_pace_too_fast_is_invalid(self):
         # 2.0km, 5 分钟 => 2.5 min/km，低于 3
-        user = SimpleNamespace(id=3, gender="male")
+        user = SimpleNamespace(id=3, gender="male", class_id=None)
         activity = make_activity(distance_km=2.0, pace_min_per_km=2.5)
         db = FakeDB(count_result=0)
 
@@ -109,11 +110,11 @@ class SunshineRunLogicTests(unittest.TestCase):
 
         self.assertFalse(is_valid)
         self.assertEqual(reason, "配速异常")
-        self.assertFalse(face_verified)
+        self.assertTrue(face_verified)
 
     def test_pace_too_slow_is_invalid(self):
         # 2.0km, 25 分钟 => 12.5 min/km，高于 10
-        user = SimpleNamespace(id=3, gender="male")
+        user = SimpleNamespace(id=3, gender="male", class_id=None)
         activity = make_activity(distance_km=2.0, pace_min_per_km=12.5)
         db = FakeDB(count_result=0)
 
@@ -121,11 +122,11 @@ class SunshineRunLogicTests(unittest.TestCase):
 
         self.assertFalse(is_valid)
         self.assertEqual(reason, "配速异常")
-        self.assertFalse(face_verified)
+        self.assertTrue(face_verified)
 
     def test_pace_in_valid_range_is_valid(self):
         # 2.0km, 10 分钟 => 5.0 min/km，在 3-10 范围内
-        user = SimpleNamespace(id=3, gender="male")
+        user = SimpleNamespace(id=3, gender="male", class_id=None)
         activity = make_activity(distance_km=2.0, pace_min_per_km=5.0)
         db = FakeDB(count_result=0)
 
@@ -154,7 +155,7 @@ class SunshineRunLogicTests(unittest.TestCase):
     # 场景 D：单日限次校验
 
     def test_daily_limit_only_first_valid(self):
-        user = SimpleNamespace(id=4, gender="male")
+        user = SimpleNamespace(id=4, gender="male", class_id=None)
         activity1 = make_activity(distance_km=2.1, pace_min_per_km=5.0)
         activity2 = make_activity(distance_km=2.1, pace_min_per_km=5.0)
 
@@ -172,7 +173,7 @@ class SunshineRunLogicTests(unittest.TestCase):
 
         self.assertFalse(is_valid2)
         self.assertIn("今日已达标", reason2)
-        self.assertFalse(face_verified2)
+        self.assertTrue(face_verified2)
 
 
 if __name__ == "__main__":

@@ -130,7 +130,18 @@
               @click="previewHistoryImage(item.attachments, idx)"
             />
           </view>
+          <text class="review-comment" v-if="item.review_comment">
+            审批说明：{{ item.review_comment }}
+          </text>
           <text class="item-time">{{ formatDate(item.created_at) }}</text>
+          <button
+            v-if="item.status === 'pending'"
+            class="cancel-request-btn"
+            :disabled="cancellingId === item.id"
+            @click="cancelRequest(item)"
+          >
+            {{ cancellingId === item.id ? '取消中...' : '取消申请' }}
+          </button>
         </view>
         <view class="empty-tip" v-if="history.length === 0">
           暂无申请记录
@@ -157,6 +168,7 @@ const formData = ref({
 });
 const uploadedImages = ref([]);
 const history = ref([]);
+const cancellingId = ref(null);
 
 const loadHistory = async () => {
   try {
@@ -300,11 +312,33 @@ const submitRequest = async () => {
   }
 };
 
+const cancelRequest = (item) => {
+  uni.showModal({
+    title: '取消申请',
+    content: '确认取消这条待审批申请吗？',
+    success: async ({ confirm }) => {
+      if (!confirm || cancellingId.value) return;
+      cancellingId.value = item.id;
+      try {
+        await request(`/student/health/requests/${item.id}/cancel`, { method: 'PUT' });
+        uni.showToast({ title: '已取消', icon: 'success' });
+        await loadHistory();
+      } catch (e) {
+        uni.showToast({ title: e.message || '取消失败', icon: 'none' });
+      } finally {
+        cancellingId.value = null;
+      }
+    }
+  });
+};
+
 const getStatusText = (status) => {
   const map = {
     pending: '待审批',
     approved: '已通过',
-    rejected: '已驳回'
+    rejected: '已驳回',
+    cancelled: '已取消',
+    ended: '已结束'
   };
   return map[status] || status;
 };
@@ -558,6 +592,7 @@ onShow(() => {
       &.pending { color: #1890ff; }
       &.approved { color: #52c41a; }
       &.rejected { color: #ff4d4f; }
+      &.cancelled, &.ended { color: #8c8c8c; }
     }
   }
   
@@ -572,6 +607,26 @@ onShow(() => {
     font-size: 24rpx;
     color: #999;
   }
+}
+
+.review-comment {
+  display: block;
+  margin: 12rpx 0;
+  color: #595959;
+  font-size: 25rpx;
+  line-height: 1.5;
+}
+
+.cancel-request-btn {
+  width: 180rpx;
+  height: 64rpx;
+  line-height: 62rpx;
+  margin: 18rpx 0 0 auto;
+  border: 1rpx solid #d9d9d9;
+  background: #fff;
+  color: #595959;
+  font-size: 25rpx;
+  border-radius: 8rpx;
 }
 
 .empty-tip {

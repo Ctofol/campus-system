@@ -1,17 +1,18 @@
-from pydantic import BaseModel
-from typing import List, Optional
+from pydantic import BaseModel, ConfigDict, Field
+from typing import Any, List, Literal, Optional
 from datetime import datetime
 
 # Auth
 class UserBase(BaseModel):
-    phone: str
+    phone: Optional[str] = None
     name: str
     role: str = "student"
+    staff_id: Optional[str] = None
 
 class UserCreate(UserBase):
-    password: str
-    captcha_code: str
-    captcha_key: str
+    password: Optional[str] = None
+    captcha_code: Optional[str] = None
+    captcha_key: Optional[str] = None
     # 瀛︾敓娉ㄥ唽涓撶敤锛氱敤浜庝笌 StudentProfile 杩涜妗ｆ鍖归厤
     student_id: str | None = None
     major_id: int | None = None
@@ -29,9 +30,14 @@ class Token(BaseModel):
     role: str
     user_id: int
     name: str
+    nickname: Optional[str] = None
+    display_name: Optional[str] = None
+    phone: Optional[str] = None
+    must_complete_account: bool = False
     class_name: Optional[str] = None
     class_id: Optional[int] = None
     student_id: Optional[str] = None
+    staff_id: Optional[str] = None
     major: Optional[str] = None
     major_id: Optional[int] = None
     subject: Optional[str] = None
@@ -39,8 +45,15 @@ class Token(BaseModel):
 class UserProfile(BaseModel):
     id: int
     name: str
-    phone: str
+    phone: Optional[str] = None
     role: str
+    staff_id: Optional[str] = None
+    nickname: Optional[str] = None
+    display_name: Optional[str] = None
+    must_complete_account: bool = False
+    is_active: bool = True
+    disabled_at: Optional[datetime] = None
+    disabled_reason: Optional[str] = None
     # class_name锛氬巻鍙插吋瀹癸紝甯镐负銆屼笓涓氬悕 + 鐝骇鍚嶃€嶆嫾鎺ワ紱绠＄悊绔〃鏍艰鐢?plain_class_name + major锛岄伩鍏嶉噸澶嶃€?    class_name: Optional[str] = None
     # plain_class_name锛氫粎琛屾斂鐝骇鍚?classes.name
     plain_class_name: Optional[str] = None
@@ -59,12 +72,12 @@ class UserProfile(BaseModel):
     face_profile_updated_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class UserProfileUpdate(BaseModel):
     name: Optional[str] = None
     phone: Optional[str] = None
+    nickname: Optional[str] = None
     signature: Optional[str] = None
     avatar_url: Optional[str] = None
     header_bg_url: Optional[str] = None
@@ -83,13 +96,36 @@ class FaceProfileStatusOut(BaseModel):
     fail_reason: Optional[str] = None
     quality_score: Optional[float] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TokenData(BaseModel):
+    user_id: int | None = None
     phone: str | None = None
     role: str | None = None
+    token_version: int | None = None
+    scope: str | None = None
+
+
+class CompleteAccountRequest(BaseModel):
+    real_name: str
+    phone: str
+    new_password: str
+    nickname: Optional[str] = None
+
+
+class ChangePasswordRequest(BaseModel):
+    old_password: str
+    new_password: str
+
+
+class DisableAccountRequest(BaseModel):
+    reason: Optional[str] = Field(default=None, max_length=255)
+
+
+class ChangePhoneRequest(BaseModel):
+    current_password: str
+    new_phone: str
 
 #
 # Student Profile (妗ｆ婵€娲荤敤)
@@ -111,8 +147,7 @@ class StudentProfileCreate(StudentProfileBase):
 class StudentProfileOut(StudentProfileBase):
     is_activated: bool
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # Class
 class ClassBase(BaseModel):
@@ -141,15 +176,13 @@ class ClassOut(ClassBase):
     student_count: int = 0
     created_at: Optional[datetime] = None
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class MajorOut(BaseModel):
     id: int
     name: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SubjectOptionOut(BaseModel):
@@ -158,8 +191,7 @@ class SubjectOptionOut(BaseModel):
     sort_order: int = 0
     created_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SubjectOptionCreate(BaseModel):
@@ -174,8 +206,7 @@ class TeacherSubjectOut(TeacherSubjectBase):
     teacher_id: int
     enrollment_count: int = 0
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TeacherBoundStudentsAdd(BaseModel):
@@ -186,8 +217,7 @@ class StudentInfo(UserBase):
     id: int
     class_id: Optional[int] = None
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ClassDetail(ClassOut):
     students: List[StudentInfo] = []
@@ -217,14 +247,12 @@ class ActivityMetricsOut(ActivityMetricsCreate):
     id: int
     activity_id: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ActivityEvidenceOut(ActivityEvidenceCreate):
     id: int
     activity_id: int
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # Activity
 class ActivityFinish(BaseModel):
@@ -241,8 +269,7 @@ class ActivityReviewOut(BaseModel):
     enrollment_count: int = 0
     result: str
     reviewed_at: datetime
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ActivityOut(BaseModel):
     id: int
@@ -269,8 +296,7 @@ class ActivityOut(BaseModel):
     task_id: Optional[int] = None
     task_title: Optional[str] = None
     task_completed: Optional[bool] = None  # 浠诲姟缁村害鏄惁杈炬爣锛堢瓑鍚屼换鍔′笅 is_valid锛?
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ActivityFinishResponse(ActivityOut):
@@ -296,17 +322,29 @@ class InvalidActivityOut(BaseModel):
     started_at: datetime
     start_photo_url: Optional[str] = None
     end_photo_url: Optional[str] = None
+    appeal_id: Optional[int] = None
+    appeal_status: Optional[str] = None
+    appeal_reason: Optional[str] = None
 
 
 class ResolveActivityExceptionRequest(BaseModel):
     action: str  # 'confirm_cheat' | 'restore_valid'
+    comment: Optional[str] = Field(default=None, max_length=500)
+
+
+class ActivityAppealCreate(BaseModel):
+    reason: str = Field(min_length=5, max_length=500)
+
+
+class ActivityAppealReview(BaseModel):
+    status: Literal["approved", "rejected"]
+    comment: Optional[str] = Field(default=None, max_length=500)
 
 
 class TeacherActivityListOut(ActivityOut):
     student_name: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ActivityListResponse(BaseModel):
     items: List[ActivityOut]
@@ -339,9 +377,10 @@ class TaskCreate(BaseModel):
 class TaskOut(TaskCreate):
     id: int
     created_by: int
+    lifecycle_status: str = "published"
+    archived_at: Optional[datetime] = None
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class TaskListStats(TaskOut):
     total_students: int
@@ -399,12 +438,12 @@ class StudentCompletionStatus(BaseModel):
 # 绗笁闃舵鏂板锛氭暀甯堟墦鍒嗙浉鍏硈chemas
 class TeacherScoreCreate(BaseModel):
     activity_id: int
-    score: float  # 0-100
-    comment: Optional[str] = None
+    score: float = Field(ge=0, le=100)
+    comment: Optional[str] = Field(default=None, max_length=400)
 
 class TeacherScoreUpdate(BaseModel):
-    score: float  # 0-100
-    comment: Optional[str] = None
+    score: float = Field(ge=0, le=100)
+    comment: Optional[str] = Field(default=None, max_length=400)
 
 class TeacherScoreOut(BaseModel):
     id: int
@@ -416,8 +455,7 @@ class TeacherScoreOut(BaseModel):
     scored_at: Optional[datetime] = None
     scored_by: Optional[int] = None
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class StudentScoreRecord(BaseModel):
     task_id: int
@@ -450,8 +488,7 @@ class CheckpointCreate(CheckpointBase):
 
 class CheckpointOut(CheckpointBase):
     id: int
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # Health & Student Management
 class HealthRequestCreate(BaseModel):
@@ -460,7 +497,7 @@ class HealthRequestCreate(BaseModel):
     # 璇峰亣寮€濮?缁撴潫鏃堕棿锛堜粎 type == 'leave' 鏃跺繀濉級
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
-    attachments: Optional[List[str]] = []  # List of file URLs
+    attachments: List[str] = Field(default_factory=list)  # List of file URLs
 
 class HealthRequestOut(HealthRequestCreate):
     id: int
@@ -468,9 +505,13 @@ class HealthRequestOut(HealthRequestCreate):
     status: str
     created_at: datetime
     updated_at: datetime
+    reviewed_by: Optional[int] = None
+    reviewed_at: Optional[datetime] = None
+    review_comment: Optional[str] = None
+    cancelled_at: Optional[datetime] = None
+    ended_at: Optional[datetime] = None
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class StudentDetail(StudentInfo):
     student_id: Optional[str] = None
@@ -596,9 +637,10 @@ class CourseOut(CourseBase):
     teacher_id: int
     enrollment_count: int = 0
     created_at: datetime
+    lifecycle_status: str = "published"
+    archived_at: Optional[datetime] = None
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class CourseContentBase(BaseModel):
     title: str
@@ -615,8 +657,7 @@ class CourseContentOut(CourseContentBase):
     course_id: int
     created_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class EnrollmentCreate(BaseModel):
     course_id: int
@@ -628,8 +669,7 @@ class EnrollmentOut(BaseModel):
     joined_at: datetime  # 淇敼涓?joined_at 浠ュ尮閰嶆暟鎹簱
     status: str
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class CourseProgressUpdate(BaseModel):
     content_id: int
@@ -645,8 +685,7 @@ class CourseProgressOut(BaseModel):
     last_position: int
     updated_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class CourseDetailOut(CourseOut):
     contents: List[CourseContentOut] = []
@@ -705,9 +744,10 @@ class RunGroupOut(RunGroupBase):
     member_count: int
     rank: Optional[int] = None
     created_at: datetime
+    status: str = "active"
+    archived_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class RunGroupDetailOut(RunGroupOut):
@@ -726,8 +766,7 @@ class RunGroupMemberOut(BaseModel):
     total_mileage: float
     joined_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class RunGroupActivityBase(BaseModel):
@@ -750,8 +789,7 @@ class RunGroupActivityOut(RunGroupActivityBase):
     status: str
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class RunGroupActivityListResponse(BaseModel):
@@ -768,8 +806,7 @@ class RunGroupRankOut(BaseModel):
     rank: int
     member_count: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # 闃冲厜璺戠彮绾ф帓琛?Schemas
@@ -801,15 +838,84 @@ class UserNotificationOut(BaseModel):
     body: Optional[str] = None
     ntype: str = "system"
     payload: Optional[str] = None
+    sender_user_id: Optional[int] = None
+    sender_name: str = "系统"
+    source_type: Optional[str] = None
+    source_id: Optional[str] = None
+    action_type: Optional[str] = None
+    action_data: dict[str, Any] = Field(default_factory=dict)
+    action_available: bool = True
+    action_message: Optional[str] = None
     is_read: bool = False
+    read_at: Optional[datetime] = None
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class UserNotificationUnread(BaseModel):
     count: int
+
+
+class NotificationCampaignRequest(BaseModel):
+    title: str
+    content: str = ""
+    ntype: Literal[
+        "system", "task", "teacher_message", "student_message",
+        "health_review", "run_group", "score",
+    ] = "system"
+    target_type: str
+    target_values: list[str | int] = Field(default_factory=list)
+    action_type: Optional[str] = None
+    action_data: dict[str, Any] = Field(default_factory=dict)
+
+
+class NotificationCampaignPreview(BaseModel):
+    recipient_count: int
+    sample_users: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class NotificationCampaignOut(BaseModel):
+    id: int
+    title: str
+    body: Optional[str] = None
+    ntype: str
+    sender_user_id: Optional[int] = None
+    sender_name: str = "系统"
+    sender_role: Optional[str] = None
+    target_type: str
+    target_values: list[str | int] = Field(default_factory=list)
+    recipient_count: int
+    read_count: int = 0
+    unread_count: int = 0
+    read_rate: float = 0.0
+    status: str
+    created_at: datetime
+
+
+class NotificationCampaignList(BaseModel):
+    items: list[NotificationCampaignOut]
+    total: int
+    page: int
+    size: int
+
+
+class NotificationRecipientOut(BaseModel):
+    notification_id: int
+    user_id: int
+    name: str
+    student_id: Optional[str] = None
+    phone: Optional[str] = None
+    role: str
+    is_read: bool
+    read_at: Optional[datetime] = None
+
+
+class NotificationRecipientList(BaseModel):
+    items: list[NotificationRecipientOut]
+    total: int
+    page: int
+    size: int
 
 
 class WeatherOut(BaseModel):
@@ -876,8 +982,7 @@ class MedalOut(BaseModel):
     earned: bool = False
     earned_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class MedalListOut(BaseModel):

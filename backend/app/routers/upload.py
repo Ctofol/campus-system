@@ -4,9 +4,9 @@
 """
 import os
 import uuid
-import shutil
 from datetime import datetime
-from typing import List, Optional
+from pathlib import Path
+from typing import Optional
 from fastapi import APIRouter, Depends, File, UploadFile, HTTPException
 from sqlalchemy.orm import Session
 
@@ -23,6 +23,7 @@ ALLOWED_VIDEO_EXTENSIONS = {".mp4"}
 ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png"}
 ALLOWED_VIDEO_MIMES = {"video/mp4"}
 ALLOWED_IMAGE_MIMES = {"image/jpeg", "image/jpg", "image/png"}
+COPY_CHUNK_SIZE = 1024 * 1024
 
 
 def _mime_ok_for_video(content_type: Optional[str]) -> bool:
@@ -129,6 +130,28 @@ def validate_file(file: UploadFile) -> tuple[str, str]:
     )
 
 
+def save_upload_with_limit(file: UploadFile, file_path: str, max_size: int) -> int:
+    """边写入边计算大小，不能只信任客户端提供的 Content-Length。"""
+
+    total_size = 0
+    target = Path(file_path)
+    try:
+        with target.open("wb") as buffer:
+            while chunk := file.file.read(COPY_CHUNK_SIZE):
+                total_size += len(chunk)
+                if total_size > max_size:
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"文件大小不能超过{max_size // (1024 * 1024)}MB",
+                    )
+                buffer.write(chunk)
+    except Exception:
+        # 仅清理本次请求刚创建的目标文件，避免保留超限或写入失败的残留文件。
+        target.unlink(missing_ok=True)
+        raise
+    return total_size
+
+
 @router.post("/file")
 async def upload_file(
     file: UploadFile = File(...),
@@ -158,8 +181,8 @@ async def upload_file(
         if os.path.exists("/app/uploads"):
             upload_dir = os.path.join("/app/uploads", month_dir)
         else:
-            # 本地开发模式，使用相对路径
-            upload_dir = os.path.join("uploads", month_dir)
+            # 本地开发模式也使用后端绝对路径，与 main.py 的静态目录保持一致。
+            upload_dir = os.path.join(database.PROJECT_ROOT, "uploads", month_dir)
         
         # 确保目录存在
         os.makedirs(upload_dir, exist_ok=True)
@@ -168,12 +191,8 @@ async def upload_file(
         unique_filename = f"{uuid.uuid4()}{store_ext}"
         file_path = os.path.join(upload_dir, unique_filename)
         
-        # 保存文件
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-        
-        # 获取文件大小
-        file_size = os.path.getsize(file_path)
+        max_size = MAX_VIDEO_SIZE if file_type == "video" else MAX_IMAGE_SIZE
+        file_size = save_upload_with_limit(file, file_path, max_size)
         
         # 返回文件信息
         return {
@@ -185,5 +204,6 @@ async def upload_file(
         
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"文件上传失败: {str(e)}")
+    except Exception:
+        # 不向客户端暴露服务器路径、存储实现或底层异常。
+        raise HTTPException(status_code=500, detail="文件保存失败，请稍后重试")

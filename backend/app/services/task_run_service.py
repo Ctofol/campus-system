@@ -12,6 +12,8 @@ from .. import models
 def student_may_submit_task(student: models.User, task: models.Task) -> Tuple[bool, str]:
     if student.role != "student":
         return False, "仅学生可提交任务运动"
+    if task.lifecycle_status in ("closed", "archived"):
+        return False, "任务已关闭，不能继续提交"
     now = datetime.utcnow()
     if task.starts_at and now < task.starts_at:
         return False, "任务尚未开始"

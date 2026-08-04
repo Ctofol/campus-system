@@ -57,13 +57,13 @@ const loadUserInfo = () => {
 
 const changePassword = () => {
   uni.navigateTo({
-    url: '/pages/teacher/security/change-password'
+    url: '/pages/account/change-password'
   });
 };
 
 const bindPhone = () => {
   uni.navigateTo({
-    url: '/pages/teacher/profile/edit'
+    url: '/pages/account/change-phone'
   });
 };
 

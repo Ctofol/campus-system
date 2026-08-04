@@ -1,4 +1,4 @@
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from typing import Tuple
 from sqlalchemy import and_, or_
 
@@ -60,6 +60,24 @@ def get_sunshine_rule_for_class(class_id: int | None, db) -> dict:
     }
 
 
+def get_sunshine_rule_for_user(user: models.User, db) -> dict:
+    """返回用户实际适用的阳光跑规则。
+
+    班级已配置规则时完全遵循班级设置；未配置时，最低里程按性别采用
+    历史默认值，避免通用 2km 默认值覆盖女性的 1.2km 标准。
+    """
+
+    rule = get_sunshine_rule_for_class(getattr(user, "class_id", None), db)
+    if rule.get("id"):
+        return rule
+
+    gender = (getattr(user, "gender", None) or "male").lower()
+    fallback_distance = (
+        config.MIN_DISTANCE_FEMALE if gender == "female" else config.MIN_DISTANCE_MALE
+    )
+    return {**rule, "min_distance_km": fallback_distance}
+
+
 def verify_activity(user: models.User, activity: models.Activity, db) -> Tuple[bool, str, bool]:
     """
     阳光跑自动审核逻辑：
@@ -89,7 +107,7 @@ def verify_activity(user: models.User, activity: models.Activity, db) -> Tuple[b
     face_verified = face_outcome.face_verified
 
     # 1. 班级阳光跑规则优先；未配置时沿用历史性别里程标准
-    rule = get_sunshine_rule_for_class(user.class_id, db)
+    rule = get_sunshine_rule_for_user(user, db)
     gender = (user.gender or "male").lower()
     fallback_min_dist = config.MIN_DISTANCE_MALE if gender == "male" else config.MIN_DISTANCE_FEMALE
     min_dist = float(rule.get("min_distance_km") or fallback_min_dist)
@@ -104,7 +122,8 @@ def verify_activity(user: models.User, activity: models.Activity, db) -> Tuple[b
     elif pace_val is None or pace_val < min_pace or pace_val > max_pace:
         sport_reason = "配速异常"
     else:
-        today: date = datetime.utcnow().date()
+        # 保持原先按 UTC 划分当天的口径，同时使用时区感知时间。
+        today: date = datetime.now(timezone.utc).date()
         start = datetime(today.year, today.month, today.day)
         end = datetime(today.year, today.month, today.day, 23, 59, 59)
 
@@ -167,7 +186,7 @@ def get_sunshine_stats(user: models.User, db):
     - daily_records: 最近7天运动明细
     - user_gender: 学生性别
     """
-    rule = get_sunshine_rule_for_class(user.class_id, db)
+    rule = get_sunshine_rule_for_user(user, db)
     week_start, week_end = week_bounds()
 
     # 1. 历史达标次数

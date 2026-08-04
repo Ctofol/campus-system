@@ -1,0 +1,1 @@
+import{c as e,o as s}from"./index-Cq_dHcu8.js";import{T as a}from"./teacher-mine.LpBkV887.js";import"./page-tab-header.DGbuD0Ts.js";import"./uni-app.es.Cbm5ULnY.js";import"./request.De4XwWfn.js";const t={__name:"mine",setup:t=>(t,o)=>(s(),e(a,{"show-back":""}))};export{t as default};

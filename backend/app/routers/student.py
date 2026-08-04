@@ -6,6 +6,7 @@ import json
 from .. import models, schemas, auth
 from ..database import get_db
 from ..services.task_run_service import student_may_submit_task
+from ..services.health_request_service import health_request_dict, refresh_expired_health_requests
 
 router = APIRouter(prefix="/student", tags=["student"])
 
@@ -54,6 +55,7 @@ async def get_student_summary(
         pending_tasks = (
             db.query(models.Task)
             .filter(models.Task.class_id == current_user.class_id)
+            .filter(models.Task.lifecycle_status == "published")
             .filter(models.Task.deadline >= datetime.utcnow())
             .count()
         )
@@ -129,6 +131,7 @@ async def get_student_tasks(
     query = (
         db.query(models.Task)
         .filter(models.Task.class_id == current_user.class_id)
+        .filter(models.Task.lifecycle_status != "archived")
         .order_by(models.Task.deadline.asc())
     )
 
@@ -473,7 +476,12 @@ def create_health_request(
     db: Session = Depends(get_db)
 ):
     if current_user.role != "student":
-        raise HTTPException(status_code=403, detail="Only students can submit health requests")
+        raise HTTPException(status_code=403, detail="仅学生可以提交健康报备")
+    if request_in.type not in {"leave", "injury"}:
+        raise HTTPException(status_code=400, detail="申请类型不合法")
+    reason = (request_in.reason or "").strip()
+    if not reason:
+        raise HTTPException(status_code=400, detail="请填写申请原因")
         
     # Check if there is already a pending request
     pending = db.query(models.HealthRequest).filter(
@@ -482,7 +490,7 @@ def create_health_request(
     ).first()
     
     if pending:
-        raise HTTPException(status_code=400, detail="You already have a pending request")
+        raise HTTPException(status_code=400, detail="你已有待审批申请，请先等待审批或取消原申请")
     
     import json
     attachments_json = json.dumps(request_in.attachments) if request_in.attachments else None
@@ -492,14 +500,16 @@ def create_health_request(
     end_date = request_in.end_date
     if request_in.type == "leave":
         if not start_date or not end_date:
-            raise HTTPException(status_code=400, detail="Leave requests must include start_date and end_date")
-        if end_date < start_date:
-            raise HTTPException(status_code=400, detail="end_date must be after start_date")
+            raise HTTPException(status_code=400, detail="请假申请必须填写开始和结束时间")
+        if end_date <= start_date:
+            raise HTTPException(status_code=400, detail="结束时间必须晚于开始时间")
+        if end_date <= datetime.utcnow():
+            raise HTTPException(status_code=400, detail="请假结束时间不能早于当前时间")
 
     new_req = models.HealthRequest(
         student_id=current_user.id,
         type=request_in.type,
-        reason=request_in.reason,
+        reason=reason,
         attachments=attachments_json,
         start_date=start_date,
         end_date=end_date,
@@ -509,47 +519,47 @@ def create_health_request(
     db.commit()
     db.refresh(new_req)
     
-    return {
-        "id": new_req.id,
-        "student_id": new_req.student_id,
-        "type": new_req.type,
-        "reason": new_req.reason,
-        "start_date": new_req.start_date,
-        "end_date": new_req.end_date,
-        "attachments": json.loads(new_req.attachments) if new_req.attachments else [],
-        "status": new_req.status,
-        "created_at": new_req.created_at,
-        "updated_at": new_req.updated_at
-    }
+    return health_request_dict(new_req)
+
+
+@router.put("/health/requests/{req_id}/cancel")
+def cancel_health_request(
+    req_id: int,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
+    """学生只能取消自己的待审批申请，已审批记录不可改写。"""
+    if current_user.role != "student":
+        raise HTTPException(status_code=403, detail="仅学生可以取消健康报备")
+    row = db.query(models.HealthRequest).filter(
+        models.HealthRequest.id == req_id,
+        models.HealthRequest.student_id == current_user.id,
+    ).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="申请记录不存在")
+    if row.status != "pending":
+        raise HTTPException(status_code=409, detail="只有待审批申请可以取消")
+    now = datetime.utcnow()
+    row.status = "cancelled"
+    row.cancelled_at = now
+    row.updated_at = now
+    db.commit()
+    return {"success": True}
 
 @router.get("/health/requests")
 def get_my_health_requests(
     current_user: models.User = Depends(auth.get_current_user),
     db: Session = Depends(get_db)
 ):
-    import json
     if current_user.role != "student":
-        raise HTTPException(status_code=403, detail="Only students can view their health requests")
+        raise HTTPException(status_code=403, detail="仅学生可以查看健康报备")
+    refresh_expired_health_requests(db, student_id=current_user.id)
         
     requests = db.query(models.HealthRequest).filter(
         models.HealthRequest.student_id == current_user.id
     ).order_by(models.HealthRequest.created_at.desc()).all()
     
-    result = []
-    for req in requests:
-        result.append({
-            "id": req.id,
-            "student_id": req.student_id,
-            "type": req.type,
-            "reason": req.reason,
-            "start_date": req.start_date,
-            "end_date": req.end_date,
-            "attachments": json.loads(req.attachments) if req.attachments else [],
-            "status": req.status,
-            "created_at": req.created_at,
-            "updated_at": req.updated_at
-        })
-    return result
+    return [health_request_dict(req) for req in requests]
 
 
 @router.get("/notifications", response_model=List[schemas.UserNotificationOut])

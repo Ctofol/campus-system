@@ -41,15 +41,22 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     role = Column(String, nullable=False)  # 'student' | 'teacher'
-    name = Column(String, nullable=False)
-    phone = Column(String, unique=True, index=True, nullable=False)
+    name = Column(String, nullable=False)  # 学校档案真实姓名，仅管理员维护
+    nickname = Column(String(32), nullable=True)  # 非正式场景展示名
+    phone = Column(String, unique=True, index=True, nullable=True)
     password_hash = Column(String, nullable=False)
+    must_change_password = Column(Boolean, default=False, nullable=False)
+    token_version = Column(Integer, default=0, nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
+    disabled_at = Column(DateTime, nullable=True)
+    disabled_reason = Column(String(255), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # 学生属性
     class_id = Column(Integer, ForeignKey("classes.id"), nullable=True)
     major_id = Column(Integer, ForeignKey("majors.id"), nullable=True)
     student_id = Column(String, ForeignKey("student_profiles.student_id"), unique=True, nullable=True)
+    staff_id = Column(String(64), unique=True, index=True, nullable=True)
     gender = Column(String, nullable=True)
     major_name = Column(String, nullable=True) # 冗余字段或来自档案
     subject = Column(String, nullable=True) # 选科
@@ -66,7 +73,9 @@ class User(Base):
     profile = relationship("StudentProfile", back_populates="user", foreign_keys=[student_id])
     student_class = relationship("Class", back_populates="students", foreign_keys=[class_id])
     major_rel = relationship("Major", back_populates="students", foreign_keys=[major_id])
-    health_requests = relationship("HealthRequest", back_populates="student")
+    health_requests = relationship(
+        "HealthRequest", back_populates="student", foreign_keys="HealthRequest.student_id"
+    )
     # 教师选科
     teacher_subjects = relationship("TeacherSubject", back_populates="teacher")
     face_profile = relationship("StudentFaceProfile", back_populates="user", uselist=False)
@@ -95,6 +104,50 @@ class User(Base):
             m_name = self.student_class.major.name if self.student_class.major else ""
             return f"{m_name} {self.student_class.name}".strip()
         return None
+
+    @property
+    def display_name(self):
+        return (self.nickname or "").strip() or self.name
+
+
+class AuditLog(Base):
+    """管理员与教师关键操作的可追溯记录。"""
+
+    __tablename__ = "audit_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    actor_user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    action = Column(String(64), nullable=False, index=True)
+    resource_type = Column(String(64), nullable=False, index=True)
+    resource_id = Column(String(64), nullable=True, index=True)
+    detail = Column(String(1024), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+    actor = relationship("User", foreign_keys=[actor_user_id])
+
+
+class ImportBatch(Base):
+    """管理端一次表格导入及其可回滚范围。"""
+
+    __tablename__ = "import_batches"
+
+    id = Column(Integer, primary_key=True, index=True)
+    import_type = Column(String(16), nullable=False, index=True)
+    filename = Column(String(255), nullable=True)
+    status = Column(String(16), nullable=False, default="completed", index=True)
+    total_count = Column(Integer, nullable=False, default=0)
+    success_count = Column(Integer, nullable=False, default=0)
+    failed_count = Column(Integer, nullable=False, default=0)
+    errors = Column(String(4000), nullable=True)
+    created_user_ids = Column(String(4000), nullable=True)
+    created_profile_ids = Column(String(4000), nullable=True)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    rolled_back_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    rolled_back_at = Column(DateTime, nullable=True)
+
+    creator = relationship("User", foreign_keys=[created_by])
+    rollback_actor = relationship("User", foreign_keys=[rolled_back_by])
 
 
 class StudentFaceProfile(Base):
@@ -207,6 +260,7 @@ class Activity(Base):
     metrics = relationship("ActivityMetrics", back_populates="activity", uselist=False)
     evidence = relationship("ActivityEvidence", back_populates="activity")
     review = relationship("ActivityReview", back_populates="activity", uselist=False)
+    appeal = relationship("ActivityAppeal", back_populates="activity", uselist=False)
 
     @property
     def student_name(self):
@@ -249,6 +303,23 @@ class Checkpoint(Base):
     radius = Column(Integer, default=50) # meters
     description = Column(String, nullable=True)
 
+
+class CheckpointVisit(Base):
+    """学生到达校园打卡点后形成的可追溯记录。"""
+
+    __tablename__ = "checkpoint_visits"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    checkpoint_id = Column(Integer, ForeignKey("checkpoints.id"), nullable=False, index=True)
+    latitude = Column(Float, nullable=False)
+    longitude = Column(Float, nullable=False)
+    distance_m = Column(Float, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+    user = relationship("User", foreign_keys=[user_id])
+    checkpoint = relationship("Checkpoint", foreign_keys=[checkpoint_id])
+
 class ActivityEvidence(Base):
     __tablename__ = "activity_evidence"
 
@@ -276,10 +347,32 @@ class Task(Base):
     created_by = Column(Integer, ForeignKey("users.id"))  # teacher_id
     created_at = Column(DateTime, default=datetime.utcnow)
     video_url = Column(String, nullable=True)  # 体测任务视频URL（第二阶段新增）
+    lifecycle_status = Column(String(16), default="published", nullable=False, index=True)
+    archived_at = Column(DateTime, nullable=True)
 
     creator = relationship("User")
     target_class = relationship("Class")
     activities = relationship("Activity", back_populates="task", foreign_keys="Activity.task_id")
+
+class ActivityAppeal(Base):
+    """学生对异常运动判定发起的一次正式申诉。"""
+
+    __tablename__ = "activity_appeals"
+
+    id = Column(Integer, primary_key=True, index=True)
+    activity_id = Column(Integer, ForeignKey("activities.id"), nullable=False, unique=True, index=True)
+    student_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    reason = Column(String(500), nullable=False)
+    status = Column(String(16), nullable=False, default="pending", index=True)
+    reviewed_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    review_comment = Column(String(500), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    reviewed_at = Column(DateTime, nullable=True)
+
+    activity = relationship("Activity", back_populates="appeal")
+    student = relationship("User", foreign_keys=[student_id])
+    reviewer = relationship("User", foreign_keys=[reviewed_by])
+
 
 class ActivityReview(Base):
     __tablename__ = "activity_review"
@@ -301,14 +394,20 @@ class HealthRequest(Base):
     type = Column(String, nullable=False)  # 'leave' | 'injury'
     reason = Column(String, nullable=True)
     attachments = Column(String, nullable=True)  # JSON array of file URLs
-    status = Column(String, default="pending")  # 'pending' | 'approved' | 'rejected'
+    status = Column(String, default="pending", index=True)  # pending/approved/rejected/cancelled/ended
     # 请假时间（仅当 type == 'leave' 时有值）
     start_date = Column(DateTime, nullable=True)
     end_date = Column(DateTime, nullable=True)
+    reviewed_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    reviewed_at = Column(DateTime, nullable=True)
+    review_comment = Column(String(500), nullable=True)
+    cancelled_at = Column(DateTime, nullable=True)
+    ended_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    student = relationship("User", back_populates="health_requests")
+    student = relationship("User", back_populates="health_requests", foreign_keys=[student_id])
+    reviewer = relationship("User", foreign_keys=[reviewed_by])
 
 
 class UserNotification(Base):
@@ -321,10 +420,57 @@ class UserNotification(Base):
     body = Column(String, nullable=True)
     ntype = Column(String, default="system", index=True)  # health_review | task | system
     payload = Column(String, nullable=True)
+    campaign_id = Column(Integer, ForeignKey("notification_campaigns.id"), nullable=True, index=True)
+    sender_user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    source_type = Column(String(32), nullable=True, index=True)
+    source_id = Column(String(64), nullable=True, index=True)
+    action_type = Column(String(32), nullable=True)
+    action_payload = Column(String(2000), nullable=True)
+    event_key = Column(String(160), nullable=True)
     is_read = Column(Boolean, default=False, index=True)
+    read_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    user = relationship("User", backref="notifications")
+    __table_args__ = (
+        UniqueConstraint("user_id", "event_key", name="uq_notification_user_event"),
+    )
+
+    user = relationship("User", foreign_keys=[user_id], backref="notifications")
+    sender = relationship("User", foreign_keys=[sender_user_id])
+    campaign = relationship("NotificationCampaign", back_populates="notifications")
+
+    @property
+    def sender_name(self):
+        return self.sender.display_name if self.sender else "系统"
+
+    @property
+    def action_data(self):
+        import json
+        try:
+            return json.loads(self.action_payload) if self.action_payload else {}
+        except (TypeError, ValueError):
+            return {}
+
+
+class NotificationCampaign(Base):
+    """一次人工群发通知及其阅读统计。"""
+
+    __tablename__ = "notification_campaigns"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String(60), nullable=False)
+    body = Column(String(500), nullable=True)
+    ntype = Column(String(32), nullable=False, default="system", index=True)
+    sender_user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    sender_role = Column(String(16), nullable=True)
+    target_type = Column(String(32), nullable=False, index=True)
+    target_spec = Column(String(2000), nullable=True)
+    recipient_count = Column(Integer, nullable=False, default=0)
+    status = Column(String(16), nullable=False, default="sent", index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+    sender = relationship("User", foreign_keys=[sender_user_id])
+    notifications = relationship("UserNotification", back_populates="campaign")
 
 
 # Course Models (Phase 4.2)
@@ -338,6 +484,8 @@ class Course(Base):
     teacher_id = Column(Integer, ForeignKey("users.id"))
     category = Column(String, nullable=True)  # 'theory' | 'skill' | 'fitness'
     is_public = Column(Boolean, default=True)  # 是否全校公开
+    lifecycle_status = Column(String(16), default="published", nullable=False, index=True)
+    archived_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -399,6 +547,8 @@ class RunGroup(Base):
     total_mileage = Column(Float, default=0.0, nullable=False)  # 总里程
     member_count = Column(Integer, default=1)  # 成员数
     rank = Column(Integer, nullable=True)  # 排名
+    status = Column(String(16), default="active", nullable=False, index=True)
+    archived_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -450,6 +600,10 @@ class RunGroupActivityApplication(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     status = Column(String, default="applied")  # 'applied' | 'participated' | 'cancelled'
     applied_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("activity_id", "user_id", name="uq_run_group_activity_application"),
+    )
 
     activity = relationship("RunGroupActivity", back_populates="applications")
     user = relationship("User")

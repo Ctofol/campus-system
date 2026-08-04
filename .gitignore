@@ -54,6 +54,19 @@ yarn-error.log*
 *.tmp
 *.temp
 .cache/
+.pytest-tmp/
+.pytest-tmp*/
+.pytest_cache/
+.ruff_cache/
+tmp_*.json
+tmp_*.py
+token.txt
+
+# Local virtual environments
+.venv/
+
+# Local deployment snapshots
+campus.gzyichenai.com_nginx/
 
 # Build artifacts
 # dist/

@@ -36,24 +36,18 @@
       </view>
 
       <view class="form-item">
-        <text class="label">姓名</text>
-        <input
-          v-model="formData.name"
-          class="input"
-          placeholder="请输入姓名"
-          maxlength="20"
-        />
+        <text class="label">真实姓名</text>
+        <text class="value readonly">{{ formData.name || '未设置' }}</text>
+      </view>
+
+      <view class="form-item">
+        <text class="label">昵称</text>
+        <input v-model="formData.nickname" class="input" placeholder="用于个人首页和跑团展示" maxlength="32" />
       </view>
 
       <view class="form-item">
         <text class="label">手机号</text>
-        <input
-          v-model="formData.phone"
-          class="input"
-          placeholder="请输入手机号"
-          maxlength="11"
-          type="number"
-        />
+        <text class="value readonly">{{ formData.phone || '未绑定' }}</text>
       </view>
 
       <view class="form-item signature-item">
@@ -106,6 +100,7 @@ const saving = ref(false);
 
 const formData = ref({
   name: '',
+  nickname: '',
   phone: '',
   signature: '',
   student_id: '',
@@ -136,6 +131,7 @@ const loadUserProfile = async () => {
     if (res) {
       formData.value = {
         name: res.name || '',
+        nickname: res.nickname || '',
         phone: res.phone || '',
         signature: res.signature || '',
         student_id: res.student_id || '',
@@ -213,23 +209,7 @@ const uploadAvatar = async (filePath) => {
 };
 
 const handleSave = async () => {
-  const name = String(formData.value.name || '').trim();
-  const phone = String(formData.value.phone || '').trim();
-
-  if (!name) {
-    uni.showToast({ title: '请输入姓名', icon: 'none' });
-    return;
-  }
-
-  if (!phone) {
-    uni.showToast({ title: '请输入手机号', icon: 'none' });
-    return;
-  }
-
-  if (!/^1\d{10}$/.test(phone)) {
-    uni.showToast({ title: '手机号格式不正确', icon: 'none' });
-    return;
-  }
+  const nickname = String(formData.value.nickname || '').trim();
 
   saving.value = true;
 
@@ -238,8 +218,7 @@ const handleSave = async () => {
       url: '/users/profile',
       method: 'PUT',
       data: {
-        name,
-        phone,
+        nickname,
         signature: (formData.value.signature || '').trim(),
         avatar_url: formData.value.avatar_url,
         header_bg_url: formData.value.header_bg_url
@@ -261,16 +240,15 @@ const handleSave = async () => {
 
     userInfo = {
       ...userInfo,
-      name,
-      phone,
+      nickname,
+      display_name: nickname || formData.value.name,
       signature: (formData.value.signature || '').trim(),
       avatar_url: formData.value.avatar_url
     };
 
     uni.setStorageSync('userInfo', userInfo);
     patchStoredUserInfo(userInfo);
-    formData.value.name = name;
-    formData.value.phone = phone;
+    formData.value.nickname = nickname;
 
     uni.showToast({ title: '保存成功', icon: 'success' });
 

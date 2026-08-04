@@ -56,7 +56,7 @@
         <view class="card-actions">
           <button class="detail-btn" @click="goToDetail">查看详情</button>
           <button class="leave-btn" @click="handleLeave" v-if="activeGroup.role !== 'creator'">退出跑团</button>
-          <button class="delete-btn" @click="handleDeleteGroup" v-else>删除跑团</button>
+          <button class="delete-btn" @click="handleDeleteGroup" v-else>解散跑团</button>
         </view>
       </view>
 
@@ -187,14 +187,14 @@ const handleDeleteGroup = async () => {
   if (!activeGroup.value) return;
 
   uni.showModal({
-    title: '确认删除',
-    content: `删除 ${activeGroup.value.name} 后无法恢复，确认继续吗？`,
+    title: '确认解散',
+    content: `解散 ${activeGroup.value.name} 后将停止新活动和报名，历史记录会保留。确认继续吗？`,
     confirmColor: '#e03131',
     success: async (res) => {
       if (!res.confirm) return;
       try {
         await deleteRunGroup(activeGroup.value.id);
-        uni.showToast({ title: '跑团已删除', icon: 'success' });
+        uni.showToast({ title: '跑团已解散', icon: 'success' });
         await loadMyGroups();
       } catch (e) {
         uni.showToast({ title: e.message || e.detail || '删除失败', icon: 'none' });

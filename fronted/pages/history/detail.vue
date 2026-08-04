@@ -58,6 +58,16 @@
         <text class="tip">暂无轨迹数据</text>
     </view>
 
+    <view class="appeal-card" v-if="activity.is_valid === false && activity.fail_reason">
+      <text class="page-section-title">异常判定</text>
+      <text class="appeal-reason">{{ activity.fail_reason }}</text>
+      <view v-if="appeal" class="appeal-status">
+        <text>申诉状态：{{ appealStatusText }}</text>
+        <text v-if="appeal.review_comment">处理说明：{{ appeal.review_comment }}</text>
+      </view>
+      <button v-else class="appeal-btn" @click="submitAppeal">提交申诉</button>
+    </view>
+
     <!-- Video Evidence -->
     <view class="video-card" v-if="videoUrl">
       <text class="page-section-title">视频记录</text>
@@ -67,11 +77,12 @@
 </template>
 
 <script setup>
-import { nextTick, ref } from 'vue';
+import { computed, nextTick, ref } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import { smoothTrajectoryForMap, DEFAULT_BRAND_POLYLINE_STYLE } from '@/utils/trajectory-smooth.js';
 import { buildPaceColoredPolylines } from '@/utils/trajectory-pace-polyline.js';
 import { buildRunRouteMarkers } from '@/utils/run-map-markers.js';
+import { request } from '@/utils/request.js';
 
 const activity = ref({});
 const centerLat = ref(39.909);
@@ -91,6 +102,42 @@ const distanceKm = ref('0.00');
 const paceText = ref('');
 const stepCount = ref(0);
 const stepFrequency = ref('');
+const appeal = ref(null);
+const appealStatusText = computed(() => ({ pending: '待处理', approved: '已通过', rejected: '已驳回' }[appeal.value?.status] || ''));
+
+const loadAppeal = async () => {
+  if (!activity.value?.id) return;
+  try {
+    const rows = await request('/activity/appeals/me');
+    appeal.value = rows.find(item => Number(item.activity_id) === Number(activity.value.id)) || null;
+  } catch (e) {
+    console.error('Load appeal failed', e);
+  }
+};
+
+const submitAppeal = () => {
+  uni.showModal({
+    title: '提交运动申诉',
+    content: '',
+    editable: true,
+    placeholderText: '请说明本次记录为何需要复核（至少5字）',
+    success: async ({ confirm, content }) => {
+      if (!confirm) return;
+      const reason = String(content || '').trim();
+      if (reason.length < 5) {
+        uni.showToast({ title: '申诉说明至少5个字', icon: 'none' });
+        return;
+      }
+      try {
+        await request(`/activity/${activity.value.id}/appeal`, { method: 'POST', data: { reason } });
+        uni.showToast({ title: '申诉已提交', icon: 'success' });
+        await loadAppeal();
+      } catch (e) {
+        uni.showToast({ title: e.message || '提交失败', icon: 'none' });
+      }
+    }
+  });
+};
 
 function normalizeTrajectoryPoints(raw) {
   if (raw == null) return [];
@@ -138,6 +185,7 @@ onLoad((options) => {
         try {
             const data = JSON.parse(decodeURIComponent(options.data));
             activity.value = data;
+            loadAppeal();
             
             // 基础信息
             if (data.started_at) {
@@ -281,6 +329,26 @@ onLoad((options) => {
 .map-card {
   padding: 24rpx 18rpx 18rpx;
   position: relative;
+}
+
+.appeal-card {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 30rpx;
+  margin-bottom: 20rpx;
+}
+.appeal-reason, .appeal-status text {
+  display: block;
+  color: #666;
+  font-size: 27rpx;
+  line-height: 1.6;
+  margin-top: 12rpx;
+}
+.appeal-btn {
+  margin-top: 24rpx;
+  background: #1890ff;
+  color: #fff;
+  font-size: 28rpx;
 }
 .route-pace-legend {
   position: absolute;

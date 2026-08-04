@@ -96,14 +96,15 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { onShow, onLoad } from '@dcloudio/uni-app';
-import { request } from '@/utils/request';
+import { request, BASE_URL } from '@/utils/request';
 
 const id = ref('');
 const name = ref('');
 const no = ref('');
+const phone = ref('');
 const className = ref('');
 const majorName = ref('—');
-const group = ref('体能A组'); // Mock group
+const group = ref('未分组');
 const healthStatus = ref('良好');
 const activeTab = ref('run');
 
@@ -147,6 +148,7 @@ const fetchData = async () => {
         const student = await request({ url: `/teacher/students/${id.value}` });
         name.value = student.name;
         no.value = student.student_id || student.phone; // Use student_id if available
+        phone.value = student.phone || '';
         
         majorName.value = student.major_name || '—';
         className.value =
@@ -195,23 +197,51 @@ onShow(() => {
 });
 
 const contactStudent = () => {
+  const items = phone.value ? ['拨打电话', '发送站内通知'] : ['发送站内通知'];
   uni.showActionSheet({
-    itemList: ['拨打电话', '发送消息'],
+    itemList: items,
     success: (res) => {
-      if (res.tapIndex === 0) {
-          uni.makePhoneCall({ phoneNumber: no.value });
+      if (phone.value && res.tapIndex === 0) {
+        uni.makePhoneCall({ phoneNumber: phone.value });
       } else {
-          uni.showToast({ title: '功能开发中', icon: 'none' });
+        uni.navigateTo({
+          url: `/pages/teacher/notifications/send?studentId=${encodeURIComponent(id.value)}&studentName=${encodeURIComponent(name.value)}`
+        });
       }
     }
   });
 };
 
 const exportReport = () => {
-  uni.showToast({ title: '正在生成PDF档案...', icon: 'loading' });
-  setTimeout(() => {
-    uni.showToast({ title: '导出成功', icon: 'success' });
-  }, 1500);
+  uni.showLoading({ title: '生成档案中...' });
+  const token = uni.getStorageSync('token');
+  uni.request({
+    url: `${BASE_URL}/teacher/students/export`,
+    method: 'POST',
+    header: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    data: { student_ids: [Number(id.value)] },
+    responseType: 'arraybuffer',
+    success: (res) => {
+      if (res.statusCode !== 200) {
+        uni.showToast({ title: '导出失败', icon: 'none' });
+        return;
+      }
+      // #ifdef H5
+      const blob = new Blob([res.data], { type: 'text/csv;charset=utf-8' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `${name.value || '学生'}_档案.csv`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+      uni.showToast({ title: '导出成功', icon: 'success' });
+      // #endif
+      // #ifndef H5
+      uni.showToast({ title: '请在网页版导出档案', icon: 'none' });
+      // #endif
+    },
+    fail: () => uni.showToast({ title: '导出请求失败', icon: 'none' }),
+    complete: () => uni.hideLoading()
+  });
 };
 </script>
 

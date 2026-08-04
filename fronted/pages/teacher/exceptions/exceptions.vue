@@ -130,11 +130,15 @@
             <text class="label">异常原因：</text>
             <text class="value danger">{{ selectedAlert.description }}</text>
           </view>
+          <view class="data-row" v-if="selectedAlert.appealStatus === 'pending'">
+            <text class="label">学生申诉：</text>
+            <text class="value">{{ selectedAlert.appealReason }}</text>
+          </view>
         </view>
 
         <view class="detail-actions">
-          <button class="detail-btn warn" @click="sendCheatWarning">发送作弊警告</button>
-          <button class="detail-btn success" @click="markAsValid">判定有效</button>
+          <button class="detail-btn warn" @click="sendCheatWarning">{{ selectedAlert.appealStatus === 'pending' ? '驳回申诉' : '确认异常' }}</button>
+          <button class="detail-btn success" @click="markAsValid">{{ selectedAlert.appealStatus === 'pending' ? '通过申诉' : '判定有效' }}</button>
         </view>
       </view>
     </view>
@@ -170,7 +174,10 @@ const selectedAlert = ref({
   distanceText: '',
   durationText: '',
   pace: '',
-  description: ''
+  description: '',
+  appealId: null,
+  appealStatus: null,
+  appealReason: ''
 });
 
 // 从后端获取异常数据
@@ -227,6 +234,9 @@ const fetchAbnormalData = async () => {
           description: reason,
           startPhoto: item.start_photo_url ? resolveMediaUrl(item.start_photo_url) : (item.start_photo ? resolveMediaUrl(item.start_photo) : ''),
           endPhoto: item.end_photo_url ? resolveMediaUrl(item.end_photo_url) : (item.end_photo ? resolveMediaUrl(item.end_photo) : ''),
+          appealId: item.appeal_id || null,
+          appealStatus: item.appeal_status || null,
+          appealReason: item.appeal_reason || '',
           level
         };
       });
@@ -275,16 +285,8 @@ const sendCheatWarning = async () => {
       }
     });
 
-    await request({
-      url: `/teacher/students/${alert.studentUserId}/notify`,
-      method: 'POST',
-      data: {
-        message: `系统检测到您本次阳光跑存在异常（${alert.typeText}），已记为异常记录，如有疑问请联系任课老师。`
-      }
-    });
-
     uni.showToast({
-      title: '已发送作弊警告',
+      title: alert.appealStatus === 'pending' ? '申诉已驳回' : '已确认异常',
       icon: 'success'
     });
 

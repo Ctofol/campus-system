@@ -208,6 +208,24 @@ export const register = (data) => {
   });
 };
 
+export const completeAccount = (data) => request({
+  url: '/auth/complete-account',
+  method: 'POST',
+  data
+});
+
+export const changePassword = (data) => request({
+  url: '/users/change-password',
+  method: 'POST',
+  data
+});
+
+export const changePhone = (data) => request({
+  url: '/users/change-phone',
+  method: 'POST',
+  data
+});
+
 // Activity
 export const submitActivity = (data) => {
   return request({

@@ -71,16 +71,34 @@
       }
     },
     {
-      "path": "pages/register/register",
-      "style": {
-        "navigationBarTitleText": "注册"
-      }
-    },
-    {
       "path": "pages/result/result",
       "style": {
         "navigationBarTitleText": "结算",
         "enablePullDownRefresh": false
+      }
+    },
+    {
+      "path": "pages/account/complete",
+      "style": {
+        "navigationBarTitleText": "首次设置账号"
+      }
+    },
+    {
+      "path": "pages/account/security",
+      "style": {
+        "navigationBarTitleText": "账号安全"
+      }
+    },
+    {
+      "path": "pages/account/change-password",
+      "style": {
+        "navigationBarTitleText": "修改密码"
+      }
+    },
+    {
+      "path": "pages/account/change-phone",
+      "style": {
+        "navigationBarTitleText": "修改手机号"
       }
     },
     {
@@ -101,6 +119,13 @@
       "style": {
         "navigationStyle": "custom",
         "navigationBarTitleText": "我的通知"
+      }
+    },
+    {
+      "path": "pages/notifications/detail",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "通知详情"
       }
     },
     {
@@ -243,17 +268,17 @@
       }
     },
     {
-      "path": "pages/teacher/security/change-password",
-      "style": {
-        "navigationStyle": "custom",
-        "navigationBarTitleText": "修改密码"
-      }
-    },
-    {
       "path": "pages/teacher/notifications/list",
       "style": {
         "navigationStyle": "custom",
         "navigationBarTitleText": "系统通知"
+      }
+    },
+    {
+      "path": "pages/teacher/notifications/send",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "发送通知"
       }
     },
     {

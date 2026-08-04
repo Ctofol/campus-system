@@ -12,9 +12,19 @@ import { onLoad } from '@dcloudio/uni-app';
 onLoad(() => {
   const token = uni.getStorageSync('token');
   const userRole = uni.getStorageSync('userRole');
+  const rawUser = uni.getStorageSync('userInfo');
+  let userInfo = rawUser || {};
+  if (typeof rawUser === 'string') {
+    try { userInfo = JSON.parse(rawUser); } catch (_) { userInfo = {}; }
+  }
 
   if (!token || !userRole) {
     uni.reLaunch({ url: '/pages/login/login' });
+    return;
+  }
+
+  if (userInfo.mustCompleteAccount) {
+    uni.reLaunch({ url: '/pages/account/complete' });
     return;
   }
 

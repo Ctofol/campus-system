@@ -111,7 +111,7 @@
               <text>编辑</text>
             </view>
             <view class="action-btn delete" @click.stop="deleteCourse(course)">
-              <text>删除</text>
+              <text>归档</text>
             </view>
           </view>
         </view>
@@ -297,16 +297,16 @@ const manageCourseContent = (course) => {
 
 const deleteCourse = async (course) => {
   uni.showModal({
-    title: '确认删除',
-    content: `确定要删除课程「${course.title}」吗？`,
+    title: '确认归档',
+    content: `确定归档课程「${course.title}」吗？课程将从列表隐藏，但学生学习进度会保留。`,
     success: async (res) => {
       if (!res.confirm) return;
       try {
         await request({ url: `/courses/${course.id}`, method: 'DELETE' });
-        uni.showToast({ title: '删除成功', icon: 'success' });
+        uni.showToast({ title: '已归档', icon: 'success' });
         loadCourses(true);
       } catch (e) {
-        uni.showToast({ title: '删除失败', icon: 'none' });
+        uni.showToast({ title: '归档失败', icon: 'none' });
       }
     }
   });

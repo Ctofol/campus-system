@@ -127,6 +127,13 @@
 
       <!-- Settings List -->
       <view class="setting-list">
+        <view class="setting-row" @tap="gotoAccountSecurity">
+          <view class="setting-left">
+            <image class="setting-icon" src="/static/icons/icon-lock.svg" mode="aspectFit" />
+            <text class="setting-label">账号安全</text>
+          </view>
+          <text class="setting-arrow">›</text>
+        </view>
         <view class="setting-row" @tap="gotoHelp">
           <view class="setting-left">
             <image class="setting-icon" src="/static/icons/icon-feedback.svg" mode="aspectFit" />
@@ -337,7 +344,7 @@ const fetchUserProfile = async () => {
   try {
     const res = await request({ url: '/users/profile', method: 'GET' });
     if (res) {
-      if (res.name) userName.value = res.name;
+      if (res.display_name || res.name) userName.value = res.display_name || res.name;
       if (res.class_name) className.value = res.class_name;
       userSignature.value = (res.signature || '').trim();
       avatarUrl.value = res.avatar_url ? avatarImageSrc(res.avatar_url) : '/static/default-avatar.svg';
@@ -410,7 +417,7 @@ const onPageShow = () => {
     let u = user;
     if (typeof user === 'string') { try { u = JSON.parse(user); } catch(e) {} }
     if (u) {
-      if (u.name) userName.value = u.name;
+      if (u.display_name || u.nickname || u.name) userName.value = u.display_name || u.nickname || u.name;
       if (u.class_name) className.value = u.class_name;
       userSignature.value = (u.signature || '').trim();
       avatarUrl.value = u.avatar_url ? avatarImageSrc(u.avatar_url) : '/static/default-avatar.svg';
@@ -427,6 +434,7 @@ onMounted(() => { onPageShow(); });
 
 const viewAllRecords = () => uni.navigateTo({ url: '/pages/history/history' });
 const gotoUserProfile = () => uni.navigateTo({ url: '/pages/mine/edit-profile/edit-profile' });
+const gotoAccountSecurity = () => uni.navigateTo({ url: '/pages/account/security' });
 const gotoNotifications = () => uni.navigateTo({ url: '/pages/student/notifications/list' });
 const gotoHealthRequest = () => uni.navigateTo({ url: '/pages/health/request' });
 const goMyCourses = () => uni.switchTab({ url: '/pages/tab/learn' });

@@ -1,0 +1,20 @@
+[tool.pytest.ini_options]
+testpaths = ["backend/tests"]
+pythonpath = ["backend"]
+addopts = "-ra"
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+exclude = [
+  ".git",
+  ".venv",
+  "backend/.venv",
+  "backend/uploads",
+  "fronted/unpackage",
+  "admin/frontend/dist",
+]
+
+[tool.ruff.lint]
+# 首轮只启用低误报规则，避免一次工程治理改变业务代码。
+select = ["E4", "E7", "E9", "F"]

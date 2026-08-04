@@ -3,14 +3,69 @@ Course Management Router (Phase 4.2 Enhanced)
 课程管理路由 - 完整的CRUD + 选课 + 进度管理
 """
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime
 
 from .. import models, schemas, auth
 from ..database import get_db
+from ..services.audit_service import record_audit
+from ..services.teacher_service import get_managed_students_query
 
 router = APIRouter(prefix="/courses", tags=["courses"])
+
+
+async def _optional_user(token: Optional[str], db: Session) -> Optional[models.User]:
+    if not token:
+        return None
+    try:
+        return await auth.get_current_user(token, db)
+    except HTTPException:
+        return None
+
+
+def _active_enrollment(db: Session, user_id: int, course_id: int):
+    return db.query(models.Enrollment).filter(
+        models.Enrollment.student_id == user_id,
+        models.Enrollment.course_id == course_id,
+        models.Enrollment.status == "active",
+    ).first()
+
+
+def _may_view_course(course: models.Course, user: Optional[models.User], db: Session) -> bool:
+    if course.lifecycle_status == "archived":
+        if not user:
+            return False
+        if user.role == "admin" or (user.role == "teacher" and course.teacher_id == user.id):
+            return True
+        return user.role == "student" and _active_enrollment(db, user.id, course.id) is not None
+    if course.is_public:
+        return True
+    if not user:
+        return False
+    if user.role == "admin":
+        return True
+    if user.role == "teacher" and course.teacher_id == user.id:
+        return True
+    return user.role == "student" and _active_enrollment(db, user.id, course.id) is not None
+
+
+def _require_course_access(course: models.Course, user: Optional[models.User], db: Session) -> None:
+    if not _may_view_course(course, user, db):
+        raise HTTPException(status_code=403, detail="该课程未公开或你尚未获得学习权限")
+
+
+def _require_student_enrollment(course: models.Course, user: models.User, db: Session) -> None:
+    if user.role != "student":
+        raise HTTPException(status_code=403, detail="仅学生可记录课程学习进度")
+    if _active_enrollment(db, user.id, course.id) is None:
+        raise HTTPException(status_code=403, detail="请先选课后再学习和记录进度")
+
+
+def _require_course_owner(course: models.Course, user: models.User) -> None:
+    if course.teacher_id != user.id:
+        raise HTTPException(status_code=403, detail="只能管理自己创建的课程")
 
 
 def _build_course_list_item(
@@ -133,7 +188,7 @@ async def delete_course(
     current_user: models.User = Depends(auth.get_current_teacher),
     db: Session = Depends(get_db)
 ):
-    """删除课程（仅教师）"""
+    """归档课程（兼容原删除接口，仅教师）。"""
     course = db.query(models.Course).filter(models.Course.id == course_id).first()
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
@@ -142,19 +197,24 @@ async def delete_course(
     if course.teacher_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized to delete this course")
     
-    # 删除相关数据
-    db.query(models.CourseProgress).filter(
-        models.CourseProgress.content_id.in_(
-            db.query(models.CourseContent.id).filter(models.CourseContent.course_id == course_id)
-        )
-    ).delete(synchronize_session=False)
-    
-    db.query(models.CourseContent).filter(models.CourseContent.course_id == course_id).delete()
-    db.query(models.Enrollment).filter(models.Enrollment.course_id == course_id).delete()
-    db.delete(course)
+    if course.lifecycle_status == "archived":
+        return {"success": True, "archived": True}
+    course.lifecycle_status = "archived"
+    course.archived_at = datetime.utcnow()
+    record_audit(
+        db,
+        actor=current_user,
+        action="course.archive",
+        resource_type="course",
+        resource_id=course.id,
+        detail={
+            "enrollments": db.query(models.Enrollment).filter(models.Enrollment.course_id == course.id).count(),
+            "contents": db.query(models.CourseContent).filter(models.CourseContent.course_id == course.id).count(),
+        },
+    )
     db.commit()
     
-    return {"success": True}
+    return {"success": True, "archived": True}
 
 
 @router.get("/", response_model=schemas.CourseListResponse)
@@ -167,19 +227,21 @@ async def get_courses(
     token: Optional[str] = Depends(auth.oauth2_scheme)
 ):
     """获取课程列表（无需登录）"""
-    # 尝试获取当前用户（如果有token）
-    current_user = None
-    if token:
-        try:
-            current_user = await auth.get_current_user(token, db)
-        except:
-            pass  # 忽略认证错误，允许未登录访问
+    current_user = await _optional_user(token, db)
     
     query = db.query(models.Course)
+    query = query.filter(models.Course.lifecycle_status != "archived")
     
-    # 学生只能看公开课程或已选课程
-    if current_user and current_user.role == "student":
-        query = query.filter(models.Course.is_public == True)
+    if current_user is None:
+        query = query.filter(models.Course.is_public.is_(True))
+    elif current_user.role == "student":
+        enrolled_ids = db.query(models.Enrollment.course_id).filter(
+            models.Enrollment.student_id == current_user.id,
+            models.Enrollment.status == "active",
+        )
+        query = query.filter(or_(models.Course.is_public.is_(True), models.Course.id.in_(enrolled_ids)))
+    elif current_user.role == "teacher":
+        query = query.filter(or_(models.Course.is_public.is_(True), models.Course.teacher_id == current_user.id))
     
     # 按分类筛选
     if category:
@@ -214,13 +276,8 @@ async def get_course_detail(
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
     
-    # 尝试获取当前用户（如果有token）
-    current_user = None
-    if token:
-        try:
-            current_user = await auth.get_current_user(token, db)
-        except:
-            pass  # 忽略认证错误，允许未登录访问
+    current_user = await _optional_user(token, db)
+    _require_course_access(course, current_user, db)
     
     # 检查是否已选课
     enrolled = False
@@ -305,7 +362,7 @@ async def get_course_contents(
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
     
-    # 获取内容列表，按order排序
+    _require_course_access(course, current_user, db)
     contents = db.query(models.CourseContent).filter(
         models.CourseContent.course_id == course_id
     ).order_by(models.CourseContent.order).all()
@@ -385,7 +442,7 @@ async def get_single_content(
 
     if not content:
         raise HTTPException(status_code=404, detail="Content not found")
-
+    _require_course_access(content.course, current_user, db)
     return content
 
 
@@ -403,6 +460,7 @@ async def get_content_progress(
 
     if not content:
         raise HTTPException(status_code=404, detail="Content not found")
+    _require_student_enrollment(content.course, current_user, db)
 
     # 查找进度记录
     progress = db.query(models.CourseProgress).filter(
@@ -441,6 +499,7 @@ async def save_content_progress(
 
     if not content:
         raise HTTPException(status_code=404, detail="Content not found")
+    _require_student_enrollment(content.course, current_user, db)
 
     # 查找或创建进度记录
     progress = db.query(models.CourseProgress).filter(
@@ -480,6 +539,117 @@ async def save_content_progress(
 
 # ==================== 选课管理 ====================
 
+@router.get("/{course_id}/enrollments/manage")
+async def list_course_enrollments(
+    course_id: int,
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db),
+):
+    """课程教师查看当前有效学员名单。"""
+    course = db.query(models.Course).filter(models.Course.id == course_id).first()
+    if not course:
+        raise HTTPException(status_code=404, detail="课程不存在")
+    _require_course_owner(course, current_user)
+
+    rows = (
+        db.query(models.Enrollment)
+        .filter(
+            models.Enrollment.course_id == course_id,
+            models.Enrollment.status == "active",
+        )
+        .order_by(models.Enrollment.joined_at.desc())
+        .all()
+    )
+    return [
+        {
+            "enrollment_id": row.id,
+            "student_id": row.student_id,
+            "student_no": row.student.student_id,
+            "name": row.student.name,
+            "class_name": row.student.plain_class_name,
+            "joined_at": row.joined_at,
+        }
+        for row in rows
+    ]
+
+
+@router.post("/{course_id}/enrollments/{student_user_id}")
+async def grant_course_enrollment(
+    course_id: int,
+    student_user_id: int,
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db),
+):
+    """课程教师向本人管辖学生授予课程学习权限。"""
+    course = db.query(models.Course).filter(models.Course.id == course_id).first()
+    if not course:
+        raise HTTPException(status_code=404, detail="课程不存在")
+    _require_course_owner(course, current_user)
+
+    managed = await get_managed_students_query(current_user, db)
+    student = managed.filter(models.User.id == student_user_id).first()
+    if not student:
+        raise HTTPException(status_code=403, detail="该学生不在你的管辖范围内")
+
+    enrollment = db.query(models.Enrollment).filter(
+        models.Enrollment.course_id == course_id,
+        models.Enrollment.student_id == student_user_id,
+    ).first()
+    if enrollment and enrollment.status == "active":
+        return {"success": True, "already_enrolled": True}
+    if enrollment:
+        enrollment.status = "active"
+        enrollment.joined_at = datetime.utcnow()
+    else:
+        enrollment = models.Enrollment(
+            course_id=course_id,
+            student_id=student_user_id,
+            status="active",
+        )
+        db.add(enrollment)
+    record_audit(
+        db,
+        actor=current_user,
+        action="course.enrollment.grant",
+        resource_type="course",
+        resource_id=course_id,
+        detail={"student_user_id": student_user_id},
+    )
+    db.commit()
+    return {"success": True, "already_enrolled": False}
+
+
+@router.delete("/{course_id}/enrollments/{student_user_id}")
+async def revoke_course_enrollment(
+    course_id: int,
+    student_user_id: int,
+    current_user: models.User = Depends(auth.get_current_teacher),
+    db: Session = Depends(get_db),
+):
+    """课程教师撤销课程权限；学习历史继续保留。"""
+    course = db.query(models.Course).filter(models.Course.id == course_id).first()
+    if not course:
+        raise HTTPException(status_code=404, detail="课程不存在")
+    _require_course_owner(course, current_user)
+    enrollment = db.query(models.Enrollment).filter(
+        models.Enrollment.course_id == course_id,
+        models.Enrollment.student_id == student_user_id,
+        models.Enrollment.status == "active",
+    ).first()
+    if not enrollment:
+        raise HTTPException(status_code=404, detail="该学生当前没有课程权限")
+    enrollment.status = "dropped"
+    record_audit(
+        db,
+        actor=current_user,
+        action="course.enrollment.revoke",
+        resource_type="course",
+        resource_id=course_id,
+        detail={"student_user_id": student_user_id},
+    )
+    db.commit()
+    return {"success": True}
+
 @router.post("/{course_id}/enroll")
 async def enroll_course(
     course_id: int,
@@ -494,6 +664,8 @@ async def enroll_course(
     course = db.query(models.Course).filter(models.Course.id == course_id).first()
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
+    if not course.is_public:
+        raise HTTPException(status_code=403, detail="私有课程不能自行选课，请联系任课教师或管理员授权")
     
     # 检查是否已选课
     existing = db.query(models.Enrollment).filter(
@@ -604,6 +776,12 @@ async def update_progress(
     db: Session = Depends(get_db)
 ):
     """更新学习进度"""
+    content = db.query(models.CourseContent).filter(
+        models.CourseContent.id == progress_in.content_id
+    ).first()
+    if not content:
+        raise HTTPException(status_code=404, detail="Content not found")
+    _require_student_enrollment(content.course, current_user, db)
     # 查找或创建进度记录
     progress = db.query(models.CourseProgress).filter(
         models.CourseProgress.student_id == current_user.id,

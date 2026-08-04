@@ -2,7 +2,7 @@
   <view class="page">
     <view class="header">
       <text class="title">人脸认证</text>
-      <text class="subtitle">用于跑步起止照核验和体测本人校验</text>
+      <text class="subtitle">上传本人清晰正脸照，用于跑步和体测身份核验</text>
     </view>
 
     <view class="status-panel">
@@ -16,15 +16,15 @@
 
     <view class="photo-box" @tap="choosePhoto">
       <image v-if="previewUrl" class="photo" :src="previewUrl" mode="aspectFill" />
-      <view v-else class="photo-empty">
-        <text class="photo-plus">+</text>
-        <text class="photo-tip">上传或拍摄本人正脸照</text>
+      <view v-else class="empty">
+        <text class="empty-main">+</text>
+        <text class="empty-sub">上传或拍摄正脸照</text>
       </view>
     </view>
 
     <view class="tips">
       <text>请确保画面内只有本人，光线充足，脸部完整清晰。</text>
-      <text>系统会在本地模型中提取特征，不接入腾讯云识别服务。</text>
+      <text>当前版本暂不启用活体检测，异常记录会进入教师复核。</text>
     </view>
 
     <button class="submit" :disabled="!localPath || submitting" @tap="submit">
@@ -184,7 +184,7 @@ onMounted(loadProfile);
   width: 100%;
   height: 100%;
 }
-.photo-empty {
+.empty {
   width: 100%;
   height: 100%;
   display: flex;
@@ -193,11 +193,12 @@ onMounted(loadProfile);
   justify-content: center;
   color: #657182;
 }
-.photo-plus {
+.empty-main {
   font-size: 72rpx;
   line-height: 80rpx;
+  font-weight: 700;
 }
-.photo-tip {
+.empty-sub {
   margin-top: 12rpx;
   font-size: 28rpx;
 }

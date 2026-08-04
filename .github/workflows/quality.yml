@@ -1,0 +1,64 @@
+name: quality
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-dev.txt
+      - name: Install dependencies
+        run: python -m pip install -r backend/requirements-dev.txt
+      - name: Lint
+        # 旧业务模块仍有历史告警，本轮不为通过检查而改变业务代码。
+        run: python -m ruff check backend/app/config.py backend/app/database.py backend/app/main.py backend/app/router_registry.py backend/app/modules backend/alembic backend/tests/test_config.py
+      - name: Test
+        run: python -m pytest
+      - name: Validate Alembic migrations on an empty database
+        working-directory: backend
+        env:
+          SQLALCHEMY_DATABASE_URL: sqlite:///./ci_migration.db
+        run: python -m alembic upgrade head
+
+  admin-frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: admin/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: admin/frontend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Build
+        run: npm run build
+
+  student-teacher-h5:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: fronted
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: fronted/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Build H5
+        run: npm run build:h5

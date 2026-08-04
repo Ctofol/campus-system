@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from datetime import datetime
+from sqlalchemy.exc import IntegrityError
+from datetime import datetime, timedelta
 import math
 from typing import Optional
 
@@ -12,10 +13,78 @@ from ..services.face_verify_service import (
     verify_run_faces,
 )
 from ..services.test_analysis_service import enqueue_test_analysis, run_test_analysis_sync
+from ..services.audit_service import record_audit
 
 router = APIRouter(prefix="/activity", tags=["activity"])
 
 get_db = database.get_db
+
+
+@router.post("/{activity_id}/appeal")
+def create_activity_appeal(
+    activity_id: int,
+    payload: schemas.ActivityAppealCreate,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
+    if current_user.role != "student":
+        raise HTTPException(status_code=403, detail="仅学生可以提交运动申诉")
+    act = db.query(models.Activity).filter(
+        models.Activity.id == activity_id,
+        models.Activity.user_id == current_user.id,
+    ).first()
+    if not act:
+        raise HTTPException(status_code=404, detail="运动记录不存在")
+    if act.is_valid or not (act.fail_reason or "").strip():
+        raise HTTPException(status_code=409, detail="只有被判定异常的运动记录可以申诉")
+    if db.query(models.ActivityAppeal).filter(models.ActivityAppeal.activity_id == activity_id).first():
+        raise HTTPException(status_code=409, detail="该记录已经提交过申诉")
+    appeal = models.ActivityAppeal(
+        activity_id=activity_id,
+        student_id=current_user.id,
+        reason=payload.reason.strip(),
+        status="pending",
+    )
+    db.add(appeal)
+    record_audit(
+        db,
+        actor=current_user,
+        action="activity_appeal.create",
+        resource_type="activity",
+        resource_id=activity_id,
+        detail={"fail_reason": act.fail_reason},
+    )
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="该记录已经提交过申诉")
+    db.refresh(appeal)
+    return {"id": appeal.id, "activity_id": activity_id, "status": appeal.status, "created_at": appeal.created_at}
+
+
+@router.get("/appeals/me")
+def list_my_activity_appeals(
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
+    if current_user.role != "student":
+        raise HTTPException(status_code=403, detail="仅学生可以查看运动申诉")
+    rows = db.query(models.ActivityAppeal).filter(
+        models.ActivityAppeal.student_id == current_user.id
+    ).order_by(models.ActivityAppeal.created_at.desc()).all()
+    return [
+        {
+            "id": row.id,
+            "activity_id": row.activity_id,
+            "reason": row.reason,
+            "status": row.status,
+            "review_comment": row.review_comment,
+            "created_at": row.created_at,
+            "reviewed_at": row.reviewed_at,
+        }
+        for row in rows
+    ]
 
 
 def _finish_response(
@@ -300,6 +369,8 @@ def check_in(
     current_user: models.User = Depends(auth.get_current_user),
     db: Session = Depends(database.get_db),
 ):
+    if current_user.role != "student":
+        raise HTTPException(status_code=403, detail="仅学生可以进行地点打卡")
     checkpoint = (
         db.query(models.Checkpoint).filter(models.Checkpoint.id == checkin_in.checkpoint_id).first()
     )
@@ -316,13 +387,77 @@ def check_in(
     distance = R * c
 
     if distance > checkpoint.radius:
-        return {"success": False, "message": "Not in range", "distance": distance}
+        return {"success": False, "message": "不在打卡范围内", "distance": round(distance, 2)}
 
+    now = datetime.utcnow()
+    recent = db.query(models.CheckpointVisit).filter(
+        models.CheckpointVisit.user_id == current_user.id,
+        models.CheckpointVisit.checkpoint_id == checkpoint.id,
+        models.CheckpointVisit.created_at >= now - timedelta(minutes=5),
+    ).order_by(models.CheckpointVisit.created_at.desc()).first()
+    if recent:
+        return {
+            "success": True,
+            "message": "近期已完成打卡",
+            "distance": recent.distance_m,
+            "timestamp": recent.created_at,
+            "visit_id": recent.id,
+            "duplicate": True,
+        }
+    visit = models.CheckpointVisit(
+        user_id=current_user.id,
+        checkpoint_id=checkpoint.id,
+        latitude=checkin_in.lat,
+        longitude=checkin_in.lng,
+        distance_m=round(distance, 2),
+        created_at=now,
+    )
+    db.add(visit)
+    db.commit()
+    db.refresh(visit)
     return {
         "success": True,
-        "message": "Check-in successful",
-        "distance": distance,
-        "timestamp": datetime.utcnow(),
+        "message": "打卡成功",
+        "distance": visit.distance_m,
+        "timestamp": visit.created_at,
+        "visit_id": visit.id,
+        "duplicate": False,
+    }
+
+
+@router.get("/checkins/me")
+def list_my_checkins(
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=100),
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(database.get_db),
+):
+    if current_user.role != "student":
+        raise HTTPException(status_code=403, detail="仅学生可以查看打卡记录")
+    query = db.query(models.CheckpointVisit).filter(
+        models.CheckpointVisit.user_id == current_user.id
+    )
+    total = query.count()
+    rows = (
+        query.order_by(models.CheckpointVisit.created_at.desc())
+        .offset((page - 1) * size)
+        .limit(size)
+        .all()
+    )
+    return {
+        "items": [
+            {
+                "id": row.id,
+                "checkpoint_id": row.checkpoint_id,
+                "checkpoint_name": row.checkpoint.name if row.checkpoint else "未知打卡点",
+                "distance": row.distance_m,
+                "created_at": row.created_at,
+            }
+            for row in rows
+        ],
+        "total": total,
+        "page": page,
+        "size": size,
     }
 
 

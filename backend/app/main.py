@@ -4,20 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from . import models, database
 from .db_migrate import ensure_schema_upgrades
-from .routers.teacher import router as teacher_router
-from .routers.courses import router as courses_router
-from .routers.student import router as student_router
-from .routers.upload import router as upload_router
-from .routers.run_groups import router as run_groups_router
-from .routers.admin import router as admin_router
-from .routers.common import router as common_router
-from .routers.auth import router as auth_router
-from .routers.user import router as user_router
-from .routers.activity import router as activity_router
-from .routers.feedback_diagnose import router as feedback_diagnose_router
-from .routers.medal import router as medal_router
-from .routers.notifications import router as notifications_router
-from .routers.ai_assistant import router as ai_assistant_router
+from .router_registry import register_routers
 
 # 初始化数据库表
 models.Base.metadata.create_all(bind=database.engine)
@@ -50,20 +37,7 @@ if not os.path.exists(uploads_dir):
 app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
 
 # 引入模块化路由
-app.include_router(auth_router)
-app.include_router(common_router)
-app.include_router(user_router)
-app.include_router(student_router)
-app.include_router(teacher_router)
-app.include_router(activity_router)
-app.include_router(notifications_router)
-app.include_router(courses_router)
-app.include_router(upload_router)
-app.include_router(run_groups_router)
-app.include_router(admin_router)
-app.include_router(feedback_diagnose_router)
-app.include_router(medal_router)
-app.include_router(ai_assistant_router)
+register_routers(app)
 
 # 挂载管理端前端静态文件
 admin_frontend_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "admin", "frontend", "dist")
