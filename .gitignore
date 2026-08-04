@@ -61,6 +61,16 @@ yarn-error.log*
 tmp_*.json
 tmp_*.py
 token.txt
+test_new_logic.py
+
+# Generated archives and build caches
+*.zip
+fronted/unpackage/dist/cache/
+
+# One-off/manual test scripts should live under backend/tests/ when kept
+backend/test_*.py
+backend/scripts/test_*.py
+backend/app/services/test_*.py
 
 # Local virtual environments
 .venv/
